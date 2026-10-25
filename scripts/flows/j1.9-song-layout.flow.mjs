@@ -1,7 +1,9 @@
 // J1.9 Lay out a song: sections on the strip (hold and drag, name, resize,
 // select, remove), a range on the ruler (Copy, Delete time), Duplicate
 // section, and ↶/↷ through all of it. Every outcome is read back from the
-// tape on the Pi. docs/flows.md#j19
+// tape on the Pi. Beside the ruler, ⌗ is the View menu -- the snap, the
+// loop's lock, the fold and, on a touch screen, Ask before Insert and
+// Delete time -- the one key there. docs/flows.md#j19
 
 // press is a hold then a drag, the way each device does it: a finger held
 // (real touch events) or the mouse held down. holdMs 0 is a plain drag.
@@ -31,6 +33,7 @@ async function press(t, a, b, holdMs = 450) {
 export default {
   id: 'J1.9',
   title: 'Lay out a song: sections, ranges, undo',
+  checksMenus: ['#ruler-menu'], // the layout checks see ⌗'s View menu open
   async run(t) {
     const { page, api } = t;
     // A 4-bar tape at 96 BPM with a take's first 4 bars on track 1.
@@ -51,6 +54,30 @@ export default {
     const strip = page.locator('#tape-sections');
     await strip.waitFor({ state: 'visible' });
     await t.wait(1500);
+
+    // ⌗, the View menu, the one key beside the ruler.
+    const keys = await page.evaluate(() => [...document.querySelectorAll('.ruler-keys button')].filter((b) => b.offsetParent && !b.closest('.menu')).map((b) => b.id));
+    t.expect('the one key beside the ruler is ⌗', JSON.stringify(keys) === '["ruler-more"]', keys);
+    await t.step('tap ⌗ beside the ruler', () => t.tap(page.locator('#ruler-more')));
+    const view = await t.poll(() => {
+      const m = document.getElementById('ruler-menu');
+      if (!m || m.dataset.state !== 'open') return null;
+      const k = document.getElementById('ruler-more').getBoundingClientRect();
+      const r = m.getBoundingClientRect();
+      return {
+        rows: [...m.querySelectorAll('.menu-item')].filter((b) => b.offsetParent).map((b) => `${b.querySelector('.menu-word').textContent}${b.getAttribute('aria-checked') === 'true' ? ' ✓' : ''}`),
+        snap: [...m.querySelectorAll('[data-snap]')].map((b) => b.textContent),
+        beside: Math.abs(r.left - k.left) <= 1, on: r.top >= 0 && r.bottom <= innerHeight,
+        touch: matchMedia('(any-pointer: coarse)').matches,
+      };
+    });
+    // A mouse previews Insert and Delete time on hover: Ask before is a
+    // touch screen's.
+    const rows = ['Lock the loop', 'Fold the tracks', ...(view?.touch ? ['Ask before Insert and Delete time ✓'] : [])];
+    t.expect('its View menu, beside it: the snap, Lock the loop, Fold the tracks, and on a touch screen Ask before Insert and Delete time, ticked',
+      !!view && view.beside && view.on && JSON.stringify(view.snap) === '["Bar","Beat","⅛","Off"]' && JSON.stringify(view.rows) === JSON.stringify(rows), view);
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('Escape shuts it, in the Studio', await t.poll(() => document.getElementById('ruler-menu')?.hidden && location.pathname === '/tape.html'));
     // The lanes, the ruler and the strip show the loop and a bar either side
     // (geometry.js editView), and follow the loop as it changes: where a
     // frame is on screen is worked out again before each gesture.

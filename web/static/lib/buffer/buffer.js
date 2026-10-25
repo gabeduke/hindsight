@@ -892,7 +892,9 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   }
   el.close.addEventListener('click', close);
   el.unfold.addEventListener('click', () => { st.unfolded = !st.unfolded; render(); });
-  el.snap.addEventListener('click', () => $('snap-btn')?.click()); // the ruler's own snap
+  // The ruler's own snap, stepped on by the Studio (lib/tape/page.js), which
+  // says it back in the detail: ⌗'s View menu sets the same one.
+  el.snap.addEventListener('click', () => doc.dispatchEvent(new CustomEvent('hindsight:snap-next')));
   el.drop.addEventListener('click', drop);
   el.keep.addEventListener('click', keepTake);
   el.cue?.addEventListener('click', cueIt);

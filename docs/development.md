@@ -149,7 +149,8 @@ how to write a new one are in [flows.md](flows.md).
 Tidying the stylesheets — a dead rule out, two rules merged, a literal
 made a token — is meant to leave every screen as it was, and
 `scripts/css-snapshot.mjs` proves it: the computed style of every element
-(and its `::before` and `::after`) on the Studio, its ☰ and ⋯ menus, the
+(and its `::before` and `::after`) on the Studio, its ☰, the tape's and
+⌗'s menus, the
 phone's player pulled up, the Listening Room and its ☰, a take's page,
 Capture and the rig, at the three flow profiles, in both schemes.
 
@@ -349,7 +350,7 @@ Caveat, from `@fontsource/caveat` 5.2.8 on the npm registry (latin 500 and
 700), in `fonts/` with its licence.
 
 To try it with something on every shelf, run the demo,
-KEEP a few takes, bounce a short tape from the Studio's ⋯ for a take on a
+KEEP a few takes, bounce a short tape from the tape's name for a take on a
 tape's spine, and give a take an older `created` in its `.meta.json` to fill
 a month's box in the archive.
 

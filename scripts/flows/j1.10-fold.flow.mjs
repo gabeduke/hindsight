@@ -1,5 +1,6 @@
 // J1.10 Fold the deck: the bar folds by the grabber on its top edge (a tap,
-// or a drag down; a drag up unfolds it) and the lanes by Tracks, for room;
+// or a drag down; a drag up unfolds it) and the lanes from ⌗'s View menu
+// (Fold the tracks, ticked while they're folded), for room;
 // they stay folded for the visit, and the playhead keeps moving. The bar
 // slides as it folds: it is one row, and ▶ stays where it was across.
 // docs/flows.md#j110
@@ -57,8 +58,11 @@ export default {
     t.expect('a drag down folds it again', await t.poll(() => document.body.classList.contains('np-fold')));
     await t.wait(600);
 
-    await t.step('fold the lanes', () => t.tap(page.locator('#tracks-fold-btn')));
-    t.expect('the lanes fold', await t.poll(() => document.body.classList.contains('tracks-fold')));
+    await t.step('tap ⌗ beside the ruler', () => t.tap(page.locator('#ruler-more')));
+    await t.poll(() => document.getElementById('ruler-menu')?.dataset.state === 'open');
+    await t.step('tap Fold the tracks', () => t.tap(page.locator('#tracks-fold-btn')));
+    t.expect('the lanes fold, and the View menu has shut', await t.poll(() => document.body.classList.contains('tracks-fold') && document.getElementById('ruler-menu')?.hidden));
+    t.expect('Fold the tracks is ticked', await page.evaluate(() => document.getElementById('tracks-fold-btn')?.getAttribute('aria-checked') === 'true'));
 
     await t.step('play', () => t.tap(page.locator('#np-play')));
     const a = await page.locator('#np-time').innerText();

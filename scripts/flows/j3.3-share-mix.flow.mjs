@@ -1,7 +1,8 @@
 // J3.3 Share the mix from a phone: with the tape playing on the phone (as
-// with the interface off), ⋯ → Share the mix renders the whole tape as an
-// MP3 on the Pi, and the toast's Share hands it to the share sheet. Bounce,
-// which needs the jam room, says so and offers Share the mix.
+// with the interface off), the tape's name → Share the mix renders the
+// whole tape as an MP3 on the Pi, and the toast's Share hands it to the
+// share sheet. Bounce, which needs the jam room, says so and offers Share
+// the mix. The name is the tape's menu: ⋯ is gone from the header.
 // docs/flows.md#j33
 const clipCount = (tape) => tape.tracks.reduce((n, tr) => n + tr.clips.length, 0);
 
@@ -9,7 +10,7 @@ export default {
   id: 'J3.3',
   title: 'Share the mix from a phone',
   profiles: ['phone'],
-  checksMenus: ['#tape-actions'], // the layout checks see ⋯ open, on a phone
+  checksMenus: ['#tape-menu'], // the layout checks see the tape's menu open, on a phone
   async run(t) {
     const { page, api } = t;
     const tape = await t.given('a fresh tape', () => api.tape('For my brother'));
@@ -41,7 +42,9 @@ export default {
       t.expect('the tape plays, on this phone', playing && (await live())?.output_mode === 'phone', await live());
 
       // Bounce can't run here, and says what can.
-      await t.step('tap ⋯', () => t.tap(page.locator('#tape-more')));
+      t.expect('no ⋯ in the header: the tape’s name is its menu', await page.evaluate(() => !document.getElementById('tape-more')));
+      await t.step('tap the tape’s name', () => t.tap(page.locator('#tape-name')));
+      await t.poll(() => document.getElementById('tape-menu')?.dataset.state === 'open');
       await t.step('tap Bounce the whole tape', () => t.tap(page.locator('#tape-mixdown-all')));
       const refused = await t.poll(() => {
         const d = document.getElementById('jam-only');
@@ -61,10 +64,11 @@ export default {
       t.expect('named after the tape and the day', !!shared && shared.name === `For my brother ${day}.mp3`, shared?.name);
 
       // From the menu, with nothing in the way.
-      await t.step('tap ⋯ again', () => t.tap(page.locator('#tape-more')));
+      await t.step('tap the tape’s name again', () => t.tap(page.locator('#tape-name')));
+      await t.poll(() => document.getElementById('tape-menu')?.dataset.state === 'open');
       await t.step('tap Share the mix', () => t.tap(page.locator('#tape-share-mix')));
       const again = await t.poll(() => [...document.querySelectorAll('#toasts .toast-action')].some((b) => b.textContent.trim() === 'Share' && !b.disabled), null, 30_000);
-      t.expect('⋯ → Share the mix renders it again', again, await page.locator('#toasts').innerText());
+      t.expect('the name’s Share the mix renders it again', again, await page.locator('#toasts').innerText());
       await t.step('tap Share', () => t.tap(page.locator('#toasts .toast-action:not([disabled])', { hasText: 'Share' }).last()));
       t.expect('the share sheet gets it again', await t.poll(() => window.__shared.length === 2), await page.evaluate(() => window.__shared));
 

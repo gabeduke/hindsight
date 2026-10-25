@@ -231,10 +231,15 @@ When you need the history behind one, read it from git:
   (the Listening Room's spines, the shelf's List). The Settings sheet's
   first line (`lib/settings.js`, `aboutLine`) carries the version,
   Releases, the guide and the rig as well.
-- **A thing's name is its menu**: the take's on Open opens the take's menu
-  (Rename…, the takes either side, the downloads, Delete last). What acts
-  on a thing goes in its name's menu, on `lib/ui/menu.js`, never in a ⋯
-  beside it.
+- **A thing's name is its menu**: the tape's in the Studio (the tapes and
+  New tape, Rename…, Duplicate, the mix and the bounces, Record from this
+  phone…, Delete this tape… last) and the take's on Open (Rename…, the
+  takes either side, the downloads, Delete last). What acts on a thing goes
+  in its name's menu, on `lib/ui/menu.js`, never in a ⋯ beside it; a row
+  that destroys is last, red, after a line, and one that can't be undone
+  asks in `#confirm` first, never `window.prompt`. How the Studio is shown
+  (the snap, the loop's lock, Fit, the fold, Ask before) is ⌗'s View menu
+  beside the ruler.
 - **A key's picture is an icon from `web/static/icons/ui.svg`**, through
   `lib/ui/icons.js` (`icon`, `setIcon`) or the same `<svg class="i …">`
   markup, never a unicode glyph: each platform drew those in a fallback font

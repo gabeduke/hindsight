@@ -58,39 +58,47 @@
       <span id="health-text">connecting</span>
     </div>
   </div>
-  <!-- The Studio's context: the tape's name, which switches tapes, and the
-       sign that lights while a punch records. -->
+  <!-- The Studio's context: the tape's name, which is the tape's menu, and
+       the sign that lights while a punch records. -->
   <div id="header-studio" class="appbar-page tape-top" hidden>
     <span class="menu-anchor">
       <button id="tape-name" class="tape-pill ctx-pill" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="tape-menu"><svg class="i i-tape pill-ico" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#tape"/></svg><span id="tape-name-text" class="pill-text">…</span><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-      <div id="tape-menu" class="menu from-left" role="menu" hidden>
-        <div id="tape-list" class="tape-list"></div>
-        <button id="tape-new" type="button" role="menuitem" data-tip="tape-new">New tape</button>
+      <!-- The tape's menu (lib/tape/page.js, renderTapeMenu; its words,
+           lib/tape/tape-menu.js): the tapes, the loaded one ticked, and New
+           tape; Rename…, Duplicate; the mix, the bounces, the stems and the
+           last bounce; Record from this phone…; and Delete this tape…, last
+           and red, after a line of its own, asked first in #confirm. What
+           acts on the tape is here, never in a ⋯ beside it. -->
+      <div id="tape-menu" class="menu tape-menu" role="menu" aria-label="This tape" hidden>
+        <p class="menu-group" aria-hidden="true">The tapes</p>
+        <!-- The tapes, as the Pi lists them, go here (renderTapeList). -->
+        <button id="tape-new" class="menu-item" type="button" role="menuitem" data-tip="tape-new"><span class="menu-check menu-plus" aria-hidden="true">+</span><span class="menu-word">New tape</span></button>
+        <div class="menu-divider" role="separator"></div>
+        <button id="tape-rename" class="menu-item" type="button" role="menuitem" data-tip="tape-rename"><span class="menu-word">Rename…</span></button>
+        <button id="tape-clone" class="menu-item" type="button" role="menuitem" data-tip="clone"><span class="menu-word">Duplicate</span></button>
+        <div class="menu-divider" role="separator"></div>
+        <!-- The whole tape as an MP3 for the share sheet, rendered on the Pi:
+             no jam room, no interface (lib/tape/page.js, shareMix). -->
+        <button id="tape-share-mix" class="menu-item" type="button" role="menuitem" data-tip="share-mix"><span class="menu-word">Share the mix</span></button>
+        <!-- BOUNCE (lib/rooms/bounce.js): the tape through the mixer, once,
+             into a take. -->
+        <button id="tape-mixdown" class="menu-item" type="button" role="menuitem" data-tip="bounce"><span class="menu-word">Bounce the loop</span></button>
+        <button id="tape-mixdown-all" class="menu-item" type="button" role="menuitem" data-tip="bounce"><span class="menu-word">Bounce the whole tape</span></button>
+        <a id="tape-export" class="menu-item" href="#" role="menuitem" data-tip="export-stems"><span class="menu-word">Export stems</span></a>
+        <button id="tape-last-bounce" class="menu-item" type="button" role="menuitem" data-tip="last-bounce" disabled><span class="menu-word">Play the last bounce</span><span class="menu-sub bounce-note">none yet</span></button>
+        <div class="menu-divider" role="separator"></div>
+        <!-- The feed's ● Phone, which the strip shows on a phone alone. -->
+        <button id="tape-phone" class="menu-item" type="button" role="menuitem" data-tip="phone"><span class="menu-word">Record from this phone…</span></button>
+        <div class="menu-divider" role="separator"></div>
+        <button id="tape-delete" class="menu-item danger" type="button" role="menuitem" data-tip="tape-delete"><span class="menu-word">Delete this tape…</span></button>
       </div>
     </span>
     <span id="rec-sign" class="rec-sign" aria-hidden="true" data-tip="rec-sign"><span class="rec-long">Recording</span><span class="rec-short">Rec</span></span>
   </div>
-  <!-- The Studio's tools, before ☰: ↶ ↷ and ⋯. -->
+  <!-- The Studio's tools, before ☰: ↶ ↷. -->
   <div id="header-studio-end" class="appbar-acts" hidden>
     <button id="tape-undo" class="icon-btn undo-btn" type="button" disabled aria-label="Undo" aria-keyshortcuts="Meta+Z Control+Z" data-tip="tape-undo"><svg class="i i-undo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#undo"/></svg></button>
     <button id="tape-redo" class="icon-btn undo-btn" type="button" disabled aria-label="Redo" aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z" data-tip="tape-redo"><svg class="i i-redo" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#redo"/></svg></button>
-    <span class="menu-anchor">
-      <button id="tape-more" class="icon-btn menu-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="More for this tape" data-tip="tape-more"><svg class="i i-more" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#more"/></svg></button>
-      <div id="tape-actions" class="menu" role="menu" hidden>
-        <button id="tape-rename" type="button" role="menuitem" data-tip="tape-rename">Rename this tape…</button>
-        <button id="tape-clone" type="button" role="menuitem" data-tip="clone">Clone this tape</button>
-        <button id="tape-mixdown" type="button" role="menuitem" data-tip="mixdown">Mix down the loop</button>
-        <button id="tape-mixdown-all" type="button" role="menuitem" data-tip="mixdown">Mix down the whole tape</button>
-        <!-- The whole tape as an MP3 for the share sheet, rendered on the Pi:
-             no jam room, no interface (lib/tape/page.js, shareMix). -->
-        <button id="tape-share-mix" type="button" role="menuitem" data-tip="share-mix">Share the mix</button>
-        <!-- The feed's ● Phone, which the strip shows on a phone alone. -->
-        <button id="tape-phone" type="button" role="menuitem" data-tip="phone">Record from this phone…</button>
-        <button id="ask-first" type="button" role="menuitemcheckbox" aria-checked="true" data-tip="ask-first"><span class="menu-check" aria-hidden="true">✓</span>Ask before Insert and Delete time</button>
-        <a id="tape-export" href="#" role="menuitem" data-tip="export-stems">Export stems</a>
-        <button id="tape-delete" class="danger" type="button" role="menuitem" data-tip="tape-delete">Delete a tape…</button>
-      </div>
-    </span>
   </div>
   <!-- The Listening Room's context: its search (the field the room's
        filtering reads, lib/shell/views/room.js); in the rack, Play all and
@@ -138,18 +146,16 @@
       <canvas id="tape-sections" class="tape-sections" tabindex="0" role="group" aria-roledescription="sections" aria-label="Sections: hold and drag to make one, tap one to select its bars" data-tip="tape-sections"></canvas>
     </div>
     <div class="tape-ruler-row">
-      <!-- What a drag snaps to, and the loop's lock: drawn ranges move the
-           loop to their bars unless it's locked. -->
+      <!-- ⌗, the View menu, on every screen (lib/tape/page.js, mountMenus):
+           the key says what a drag snaps to, and shows the lock while the
+           loop is locked; its menu sets the snap, locks the loop (drawn
+           ranges move the loop to their bars unless it's locked), fits the
+           view, folds the tracks and says whether Insert and Delete time
+           ask first. Fit stands beside it too while the view is moved. -->
       <span class="tape-ruler-gap ruler-keys">
-        <button id="snap-btn" class="chip ruler-chip snap-btn" type="button" data-tip="tape-snap"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg><span id="snap-name">Bar</span></button>
-        <button id="loop-lock" class="chip ruler-chip loop-lock" type="button" aria-pressed="false" aria-label="Lock the loop" data-tip="loop-lock"><svg class="i i-lock-body" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#lock-body"/><use class="lock-shackle" href="/icons/ui.svg?v=5157df85#lock-shackle"/></svg></button>
-        <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
-        <button id="tracks-fold-btn" class="chip ruler-chip tracks-fold-btn" type="button" aria-expanded="true" aria-controls="lanes" data-tip="tracks-fold">Tracks<svg class="i i-down" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></button>
-        <!-- On a phone the keys above outgrow the heads' column: one key,
-             saying the snap (and the lock, when it's on), holds them all. -->
         <span class="menu-anchor ruler-more-anchor">
           <button id="ruler-more" class="chip ruler-chip ruler-more" type="button" aria-haspopup="menu" aria-expanded="false" data-tip="ruler-more"><svg class="i i-view snap-ico" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg><span id="ruler-more-snap">Bar</span><svg class="i i-lock-body ruler-more-lock" width="10" height="10" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#lock-body"/><use class="lock-shackle" href="/icons/ui.svg?v=5157df85#lock-shackle"/></svg><span class="pill-chev" aria-hidden="true"><svg class="i i-down" width="10" height="10" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#down"/></svg></span></button>
-          <div id="ruler-menu" class="menu from-left ruler-menu" role="menu" aria-label="The ruler" hidden>
+          <div id="ruler-menu" class="menu ruler-menu" role="menu" aria-label="View" hidden>
             <div class="ruler-menu-snap" role="group" aria-label="Snap to">
               <span class="ruler-menu-label" aria-hidden="true"><svg class="i i-view" width="14" height="14" aria-hidden="true"><use href="/icons/ui.svg?v=5157df85#view"/></svg> Snap</span>
               <span class="seg ruler-snap-seg">
@@ -159,11 +165,16 @@
                 <button type="button" role="menuitemradio" aria-checked="false" data-snap="off" data-tip="tape-snap">Off</button>
               </span>
             </div>
-            <button id="rm-lock" type="button" role="menuitemcheckbox" aria-checked="false" data-tip="loop-lock"><span class="menu-check" aria-hidden="true">✓</span>Lock the loop</button>
-            <button id="rm-fit" type="button" role="menuitem" data-tip="view-fit" hidden><span class="menu-check" aria-hidden="true"></span>Fit: back to the loop</button>
-            <button id="rm-tracks" type="button" role="menuitem" data-tip="tracks-fold"><span class="menu-check" aria-hidden="true"></span><span id="rm-tracks-words">Fold the tracks</span></button>
+            <button id="rm-lock" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false" data-tip="loop-lock"><span class="menu-check" aria-hidden="true">✓</span><span class="menu-word">Lock the loop</span><span class="menu-sub">a range you draw leaves it where it is</span></button>
+            <button id="rm-fit" class="menu-item" type="button" role="menuitem" data-tip="view-fit" hidden><span class="menu-check" aria-hidden="true"></span><span class="menu-word">Fit</span><span class="menu-sub">back to the loop and a bar either side</span></button>
+            <!-- The one fold for the lanes (architecture.test.js, guardrail 6). -->
+            <button id="tracks-fold-btn" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false" aria-controls="lanes" data-tip="tracks-fold"><span class="menu-check" aria-hidden="true">✓</span><span class="menu-word">Fold the tracks</span><span class="menu-sub">the ruler and the bar keep their place</span></button>
+            <!-- A touch screen's: a mouse previews Insert and Delete time on
+                 hover instead (styles.css). -->
+            <button id="ask-first" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="true" data-tip="ask-first"><span class="menu-check" aria-hidden="true">✓</span><span class="menu-word">Ask before Insert and Delete time</span><span class="menu-sub">a first tap shows what it will do</span></button>
           </div>
         </span>
+        <button id="view-fit" class="chip ruler-chip view-fit" type="button" hidden data-tip="view-fit">Fit</button>
       </span>
       <canvas id="tape-ruler" class="tape-ruler" aria-label="Bars: tap to move the playhead, hold and drag to select those bars on every track" data-tip="tape-ruler"></canvas>
     </div>

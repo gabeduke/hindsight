@@ -1408,10 +1408,16 @@ dialog.sheet::backdrop { background: var(--scrim); }
   min-height: 40px;
 }
 .menu > button:disabled { opacity: .4; cursor: default; }
-/* Last bounce, when there is none: it says why on its face, a
-   phone having no tooltip, so it is dimmed less than a dead key. */
+/* The last bounce, when there is none: it says why on its face (the line
+   under it), a phone having no tooltip, so it is dimmed less than a dead
+   key. */
 #tape-last-bounce:disabled { opacity: .65; }
-#tape-last-bounce .bounce-note { font-size: .85em; color: var(--ink-dim); }
+/* The tape's menu (its name's): its rows' words, and New tape's + where a
+   tape's tick is. It is as tall as its rows, to the screen's foot (over
+   the bar), where a menu's cap would have a tablet scroll for Delete. */
+.menu.tape-menu { min-width: 260px; max-width: min(360px, calc(100vw - 24px)); }
+.menu-anchor > .menu.tape-menu { max-height: none; }
+.tape-menu .menu-check.menu-plus { color: var(--ink-dim); font-weight: 600; }
 
 /* align-items is spelled out because the takes page's two-column rule at
    >=860px sets `main { display: grid; align-items: start }` unscoped. */
@@ -1953,7 +1959,7 @@ body.help-mode [data-tip] { outline: 1px dashed color-mix(in srgb, var(--accent)
   background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink-dim);
 }
 /* A ▾ is drawn small, so heavier: the kit's 2.75 at 12 px, 2.25 at 14 to 16. */
-.pill-chev .i, .tracks-fold-btn .i { stroke-width: 2.75; }
+.pill-chev .i { stroke-width: 2.75; }
 .tape-pill[aria-expanded="true"] { background: var(--panel-2); border-color: var(--focus); }
 .tape-pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 @media (hover: hover) { .tape-pill:not(:disabled):not(:active):not(.down):hover { background: var(--panel-2); } }
@@ -1983,33 +1989,19 @@ body.help-mode [data-tip] { outline: 1px dashed color-mix(in srgb, var(--accent)
 .tape-ruler-row { display: grid; grid-template-columns: 112px 1fr; gap: 6px; }
 .tape-ruler-gap { display: flex; align-items: center; justify-content: flex-end; }
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
-/* Beside the ruler: the snap (tap for the next), the loop's lock and Fit,
-   small keys sharing the track heads' width. */
+/* Beside the ruler, in the track heads' width: ⌗, the View menu's key,
+   and Fit while the view is moved. */
 .ruler-keys { gap: 4px; flex-wrap: wrap; row-gap: 4px; min-width: 0; }
-/* Where the four outgrow the heads' column (a phone, or Fit beside them),
-   they wrap onto a second line rather than run off the screen's side;
-   the ruler sits at the foot of the taller row. */
+/* Where the two outgrow the heads' column they wrap onto a second line
+   rather than run off the screen's side; the ruler sits at the foot of the
+   taller row. */
 .tape-ruler-row > .tape-ruler { align-self: end; }
 .ruler-chip { min-height: 26px; padding: 0 8px; gap: 4px; font: 600 11px var(--font); }
-/* The ruler's keys keep the widths their glyphs gave them: a drawn icon's
-   box is wider than its line, and its blank sides come off its key. */
-.snap-btn .snap-ico { color: var(--ink-faint); }
+/* ⌗'s icon keeps the width its glyph gave the key: a drawn icon's box is
+   wider than its line, and its blank sides come off its key. */
 .ruler-chip .snap-ico { margin: 0 -1px; }
-.loop-lock { color: var(--ink-faint); padding: 0 6px; }
-.loop-lock .lock-shackle { transform: translate(2.2px, 0); transition: transform var(--t-touch); }
-.loop-lock[aria-pressed="true"] { color: var(--warn); border-color: var(--warn); }
-.loop-lock[aria-pressed="true"] .lock-shackle { transform: none; }
-/* Folded, the lanes' ▾ turns to ▸. */
-.tracks-fold-btn .i { margin: 0 -3px; }
-.tracks-fold-btn[aria-expanded="false"] .i { transform: rotate(-90deg); }
-/* With Fit there too, the three share the track heads' width: the snap
-   keeps its word and loses its icon, and the keys their slack. */
-.ruler-keys:has(.view-fit:not([hidden])) .snap-btn .snap-ico { display: none; }
-.ruler-keys:has(.view-fit:not([hidden])) > .ruler-chip { padding: 0 6px; }
-/* The phone's one key for them all (below): ⌗, the snap, and the lock
-   while it's on; its menu has the snap as a row, then the lock, Fit and
-   the fold. Hidden wherever the keys fit beside the ruler. */
-.ruler-keys > .ruler-more-anchor { display: none; }
+/* ⌗ says the snap, and the lock while it's on; its menu has the snap as a
+   row, then the lock, Fit, the fold and Ask before. */
 .ruler-more .ruler-more-lock { display: none; color: var(--warn); }
 .ruler-more.locked { border-color: var(--warn); }
 .ruler-more.locked .ruler-more-lock { display: inline; }
@@ -2022,10 +2014,9 @@ body.help-mode [data-tip] { outline: 1px dashed color-mix(in srgb, var(--accent)
 .ruler-snap-seg button[aria-checked="true"] { background: var(--key-down); color: var(--ink); }
 .ruler-snap-seg button:disabled { opacity: .4; cursor: default; }
 @media (max-width: 699.98px) {
-  /* The four need about 160 px, and the heads' column here is 112 or 136:
-     they'd wrap, and the ruler's row grow to two lines. */
-  .ruler-keys > .ruler-chip { display: none; }
-  .ruler-keys > .ruler-more-anchor { display: inline-flex; }
+  /* Beside ⌗, Fit would wrap the ruler's row to two lines in a phone's
+     heads' column (112 or 136 px): it is in ⌗'s menu there. */
+  .ruler-keys > .view-fit { display: none; }
 }
 /* Insert and Delete time say they act on every track: a second line under
    the word. */
@@ -2035,7 +2026,7 @@ body.help-mode [data-tip] { outline: 1px dashed color-mix(in srgb, var(--accent)
    asks for a second. */
 .icon-btn.confirming { border-color: var(--warn); box-shadow: 0 0 0 2px var(--warn-glow); }
 /* Asking first is for a touch screen, which has no hover to preview on: any
-   device with one, a laptop's too, can turn it off, under ⋯. */
+   device with one, a laptop's too, can turn it off, in ⌗'s View menu. */
 @media not all and (any-pointer: coarse) { #ask-first { display: none; } }
 .menu .menu-check { display: inline-block; width: 1.3em; color: var(--go); }
 .menu [aria-checked="false"] .menu-check { visibility: hidden; }
@@ -2363,8 +2354,6 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 }
 .passes-row .pass { min-height: var(--tap); min-width: 48px; }
 .passes-row .muted { font-size: 12px; color: var(--ink-faint); }
-.tape-list { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
-.tape-list button.on { color: var(--ink); font-weight: 700; }
 .clip-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; font-size: 13px; color: var(--ink-dim); }
 .clip-field input[type=range] { accent-color: var(--accent); }
 @media (max-width: 480px) {

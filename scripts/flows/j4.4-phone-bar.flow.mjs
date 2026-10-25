@@ -60,8 +60,9 @@ export default {
     await t.step('open the Studio', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-expand').waitFor({ state: 'visible' });
     await t.wait(800);
-    // The header (css/chrome.css): one row, the tape's name a finger tall,
-    // then ↶, ⋯ and ☰ -- ↷ only while there is something to redo -- and no
+    // The header (css/chrome.css): one row, the tape's name a finger tall
+    // (and the tape's menu: no ⋯), then ↶ and ☰ -- ↷ only while there is
+    // something to redo -- and no
     // tempo or output of its own; the rooms are the tabs along the
     // bottom, the Listening Room's with its spines, not ☰'s three lines.
     const head = await page.evaluate(() => {
@@ -75,7 +76,7 @@ export default {
         room: document.querySelector('.appnav a[data-tab="room"] svg.i use')?.getAttribute('href')?.split('#')[1],
       };
     });
-    t.expect('the header is the tape’s name, a finger tall, ↶, ⋯ and ☰, in one row', JSON.stringify(head.keys) === JSON.stringify(['tape-name', 'tape-undo', 'tape-more', 'app-menu-btn'])
+    t.expect('the header is the tape’s name, a finger tall, ↶ and ☰, in one row', JSON.stringify(head.keys) === JSON.stringify(['tape-name', 'tape-undo', 'app-menu-btn'])
       && head.name >= 44 && head.header <= 60, head);
     t.expect('the Listening Room’s tab has its own picture, its spines', head.room === 'shelf', head);
     const mini = await page.evaluate(look);
@@ -203,15 +204,32 @@ export default {
     const undone = await api.until(async () => clipCount(await api.tapeState()) === n0, 'the undo', 5000).catch(() => false);
     t.expect('↶ takes the insert back', undone);
 
-    // The ruler's keys are one key on a phone, so its row stays one line.
+    // The ruler's keys are one key, ⌗, the View menu, so its row stays one
+    // line; Ask before Insert and Delete time is in its menu, ticked.
     const rk = await page.evaluate(() => ({
       row: Math.round(document.getElementById('tape-ruler').parentElement.getBoundingClientRect().height),
-      key: !!document.getElementById('ruler-more')?.offsetParent,
-      chips: !!document.getElementById('snap-btn')?.offsetParent,
+      keys: [...document.querySelectorAll('.ruler-keys button')].filter((b) => b.offsetParent && !b.closest('.menu')).map((b) => b.id),
     }));
-    t.expect('the ruler’s keys are one key, ⌗, and its row one line', rk.key && !rk.chips && rk.row <= 30, rk);
+    t.expect('the ruler’s keys are one key, ⌗, and its row one line', JSON.stringify(rk.keys) === '["ruler-more"]' && rk.row <= 30, rk);
     await page.locator('#ruler-more').scrollIntoViewIfNeeded();
     await t.step('tap ⌗ beside the ruler', () => t.tap(page.locator('#ruler-more')));
+    const view = await t.poll(() => {
+      const m = document.getElementById('ruler-menu');
+      if (!m || m.dataset.state !== 'open') return null;
+      const ask = document.getElementById('ask-first');
+      return {
+        rows: [...m.querySelectorAll('.menu-item')].filter((b) => b.offsetParent).map((b) => `${b.querySelector('.menu-word').textContent}${b.getAttribute('aria-checked') === 'true' ? ' ✓' : ''}`),
+        snap: m.querySelectorAll('[data-snap]').length,
+        // Ask before shows on a touch screen (any-pointer: coarse), which a
+        // phone is; the emulation stops saying so after a hold sent over
+        // CDP (t.hold), so its row is read from the menu either way.
+        ask: m.contains(ask) && ask.getAttribute('aria-checked') === 'true' && (getComputedStyle(ask).display !== 'none') === matchMedia('(any-pointer: coarse)').matches,
+      };
+    });
+    // (Fit, between the lock and the fold, only while the view is moved.)
+    t.expect('its View menu: the snap, Lock the loop, Fold the tracks, and Ask before Insert and Delete time, ticked',
+      !!view && view.snap === 4 && view.ask
+      && JSON.stringify(view.rows.filter((w) => w !== 'Fit' && !w.startsWith('Ask before'))) === JSON.stringify(['Lock the loop', 'Fold the tracks']), view);
     await t.step('tap Beat', () => t.tap(page.locator('#ruler-menu [data-snap="beat"]')));
     const snapped = await page.locator('#ruler-more-snap').innerText();
     // The pick shuts the menu, which fades out (lib/ui/menu.js) and is then gone.

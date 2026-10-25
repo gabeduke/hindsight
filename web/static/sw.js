@@ -165,6 +165,7 @@ const SHELL = [
   '/lib/tape/clipgestures.js',
   '/lib/tape/sections.js',
   '/lib/tape/timeedit.js',
+  '/lib/tape/tape-menu.js',
   '/lib/tape/selection.js',
   '/lib/tape/range.js',
   '/lib/tape/align.js',

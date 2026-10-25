@@ -55,6 +55,7 @@ import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
 import { layersOf } from '../ui/layers.js';
 import { menu, splitKey, menuItem, barTop } from '../ui/menu.js';
+import { tapeRowSub, deleteWords, afterDelete } from './tape-menu.js';
 
 // A hidden Studio's dock nodes (#multi-bar, #clip-editor) are out of the
 // page (lib/shell/view.js, Slot), but a timer set while it was shown can
@@ -639,7 +640,7 @@ function render() {
   renderClipBar();
   cueLane?.update(t ? t.cue : null, live?.cue || null);
   $('tape-name-text').textContent = t.name;
-  $('tape-name').title = `${t.name}: switch tape`;
+  $('tape-name').title = `${t.name}: this tape’s menu`;
   if (viewCtx) viewCtx.setTitle(`${t.name} — tape — Hindsight`);
   else if (viewActive()) document.title = `${t.name} — tape — Hindsight`;
   const empty = t.tracks.every((tr) => tr.clips.length === 0);
@@ -977,21 +978,14 @@ async function shareClip(c) {
 
 // --- editing: split, join, slide, multiply ------------------------------------
 
-// renderRulerKeys shows, beside the ruler, what a drag snaps to and whether
-// the loop is locked.
+// renderRulerKeys shows on ⌗, beside the ruler, what a drag snaps to and
+// whether the loop is locked, and in its View menu which are chosen.
 function renderRulerKeys() {
   const t = state.tape;
   const s = SNAPS.find((x) => x.id === (t.grid ? state.snap : 'off')) || SNAPS[0];
-  setText($('snap-name'), s.label);
-  $('snap-btn').disabled = !t.grid;
-  const said = { bar: 'bars', beat: 'beats', '8th': 'eighths' }[s.id];
-  setIf($('snap-btn'), 'aria-label', !t.grid ? 'Snap: off, with no tempo' : said ? `Snap to ${said}: tap for the next` : 'Snap off: tap for bars');
-  setIf($('loop-lock'), 'aria-pressed', String(state.loopLock));
-  setIf($('loop-lock'), 'aria-label', state.loopLock ? 'The loop is locked: a range leaves it where it is' : 'Lock the loop where it is');
-  // The phone's one key, and its menu.
   setText($('ruler-more-snap'), s.label);
   $('ruler-more').classList.toggle('locked', state.loopLock);
-  setIf($('ruler-more'), 'aria-label', `The ruler: snap ${t.grid ? s.label : 'off'}${state.loopLock ? ', the loop locked' : ''}`);
+  setIf($('ruler-more'), 'aria-label', `View: snap ${t.grid ? s.label : 'off'}${state.loopLock ? ', the loop locked' : ''}`);
   for (const b of $('ruler-menu').querySelectorAll('[data-snap]')) {
     setIf(b, 'aria-checked', String(b.dataset.snap === s.id));
     b.disabled = !t.grid;
@@ -1252,7 +1246,7 @@ function wireTimeEdits() {
       drawLanes();
     }
   }, true);
-  // Under ⋯: ask first, or not.
+  // In ⌗'s View menu: ask first, or not.
   $('ask-first').addEventListener('click', () => {
     writePref('tape.ask', askFirst() ? 'off' : 'on');
     renderAskFirst();
@@ -4496,19 +4490,20 @@ async function loadTape(id) {
   }
 }
 
-// The Studio's menus on lib/ui/menu.js: the header's two -- the title's
-// (the tapes) and ⋯ (this tape's actions) -- the tempo's, from the bar's
-// display, and on a phone the ruler's. Each opens on the Studio's stack
-// beside its key, kept off the bar at the foot of the page; a press
-// elsewhere, a pick, Escape or Back closes it.
+// The Studio's menus on lib/ui/menu.js: the tape's, from its name in the
+// header; the tempo's, from the bar's display; and ⌗'s, the View menu,
+// beside the ruler. Each opens on the Studio's stack beside its key, kept
+// off the bar at the foot of the page -- but the tape's, whose rows a
+// tablet's height between the header and the bar can't hold, which may
+// reach over the bar -- and a press elsewhere, a pick, Escape or Back
+// closes it.
 const menus = {};
 function mountMenus() {
   const opts = { layers: stack || undefined, doc: document, floor: barTop(document) };
-  menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, side: 'below', align: 'start', render: openTapeList });
+  menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, floor: undefined, side: 'below', align: 'start', render: renderTapeMenu, focus: 'checked' });
   // The tempo's, from the bar's display (the bar's own keys say when it
   // opens: css/bar.css, lib/bar/bar.js).
   if ($('np-tempo')) menus.tempoBar = menu($('np-tempo'), $('tempo-menu'), { ...opts, floor: undefined, align: 'start', render: renderTempo });
-  menus.actions = menu($('tape-more'), $('tape-actions'), { ...opts, side: 'below', align: 'end', render: renderActions });
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
 }
 
@@ -4602,8 +4597,11 @@ function renderInputMenu(open = inputOpen()) {
   }
 }
 
-// renderActions readies ⋯ as it opens: what can't go now is dimmed.
-function renderActions() {
+// renderTapeMenu readies the tape's menu as it opens: the tapes, as last
+// heard (and the Pi is asked again), and what can't go now dimmed.
+function renderTapeMenu() {
+  renderTapeList();
+  askTapes();
   const t0 = state.tape, live = state.live;
   const playable = !!(t0 && live && live.output && t0.tracks.some((tr) => tr.clips.length));
   $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
@@ -4624,37 +4622,72 @@ function openRename() {
   input.select();
 }
 
-// renderTapeList fills the title's menu with the tapes, as last heard; it
-// asks the Pi again as it opens (openTapeList), and a tape made, cloned or
-// deleted elsewhere joins the list when the answer comes.
+// renderTapeList puts the tapes at the head of the tape's menu, as last
+// heard, each with its tempo and its parts, the loaded one ticked; the Pi
+// is asked again as the menu opens (renderTapeMenu), and a tape made,
+// duplicated or deleted elsewhere joins the list when the answer comes.
 let tapesHeard = []; // the last /api/tapes list
 let tapesSaid = '';  // what the menu shows of it
 const tapesSig = () => JSON.stringify([state.id, tapesHeard.map((t) => [t.id, t.name, t.bpm, t.clips])]);
 function renderTapeList() {
   tapesSaid = tapesSig();
-  $('tape-list').replaceChildren(...tapesHeard.map((t) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.setAttribute('role', 'menuitem');
-    b.dataset.tip = 'tape-load';
-    b.className = t.id === state.id ? 'on' : '';
-    b.textContent = `${t.name}${t.bpm ? ` · ${t.bpm} BPM` : ''} · ${say(`${t.clips} clip${t.clips === 1 ? '' : 's'}`)}`;
+  const panel = $('tape-menu');
+  for (const row of panel.querySelectorAll('.tape-row')) row.remove();
+  const rows = tapesHeard.map((t) => {
+    const b = menuItem(document, {
+      word: t.name, sub: tapeRowSub(t), role: 'menuitemradio', checked: t.id === state.id,
+      className: 'tape-row', attrs: { 'data-tip': 'tape-load', 'data-id': t.id },
+    });
     b.addEventListener('click', () => { if (t.id !== state.id) loadTape(t.id); });
     return b;
-  }));
-}
-function openTapeList() {
-  renderTapeList();
-  askTapes();
+  });
+  $('tape-new').before(...rows);
 }
 async function askTapes() {
   try { tapesHeard = (await api('/api/tapes')).tapes || []; } catch { return; /* show what we had */ }
   if (tapesSig() === tapesSaid || !menus.tape?.isOpen()) return;
   // The keyboard stays on the tape it was on.
-  const had = $('tape-menu').contains(document.activeElement) ? document.activeElement.textContent : null;
+  const had = document.activeElement?.closest?.('.tape-row')?.dataset.id;
   renderTapeList();
   menus.tape.refresh({ render: false });
-  if (had) [...$('tape-list').querySelectorAll('button')].find((b) => b.textContent === had)?.focus();
+  if (had) $('tape-menu').querySelector(`.tape-row[data-id="${CSS.escape(had)}"]`)?.focus();
+}
+
+// deleteTape deletes the loaded tape, from Delete this tape… in its menu:
+// asked first in the confirm sheet, which names it and what is on it
+// (never the browser's prompt), and always by its id. The Pi keeps the
+// tape it has loaded, so the most recent other tape is loaded first (a new
+// empty one when there is none), and then this one goes.
+async function deleteTape() {
+  const t = state.tape;
+  const id = state.id;
+  if (!t || !id) return;
+  const words = deleteWords(t);
+  if (!(await confirmSheet(words.title, words.line)) || state.id !== id) return;
+  try {
+    let list = [];
+    try { list = (await api('/api/tapes')).tapes || []; } catch { /* a new one, then */ }
+    const next = afterDelete(list, id) || (await api('/api/tapes', { method: 'POST', body: { name: '' } })).id;
+    await loadTape(next);
+    if (state.id === id) return; // loadTape said why
+    await api(`/api/tapes?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    toast(`Deleted “${named(t.name)}”`, 'ok');
+  } catch (e) {
+    toast(`Could not delete “${named(t.name)}”: ${e.message}`, 'bad');
+  }
+}
+
+// confirmSheet asks in the page's confirm sheet (#confirm) before what
+// can't be undone; true for its Delete.
+function confirmSheet(title, line) {
+  const dlg = $('confirm');
+  return new Promise((resolve) => {
+    $('confirm-title').textContent = title;
+    $('confirm-name').textContent = line;
+    dlg.returnValue = 'cancel';
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'delete'), { once: true });
+    dlg.showModal();
+  });
 }
 
 function wire() {
@@ -4681,11 +4714,10 @@ function wire() {
   for (const b of $('catch-mode').querySelectorAll('button')) {
     b.addEventListener('click', () => { state.mode = b.dataset.mode; writePref('tape.mode', state.mode); renderMode(); });
   }
-  // Beside the ruler: the snap, and the loop's lock.
-  $('snap-btn').addEventListener('click', nextSnap);
-  $('loop-lock').addEventListener('click', toggleLoopLock);
-  // The phone's one key beside the ruler: the same snap, lock, Fit and fold,
-  // in its menu (mountMenus).
+  // ⌗ beside the ruler, the View menu (mountMenus): the snap, the loop's
+  // lock, Fit, the fold and Ask before. The buffer's snap key steps the
+  // same snap on (lib/buffer/buffer.js).
+  document.addEventListener('hindsight:snap-next', () => { if (viewActive() && state.tape?.grid) nextSnap(); });
   for (const b of $('ruler-menu').querySelectorAll('[data-snap]')) {
     b.addEventListener('click', () => setSnap(b.dataset.snap));
   }
@@ -4881,16 +4913,7 @@ function wire() {
       toast(`Cloned as “${named(t.name)}”`, 'ok', { action: { label: 'Open it', run: () => loadTape(t.id) } });
     } catch (e) { toast(e.message, 'bad'); }
   });
-  $('tape-delete').addEventListener('click', async () => {
-    let list = { tapes: [] };
-    try { list = await api('/api/tapes'); } catch { /* none */ }
-    const others = list.tapes.filter((t) => t.id !== state.id);
-    if (!others.length) { toast('The loaded tape can\'t be deleted; there\'s no other one', 'warn'); return; }
-    const name = window.prompt(`Delete which tape? Type its name:\n${others.map((t) => t.name).join('\n')}`);
-    const t = others.find((x) => x.name === (name || '').trim());
-    if (!t) return;
-    try { await api(`/api/tapes?id=${encodeURIComponent(t.id)}`, { method: 'DELETE' }); toast(`Deleted “${named(t.name)}”`); } catch (e) { toast(e.message, 'bad'); }
-  });
+  $('tape-delete').addEventListener('click', deleteTape);
   $('new-bpm').addEventListener('input', () => { $('new-bpm').dataset.touched = '1'; });
   $('set-tempo').addEventListener('click', () => patch({ tempo: { bpm: Number($('new-bpm').value), bars: Number($('new-bars').value) } }));
   // The clip sheet.
@@ -4996,14 +5019,13 @@ function wire() {
   const fitView = () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); };
   $('view-fit').addEventListener('click', fitView);
   $('rm-fit').addEventListener('click', fitView);
+  // Fold the tracks, in ⌗'s View menu: ticked while they're folded.
   const foldBtn = $('tracks-fold-btn');
   if (foldBtn) {
     const FOLD_KEY = 'hindsight.tracksFold';
     const applyTracksFold = (folded) => {
       document.body.classList.toggle('tracks-fold', folded);
-      // Its ▾ turns to ▸ by aria-expanded (styles.css).
-      foldBtn.setAttribute('aria-expanded', String(!folded));
-      $('rm-tracks-words').textContent = folded ? 'Show the tracks' : 'Fold the tracks';
+      foldBtn.setAttribute('aria-checked', String(folded));
       try {
         if (folded) sessionStorage.setItem(FOLD_KEY, '1');
         else sessionStorage.removeItem(FOLD_KEY);
@@ -5014,9 +5036,6 @@ function wire() {
       if (sessionStorage.getItem(FOLD_KEY) === '1') applyTracksFold(true);
     } catch { /* fine */ }
     foldBtn.addEventListener('click', () => {
-      applyTracksFold(!document.body.classList.contains('tracks-fold'));
-    });
-    $('rm-tracks').addEventListener('click', () => {
       applyTracksFold(!document.body.classList.contains('tracks-fold'));
     });
     // Auto-unfold when a buffer DROP or edit modifies the tape so the landed part is visible.

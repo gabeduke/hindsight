@@ -813,9 +813,10 @@ px, a line under the word), with `menuRows` putting a divider between
 groups and anything that destroys last. Several buttons may share one
 panel (the Studio's four input chips, one input menu): it shows for one at
 a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
-(a key of its own beside Catch), the header's (the tape's name, the tempo,
-⋯), the ruler's ⌗ and a track's input chip. Open's are still their own, to
-move in Open's pass.
+(a key of its own beside Catch), the tape's name, the tempo on the bar's
+display, the ruler's ⌗ (the View menu) and a track's input chip; on Open,
+the take's name. Open's More, Send to and lane menus are still their own,
+to move in Open's pass.
 
 **The engine** (`lib/bar/engine.js`), made once by the shell:
 
@@ -877,13 +878,32 @@ usually was landed on the brand.
   bar's display, `lib/bar/display.js` `syncState`: green to the sample,
   amber by the clocks, red not lined up yet, out while the tape is stopped
   or plays on a phone).
-- **A name that is a menu.** On Open the take's name (`#take-name`, a pill
-  with ▾) opens the take's menu on `lib/ui/menu.js`: Rename… (the name
-  becomes its field), Previous take and Next take, each with the take it
-  opens by its spine's name, the downloads, Reset the downbeat, under 860
-  px its MIDI and under 1000 px its tag (no room beside the star), and
-  Delete this take last. Its tempo, length and source are the line under
-  the header (`.take-sub`), not in it.
+- **A name that is a menu, and no ⋯.** What acts on a thing is in its
+  name's menu, on `lib/ui/menu.js`, Delete last and red after a line of its
+  own; never in a ⋯ beside it, which once split the tape's actions from its
+  list of tapes, a third menu beside ☰.
+  - In the Studio the tape's name (`#tape-name`) opens the tape's menu
+    (`lib/tape/page.js` `renderTapeMenu`; its words, `lib/tape/tape-menu.js`):
+    *The tapes*, each with its tempo and parts and the loaded one ticked,
+    and New tape; Rename…, Duplicate; Share the mix, Bounce the loop,
+    Bounce the whole tape, Export stems and Play the last bounce
+    (`lib/rooms/bounce.js`); Record from this phone…; and Delete this
+    tape…. Delete asks in `#confirm` (never the browser's prompt) by the
+    tape's name and what is on it, then, the Pi keeping the tape it has
+    loaded, loads the most recently changed other tape (or a new empty one)
+    and deletes this one by its id. The menu reaches over the bar, as tall
+    as its rows: a tablet's height above the bar can't hold them.
+  - ⋯'s options went to ⌗ beside the ruler, the View menu on every screen:
+    the snap, Lock the loop, Fit, Fold the tracks (`#tracks-fold-btn`, the
+    one fold for the lanes) and, on a touch screen, Ask before Insert and
+    Delete time. The key says the snap and shows the lock; Fit stands
+    beside it too while the view is moved (in the menu alone on a phone).
+  - On Open the take's name (`#take-name`, a pill with ▾) opens the take's
+    menu: Rename… (the name becomes its field), Previous take and Next
+    take, each with the take it opens by its spine's name, the downloads,
+    Reset the downbeat, under 860 px its MIDI and under 1000 px its tag (no
+    room beside the star), and Delete this take last. Its tempo, length and
+    source are the line under the header (`.take-sub`), not in it.
 
 ### The bar
 
@@ -949,8 +969,8 @@ take or a tape (a note, a tag, a star; a part, a section, the loop).
 | Verb | Does | From |
 |---|---|---|
 | **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), the buffer, a take's selection |
-| **BOUNCE** | makes a take from a tape, by playing it through the mixer | the Studio's ⋯ |
-| **Share the mix** | sends a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3` | the Studio's ⋯; Bounce's refusal |
+| **BOUNCE** | makes a take from a tape, by playing it through the mixer | the tape's name's menu |
+| **Share the mix** | sends a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3` | the tape's name's menu; Bounce's refusal |
 | **GRAB** | fills the buffer | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
 | **DROP** | empties the buffer onto a track | the buffer, ↵, a range's bar |
 | **CATCH** | puts the last pass on the armed track | the Studio |
