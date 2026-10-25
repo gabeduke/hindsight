@@ -1,9 +1,11 @@
 // J1.11 Edit a part with a finger (lib/tape/clipgestures.js): a tap selects
 // it (the clip bar names it, nothing pops up), Enter or a double tap opens
 // its sheet, Escape closes the sheet and keeps it selected, → moves it a
-// bar and a second Escape lets go, all in the Studio; a quick drag pans the
-// lanes and leaves it be, and a hold then a drag slides it a bar, which ↶
-// takes back. docs/flows.md#j111
+// bar and a second Escape lets go, all in the Studio; with a track's
+// inspector open as the part is tapped, Escape closes the inspector first,
+// then lets go of the part; a quick drag pans the lanes and leaves it be,
+// and a hold then a drag slides it a bar, which ↶ takes back.
+// docs/flows.md#j111
 // Ported from the retired scripts/smoke-tape.mjs ("A clip's gestures").
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -118,6 +120,36 @@ export default {
     await t.poll(() => document.getElementById('multi-bar')?.hidden !== false, null, 2000);
     const second = await kept();
     t.expect('the second lets go of it, still in the Studio', !second.selected && second.path === '/tape.html', second);
+    await t.wait(300);
+
+    // A track's inspector left open, then the part tapped: the selection is
+    // the newer, but a sheet closes before a selection (lib/ui/layers.js
+    // RANK), so Escape closes the inspector and keeps the part, then lets go.
+    const seen = (p) => p.evaluate(() => ({
+      path: location.pathname,
+      inspector: !!document.getElementById('track-sheet')?.open,
+      selected: document.getElementById('multi-bar')?.hidden === false,
+    }));
+    await t.step('open track 2’s inspector', async () => {
+      await t.tap(page.locator('.tt-name').nth(1));
+      await t.wait(300);
+      await t.tap(page.locator('.tt-name').nth(1));
+    });
+    t.expect('the inspector opens', await t.poll(() => !!document.getElementById('track-sheet')?.open, null, 2000));
+    s = await spot();
+    await t.step('tap the part', () => tapAt(s.x, s.y));
+    await t.poll(() => document.getElementById('multi-bar')?.hidden === false, null, 3000);
+    const both = await seen(page);
+    t.expect('the part is selected, and the inspector stays open', both.selected && both.inspector, both);
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    await t.poll(() => !document.getElementById('track-sheet')?.open, null, 2000);
+    const sheetFirst = await seen(page);
+    t.expect('Escape closes the inspector first, and the part stays selected', !sheetFirst.inspector && sheetFirst.selected && sheetFirst.path === '/tape.html', sheetFirst);
+    await t.wait(300);
+    await t.step('press Escape again', () => page.keyboard.press('Escape'));
+    await t.poll(() => document.getElementById('multi-bar')?.hidden !== false, null, 2000);
+    const letGo = await seen(page);
+    t.expect('the second lets go of the part, still in the Studio', !letGo.selected && letGo.path === '/tape.html', letGo);
     await t.wait(300);
 
     s = await spot();

@@ -1290,7 +1290,8 @@ let alignLayer = null; // the clip editor's
 let selLayer = null; // the selected clips', or the range's
 
 // selectionOnStack: what is selected, clips or a range, is a layer: Back or
-// Escape lets go of it (after a sheet or a menu over it), as Done does.
+// Escape lets go of it (after any menu or sheet, open before it or after),
+// as Done does.
 function selectionOnStack(on) {
   if (on && !selLayer?.open) {
     selLayer = stack?.open({ el: $('multi-bar'), kind: 'selection', onClose: () => { selLayer = null; letGo(); letGoRange(); } }) || null;
@@ -1301,7 +1302,7 @@ function selectionOnStack(on) {
   }
 }
 
-// underSelection: nothing is open over the selection (a preview's Escape).
+// underSelection: nothing closes before the selection (a preview's Escape).
 function underSelection() {
   const top = stack?.top();
   return !top || top.kind === 'selection';
@@ -4756,8 +4757,8 @@ function wire() {
   document.addEventListener('keydown', (e) => {
     if (!viewActive()) return;
     // Escape is the stack's (lib/ui/layers.js), not this ladder's: the menu,
-    // then the inspector, the clip editor and the selection, newest first,
-    // and a sheet's own before any of them. Only a preview (below) keeps it.
+    // then the inspector or the clip editor, then the selection, and a
+    // sheet's own before any of them. Only a preview (below) keeps it.
     // Typing is typing; a level slider with focus still lets the keys work.
     const typing = e.target && (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable
       || (e.target.tagName === 'INPUT' && e.target.type !== 'range'));

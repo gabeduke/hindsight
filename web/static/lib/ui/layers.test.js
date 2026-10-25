@@ -9,6 +9,9 @@ import { fakeDoc } from '../play/fake-dom.js';
 import { createLayers, historyStep, layersOf, KEY, KINDS } from './layers.js';
 
 const tick = () => new Promise((r) => setImmediate(r));
+// After an Escape, until its keydown is over (layers.js clears `escaping` on
+// a timer): a close request then is Back's. A tick alone may come first.
+const keyDone = () => new Promise((r) => setTimeout(r, 1));
 
 // A window: its listeners (capture and not, in the order added), a tab's
 // history whose Back comes back as a popstate a moment later, as a
@@ -128,7 +131,7 @@ test('with CloseWatcher: one per layer, the newest closes first, and the history
   assert.deepEqual(w.history.states(), [null], 'no entry: Back would otherwise need pressing twice');
   w.escape();
   assert.deepEqual(log, ['menu escape']);
-  await tick();
+  await keyDone();
   w.request(); // Android's Back
   assert.deepEqual(log, ['menu escape', 'sheet back']);
   assert.equal(w.layers.top().kind, 'selection');
@@ -159,6 +162,68 @@ test('with CloseWatcher: an Escape something else took for itself sends no close
   w.escape();
   assert.deepEqual(a.log, []);
   assert.equal(a.layer.open, true);
+});
+
+// --- which closes first --------------------------------------------------------
+
+test('the top is by kind: a menu, then a sheet or a drawer, then the selection, then the player; the newest first among the same', () => {
+  const w = aWindow();
+  const log = [];
+  opened(w, 'player', { log });
+  opened(w, 'menu', { log, name: 'menu 1' });
+  opened(w, 'sheet', { log });
+  opened(w, 'selection', { log });
+  opened(w, 'drawer', { log });
+  opened(w, 'menu', { log, name: 'menu 2' });
+  const order = [];
+  while (w.layers.top()) { order.push(w.layers.top().kind); w.win.fire('keydown', { key: 'Escape' }); }
+  assert.deepEqual(log, ['menu 2 escape', 'menu 1 escape', 'drawer escape', 'sheet escape', 'selection escape', 'player escape']);
+  assert.deepEqual(order, ['menu', 'menu', 'drawer', 'sheet', 'selection', 'player'], 'top() is what closes next');
+});
+
+test('a modal layer is a floor: what is under it waits for it, whatever its kind', () => {
+  const w = aWindow();
+  const log = [];
+  opened(w, 'sheet', { log, name: 'inspector' });
+  opened(w, 'selection', { log });
+  opened(w, 'player', { log, modal: true });
+  opened(w, 'menu', { log });
+  for (let i = 0; i < 4; i++) w.win.fire('keydown', { key: 'Escape' });
+  assert.deepEqual(log, ['menu escape', 'player escape', 'inspector escape', 'selection escape']);
+});
+
+test('with CloseWatcher: a request the newer selection’s watcher gets closes the sheet under it, and the selection is watched again', async () => {
+  const w = aWindow({ watchers: true });
+  const log = [];
+  opened(w, 'sheet', { log, name: 'track sheet' });
+  const sel = opened(w, 'selection', { log });
+  assert.equal(w.layers.top().kind, 'sheet');
+  w.escape(); // to the selection's watcher, the newest
+  assert.deepEqual(log, ['track sheet escape']);
+  assert.equal(sel.layer.open, true);
+  assert.equal(w.live.length, 1, 'one watcher, the selection’s, made again');
+  await keyDone();
+  w.request(); // Android's Back
+  assert.deepEqual(log, ['track sheet escape', 'selection back']);
+  assert.equal(w.live.length, 0);
+  assert.equal(w.layers.top(), null);
+});
+
+test('without CloseWatcher: Escape and Back close a sheet under a newer selection first', async () => {
+  const w = aWindow();
+  const log = [];
+  opened(w, 'sheet', { log, name: 'track sheet' });
+  opened(w, 'selection', { log });
+  w.win.fire('keydown', { key: 'Escape' });
+  assert.deepEqual(log, ['track sheet escape']);
+  opened(w, 'sheet', { log, name: 'track sheet' });
+  w.history.back();
+  await tick();
+  assert.deepEqual(log, ['track sheet escape', 'track sheet back']);
+  assert.ok(w.history.state[KEY], 'the selection keeps an entry');
+  w.history.back();
+  await tick();
+  assert.deepEqual(log, ['track sheet escape', 'track sheet back', 'selection back']);
 });
 
 // --- elsewhere: Escape, and one history entry ------------------------------------
@@ -322,7 +387,7 @@ test('Escape and Back give the focus back to the owner; a press outside or a pic
   assert.equal(w.doc.activeElement, elsewhere);
   const k = opened(w, 'sheet', { owner, returnFocus: elsewhere });
   owner.focus();
-  await tick();
+  await keyDone();
   w.request();
   assert.equal(w.doc.activeElement, elsewhere, 'returnFocus wins');
   assert.deepEqual(k.log, ['sheet back']);
@@ -363,8 +428,8 @@ test('ownsKeys: a menu or a modal layer has the keys, and so has any layer for a
 test('opening what is open answers its layer; a kind not on the list is refused; an onClose that throws is reported', () => {
   const w = aWindow({ watchers: true });
   const el = w.el();
-  const a = w.layers.open({ el, kind: 'menu' });
-  assert.equal(w.layers.open({ el, kind: 'menu' }), a);
+  const a = w.layers.open({ el, kind: 'selection' });
+  assert.equal(w.layers.open({ el, kind: 'selection' }), a);
   assert.equal(w.live.length, 1);
   assert.throws(() => w.layers.open({ el: w.el(), kind: 'dialog' }), /kind/);
   assert.deepEqual([...KINDS], ['menu', 'popover', 'sheet', 'drawer', 'selection', 'player']);

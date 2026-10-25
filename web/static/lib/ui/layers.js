@@ -11,7 +11,8 @@
 //   - Where there is CloseWatcher (Chromium, so the Android tablet), each
 //     layer has one, made inside the press that opened it. Escape, and
 //     Android's Back, are one close request, which the browser hands to the
-//     newest watcher: the top layer.
+//     newest watcher; the stack closes the top layer for it (below), and
+//     when that is another, it watches the newest one again.
 //   - Elsewhere (Safari, so the iPad) an Escape keydown closes the top
 //     layer, and the stack holds ONE history entry while anything is open,
 //     so the edge swipe's Back closes the top layer too (historyStep).
@@ -20,8 +21,12 @@
 // close the layer and the next would land on its leftover entry and do
 // nothing.
 //
-// A layer closes in the order things opened, newest first, which is how
-// they nest: a menu over a sheet over a selection over the player.
+// The top layer is the one a close request closes, by kind: a menu or a
+// popover, then a sheet or a drawer, then the selection, then the phone's
+// player (RANK), the newest first among the same: a track's sheet left open
+// while a part is tapped is older than the selection, and still closes
+// first. A modal layer (the player pulled up) is a floor: what is under it,
+// hidden, waits for it to close.
 //
 // One stack per document: layersOf(doc) is it (the shell's boot.js hands it
 // to the views as ctx.layers, a scope of it; Open, the guide and the rig use
@@ -31,6 +36,8 @@
 import { report } from '../objects/motion.js';
 
 export const KINDS = Object.freeze(['menu', 'popover', 'sheet', 'drawer', 'selection', 'player']);
+/** RANK is the order a close request closes layers in, lowest first. */
+export const RANK = Object.freeze({ menu: 0, popover: 0, sheet: 1, drawer: 1, selection: 2, player: 3 });
 export const REASONS = Object.freeze(['escape', 'back', 'outside', 'pick', 'navigate', 'program']);
 
 /** KEY is the history state's key for the fallback's one entry. */
@@ -121,7 +128,8 @@ export function historyStep(prev, ev) {
  *   onError       where an owner's onClose that throws is reported
  *
  * Answers { open(spec) -> Layer, top(), closeAll({kinds, reason}),
- * ownsKeys(e), scope(), leave({keep}), settled(), size }.
+ * ownsKeys(e), scope(), leave({keep}), settled(), size }. top() is the
+ * layer Escape or Back closes next (RANK, above a modal floor), or null.
  *
  * open(spec):
  *   el           what is open (a menu's panel, a sheet's dialog)
@@ -214,13 +222,33 @@ export function createLayers({
     if (reason === 'escape' || reason === 'back') focusBack(rec);
   }
 
+  // first is the record a close request closes: of the stack from its
+  // newest modal layer up, the lowest RANK, the newest among the same.
+  function first() {
+    let from = 0;
+    for (let i = stack.length - 1; i > 0; i--) if (stack[i].spec.modal) { from = i; break; }
+    let best = null;
+    for (let i = from; i < stack.length; i++) {
+      if (!best || RANK[stack[i].spec.kind] <= RANK[best.spec.kind]) best = stack[i];
+    }
+    return best;
+  }
+
   function arm(rec) {
     try {
       const w = new CloseWatcher();
       w.onclose = () => {
         if (rec.watcher !== w) return;
         rec.watcher = null;
-        shut(rec, escaping ? 'escape' : 'back');
+        const reason = escaping ? 'escape' : 'back';
+        const go = first() || rec;
+        // The browser hands the request to the newest watcher. When the top
+        // layer is another (a sheet under a newer selection), that one
+        // closes, and this one is watched again: the request took its
+        // watcher, and with no user activation in a close request, the new
+        // one takes the group the old one left.
+        if (go !== rec) arm(rec);
+        shut(go, reason);
       };
       rec.watcher = w;
     } catch (e) { onError(e); }
@@ -243,7 +271,7 @@ export function createLayers({
     return rec.handle;
   }
 
-  const top = () => (stack.length ? handleOf(stack[stack.length - 1]) : null);
+  const top = () => { const r = first(); return r ? handleOf(r) : null; };
 
   function closeAll({ kinds = null, reason = 'program', only = null } = {}) {
     for (const rec of [...stack].reverse()) {
@@ -333,7 +361,7 @@ export function createLayers({
     win?.addEventListener?.('keydown', (e) => {
       if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || !stack.length) return;
       e.preventDefault?.();
-      shut(stack[stack.length - 1], 'escape');
+      shut(first(), 'escape');
     });
   }
 
@@ -344,7 +372,7 @@ export function createLayers({
       const next = historyStep(h, { type: 'popstate', ours, marked: landed != null });
       h = next;
       if (next.close === 'top' && stack.length) {
-        shut(stack[stack.length - 1], 'back');
+        shut(first(), 'back');
         apply(historyStep(h, { type: 'settle' }));
       } else {
         apply(next);

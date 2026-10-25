@@ -775,8 +775,11 @@ throws, the router falls back to a full navigation.
 **One way to close things** (`lib/ui/layers.js`). Menus, popovers, sheets,
 drawers, a selection and the phone's player sit on one stack per document
 (`layersOf(document)`: the shell's, handed to each view as a scope; Open,
-the rig and the guide have their own). Back and Escape close the newest
-first, and only once nothing is open does Back leave the room; a press
+the rig and the guide have their own). Back and Escape close the top one
+first: a menu, then a sheet or a drawer, then the selection, then the
+player (`RANK`), the newest first among the same, and nothing under a modal
+layer (the player pulled up) before it. Only once nothing is open does Back
+leave the room; a press
 outside closes a menu; a switch of rooms closes the menus and the room's
 own sheets and selection (the player stays up), as a view's hide would. An owner opens with `layers.open({el, kind,
 owner, onClose})` and closes with `layer.close()`, so its `onClose` is the
