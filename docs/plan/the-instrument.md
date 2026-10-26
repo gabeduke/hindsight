@@ -331,9 +331,12 @@ My recommendation first in each.
         `docs/hardware/README.md`: the CC map of the firmware on the
         unit, into `smk-37-elite.json`, in a PR of its own.
    3. ⌨ *Back up:*
-      - into download mode. SMK-37+VA documents no way in, so try the soft
-        key first (`m-flasher download-mode`); a firmware that doesn't
-        know it ignores it. Otherwise, the Pico dongle;
+      - into download mode. Tried on 2026-10-26: SMK-37+VA answers
+        neither the soft key (`m-flasher download-mode`) nor OCT− and
+        OCT+ held, and the stock bootloader its installer puts back has
+        no key for it. So it takes one of two routes, chosen at the
+        keyboard (*To settle*): reinstall Felucca, whose app answers the
+        soft key, or force it with the Pico dongle;
       - `info`: the chip, the flash's JEDEC id, the model, the firmware
         and the bootloader;
       - `backup` to a directory outside every repo. Power-cycle, back up
@@ -408,10 +411,24 @@ My recommendation first in each.
    - *Rehearse on the FM-1 first.* Gabe has one. It has the same chip,
      and M-VAVE's `fm1_open` is the same SDK. M-Flasher and m-bootloader
      were tested on its hardware, and it has no factory calibration to
-     lose. Run steps 3 to 6 on it, then on the Elite.
-   - *Download mode from SMK-37+VA*, if the soft key is ignored: use a
-     Pico dongle. The alternative, reinstalling stock or Felucca through
-     their installers, would write before any backup.
+     lose. Run steps 3 to 6 on it, then on the Elite. (Not with Gabe on
+     2026-10-26, so the Elite goes first.)
+   - *Download mode from SMK-37+VA*, which ignores the soft key (step 3).
+     Gabe will choose at the keyboard, sitting down for it (2026-10-26).
+     - *Reinstall Felucca* through its own installer. It ran on this
+       unit before, and its app answers the soft key. Its loader writes
+       the app area and its own settings, and refuses 0xC0000–0xC1FFF
+       (genkigenki's docs, verified on a Pro). But it is one write before
+       any backup, against the backup-first rule. Export SMK-37+VA's
+       presets first.
+     - *The Pico dongle* keeps the rule. A Raspberry Pi Pico and two
+       2.2 kΩ resistors on the USB data lines force download mode with
+       no firmware. It works on an SMK-37 Pro (m-bootloader's spec), and
+       it is the recovery path worth having anyway.
+   - *Giving the screen back to Hindsight after HOME*: decided (Gabe,
+     2026-10-26). HOME held for a second, on the keyboard's own screen,
+     offers it back. The keyboard sends OFFER, and Hindsight takes the
+     screen.
    - *The CC map in the profile* follows the firmware on the unit until
      ours lands; SMK-37+VA's is in its manual. The alternative is to put
      stock back to capture its map.
