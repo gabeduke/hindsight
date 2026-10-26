@@ -121,16 +121,28 @@ My recommendation first in each.
 ### The controller (its own track)
 
 7. **The SMK-37 Elite's firmware.** Checked against the sources
-   themselves on 2026-10-26. Nothing is confirmed on Gabe's unit yet: it
-   wasn't connected.
+   themselves on 2026-10-26, and read off Gabe's unit the same day.
+   - *Gabe's unit*, read on the Mac without writing anything:
+     - it runs Baud Girl's SMK-37+VA, after the stock firmware and
+       Felucca. Baud Girl's installer puts M-VAVE's bootloader back, so
+       that is probably the bootloader on it; the backup will say;
+     - its USB ids are `4C4A:C755`, the FM-1's, which SMK-37+VA keeps. It
+       runs at full speed (12 Mb/s);
+     - one MIDI port, `SMK-37+VA`. It is silent when idle and doesn't
+       answer a Universal Device Inquiry. Under the stock firmware its
+       ports were `SMK-37 Elite -Private`, `-Master` and `-MCP`, from the
+       Mac's MIDI cache;
+     - USB audio, two channels each way at 44.1 kHz. A note sent over MIDI
+       came back on its input, so the Elite's synth reaches a computer
+       over USB, at least under SMK-37+VA.
    - *The hardware:*
      - a JieLi AC791N (WL82) with 1 MiB of SPI flash and about 511 KiB of
        internal RAM, no external RAM;
      - a 240×240 ST7789V display on SPI1, a bus the pad LEDs share;
      - 8 encoders, 16 pressure pads with RGB LEDs, 4 faders and 18 lit
        buttons;
-     - class-compliant USB MIDI, BLE MIDI, and TRS MIDI out only. The USB
-       is probably full speed: the flash reads at about 860 KB/s.
+     - class-compliant USB MIDI at full speed, BLE MIDI, and TRS MIDI out
+       only.
 
      The Pro, the Elite and two rebadges are one hardware family; the
      Elite is the least tested of them. The stock firmware is a DX7-style
@@ -240,14 +252,14 @@ My recommendation first in each.
       - the guard and its test, and the dump diff;
       - M-Flasher, and a MIDI monitor.
    2. ⌨ *Identify the unit, read-only:*
-      - on the Mac: the VID:PID, the USB speed, the port names and the
-        firmware version. The stock firmware shows three ports, the first
-        named "…Private";
+      - on the Mac: done, above;
       - on the Pi, by *Capturing an unknown device* in
-        `docs/hardware/README.md`: the stock CC map, into
-        `smk-37-elite.json`, in a PR of its own.
+        `docs/hardware/README.md`: the CC map of the firmware on the
+        unit, into `smk-37-elite.json`, in a PR of its own.
    3. ⌨ *Back up:*
-      - `m-flasher download-mode`;
+      - into download mode. SMK-37+VA documents no way in, so try the soft
+        key first (`m-flasher download-mode`); a firmware that doesn't
+        know it ignores it. Otherwise, the Pico dongle;
       - `info`: the chip, the flash's JEDEC id, the model, the firmware
         and the bootloader;
       - `backup` to a directory outside every repo. Power-cycle, back up
@@ -269,7 +281,8 @@ My recommendation first in each.
    7. Pad colours from the Pi, and encoders as relative CCs.
    8. The features in Gabe's order: transport, FX, clip arranging. Then
       the keyboard's synth over the tape, recorded as an input. That is
-      the Pro's USB audio, not yet shown on the Elite or on Linux.
+      the Elite's USB audio, shown under SMK-37+VA but not yet under our
+      firmware or on Linux.
 
    To settle, my recommendation first:
    - *m-bootloader's write into 0xFF000*, which the first rule rules out.
@@ -283,9 +296,16 @@ My recommendation first in each.
      builds: this firmware plays over the tape. The DX7 library and
      tuning sectors (`[0xFA000, 0xFF000)`) sit over the stock sounds,
      which the backup holds.
-   - *A stock firmware older than 016*, if step 2 finds one: it may not
-     answer the soft key. Use a Pico dongle, rather than an M-UPGRADE
-     update, which would write before any backup.
+   - *Rehearse on the FM-1 first.* Gabe has one. It has the same chip,
+     and M-VAVE's `fm1_open` is the same SDK. M-Flasher and m-bootloader
+     were tested on its hardware, and it has no factory calibration to
+     lose. Run steps 3 to 6 on it, then on the Elite.
+   - *Download mode from SMK-37+VA*, if the soft key is ignored: use a
+     Pico dongle. The alternative, reinstalling stock or Felucca through
+     their installers, would write before any backup.
+   - *The CC map in the profile* follows the firmware on the unit until
+     ours lands; SMK-37+VA's is in its manual. The alternative is to put
+     stock back to capture its map.
    - *The fork's name:* `smk37-hindsight`?
 
    Sources:
@@ -302,8 +322,10 @@ My recommendation first in each.
      backup done twice, and the loader that erased 0xC0000–0xC1FFF
    - <https://github.com/AL-255/FM-1-RE>: the FM-1, the same chip, reverse
      engineered
+   - <https://github.com/m-vave/fm1_open>: the same SDK, for the FM-1
    - <https://altstrument.org/devices/m-vave-smk-37>: an overview, and
-     Baud Girl's SMK-37+VA (<https://baudgirl.com>)
+     Baud Girl's SMK-37+VA (<https://baudgirl.com/work/SMK-37+VA/manual>:
+     its install, and its CCs in 11.10)
    - <https://heise.de/-10503740>: the hardware and the synth
 
 ### The product
