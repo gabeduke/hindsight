@@ -166,6 +166,20 @@ My recommendation first in each.
    MIDI monitor first); whether the keyboard is full-speed or high-speed
    USB.
 
+   Sources, as the research found them:
+   - <https://github.com/m-vave/smk37_open>: M-VAVE's open firmware
+   - <https://genkigenki.github.io/smk37/> and
+     <https://github.com/genkigenki/fm1-to-smk37> (hardware, pin and flash
+     maps in `docs/01-hardware.md`)
+   - <https://github.com/illuminus5/skiff/blob/main/SMK37.md>: Skiff, with
+     flash dumping by `jl-uboot-tool`
+   - <https://github.com/jvitkauskas/m-bootloader>: the recovery bootloader
+   - <https://github.com/AL-255/FM-1-RE>: the FM-1, the same chip, reverse
+     engineered
+   - <https://altstrument.org/devices/m-vave-smk-37>: an overview, and
+     Baud Girl's SMK-37+VA (<https://baudgirl.com>)
+   - <https://heise.de/-10503740>: the hardware and the synth
+
 ### The product
 
 8. **A box of our own**: CM5, a board, the enclosure, once steps 1–5 hold
