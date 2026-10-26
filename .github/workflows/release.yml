@@ -37,6 +37,10 @@ on:
       - 'deploy/**'
       - '!deploy/hub/**'
       - 'deploy/hub/Dockerfile'
+  # By hand, from main only (the `test` job's `if`): for code that merged
+  # without a release, as when a red flow cancelled #175's and the fix
+  # touched nothing on the list above.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -57,7 +61,7 @@ concurrency:
 jobs:
   test:
     # Reused rather than duplicated, so a red main cannot publish.
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    if: ${{ github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
     uses: ./.github/workflows/ci.yml
 
   release:
