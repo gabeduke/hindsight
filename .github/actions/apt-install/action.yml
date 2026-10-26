@@ -1,0 +1,99 @@
+name: apt-get install, from a cache of the .debs
+description: >
+  Installs apt packages from .deb files kept in the Actions cache, downloading
+  them from the Ubuntu mirror only when the cache has none for this runner
+  image. The runners' mirror is sometimes throttled to a few tens of kB/s for
+  one VM while the next one gets 40 MB/s: on 2026-10-26 the test job took 36
+  minutes to fetch ffmpeg's 73 MB while the flows job beside it took 2 seconds.
+
+# The cache is keyed on the runner image (ImageOS, ImageVersion), so the debs
+# were resolved against exactly the packages this runner already has: dpkg can
+# install them with no apt-get update and no network. A new image, about
+# weekly, is a miss, and the first run on it downloads once.
+inputs:
+  packages:
+    description: The packages, separated by spaces.
+    required: true
+  no-install-recommends:
+    description: Leave out recommended packages, as apt-get --no-install-recommends.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Name the cache
+      id: key
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        NO_RECOMMENDS: ${{ inputs.no-install-recommends }}
+      run: |
+        packages="$(tr -s ' \n' '\n' <<<"$PACKAGES" | sed '/^$/d' | sort -u | tr '\n' ' ')"
+        if [ -z "$packages" ]; then echo "::error::no packages given"; exit 1; fi
+        hash="$(printf '%s %s' "$packages" "$NO_RECOMMENDS" | sha256sum | cut -c1-16)"
+        echo "packages=$packages" >> "$GITHUB_OUTPUT"
+        echo "dir=$RUNNER_TEMP/apt-$hash" >> "$GITHUB_OUTPUT"
+        echo "key=apt-$ImageOS-$ImageVersion-$hash" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the debs
+      id: cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.key.outputs.dir }}
+        key: ${{ steps.key.outputs.key }}
+
+    - name: Download the debs
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        PACKAGES: ${{ steps.key.outputs.packages }}
+        DIR: ${{ steps.key.outputs.dir }}
+        NO_RECOMMENDS: ${{ inputs.no-install-recommends }}
+      run: |
+        flags=()
+        [ "$NO_RECOMMENDS" = true ] && flags+=(--no-install-recommends)
+        # Only what this install downloads goes in the cache: dpkg installs
+        # every file it is given.
+        sudo apt-get clean
+        sudo apt-get update -qq
+        # shellcheck disable=SC2086
+        sudo apt-get install -y --download-only "${flags[@]}" $PACKAGES
+        mkdir -p "$DIR"
+        cp /var/cache/apt/archives/*.deb "$DIR"/ 2>/dev/null || true
+        ls "$DIR" | wc -l | xargs echo "debs downloaded:"
+
+    # One path for a hit and a miss, so every miss also tests what a hit does.
+    # dpkg orders and configures a set it is given at once. If the debs don't
+    # fit this runner after all, apt-get does it the slow way rather than fail.
+    - name: Install the debs
+      shell: bash
+      env:
+        PACKAGES: ${{ steps.key.outputs.packages }}
+        DIR: ${{ steps.key.outputs.dir }}
+        NO_RECOMMENDS: ${{ inputs.no-install-recommends }}
+      run: |
+        # man-db reindexes every page on each install; nobody reads them here.
+        sudo rm -f /var/lib/man-db/auto-update
+        shopt -s nullglob
+        debs=("$DIR"/*.deb)
+        if [ ${#debs[@]} -eq 0 ]; then echo "nothing to install: all present"; exit 0; fi
+        if ! sudo DEBIAN_FRONTEND=noninteractive dpkg -i "${debs[@]}" >"$RUNNER_TEMP/dpkg.log" 2>&1; then
+          tail -40 "$RUNNER_TEMP/dpkg.log"
+          echo "::warning::the cached debs did not install; falling back to apt-get"
+          flags=()
+          [ "$NO_RECOMMENDS" = true ] && flags+=(--no-install-recommends)
+          sudo apt-get update -qq
+          # shellcheck disable=SC2086
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -f "${flags[@]}" $PACKAGES
+        fi
+        echo "installed ${#debs[@]} debs"
+
+    # Saved as soon as they have installed, not at the end of the job, which
+    # actions/cache skips when the job fails: one red flow would otherwise
+    # leave the next run downloading again.
+    - name: Keep the debs
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.key.outputs.dir }}
+        key: ${{ steps.key.outputs.key }}
