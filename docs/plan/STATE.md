@@ -142,6 +142,16 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
   on a loud loop at full drive).
 - `BenchmarkRenderABlock` on the Pi 4B.
 - The SMK-37 profile's MIDI channel (a guess: channel 10).
+- The SMK-37 on Hindsight's own firmware (`the-instrument.md` step 7):
+  nothing is flashed yet. Built and tested off the unit:
+  - the first proof and the surface, in `gabeduke/smk37-hindsight` #2 and #3;
+  - Hindsight's side, `internal/surface`: HELLO, the screen taken on an
+    answer, PLAY and REC bound.
+
+  Next, at the keyboard: steps 2–5 (CC map, two backups, m-bootloader,
+  the fork), then the first proof on the unit.
+  To settle: how the keyboard hands the screen back to Hindsight after
+  HOME (today, only by being unplugged or Hindsight restarting).
 - The rig page with the real Sidekick (the eight steps in PR #107).
 - The device spike (iPad standalone audio when backgrounded; Android
   discarding the PWA mid-jam) needs the tablet and the iPad.
