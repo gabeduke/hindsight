@@ -598,6 +598,9 @@ export function mount(h) {
     searchDone.hidden = next !== 'search';
     for (const b of viewKeys()) b.setAttribute('aria-pressed', String(b.dataset.show === home));
     if (next === 'shelf') fitSoon();
+    // Search's results start at the List's top, right under the field, never
+    // scrolled part-way under it by where the wall or the List was left.
+    if (next === 'search') globalThis.scrollTo?.(0, 0);
   }
   const putAway = () => (shown?.layer?.open ? shown.layer.close('program') : shown?.close('program'));
 
