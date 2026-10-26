@@ -300,12 +300,20 @@ My recommendation first in each.
      (one function, but an untested bootloader), or skip m-bootloader
      and rely on the soft key and a Pico dongle.
    - *Room for code.* V01's Elite image is 453,892 bytes, and
-     `Package.cs` allows 453,921: 29 bytes to spare. The first proof needs
-     a SysEx handler, a font and drawing. Measure first: build without
-     each candidate in CI (the sampler's code, an engine, the factory DX7
-     voices), see what each frees, then choose. A smaller user partition
-     would free the most, but only a unit can say whether the binary SDK
-     accepts one.
+     `Package.cs` allows 453,921: 29 bytes to spare. The link map says
+     where the bytes go:
+     - the binary SDK takes 366,524, linked whole with its engines, so
+       nothing comes out of it;
+     - Open's own app is about 83 KB, and its screen and pages
+       (`screen.c`) are 42 KB of that.
+
+     Room for anything new comes from Open's on-device pages, which a
+     screen the Pi draws would replace, or from a smaller user partition,
+     and only a unit can say whether the SDK accepts one of those. For the
+     first proof: reuse `screen.c`'s own text drawing (capitals and
+     digits), and trim a page for the few hundred bytes the SysEx handler
+     needs. Which of Open's pages stay for good is Gabe's call, and it
+     comes with the Pi-drawn screen.
    - *The sampler:* capped before 0xC0000 in the fork, which leaves about
      9 s instead of 19.5; that was the recommendation. Dropping it would
      also free code space. The DX7 library and tuning sectors
