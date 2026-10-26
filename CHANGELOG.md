@@ -5,6 +5,26 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.26.1 — 2026-10-26
+
+- A release can be started by hand from main, for code that merged without one (55cbf60)
+- flows: axe's target-size passes a key scrolled partly under the bar, as the covered check already does (bb0c105)
+- flows: J2.5 names its take "Verse sketch", not "Bridge idea", which J2.7's tablet search then found three times over (79e3323)
+- AGENTS.md: when doing it properly is bigger than the task, build the interface first or stop, and never add to an exception list to go green (d818857)
+- CI keeps a cache as soon as its install works, so a failed flow doesn't throw it away (6b70f21)
+- CI installs ffmpeg, PortAudio and Chromium's packages from the Actions cache instead of the Ubuntu mirror, which took 10 to 37 minutes on most runs this weekend (3fc3b7f)
+- flows: J2.3 waits for the display to name the take, and J2.7 gives a long library's search the time a slow runner needs (5e2893a)
+- Search's results in the Listening Room start at the List's top, right under the field, wherever the wall or the List was left (27915f1)
+- flows: J2.5 and J2.7 follow the new bar and the shelf wall: a starred take stands on two shelves, the bar's display carries the take's name, and a drag starts on a spine in sight (3fdcfa8)
+- On a tablet the Listening Room's wall ends where the bar begins, so its last shelf is never under the bar (d3011d4)
+- On a phone the Listening Room opens on the List again, not the wall under a lit List key, now that the room is ready before its first visit (7da86d6)
+- On a tablet the Listening Room's wall scrolls under a finger that starts on a spine, a long library scrolls and plays without stutter, Shelf | List switches about twice as fast, and a long shelf ends on half a spine at the case's edge (b83745c)
+- On a tablet, the Listening Room's shelves stay where they are when the page is pushed sideways to reach ✎ past the screen's edge (57e48fa)
+- The Listening Room is a library: on a tablet, shelves fill the room, a month to a shelf, then ★ and a shelf per tag; Shelf | List, Sort ▾ and a search that opens the List right under its field (c9e1ea5)
+- The Listening Room's search finds what is printed on a spine, the day in words (today, saturday, october, 24 oct), a tag, the tempo or a note's words (a2b1502)
+- A take is called what its spine says everywhere: the bar, Recently deleted and the toasts no longer show its file's date stamp (239db51)
+
+
 ## v2026.10.25.5 — 2026-10-25
 
 - The bar's stylesheet test expects the moves between rooms after it, as every page now loads them (8e23056)

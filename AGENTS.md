@@ -11,6 +11,35 @@ the UI uses, in `docs/architecture.md`. What state things are in goes stale,
 so it isn't here either: read `docs/plan/STATE.md`, then `git log`. Don't read
 `CHANGELOG.md`: it is generated, and `git log` has the same lines.
 
+## When the right way is bigger than the task
+
+Most of the rules further down were written after a feature reached around
+an interface instead of through it: six menus with five ways to be placed,
+eleven holds with four thresholds, eight copies of one brace matcher in
+eighteen test files. Each shortcut was quicker that day, and each one was
+paid for again, with interest, in the pass that cleaned it up.
+
+- **Build the interface first, or stop and say so.** If a change needs a
+  model, a controller method or a shared helper that doesn't exist yet,
+  add it (its own commit, or its own PR if it is large) and then use it.
+  If that is more than the task can carry, stop and report what is
+  missing: never ship the feature around it. These count as reaching
+  around: reading state back out of the DOM, a `setTimeout` to win a
+  race, copying a helper instead of moving it somewhere both can import,
+  `!important`, a `catch` that swallows, a second way to do what
+  `lib/ui/` already does.
+- **An exception is Gabe's decision, not a fix.** Never add an entry to an
+  allow-list, a budget, `TYPED`, `scripts/flows/layout-known.json` or a
+  "still their own" list to turn a check green. They exist so the numbers
+  only go down. Report the failure, and what it would take to fix it
+  properly.
+- **A pull request names the interfaces it touches**: the module, what it
+  exports, who calls it, and whether that changed. A change to one goes in
+  `docs/architecture.md` in the same pull request, not in a later tidy-up.
+- **Review the diff, not the summary.** Before a merge, someone who did not
+  write the change reads the diff against these rules: a fresh agent given
+  the code and this file, not the author's account of it.
+
 ## The checks to run
 
 No package.json, no bundler, no dependencies. Node's own test runner (Node 22,
