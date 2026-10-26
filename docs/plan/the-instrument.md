@@ -241,10 +241,11 @@ My recommendation first in each.
        runs it through Wine.
      - The toolchain is 32-bit. Rosetta for Linux can't run 32-bit code,
        so on the Mac QEMU does: each tool takes about 45 s to start, and a
-       build takes most of an hour. CI's Linux build takes about a minute.
-     - Proved: the fork's CI builds the Elite firmware on `windows-latest`,
-       the platform M-VAVE supports, and under Wine on Linux. The two
-       packages are the same bytes, for V01 and for the fork.
+       build takes 26 minutes. CI's Linux build takes about a minute.
+     - Proved: the fork's CI builds the Elite firmware on `windows-latest`
+       with Windows PowerShell, as `build.bat` does, and under Wine on
+       Linux. The two packages are the same bytes, for V01 and for the
+       fork, and the Mac's own build matched CI's too.
      - Fallback: JieLi's Linux toolchain, a different compiler build not
        proved against the binary SDK. Last resort: a Windows VM.
 
