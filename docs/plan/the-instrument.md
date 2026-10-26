@@ -265,6 +265,16 @@ My recommendation first in each.
      - The synth: the keys play the onboard FM engine with no added delay.
        Its audio reaches the Pi over USB as an input, and its tempo
        follows the tape's clock.
+     - The synth has one small page of its own: a surface, not a second
+       instrument (Gabe, 2026-10-26). It is built from Open's DX7 QUICK
+       EDIT page, which picks one of the 128 voices (PRESETS, and PAGE
+       for the bank) and has four knobs for quick edits, plus Open's
+       effects page for the synth's own reverb and delay. Which four
+       knobs is a detail for the build; Open's are algorithm, feedback,
+       transpose and level. Deep editing (operators, envelopes, LFOs)
+       moves to the phone, if it is built. Unplugged from the Pi, the
+       keyboard plays its voices and nothing more: no step sequencer and
+       no projects on the unit.
    - *What the Pi does with them*, in Gabe's order:
      - transport: play, stop, record, scrub on an encoder, loop in and
        out, back to the start, tap tempo. And a button only Hindsight
@@ -283,7 +293,7 @@ My recommendation first in each.
      | Open's app | Bytes | In ours |
      |---|---|---|
      | Drivers: keys, pads, screen, audio; MIDI routing; controls | 14.1 K | kept |
-     | Sound-editing pages: FM, tone, envelope, LFO, FX, names | 13.5 K | gone: the phone edits sounds |
+     | Sound-editing pages: FM, tone, envelope, LFO, FX, names | 13.5 K | gone, except the quick-edit and effects pages |
      | Projects, presets, sessions, and their storage | 11.9 K | gone, except the device's settings |
      | The factory DX7 voices | 10.2 K | kept, all or some |
      | Control dispatch (`apply_controls` and its helpers) | 10.1 K | replaced by MIDI out |
@@ -293,7 +303,7 @@ My recommendation first in each.
      | Sequencer and step pages | 1.9 K | gone: the tape is the arrangement |
      | Overview and mixer pages | 1.9 K | drawn from the Pi's state |
      | Bluetooth page | 1.9 K | kept |
-     | Project and preset pages | 1.4 K | gone |
+     | Project and preset pages | 1.4 K | gone, except picking a voice |
 
      About 40 KB comes out, and our protocol, widgets and MIDI mapping
      go back in. These figures are estimates: inlining moves bytes
@@ -363,10 +373,6 @@ My recommendation first in each.
      transfer protocol (2.8 K), which the SysEx handler replaces. A
      smaller user partition would be one more source, but only a unit can
      say whether the SDK accepts one.
-   - *A surface only, or Open's instrument as a second mode.* Make it a
-     surface only: the room above comes from Open's own pages. Keeping a
-     standalone mode means keeping its sound-editing pages and its
-     projects, about 25 K, and finding the room elsewhere.
    - *The factory DX7 voices* (10.2 K): keep all 128 while there is room,
      since the synth over the tape is a goal. Cut to a bank of 32 if
      space runs short.
