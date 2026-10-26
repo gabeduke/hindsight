@@ -29,10 +29,38 @@ const axe = () => (axeSource ??= readFileSync(require.resolve('axe-core/axe.min.
 // and the pages' own), but not a sheet.
 const MENU = '.menu, [role=menu], .key-pop, [role=listbox]';
 
+// Scrolled under the pinned chrome (the bar, the app bar) is not a fault:
+// the page scrolls it back out, so long as it can scroll. The covered check
+// and axe's target-size both judge it so, by these, which run in the page
+// (each check puts PIN there first). axe alone once failed J2.7 on a List
+// just long enough to leave a sliver of a row's key above the bar.
+function pinned(n) {
+  for (let p = n instanceof Element ? n : n.parentElement; p && p !== document.body; p = p.parentElement) {
+    if (/fixed|sticky/.test(getComputedStyle(p).position)) return p;
+  }
+  return null;
+}
+function scrolls(n) {
+  const d = document.scrollingElement;
+  if (d && d.scrollHeight > innerHeight + 1) return true;
+  for (let p = n.parentElement; p && p !== document.body; p = p.parentElement) {
+    const o = getComputedStyle(p);
+    if (/(auto|scroll)/.test(o.overflowY) && p.scrollHeight > p.clientHeight + 1) return true;
+  }
+  return false;
+}
+function underChrome(el, hit) {
+  const { pinned, scrolls } = window.__layoutPin;
+  const pin = pinned(hit);
+  return !!pin && !pin.contains(el) && !pinned(el)?.contains(pin) && scrolls(el);
+}
+const PIN = `window.__layoutPin = { pinned: ${pinned}, scrolls: ${scrolls}, underChrome: ${underChrome} };`;
+
 // geometry runs in the page: the covered, offscreen, clipped and
 // small-touch checks over every visible control, and menu-offscreen over
 // every open menu.
-function geometry({ touch, MENU }) {
+function geometry({ touch, MENU, PIN }) {
+  if (!window.__layoutPin) (0, eval)(PIN);
   const CONTROL = 'button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=tab], [role=slider], [tabindex]:not([tabindex="-1"])';
   const W = innerWidth, H = innerHeight;
   const name = (el) => {
@@ -49,21 +77,7 @@ function geometry({ touch, MENU }) {
     const st = getComputedStyle(el);
     return st.visibility !== 'hidden' && st.display !== 'none' && Number(st.opacity) > 0.05 && st.pointerEvents !== 'none';
   };
-  const pinned = (n) => {
-    for (let p = n instanceof Element ? n : n.parentElement; p && p !== document.body; p = p.parentElement) {
-      if (/fixed|sticky/.test(getComputedStyle(p).position)) return p;
-    }
-    return null;
-  };
-  const scrolls = (n) => {
-    const d = document.scrollingElement;
-    if (d && d.scrollHeight > innerHeight + 1) return true;
-    for (let p = n.parentElement; p && p !== document.body; p = p.parentElement) {
-      const o = getComputedStyle(p);
-      if (/(auto|scroll)/.test(o.overflowY) && p.scrollHeight > p.clientHeight + 1) return true;
-    }
-    return false;
-  };
+  const { pinned, scrolls } = window.__layoutPin;
   const out = [];
   for (const el of document.querySelectorAll(CONTROL)) {
     if (!shown(el) || el.disabled) continue;
@@ -94,10 +108,8 @@ function geometry({ touch, MENU }) {
       // Meant to cover: a sheet, a menu or a panel that's open over the page
       // (a key’s ▾ opens a role=dialog panel, lib/ui/menu.js splitKey).
       const layer = hit.closest('dialog[open], [role=menu], .menu, :popover-open, [role=dialog]:not([hidden])');
-      // Scrolled under the pinned chrome (the bar, the app bar): the page
-      // scrolls it back out, so long as the page can scroll.
-      const pin = pinned(hit);
-      const under = pin && !pin.contains(el) && !pinned(el)?.contains(pin) && scrolls(el);
+      // Scrolled under the pinned chrome: not a fault (underChrome).
+      const under = window.__layoutPin.underChrome(el, hit);
       if (!(label && (label.contains(el) || label.control === el)) && !(layer && !layer.contains(el)) && !under) {
         const top = hit.closest(CONTROL) || hit;
         out.push({ rule: 'covered', severity: 'fail', el: name(el), by: name(top), msg: `its middle is under ${name(top)}` });
@@ -142,10 +154,11 @@ const allowance = (f) => ALLOW.find((a) => a.rule === f.rule &&
 
 // sample is one look at the page: the geometry checks and axe's.
 async function sample(page, touch) {
-  const found = await page.evaluate(geometry, { touch, MENU }).catch(() => []);
+  const found = await page.evaluate(geometry, { touch, MENU, PIN }).catch(() => []);
   // axe in the page by evaluate, not a script tag, so no CSP stops it.
-  const axeFound = await page.evaluate(async (src) => {
+  const axeFound = await page.evaluate(async ([src, pin]) => {
     if (!window.axe) (0, eval)(src);
+    if (!window.__layoutPin) (0, eval)(pin);
     const r = await window.axe.run(document, { runOnly: { type: 'rule', values: ['target-size'] }, resultTypes: ['violations'] });
     // A control partly under an open sheet, menu or panel is meant to be,
     // as the covered check above has it: the ⋯ menu over the feed's keys.
@@ -156,11 +169,23 @@ async function sample(page, touch) {
       const b = el?.getBoundingClientRect();
       return !!b && layers.some((l) => b.left < l.right && b.right > l.left && b.top < l.bottom && b.bottom > l.top);
     };
+    // And one partly scrolled under the pinned chrome, as the covered
+    // check has it: whatever covers it, at its middle and its edges.
+    const underPinned = (sel) => {
+      const el = document.querySelector(sel);
+      const b = el?.getBoundingClientRect();
+      if (!b) return false;
+      const x = (b.left + b.right) / 2, y = (b.top + b.bottom) / 2;
+      const covers = [[x, y], [x, b.top + 1], [x, b.bottom - 1], [b.left + 1, y], [b.right - 1, y]]
+        .map(([px, py]) => document.elementFromPoint(px, py))
+        .filter((h) => h && h !== el && !el.contains(h) && !h.contains(el));
+      return covers.length > 0 && covers.every((h) => window.__layoutPin.underChrome(el, h));
+    };
     return r.violations.flatMap((v) => v.nodes.map((n) => ({
       rule: 'target-size', severity: 'fail', el: n.target.join(' '),
       msg: (n.any[0]?.message || n.failureSummary || v.help).replace(/\s+/g, ' ').slice(0, 160),
-    })).filter((f) => !(/obscured/.test(f.msg) && underLayer(f.el))));
-  }, axe()).catch((e) => [{ rule: 'axe', severity: 'warn', el: '', msg: `axe didn't run: ${e.message.split('\n')[0]}` }]);
+    })).filter((f) => !(/obscured/.test(f.msg) && (underLayer(f.el) || underPinned(f.el)))));
+  }, [axe(), PIN]).catch((e) => [{ rule: 'axe', severity: 'warn', el: '', msg: `axe didn't run: ${e.message.split('\n')[0]}` }]);
   return [...found, ...axeFound];
 }
 

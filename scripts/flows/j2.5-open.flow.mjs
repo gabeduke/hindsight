@@ -84,12 +84,14 @@ export default {
     await t.step('tap Rename…', () => t.tap(page.locator('#take-rename')));
     const field = await t.poll(() => document.activeElement?.id === 'take-name-input' && document.getElementById('take-name').hidden);
     t.expect('the name becomes its field, ready to type', field);
+    // Not a word J2.7 searches for: the flows share one demo, and J2.7's
+    // search has to find its own take alone.
     await t.step('type a name and press Enter', async () => {
-      await page.keyboard.type('Bridge idea');
+      await page.keyboard.type('Verse sketch');
       await page.keyboard.press('Enter');
     });
-    const renamed = await api.until(async () => (await api.takes()).find((x) => x.name === name && x.label === 'Bridge idea'), 'the name to reach the Pi', 5000).catch(() => null);
-    t.expect('the Pi has the name, and the header says it', renamed && await t.poll(() => document.getElementById('take-name-text')?.textContent === 'Bridge idea'));
+    const renamed = await api.until(async () => (await api.takes()).find((x) => x.name === name && x.label === 'Verse sketch'), 'the name to reach the Pi', 5000).catch(() => null);
+    t.expect('the Pi has the name, and the header says it', renamed && await t.poll(() => document.getElementById('take-name-text')?.textContent === 'Verse sketch'));
 
   },
 };
