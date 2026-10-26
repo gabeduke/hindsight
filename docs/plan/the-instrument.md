@@ -254,10 +254,12 @@ My recommendation first in each.
    - *The keyboard is the hands and a screen to glance at; the Pi is the
      brain.* The firmware never knows what a tape is. It shows what the Pi
      says, sends what is touched, and plays its own synth.
-     - Controls go out as plain MIDI. Encoders send relative turns, so a
-       value never jumps. Buttons send press and release, so Hindsight's
-       `GESTURE` decides tap, hold and double tap. Faders send values,
-       pads send pressure.
+     - Controls go out as plain MIDI. Buttons send press and release, so
+       Hindsight's `GESTURE` decides tap, hold and double tap. Faders send
+       values, and pads send pressure. Encoders send absolute values,
+       because Hindsight's knob bindings take absolute values; the Pi sets
+       where each knob stands, so a value never jumps. (The plan first
+       said relative turns.)
      - The screen: the Pi sends state, not pixels. The firmware draws a
        few widgets from it at 60 fps: the tape's counter, the transport,
        the FX as knobs, meters, track names, and text for menus.
@@ -340,39 +342,57 @@ My recommendation first in each.
       - keep two copies, on two disks.
    4. ⌨ *m-bootloader:* the boot area only (16 KiB), from a pinned
       release. SEQ PLAY opens the menu, SEQ REC gives download mode, and
-      stock still starts. Back up and diff.
+      stock still starts. Back up and diff with
+      `--accept-unit 0xFF000-0xFF23C`, for its calibration copy (Gabe
+      accepted it, 2026-10-26).
    5. ⌨ *The fork as step 1 leaves it,* by M-Flasher, with neither
       `--with-bootloader` nor `--wipe-settings`. Check that it boots and
       that the keys and pads respond. Back up and diff.
-   6. ⌨ *The first proof: text over SysEx.* It needs room first (*Room
-      for code*, under *To settle*). First from the Mac
-      (`sendmidi`), then from the Pi (`amidi -S`), then from Hindsight.
-      Today `internal/midi` only skips SysEx when it reads, so it gains a
-      SysEx writer and a way to send text, with tests. It finds the port
-      by the profile's name. The keyboard stays class-compliant, so the
-      Pi needs no driver.
-   7. Make the room: take out what *Our firmware* drops, one build at a
-      time, keeping its keys and pads working. Then the controls as plain
-      MIDI, and the lights from the Pi.
+   6. ⌨ *The first proof: text over SysEx.* The firmware is built and
+      tested off the unit, in
+      [gabeduke/smk37-hindsight#2](https://github.com/gabeduke/smk37-hindsight/pull/2).
+      It speaks protocol version 1 (`app/hindsight.h`): HELLO, CLEAR,
+      TEXT and RELEASE, each acked with its seq. Only CLEAR takes the
+      screen, and HOME gives it back and tells the Pi. Replacing the
+      workbench's transfer protocol made the room: the image is 450,596
+      bytes. On the unit: first from the Mac (`tools/midi.swift hs SMK
+      hello`), then from the Pi (`amidi -S`), then from Hindsight. Today
+      `internal/midi` only skips SysEx when it reads. It gains a SysEx
+      writer and a client for the protocol, with tests, and finds the
+      port by the profile's name. The keyboard stays class-compliant, so
+      the Pi needs no driver.
+   7. *The surface* is built and tested off the unit, in
+      [gabeduke/smk37-hindsight#3](https://github.com/gabeduke/smk37-hindsight/pull/3).
+      While the Pi has the screen, the panel speaks to it:
+      - pads as notes 36–51 on channel 10, with poly aftertouch. That is
+        the SMK-37 profile's Play mode, CATCH and GRAB;
+      - encoders as CC 21–27 on channel 16, absolute, which the Pi sets
+        with KNOB;
+      - faders as CC 28–35;
+      - buttons as notes on channel 16, pressed and let go.
+
+      Then the lights from the Pi, and the room the screen's widgets need.
+      That room comes from what *Our firmware* drops, one build at a time,
+      keeping the keys and pads working.
    8. The screen's widgets, then the features in Gabe's order:
       transport, FX, clip arranging. Then the keyboard's synth over the
       tape, recorded as an input. That is the Elite's USB audio, shown
       under SMK-37+VA but not yet under our firmware or on Linux.
 
+   Decided: *m-bootloader's write into 0xFF000* is accepted (Gabe,
+   2026-10-26, "use the recommended patterns regarding writes"). It fills
+   blank bytes with a copy of the calibration and never erases, and it is
+   the build M-Flasher and m-bootloader were tested with.
+
    To settle, my recommendation first:
-   - *m-bootloader's write into 0xFF000*, which the first rule rules out.
-     Accept it: it fills blank bytes with a copy of the calibration and
-     never erases, and it is the build M-Flasher and m-bootloader were
-     tested with. The alternatives: build m-bootloader without the guard
-     (one function, but an untested bootloader), or skip m-bootloader
-     and rely on the soft key and a Pico dongle.
    - *Room for code.* V01's Elite image is 453,892 bytes, and
      `Package.cs` allows 453,921: 29 bytes to spare. *Our firmware* says
-     where the room comes from. For the first proof, reuse `screen.c`'s
-     own text drawing (capitals and digits), and take out the workbench's
-     transfer protocol (2.8 K), which the SysEx handler replaces. A
-     smaller user partition would be one more source, but only a unit can
-     say whether the SDK accepts one.
+     where the room comes from. The first proof reused `screen.c`'s own
+     text drawing and took out the workbench's transfer protocol, which
+     left 3,325 bytes with the surface in. The screen's widgets need
+     more, from the pages *Our firmware* drops. A smaller user partition
+     would be one more source, but only a unit can say whether the SDK
+     accepts one.
    - *The factory DX7 voices* (10.2 K): keep all 128 while there is room,
      since the synth over the tape is a goal. Cut to a bank of 32 if
      space runs short.
