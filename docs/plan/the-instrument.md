@@ -216,11 +216,13 @@ My recommendation first in each.
    - *Every write by M-Flasher*, from the Mac. It writes only the sectors
      that change, verifies them and keeps m-bootloader. Never the
      workbench, never M-UPGRADE.
-   - *A guard before any feature.* The fork's first change routes every
-     user-flash write and erase through one function. It refuses
-     `[0xC0000, 0xC2000)` and `[0xFF000, …)`, and a host test checks it.
-     The sample bank stops before 0xC0000, at offset 0x44000 in the
-     partition. This is Skiff's `FL_GUARD`, for the same reason.
+   - *A guard before any feature.* New sample transfers stop at 0xC0000.
+     Every area the app writes asserts at compile time that it keeps clear
+     of `[0xC0000, 0xC2000)` and `[0xFF000, …)`, and a test fails on a
+     Flash write anywhere else. A runtime guard like Skiff's `FL_GUARD`
+     didn't fit (*Room for code*, under *To settle*). The guard can't
+     cover the SDK's own update path, which is one more reason never to
+     point the workbench at the unit.
    - *A proof after every write:* back up again and diff against the
      first dump. Nothing may differ outside what that write meant to
      change, and 0xC0000–0xC1FFF never may. A script in the fork does the
@@ -233,24 +235,29 @@ My recommendation first in each.
      (115 KB) is too much for SysEx.
    - *The toolchain on a Mac* (Apple silicon, with Docker):
      - M-VAVE's Windows 2.5.3 toolchain (PI32v2 clang 4.0.1, `r3`) runs
-       under Wine in a linux/amd64 container. It is unpacked from its
-       installer, never run. PowerShell 7 runs `sdk/Build.ps1` with one
-       change: a `wine` prefix in its `Run`.
-     - The fork's CI builds on `windows-latest`, the platform M-VAVE
-       supports. The container's `sdk.elf` has to match CI's byte for
-       byte: `Build.ps1` records its SHA-256, and the app embeds no
-       `__DATE__`.
+       under Wine in a linux/amd64 container (`tools/container/build.sh`
+       in the fork). It is unpacked from its installer, never run, and all
+       22 of its files match the SDK's manifest. Off Windows, `Build.ps1`
+       runs it through Wine.
+     - The toolchain is 32-bit. Rosetta for Linux can't run 32-bit code,
+       so on the Mac QEMU does: each tool takes about 45 s to start, and a
+       build takes most of an hour. CI's Linux build takes about a minute.
+     - Proved: the fork's CI builds the Elite firmware on `windows-latest`,
+       the platform M-VAVE supports, and under Wine on Linux. The two
+       packages are the same bytes, for V01 and for the fork.
      - Fallback: JieLi's Linux toolchain, a different compiler build not
        proved against the binary SDK. Last resort: a Windows VM.
 
    The steps, each a checkpoint. ⌨ marks one Gabe confirms at the
    keyboard:
-   1. *Off the unit:*
-      - the fork;
-      - V01 built unmodified for the Elite, in the container and on CI,
-        the two matching;
-      - the guard and its test, and the dump diff;
-      - M-Flasher, and a MIDI monitor.
+   1. *Off the unit:* done 2026-10-26, in
+      [gabeduke/smk37-hindsight#1](https://github.com/gabeduke/smk37-hindsight/pull/1):
+      - the fork, `gabeduke/smk37-hindsight`;
+      - the Elite firmware built on Windows and under Wine, the same bytes;
+      - the write areas asserted, with a test, and `tools/flash-diff.py`;
+      - M-Flasher 0.6.1, built on the Mac from its tag;
+      - a MIDI monitor: `tools/midi.swift` in the fork on the Mac, and
+        `aseqdump` on the Pi.
    2. ⌨ *Identify the unit, read-only:*
       - on the Mac: done, above;
       - on the Pi, by *Capturing an unknown device* in
@@ -269,10 +276,11 @@ My recommendation first in each.
    4. ⌨ *m-bootloader:* the boot area only (16 KiB), from a pinned
       release. SEQ PLAY opens the menu, SEQ REC gives download mode, and
       stock still starts. Back up and diff.
-   5. ⌨ *The fork with only the guard added,* by M-Flasher, with neither
+   5. ⌨ *The fork as step 1 leaves it,* by M-Flasher, with neither
       `--with-bootloader` nor `--wipe-settings`. Check that it boots and
       that the keys and pads respond. Back up and diff.
-   6. ⌨ *The first proof: text over SysEx.* First from the Mac
+   6. ⌨ *The first proof: text over SysEx.* It needs room first (*Room
+      for code*, under *To settle*). First from the Mac
       (`sendmidi`), then from the Pi (`amidi -S`), then from Hindsight.
       Today `internal/midi` only skips SysEx when it reads, so it gains a
       SysEx writer and a way to send text, with tests. It finds the port
@@ -291,11 +299,22 @@ My recommendation first in each.
      tested with. The alternatives: build m-bootloader without the guard
      (one function, but an untested bootloader), or skip m-bootloader
      and rely on the soft key and a Pico dongle.
-   - *The sampler:* cap the bank before 0xC0000, which leaves about 9 s
-     instead of 19.5. The alternative is to drop it from the first
-     builds: this firmware plays over the tape. The DX7 library and
-     tuning sectors (`[0xFA000, 0xFF000)`) sit over the stock sounds,
-     which the backup holds.
+   - *Room for code.* V01's Elite image is 453,892 bytes, and
+     `Package.cs` allows 453,921: 29 bytes to spare. The first proof needs
+     a SysEx handler, a font and drawing. Measure first: build without
+     each candidate in CI (the sampler's code, an engine, the factory DX7
+     voices), see what each frees, then choose. A smaller user partition
+     would free the most, but only a unit can say whether the binary SDK
+     accepts one.
+   - *The sampler:* capped before 0xC0000 in the fork, which leaves about
+     9 s instead of 19.5; that was the recommendation. Dropping it would
+     also free code space. The DX7 library and tuning sectors
+     (`[0xFA000, 0xFF000)`) sit over the stock sounds, which the backup
+     holds.
+   - *Builds on the Mac:* let CI build (about a minute) and fetch its
+     package with `gh run download`; the container stays for working
+     offline. Wine for macOS would be fast, since its Rosetta does run
+     32-bit code, but it is unsigned software installed on the Mac.
    - *Rehearse on the FM-1 first.* Gabe has one. It has the same chip,
      and M-VAVE's `fm1_open` is the same SDK. M-Flasher and m-bootloader
      were tested on its hardware, and it has no factory calibration to
@@ -306,7 +325,6 @@ My recommendation first in each.
    - *The CC map in the profile* follows the firmware on the unit until
      ours lands; SMK-37+VA's is in its manual. The alternative is to put
      stock back to capture its map.
-   - *The fork's name:* `smk37-hindsight`?
 
    Sources:
    - <https://github.com/m-vave/smk37_open> (V01, `b2d6bcb`): `sdk/include/fm1.h`, `sdk/Package.cs`,
