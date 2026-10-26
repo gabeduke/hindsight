@@ -120,60 +120,186 @@ My recommendation first in each.
 
 ### The controller (its own track)
 
-7. **The SMK-37 Elite's firmware.** What the research found
-   (2026-10-26, from published sources, each to confirm on Gabe's unit):
+7. **The SMK-37 Elite's firmware.** Checked against the sources
+   themselves on 2026-10-26. Nothing is confirmed on Gabe's unit yet: it
+   wasn't connected.
    - *The hardware:*
-     - a JieLi AC791N (WL82) with 1 MiB of SPI flash;
-     - a 240×240 ST7789V display over SPI;
-     - a DX7-style FM synth with a sequencer and an arpeggiator;
+     - a JieLi AC791N (WL82) with 1 MiB of SPI flash and about 511 KiB of
+       internal RAM, no external RAM;
+     - a 240×240 ST7789V display on SPI1, a bus the pad LEDs share;
      - 8 encoders, 16 pressure pads with RGB LEDs, 4 faders and 18 lit
        buttons;
-     - class-compliant USB MIDI, BLE MIDI, and TRS MIDI out only.
+     - class-compliant USB MIDI, BLE MIDI, and TRS MIDI out only. The USB
+       is probably full speed: the flash reads at about 860 KB/s.
 
      The Pro, the Elite and two rebadges are one hardware family; the
-     Elite is the least tested of them.
-   - *Open firmware exists:* M-VAVE's own `m-vave/smk37_open`. Its app
-     layer is GPLv3 with an SDK exception; the SDK is binary-only, and the
-     toolchain runs on Windows only. There are GPL ports and a board layer
-     (genkigenki; Skiff), and several full replacement firmwares already
-     draw on the display at about 60 fps. Baud Girl's SMK-37+VA is closed
-     source, so we can't build on it.
+     Elite is the least tested of them. The stock firmware is a DX7-style
+     FM synth with a sequencer and an arpeggiator.
+   - *Open firmware:* M-VAVE released SMK37 OPEN V01 on 2026-10-24
+     (`m-vave/smk37_open`). It is a whole instrument: eight tracks (DX7,
+     303, 808, PSG, pluck, sampler), a sequencer, and a browser workbench
+     that installs it over Web MIDI. Its app layer, the board layer
+     included, is GPLv3 with an SDK exception; the SDK (`libfm1_engine.a`)
+     is binary-only. Its SDK settles what the research left open:
+     - *SysEx in:* `fm1_app_sysex()` is handed whole frames, F0 to F7, of
+       at most 1024 bytes, on the routing task. It copies the frame and
+       calls `fm1_control_request()`; drawing happens on the control
+       task. Open's own transfers already use `F0 7D 'F' 'M' 2`.
+     - *The display:* the app's board layer drives SPI1
+       (`app/board/lcd.inc`), behind the SDK's `fm1_screen_fill`, `_blit`
+       and `_submit` (DMA in bands of 240×16 pixels). Its font has digits
+       and capitals only.
+     - *What the FM engine leaves of the RAM:* `Build.ps1`'s image report
+       gives it at the first build.
+
+     The GPL ports (genkigenki's board layer, Skiff) build with JieLi's
+     Linux toolchain. Baud Girl's SMK-37+VA is closed source, so we can't
+     build on it.
    - *Recovery:*
-     - the chip's mask-ROM download mode dumps the whole flash
-       (`jl-uboot-tool`);
-     - `m-bootloader` (MIT) adds a recovery menu on a key combination;
+     - the ROM's download mode (`4C4A:8057`, a mass-storage disk) reads and
+       writes the whole flash. The stock firmware restarts into it on
+       `F0 22 24 35 7D F7`;
+     - M-Flasher (MIT, native on the Mac) replaces `jl-uboot-tool`. It
+       backs up, restores, and installs packages and m-bootloader. It
+       checks every read against the chip's CRC32 and refuses the factory
+       ranges;
+     - `m-bootloader` (MIT) adds a recovery menu (SEQ PLAY at power-on)
+       and download mode (SEQ REC);
+     - with no working bootloader, the USB_KEY dongle (a Raspberry Pi
+       Pico) still forces download mode;
      - three regions are the unit's own and are never written: Bluetooth
-       pairing at 0xC0000, factory calibration at 0xC1000, and the chip key
-       at 0xFF000.
+       pairing at 0xC0000, factory calibration at 0xC1000, and the chip
+       key and MAC at 0xFF000. The wheel calibration (around 0xC2060) and
+       the stock sounds (`[0xF4000, 0xFE000)`) are the unit's too: only a
+       backup brings them back.
+   - *Where that last rule is at risk:*
+     - SMK37 OPEN's user partition is `[0x7C000, 0xFF000)`
+       (`sdk/Package.cs`). Projects run to 0x8D000; after them, a sample
+       bank lies over 0xC0000, 0xC1000, the wheel calibration and the
+       stock sounds. Booting writes nothing there, but a sample transfer,
+       *Check / initialize samples* or a library save does. Open ignores
+       the factory calibration and keeps its own in VM.
+     - On its first start, m-bootloader's calibration guard copies 0xC1000
+       into `[0xFF000, 0xFF23C)`. It writes blank bytes only and never
+       erases. If 0xC1000's marker is ever invalid, the guard erases that
+       sector and restores its copy at every start: under Open's sample
+       bank, that would cut into samples. While 0xC1000 stays intact, the
+       guard never trips.
+     - M-VAVE's update loader, which Open's packages and the workbench
+       use, erased 0xC0000–0xC1FFF on a Skiff unit. And every official or
+       workbench install puts M-VAVE's bootloader back over m-bootloader.
 
-   The steps, each a checkpoint:
-   1. Back up first: dump the flash twice, check the dumps agree, and keep
-      them off the repo.
-   2. Install `m-bootloader`, so a bad build is a key combination away
-      from recovery.
-   3. The first proof: a SysEx handler in `smk37_open` that draws text the
-      Pi sends. The Pi talks to the firmware over USB MIDI with SysEx: the
-      keyboard stays class-compliant, so Hindsight's MIDI path
-      (`internal/midi`) needs no driver. Send text, primitives and changed
-      rectangles: a whole frame (115 KB) is too much for SysEx.
-   4. Pad colours from the Pi, and encoders as relative CCs.
-   5. The features in Gabe's order: transport, FX, clip arranging. Then
-      the keyboard's synth over the tape, recorded as an input. That is the
-      Pro's USB audio, not yet shown on the Elite or on Linux.
+   Gabe's rules for it (2026-10-26):
+   - never write the three regions above;
+   - back up the whole flash twice, and check the dumps match, before
+     anything is flashed;
+   - keep the dumps out of every repo;
+   - install m-bootloader before any build of ours, so there is a way
+     back;
+   - flash nothing without Gabe at the keyboard, confirming each step;
+   - the firmware lives in its own repo, a fork of `m-vave/smk37_open`
+     (GPLv3, with its linking exception and `THIRD_PARTY.md`), not here.
 
-   Still open: how much RAM the FM engine leaves; whether the binary SDK or
-   the app owns the display's SPI bus; the stock CC map (capture it with a
-   MIDI monitor first); whether the keyboard is full-speed or high-speed
-   USB.
+   How:
+   - *Every write by M-Flasher*, from the Mac. It writes only the sectors
+     that change, verifies them and keeps m-bootloader. Never the
+     workbench, never M-UPGRADE.
+   - *A guard before any feature.* The fork's first change routes every
+     user-flash write and erase through one function. It refuses
+     `[0xC0000, 0xC2000)` and `[0xFF000, …)`, and a host test checks it.
+     The sample bank stops before 0xC0000, at offset 0x44000 in the
+     partition. This is Skiff's `FL_GUARD`, for the same reason.
+   - *A proof after every write:* back up again and diff against the
+     first dump. Nothing may differ outside what that write meant to
+     change, and 0xC0000–0xC1FFF never may. A script in the fork does the
+     diff.
+   - *The protocol:* `F0 7D 'H' 'S' <version> <command> … F7`, at most
+     1024 bytes. 0x7D is MIDI's non-commercial ID: fine for our own kit,
+     not for a product, where a manufacturer ID is step 8's. The keyboard
+     acks each command with its sequence number, so step 1 can time Pi →
+     screen. Send text, primitives and changed rectangles: a whole frame
+     (115 KB) is too much for SysEx.
+   - *The toolchain on a Mac* (Apple silicon, with Docker):
+     - M-VAVE's Windows 2.5.3 toolchain (PI32v2 clang 4.0.1, `r3`) runs
+       under Wine in a linux/amd64 container. It is unpacked from its
+       installer, never run. PowerShell 7 runs `sdk/Build.ps1` with one
+       change: a `wine` prefix in its `Run`.
+     - The fork's CI builds on `windows-latest`, the platform M-VAVE
+       supports. The container's `sdk.elf` has to match CI's byte for
+       byte: `Build.ps1` records its SHA-256, and the app embeds no
+       `__DATE__`.
+     - Fallback: JieLi's Linux toolchain, a different compiler build not
+       proved against the binary SDK. Last resort: a Windows VM.
 
-   Sources, as the research found them:
-   - <https://github.com/m-vave/smk37_open>: M-VAVE's open firmware
+   The steps, each a checkpoint. ⌨ marks one Gabe confirms at the
+   keyboard:
+   1. *Off the unit:*
+      - the fork;
+      - V01 built unmodified for the Elite, in the container and on CI,
+        the two matching;
+      - the guard and its test, and the dump diff;
+      - M-Flasher, and a MIDI monitor.
+   2. ⌨ *Identify the unit, read-only:*
+      - on the Mac: the VID:PID, the USB speed, the port names and the
+        firmware version. The stock firmware shows three ports, the first
+        named "…Private";
+      - on the Pi, by *Capturing an unknown device* in
+        `docs/hardware/README.md`: the stock CC map, into
+        `smk-37-elite.json`, in a PR of its own.
+   3. ⌨ *Back up:*
+      - `m-flasher download-mode`;
+      - `info`: the chip, the flash's JEDEC id, the model, the firmware
+        and the bootloader;
+      - `backup` to a directory outside every repo. Power-cycle, back up
+        again, and check the two SHA-256s match;
+      - check `trimdat` at 0xC1224, and what 0xFF000–0xFF23C hold;
+      - keep two copies, on two disks.
+   4. ⌨ *m-bootloader:* the boot area only (16 KiB), from a pinned
+      release. SEQ PLAY opens the menu, SEQ REC gives download mode, and
+      stock still starts. Back up and diff.
+   5. ⌨ *The fork with only the guard added,* by M-Flasher, with neither
+      `--with-bootloader` nor `--wipe-settings`. Check that it boots and
+      that the keys and pads respond. Back up and diff.
+   6. ⌨ *The first proof: text over SysEx.* First from the Mac
+      (`sendmidi`), then from the Pi (`amidi -S`), then from Hindsight.
+      Today `internal/midi` only skips SysEx when it reads, so it gains a
+      SysEx writer and a way to send text, with tests. It finds the port
+      by the profile's name. The keyboard stays class-compliant, so the
+      Pi needs no driver.
+   7. Pad colours from the Pi, and encoders as relative CCs.
+   8. The features in Gabe's order: transport, FX, clip arranging. Then
+      the keyboard's synth over the tape, recorded as an input. That is
+      the Pro's USB audio, not yet shown on the Elite or on Linux.
+
+   To settle, my recommendation first:
+   - *m-bootloader's write into 0xFF000*, which the first rule rules out.
+     Accept it: it fills blank bytes with a copy of the calibration and
+     never erases, and it is the build M-Flasher and m-bootloader were
+     tested with. The alternatives: build m-bootloader without the guard
+     (one function, but an untested bootloader), or skip m-bootloader
+     and rely on the soft key and a Pico dongle.
+   - *The sampler:* cap the bank before 0xC0000, which leaves about 9 s
+     instead of 19.5. The alternative is to drop it from the first
+     builds: this firmware plays over the tape. The DX7 library and
+     tuning sectors (`[0xFA000, 0xFF000)`) sit over the stock sounds,
+     which the backup holds.
+   - *A stock firmware older than 016*, if step 2 finds one: it may not
+     answer the soft key. Use a Pico dongle, rather than an M-UPGRADE
+     update, which would write before any backup.
+   - *The fork's name:* `smk37-hindsight`?
+
+   Sources:
+   - <https://github.com/m-vave/smk37_open> (V01, `b2d6bcb`): `sdk/include/fm1.h`, `sdk/Package.cs`,
+     `sdk/Build.ps1`, `app/instrument.h`, `app/board/`
+   - <https://github.com/jvitkauskas/m-bootloader> (`64b74d0`): `docs/SPEC.md` §4.2, §5.5 and §9.3, and
+     `core_guard` in `src/core.c`
+   - <https://github.com/jvitkauskas/m-flasher> (0.6.1): `docs/usage.md`, `docs/safety.md`,
+     `src/boards.rs`
    - <https://genkigenki.github.io/smk37/> and
-     <https://github.com/genkigenki/fm1-to-smk37> (hardware, pin and flash
-     maps in `docs/01-hardware.md`)
-   - <https://github.com/illuminus5/skiff/blob/main/SMK37.md>: Skiff, with
-     flash dumping by `jl-uboot-tool`
-   - <https://github.com/jvitkauskas/m-bootloader>: the recovery bootloader
+     <https://github.com/genkigenki/fm1-to-smk37>: hardware, pin and flash
+     maps and the calibration record, in `docs/01-hardware.md`
+   - <https://github.com/illuminus5/skiff/blob/main/SMK37.md>: Skiff, its
+     backup done twice, and the loader that erased 0xC0000–0xC1FFF
    - <https://github.com/AL-255/FM-1-RE>: the FM-1, the same chip, reverse
      engineered
    - <https://altstrument.org/devices/m-vave-smk-37>: an overview, and
