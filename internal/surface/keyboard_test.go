@@ -356,6 +356,22 @@ func TestAnOfferForgetsHomeAndPresentsAgain(t *testing.T) {
 		t.Fatal("an OFFER with a seq presented the keyboard")
 	case <-time.After(50 * time.Millisecond):
 	}
+
+	// HOME, then a silence long enough to forget the keyboard: an OFFER
+	// meanwhile still forgets the HOME, so its answer takes the screen.
+	r.k.Feed(frame(0, cmdRelease))
+	r.k.Knob(0, 1)
+	for i := 0; i < r.k.Tries; i++ {
+		r.advance(r.k.AckTimeout)
+	}
+	if s := r.k.Status(); s.Present || !s.Homed {
+		t.Fatalf("after HOME and a silence: %+v, want absent and homed", s)
+	}
+	r.k.Feed(frame(0, cmdOffer))
+	r.present2()
+	if r.k.Status().Homed {
+		t.Fatal("an offer from a forgotten keyboard left the HOME remembered")
+	}
 }
 
 // As Hindsight stops it gives back the screen it has, without waiting.

@@ -4,7 +4,7 @@
 // its screen and draws on it, and sets where its encoders stand. The
 // keyboard answers every message with an ack carrying its seq, says
 // RELEASE itself when HOME gives the screen back, and OFFER when HOME held
-// for a second hands it to Hindsight again.
+// for a second and let go hands it to Hindsight again.
 //
 // The keyboard's mailbox holds one message, so one is in flight at a time:
 // the next goes when its ack comes, and one with no ack is sent again.
@@ -69,8 +69,8 @@ type Status struct {
 	// Screen: Hindsight has its screen.
 	Screen bool
 	// Homed: its player gave the screen back with HOME. It holds until the
-	// keyboard is unplugged (Gone), its player holds HOME to hand the screen
-	// over (OFFER), or Hindsight takes the screen again.
+	// keyboard is unplugged (Gone), its player holds HOME and lets it go to
+	// hand the screen over (OFFER), or Hindsight takes the screen again.
 	Homed bool
 	// RTT is the last ack's round trip, message to ack.
 	RTT time.Duration
@@ -248,8 +248,8 @@ func (k *Keyboard) enqueue(cmd byte, payload []byte) bool {
 	return true
 }
 
-// nextSeq is 1 to 127: seq 0 is the keyboard's own RELEASE. Called with mu
-// held.
+// nextSeq is 1 to 127: seq 0 is the keyboard's own RELEASE and OFFER.
+// Called with mu held.
 func (k *Keyboard) nextSeq() byte {
 	k.seq = k.seq%127 + 1
 	return k.seq
@@ -319,7 +319,7 @@ func (k *Keyboard) Gone() {
 }
 
 // Feed takes a SysEx message from the keyboard's port: an ack, or the
-// keyboard's own RELEASE. Anything else is ignored.
+// keyboard's own RELEASE or OFFER. Anything else is ignored.
 func (k *Keyboard) Feed(msg []byte) {
 	if len(msg) < 8 || string(msg[:5]) != string(header) || msg[len(msg)-1] != 0xF7 {
 		return
@@ -334,8 +334,9 @@ func (k *Keyboard) Feed(msg []byte) {
 		return
 	}
 	if cmd == cmdOffer && seq == 0 {
-		// HOME held: the player hands the screen over. It is taken as when
-		// the keyboard first answered, or then, if it hasn't yet.
+		// HOME held and let go: the player hands the screen over. It is
+		// taken as when the keyboard first answered, or then, if it hasn't
+		// yet (or Hindsight forgot it).
 		k.status.Homed = false
 		present := k.onPresent
 		if !k.status.Present {

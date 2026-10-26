@@ -146,8 +146,8 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
   nothing is flashed yet. Built and tested off the unit:
   - the first proof and the surface, in `gabeduke/smk37-hindsight` #2 and #3;
   - Hindsight's side, `internal/surface`: HELLO, the screen taken on an
-    answer, PLAY and REC bound, HOME held for a second hands the screen
-    back (OFFER).
+    answer, PLAY and REC bound, HOME held for a second and let go hands
+    the screen back (OFFER).
 
   Next, at the keyboard: steps 2–5 (CC map, two backups, m-bootloader,
   the fork), then the first proof on the unit. Download mode didn't come

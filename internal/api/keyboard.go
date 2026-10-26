@@ -7,8 +7,8 @@ package api
 // with it the panel: while Hindsight has the screen, the pads, encoders,
 // faders and buttons send plain MIDI that Play mode's bus binds like any
 // controller's (controls.go, the SMK-37's profile). HOME on the keyboard
-// gives the screen and the panel back, until HOME held for a second hands
-// them over again (OFFER) or the keyboard is plugged in again.
+// gives the screen and the panel back, until HOME held for a second and let
+// go hands them over again (OFFER) or the keyboard is plugged in again.
 
 import (
 	"log"

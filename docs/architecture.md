@@ -248,10 +248,11 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
 - **HOME on the keyboard** gives both back, and the keyboard says RELEASE.
   Hindsight leaves them with the keyboard (`Status.Homed`), even when it
   answers HELLO again.
-- **HOME held for a second**, alone, on the keyboard's own screen, hands
-  them back: the keyboard says OFFER, and Hindsight forgets the HOME and
-  takes the screen as when the keyboard first answered. Unplugging the
-  keyboard or restarting Hindsight forgets the HOME too.
+- **HOME held for a second** on the keyboard's own screen, and let go with
+  nothing else pressed or turned meanwhile, hands them back: the keyboard
+  says OFFER, and Hindsight forgets the HOME and takes the screen as when
+  the keyboard first answered (`Keyboard.Feed`). Unplugging the keyboard
+  or restarting Hindsight forgets the HOME too.
 - **As Hindsight stops**, it gives back a screen it has (`Farewell`), so
   the panel doesn't go on talking to nobody.
 - **One message is in flight at a time**, because the keyboard's mailbox
