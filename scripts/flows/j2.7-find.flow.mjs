@@ -49,7 +49,7 @@ export default {
     const found = await t.poll((name) => {
       const rows = [...document.querySelectorAll('#takes .take.spine:not(.folded)')].filter((r) => r.getClientRects().length);
       return document.body.classList.contains('room-search') && rows.length === 1 && rows[0].dataset.name === name;
-    }, old.name);
+    }, old.name, 15000); // a long library, on a slow CI runner
     let s = await now();
     t.expect('the List opens with the take alone in it', found, s);
     const where = await row(old.name).boundingBox();
