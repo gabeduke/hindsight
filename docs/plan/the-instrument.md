@@ -249,6 +249,60 @@ My recommendation first in each.
      - Fallback: JieLi's Linux toolchain, a different compiler build not
        proved against the binary SDK. Last resort: a Windows VM.
 
+   Our firmware (the direction agreed with Gabe on 2026-10-26; the details
+   are to settle):
+   - *The keyboard is the hands and a screen to glance at; the Pi is the
+     brain.* The firmware never knows what a tape is. It shows what the Pi
+     says, sends what is touched, and plays its own synth.
+     - Controls go out as plain MIDI. Encoders send relative turns, so a
+       value never jumps. Buttons send press and release, so Hindsight's
+       `GESTURE` decides tap, hold and double tap. Faders send values,
+       pads send pressure.
+     - The screen: the Pi sends state, not pixels. The firmware draws a
+       few widgets from it at 60 fps: the tape's counter, the transport,
+       the FX as knobs, meters, track names, and text for menus.
+     - Lights: the pads' colours and the buttons' LEDs, set by the Pi.
+     - The synth: the keys play the onboard FM engine with no added delay.
+       Its audio reaches the Pi over USB as an input, and its tempo
+       follows the tape's clock.
+   - *What the Pi does with them*, in Gabe's order:
+     - transport: play, stop, record, scrub on an encoder, loop in and
+       out, back to the start, tap tempo. And a button only Hindsight
+       has: keep the last N seconds or bars of the ring as a take;
+     - FX: DRIVE, AGE, FILTER, CRUSH and ECHO on five encoders, with
+       their values on the screen. Pads play effects only while held,
+       and never go in undo;
+     - mixing: the four faders set track or input levels (the mixer
+       Gabe wants in the Rig), banked to 5–8. SHIFT and a pad mutes,
+       solos or arms, as Open does;
+     - clip arranging: the 16 pads are the tape's clips, to pick, cue,
+       launch and move. They are Play mode's pads too.
+   - *Where the room comes from.* The image's symbol table says what
+     Open's app spends (about 80 of its 83 KB placed):
+
+     | Open's app | Bytes | In ours |
+     |---|---|---|
+     | Drivers: keys, pads, screen, audio; MIDI routing; controls | 14.1 K | kept |
+     | Sound-editing pages: FM, tone, envelope, LFO, FX, names | 13.5 K | gone: the phone edits sounds |
+     | Projects, presets, sessions, and their storage | 11.9 K | gone, except the device's settings |
+     | The factory DX7 voices | 10.2 K | kept, all or some |
+     | Control dispatch (`apply_controls` and its helpers) | 10.1 K | replaced by MIDI out |
+     | Drawing: text, font, lines, knobs, header, messages | 7.2 K | kept, for our widgets |
+     | Sample storage and the DX7 library | 3.2 K | gone |
+     | The workbench's transfer protocol | 2.8 K | replaced by ours |
+     | Sequencer and step pages | 1.9 K | gone: the tape is the arrangement |
+     | Overview and mixer pages | 1.9 K | drawn from the Pi's state |
+     | Bluetooth page | 1.9 K | kept |
+     | Project and preset pages | 1.4 K | gone |
+
+     About 40 KB comes out, and our protocol, widgets and MIDI mapping
+     go back in. These figures are estimates: inlining moves bytes
+     between functions, and the true figure is the image size a build
+     reports. The SDK's 366 KB stays as it is: it is linked whole, with
+     the instrument's own engine (the sequencer, the arpeggiator, about
+     20 KB), the synth engines and FX (about 21 KB), and Bluetooth (about
+     100 KB).
+
    The steps, each a checkpoint. ⌨ marks one Gabe confirms at the
    keyboard:
    1. *Off the unit:* done 2026-10-26, in
@@ -287,11 +341,13 @@ My recommendation first in each.
       SysEx writer and a way to send text, with tests. It finds the port
       by the profile's name. The keyboard stays class-compliant, so the
       Pi needs no driver.
-   7. Pad colours from the Pi, and encoders as relative CCs.
-   8. The features in Gabe's order: transport, FX, clip arranging. Then
-      the keyboard's synth over the tape, recorded as an input. That is
-      the Elite's USB audio, shown under SMK-37+VA but not yet under our
-      firmware or on Linux.
+   7. Make the room: take out what *Our firmware* drops, one build at a
+      time, keeping its keys and pads working. Then the controls as plain
+      MIDI, and the lights from the Pi.
+   8. The screen's widgets, then the features in Gabe's order:
+      transport, FX, clip arranging. Then the keyboard's synth over the
+      tape, recorded as an input. That is the Elite's USB audio, shown
+      under SMK-37+VA but not yet under our firmware or on Linux.
 
    To settle, my recommendation first:
    - *m-bootloader's write into 0xFF000*, which the first rule rules out.
@@ -301,20 +357,19 @@ My recommendation first in each.
      (one function, but an untested bootloader), or skip m-bootloader
      and rely on the soft key and a Pico dongle.
    - *Room for code.* V01's Elite image is 453,892 bytes, and
-     `Package.cs` allows 453,921: 29 bytes to spare. The link map says
-     where the bytes go:
-     - the binary SDK takes 366,524, linked whole with its engines, so
-       nothing comes out of it;
-     - Open's own app is about 83 KB, and its screen and pages
-       (`screen.c`) are 42 KB of that.
-
-     Room for anything new comes from Open's on-device pages, which a
-     screen the Pi draws would replace, or from a smaller user partition,
-     and only a unit can say whether the SDK accepts one of those. For the
-     first proof: reuse `screen.c`'s own text drawing (capitals and
-     digits), and trim a page for the few hundred bytes the SysEx handler
-     needs. Which of Open's pages stay for good is Gabe's call, and it
-     comes with the Pi-drawn screen.
+     `Package.cs` allows 453,921: 29 bytes to spare. *Our firmware* says
+     where the room comes from. For the first proof, reuse `screen.c`'s
+     own text drawing (capitals and digits), and take out the workbench's
+     transfer protocol (2.8 K), which the SysEx handler replaces. A
+     smaller user partition would be one more source, but only a unit can
+     say whether the SDK accepts one.
+   - *A surface only, or Open's instrument as a second mode.* Make it a
+     surface only: the room above comes from Open's own pages. Keeping a
+     standalone mode means keeping its sound-editing pages and its
+     projects, about 25 K, and finding the room elsewhere.
+   - *The factory DX7 voices* (10.2 K): keep all 128 while there is room,
+     since the synth over the tape is a goal. Cut to a bank of 32 if
+     space runs short.
    - *The sampler:* capped before 0xC0000 in the fork, which leaves about
      9 s instead of 19.5; that was the recommendation. Dropping it would
      also free code space. The DX7 library and tuning sectors
