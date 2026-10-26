@@ -23,7 +23,9 @@ export default {
   async run(t) {
     const { page, api } = t;
     const phone = t.profile === 'phone';
-    // One demo for every profile's run: each names its take a word of its own.
+    // One demo for every profile's run, and for every flow: each names its
+    // take a word of its own, and no other flow names a take with one of
+    // these (J2.5's 'Bridge idea' once made this search find four).
     const word = { tablet: 'Bridge', desktop: 'Coda', phone: 'Outro' }[t.profile] || 'Bridge';
     const d = new Date();
     const lastMonth = new Date(d.getFullYear(), d.getMonth() - 1, 10, 20, 15);
