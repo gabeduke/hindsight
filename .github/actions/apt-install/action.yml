@@ -37,12 +37,11 @@ runs:
 
     - name: Restore the debs
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: ${{ steps.key.outputs.dir }}
         key: ${{ steps.key.outputs.key }}
 
-    # The cache restores before the job's own steps run, and saves after them.
     - name: Download the debs
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
@@ -88,3 +87,13 @@ runs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -f "${flags[@]}" $PACKAGES
         fi
         echo "installed ${#debs[@]} debs"
+
+    # Saved as soon as they have installed, not at the end of the job, which
+    # actions/cache skips when the job fails: one red flow would otherwise
+    # leave the next run downloading again.
+    - name: Keep the debs
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.key.outputs.dir }}
+        key: ${{ steps.key.outputs.key }}

@@ -157,13 +157,23 @@ jobs:
           no-install-recommends: 'true'
 
       - name: Restore Chromium
-        uses: actions/cache@v4
+        id: chromium
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ env.PLAYWRIGHT }}
 
       - name: Install Chromium
         run: npx playwright install chromium
+
+      # Now, not at the end of the job: actions/cache doesn't save for a
+      # failed one.
+      - name: Keep Chromium
+        if: steps.chromium.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ env.PLAYWRIGHT }}
 
       # Each scenario prints as Given/When/Then; the layout checks run on
       # every screen. No LLM: the review is its own opt-in workflow
