@@ -73,7 +73,8 @@ export default {
     const cassette = page.locator('#view-room .room-cassette').first();
     await cassette.waitFor({ state: 'visible' });
     await t.step('tap a take', () => t.tap(cassette));
-    const onTake = await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
+    // The display names the take a frame or two after the source changes: wait for both.
+    const onTake = await t.poll(() => { const lcd = document.getElementById('np-source-short')?.textContent.trim() ?? ''; return document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing') && lcd.length > 0 && lcd !== 'TAPE' && lcd !== 'FEED'; });
     b = await now();
     t.expect('the take plays, and the display names it', onTake && b.lcd.length > 0 && b.lcd !== 'TAPE' && b.lcd !== 'FEED', b);
     t.expect('Open › and ✎ are at the bar’s end', b.open && b.note, b);

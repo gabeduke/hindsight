@@ -60,15 +60,16 @@ const ROUTES = {
     },
   },
   'detail-open': {
-    where: 'the deck (a tap on it), the bar’s Open › (lib/bar/bar.js), a double tap on its spine',
+    where: 'a row’s › in the List, the bar’s Open › (lib/bar/bar.js), and a double tap on its spine',
     check: async () => {
+      const row = await listRow({ openKey: true });
+      const key = row.el.querySelector('.spine-open');
+      const inList = !!key && key.getAttribute('href') === '/wave.html?file=jam_a.wav' && /^Open a\b/.test(key.getAttribute('aria-label'));
       const r = await room({ barTake: 'jam_a.wav' });
-      click(r.q('.room-deck-place'));
-      const deck = r.w.navigated.at(-1) === '/wave.html?file=jam_a.wav';
       const s = await room();
       click(s.spine('jam_b.wav')); click(s.spine('jam_b.wav'));
       await s.settle(); await s.settle();
-      return deck && r.doc.getElementById('np-open').getAttribute('data-for').includes('take') && s.w.navigated.at(-1) === '/wave.html?file=jam_b.wav';
+      return inList && r.doc.getElementById('np-open').getAttribute('data-for').includes('take') && s.w.navigated.at(-1) === '/wave.html?file=jam_b.wav';
     },
   },
   star: { where: 'Open’s ★, and a selection’s ★', check: () => idsOf(takePage, ['take-star']) && idsOf(tapesPage, ['sel-star']) },
@@ -98,6 +99,19 @@ function selectionHasTag() {
   doc.body.append(bar);
   const k = tagKey({ doc, bar, takes: { all: [], selected: new Set() }, tags: { list: [] }, manage: () => {} });
   return !!bar.querySelector('#sel-tag') && k.key.dataset.tip === 'bulk-tag';
+}
+
+// A row of the List, as the Listening Room asks for it.
+async function listRow(opts = {}) {
+  const { TakesList } = await import('../takes.js');
+  const doc = fakeDoc();
+  globalThis.document = doc;
+  globalThis.IntersectionObserver = class { observe() {} unobserve() {} };
+  const root = doc.createElement('div');
+  const l = new TakesList(root, doc.createElement('p'), { spines: true, ...opts, shape: (all) => [{ label: '', takes: all }] });
+  l.all = [take('a', { has_peaks: false })];
+  l.reshape();
+  return l.rows.get('jam_a.wav');
 }
 
 async function foldedRowsShow() {

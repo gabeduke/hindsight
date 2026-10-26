@@ -24,7 +24,8 @@ test('a take in the bar has Open ›, to its page, and ✎, at the bar’s end',
   assert.equal(p.$('np').dataset.source, 'take', 'the bar says it holds a take: the stylesheet shows Open › and ✎ by it');
   assert.equal(open.tagName, 'A', 'Open › is a link: a tap, a middle-click and the keyboard all open it');
   assert.equal(open.getAttribute('href'), '/wave.html?file=jam_2026-10-15_204500.wav');
-  assert.match(open.getAttribute('aria-label'), /^Open 2026-10-15_204500\b/);
+  assert.match(open.getAttribute('aria-label'), /^Open 20:45:00\b/);
+  // Called as its spine calls it (lib/rooms/takename.js), never by its file's date stamp.
   assert.equal(note.tagName, 'BUTTON');
   assert.equal(note.getAttribute('type'), 'button');
   for (const k of [open, note]) assert.equal(k.parent.getAttribute('data-slot'), 'end');

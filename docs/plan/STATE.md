@@ -59,9 +59,19 @@ is `<pi-host>`.
   it, and lands if it was on the header or the bar (on the room, it does
   nothing else). Rooms make their entrance on `html[data-arriving]`. See
   `docs/architecture.md`, *Moving between rooms*.
-- **The Listening Room:** the shelf as a room, tap plays, hold selects, the
-  Sketchbook (✎) inline, Open → the take page, which shares the edit curves
-  (`lib/edit/curves.js`) but not yet the tape's controls.
+- **The Listening Room is a library** (step 6 of `the-studio-space.md`,
+  2026-10-24): the shelf wall on a tablet and wider (a shelf per month,
+  ★, a shelf per tag; All › opens a shelf as the List), the List by month
+  and day on a phone, Shelf | List remembered per device, Sort ▾, the
+  chips, and a search that opens the List pinned and matches what a spine
+  says. The drawn room is the backdrop, in full only while
+  `html[data-arriving="room"]` is set (the camera's step sets it). Tap
+  plays, hold selects; ✎ on the bar opens the Sketchbook's notes; Open →
+  the take page, which shares the edit curves (`lib/edit/curves.js`) but
+  not yet the tape's controls. A take is named one way in the rooms, the
+  bar and the toasts (`takeTitle`); Open's page still titles it by its
+  date stamp, for Open's pass (a shorter title there moved ★ over the
+  tempo's line, under 24 px apart: its header is the bar track's now).
 - **Releases and the hub:** a merge of shipping code is a release; kits update
   from the Update button or `POST /api/update`. The hub runs on the cluster.
 
@@ -70,8 +80,7 @@ is `<pi-host>`.
 - **Layout, found by the flows' layout checks** (the baseline,
   `scripts/flows/layout-known.json`; each fix shrinks it, see
   `docs/flows.md`, *What a run says*):
-  - The cue clip's × (12×14 px) and loop toggle (22 px) and the shelf's
-    list button (20 px tall) are under 24 px.
+  - The cue clip's × (12×14 px) and loop toggle (22 px) are under 24 px.
 - **The first turn to the Listening Room still freezes the Studio** for a
   moment while the room is laid out and drawn for the first time (its
   ResizeObserver draws the stage in that frame): about 0.6–0.9 s at 4× CPU
@@ -79,7 +88,7 @@ is `<pi-host>`.
   popped into later. Later turns freeze 0.25–0.5 s at 4×, as before: the
   body classes' restyle and the transition's capture. Measured from a
   trace's screenshots; re-measure on the tablet. The shelf wall (step 6)
-  replaces the stage.
+  has replaced the stage since: re-measure.
 - On a phone, the Studio's track level sliders are 18 px tall (axe's
   target-size). A run of only some flows meets them on the demo's own tape
   (J5.1, J2.10 on a phone); the whole run, whose tapes are the flows'
@@ -191,7 +200,8 @@ and alignment out of the header). Its step 4, **the bar**, has landed with
 per-place stylesheets; the zones, ▶ at one x for every source in both
 rooms (J1.13), ● beside ▶, the display's tempo, source and output keys
 (the Feed | Tape | Shelf switch is gone), the grabber, Open › and ✎ at the
-bar's end, and a double tap on a spine. Its step 1
+bar's end, and a double tap on a spine. Its step 6, **the library**, has
+landed too (above). Its step 1
 (foundations, nothing visible) is under way, and step 2 has begun: `lib/ui/layers.js`, the one stack of open
 things, with ☰, the Studio's menus, inspector, clip editor and selection,
 and the phone's player on it; and `lib/ui/menu.js`, the one menu, with ☰

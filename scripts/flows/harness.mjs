@@ -8,7 +8,7 @@
 // docs/flows.md. Run them with scripts/flows.mjs.
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { linkSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,7 +79,9 @@ export async function bootDemo({ ringSeconds = 60, log = () => {} } = {}) {
 }
 
 // api is a thin JSON client for seeding and for checking what the Pi holds.
-export function apiFor(base) {
+// dir is the demo's own directory, when this run booted it: what only a
+// file can seed (a take from last month) is written there.
+export function apiFor(base, { dir = null } = {}) {
   const call = async (method, path, body) => {
     const r = await fetch(`${base}${path}`, {
       method,
@@ -121,6 +123,57 @@ export function apiFor(base) {
       await call('POST', `/api/trigger?seconds=${seconds}`);
       return api.until(async () => (await api.takes()).find((t) => !before.has(t.name) && t.has_preview && t.has_peaks),
         'the kept take to be playable');
+    },
+    // age dates a take `when` (a Date), as if it had been kept then: its
+    // sidecar (.meta.json) is written anew in the demo's takes directory,
+    // which the Pi reads again on its next list. Only on a demo this run
+    // booted: the Pi has no request that moves a take in time.
+    age: async (name, when) => {
+      if (!dir) throw new Error('dating a take writes the demo’s files: run the flow on its own demo, without HINDSIGHT_URL');
+      const file = join(dir, 'takes', name.replace(/\.[^.]+$/, '.meta.json'));
+      const meta = JSON.parse(readFileSync(file, 'utf8'));
+      meta.created = when.toISOString();
+      writeFileSync(`${file}.tmp`, JSON.stringify(meta));
+      renameSync(`${file}.tmp`, file); // a new file, as the Pi writes one: the list sees it changed
+      return api.until(async () => (await api.takes()).find((t) => t.name === name && new Date(t.created).getMonth() === when.getMonth()),
+        'the take to wear its new date');
+    },
+    // copies fills the shelves: a take for each of `dates` (Dates), made
+    // then, each the kept take `name` again under a name of its own -- its
+    // files linked, not copied, and a sidecar of its own, so no label, star
+    // or tag comes with it. Like age, only on a demo this run booted. It
+    // answers their names and clear(), which takes them off the Pi again,
+    // so the next profile's run starts from the library it would have.
+    copies: async (name, dates) => {
+      if (!dir) throw new Error('copying a take writes the demo’s files: run the flow on its own demo, without HINDSIGHT_URL');
+      const takes = join(dir, 'takes');
+      const stem = name.replace(/\.[^.]+$/, '');
+      const own = readdirSync(takes).filter((f) => (f.startsWith(`${stem}.`) || f.startsWith(`${stem}_`)) && !f.endsWith('.meta.json'));
+      const pad = (n) => String(n).padStart(2, '0');
+      const made = [];
+      for (const d of dates) {
+        const to = `jam_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        for (const f of own) {
+          const out = join(takes, f.replace(stem, to));
+          if (f.endsWith('.manifest.json')) writeFileSync(out, readFileSync(join(takes, f), 'utf8').split(stem).join(to));
+          else linkSync(join(takes, f), out);
+        }
+        writeFileSync(join(takes, `${to}.meta.json`), JSON.stringify({ version: 2, created: d.toISOString() }));
+        made.push(`${to}.wav`);
+      }
+      const listed = (want) => api.until(async () => {
+        const have = new Set((await api.takes()).map((t) => t.name));
+        return made.every((n) => have.has(n) === want);
+      }, want ? 'the copies to be listed' : 'the copies to be gone');
+      await listed(true);
+      return {
+        names: made,
+        clear: async () => {
+          const gone = new Set(made.map((n) => n.replace(/\.wav$/, '')));
+          for (const f of readdirSync(takes)) if (gone.has(f.split(/[._]/).slice(0, 3).join('_'))) rmSync(join(takes, f), { force: true });
+          await listed(false);
+        },
+      };
     },
     // tape makes a fresh tape, loads it and empties the buffer, so a Studio
     // flow starts from a blank tape whatever ran before it.

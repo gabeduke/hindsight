@@ -114,16 +114,26 @@ it's one row, on a phone three.
 
 ### 3.1 The takes page
 
-*Today.* Every take, in the **Listening Room** (its tab in the header, with
-the spines on it). The room shows them on shelves. The search is the field
-at the header's left: what you type there narrows the shelves; **Filters**
-beside it opens the tools over them (stars, MIDI, a tag, the order). A
-shelf's **List** (or a month's) shows its takes as a rack, with **Select**
-and **▶ Play all**.
+*Today.* Every take, in the **Listening Room** (its tab in the header): a
+library, searched from the field at the header's left. On a tablet or a computer it is a **wall of shelves**, from the
+header down to the bar: one shelf for each month, newest first, then
+**★ Starred**, then one shelf for each tag. A take stands on its month's
+shelf, and on ★ and its tag's too. A shelf that holds more than it shows
+ends on half a spine: swipe it sideways. Each shelf's plate says what it is
+and how many it holds, and its **All ›** opens it as the **List**, with
+**Select** and **▶ Play all**; **‹ The room** (or Back) goes back to the
+wall. The room you're in stays behind the shelves, dim, and shows in full
+as you walk in.
+
+- **Shelf | List**, at the top, shows the takes on the shelves or in the
+  List: every take, by month and then by day, newest first. This device
+  remembers which (Settings has it too). A phone starts with the List.
+- **Sort ▾**: newest first, oldest first, the longest first, or by name. The
+  shelves and the List follow it.
 
 - **A take is played, not picked:**
   - **A tap plays it** in the bar, where you are: a spine on the shelf, a row
-    of the List, a month's row, a search result, or a line under a spine. Tap
+    of the List, a search result, or a line under a spine. Tap
     it again to pause it. Nothing opens, and there is no sheet: the take's
     other controls are in the bar, in a selection, or on **Open**, its page
     (its name, ★, tag, tempo, downloads, notes and GRAB).
@@ -135,13 +145,9 @@ and **▶ Play all**.
     another take then adds it to the selection or takes it out, and nothing
     plays. **★**, **Tag**, **Export** and **Delete** act on what is picked.
     **Tag** gives all of them one tag, or takes off the tag they all wear.
-  - **The deck** in the room is a picture of the bar: what it holds and how
-    far it has got. It has no keys of its own. Pressing it opens what the bar
-    holds: the take on its page, or the Studio for the tape, as the bar's
-    **Open ›** does. The
-    **Sketchbook** beside it, on a phone too, does the same and counts the
-    take's notes. On a phone there is no deck: the bar, along the foot, is
-    what plays.
+  - **A row of the List** is a take's case: its tag's colour, its name, its
+    length, its bars, ★ and NEW, and a light while it plays. Its **›**, at
+    the end, opens the take on its page; a tap anywhere else plays it.
   - **The bar, with a take in it,** keeps its shape: **▶** where it was,
     **↺ 5 s** in ●'s place, the take as a strip (tap it to jump there, drag
     it to scrub), its name on the window, and at its right end **⏏** (back
@@ -155,21 +161,25 @@ and **▶ Play all**.
     and **✎** beside them; tap the window for the whole bar. **Open** has
     its own bar for the take, in the same shape.
   - **A tap plays at once,** and the sound never waits for the picture: a
-    cassette lifts off its shelf and flies to the deck (on a phone, to the
-    bar) while the take is already playing. Tap another take mid-flight and
-    the new one flies instead; with *reduce motion* on, nothing flies and the
-    deck just changes.
+    cassette lifts off its shelf and flies to the bar while the take is
+    already playing, and its spine stands proud of the shelf, lit, while it
+    plays. Tap another take mid-flight and the new one flies instead; with
+    *reduce motion* on, nothing flies.
   - **A spine's folded takes** (its cuts, a tape's earlier bounces) are
     lines under it in the **List**, each played by a tap.
   - **Tapes are not on the shelf.** They live in the Studio: its title menu
     lists them and opens one. A tape's bounces stand on the shelf as takes.
-- **Search** finds a take by its name, the time in its name, or its tempo.
-- **Filters** show only what is on: *Starred*, takes with *MIDI*, takes
-  recorded from a *Phone*, and *Tape* bounces. They are remembered on the
-  device; the search is not.
-- **Newest** groups the takes by the day they were made — *Today*,
-  *Yesterday*, then the date. **Longest** puts the longest first. **By tag**
-  gives each tag its own group, the untagged last.
+- **Search the shelves** finds a take by what's printed on its spine (its
+  name, or the time it was caught), the day (*today*, *yesterday*,
+  *saturday*, *october*, *24 oct*), its tag, its tempo (*96*) and the words
+  of its notes; every word you type must match, in any order. Tap the
+  field and the List opens, the field pinned at the top and the takes found
+  right under it, above the keyboard. **Cancel** (or Back) empties it.
+- **Filters**, the chips over the List, show only what is on: **★**, a tag,
+  *This week* (from Monday), and takes with *MIDI*. A search for *phone* or
+  *mixdown* finds a phone's takes or a tape's bounces. The filters are
+  remembered on the device; the search is not. Left on, a filter says so on
+  the wall, with **Show everything**.
 - **Tags.** A tag is a name and a color. Make them with **Edit tags** on a
   take's page (up to 24, eight colors); the list is kept on the Pi, so every
   device sees the same one. A take has one tag, and its cassette and spine
@@ -177,9 +187,9 @@ and **▶ Play all**.
   chips with the search show only one tag's takes, or only the *Untagged*,
   with a count on each; search also matches a tag's name. Deleting a tag
   leaves its takes untagged.
-- **The rack.** Every take is a cassette, seen by its spine: its stripe,
-  its name, a star when it's starred, its length, its bars printed on the
-  card, and a light that pulses while it plays.
+- **The spines.** Every take is a cassette, seen by its spine: its J-card,
+  the colour of its tag across the top, its name in marker, a star when it's
+  starred, and a NEW sticker for its first day.
 - **Families.** A take you made by keeping part of another folds into the
   take you cut it from, and a tape's bounces fold into the newest of them.
   So the shelf keeps one spine for a jam and its riffs, and one for a tape
@@ -200,10 +210,10 @@ and **▶ Play all**.
   **■ Stop**, Pause, ⏏ or Loop (which stays on that take) stops it moving on.
   A filter or a search first makes it play just those: *Starred*, a tag, a
   day.
-- **Recently deleted** is under the shelves. The take page's *Previous take*
-  and *Next take* (in its name's menu) step through the takes in the order
-  this page shows them, a spine's folded takes right after it, and its ‹
-  comes back here.
+- **Recently deleted (n) ›** is the List's last row. The take page's *Previous
+  take* and *Next take* (in its name's menu) step through the takes in the
+  order this page shows them, a spine's folded takes right after it, and its
+  ‹ comes back here.
 
 ### 3.2 Updating Hindsight
 
@@ -1509,7 +1519,7 @@ rooms, which is how parts of this guide still name it.
 | **Tape** | Four tracks of parts. Tapes live in the Studio: its title menu lists them | the Tape page |
 | **Part** | A piece of audio on a track | clip |
 | **Note** | A moment in a take, with words or without. **✎** makes one | flag, ⚑, Flag now |
-| **The bar** | Along the foot of the Studio, the Listening Room and Open: the only way to play. It holds a take or the tape. The room's deck is a picture of it | the player, the dock |
+| **The bar** | Along the foot of the Studio, the Listening Room and Open: the only way to play. It holds a take or the tape | the player, the dock, the deck |
 | **Open** | A take's page (§4.1), from **Open ›** on the bar; the tape opens in the Studio | the take page, SIT DOWN |
 | **Repeat** | The bar's ⟲ for a take: its selection, or the whole take. For the tape it is still **Loop** | Loop |
 | **Tag** | A take's one tag: a name and a colour | unchanged |
@@ -1582,9 +1592,7 @@ has no tip.
 | Listening Room (tab) | Every take, to search, filter, sort and open |
 | ☰ (header) | The menu: Settings, the rig, help mode, the guide and Releases. A dot on it means a release is waiting, or the rig needs a look |
 | The rig (menu) | Your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
-| Filters | The rack's filters and sort, under the header's search: the starred, MIDI, phone or tape takes alone, a tag, and the order |
-| The deck (place) | A picture of the bar: what's in it and how far it has got. Press it to open it: a take on its page, the tape in the Studio |
-| Sketchbook (place) | The notes on what's in the bar. Press it to open it and write |
+| Shelf · List | The takes on shelves, a month to a shelf, or in a list by month and day. This device remembers which |
 | ✎ Note | A note at the playhead, with the cursor in its words |
 | GRAB (a take) | Into the Studio's buffer, and the Studio opens: the take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
 | GRAB (a note) | This note, to the next note or eight bars, into the Studio's buffer |
@@ -1592,7 +1600,9 @@ has no tip.
 | Made from | The take this one was cut from: a tap opens it |
 | From this take | What was cut from this take: a tap opens one |
 | Earlier bounces | Earlier bounces of this take's tape: a tap opens one |
-| List (a shelf) | The shelf as a list, as the rack shows it: Select and Play all are there |
+| All › (a shelf) | The shelf as a list, where Select and Play all are |
+| ‹ The room | Back to the shelves, at the shelf you opened |
+| Cancel (search) | Empty the search and go back to the shelves or the list |
 | Show everything | Turns off the filter that's narrowing the shelves |
 | KEEP | Keep the last 30 s, 2 m, 7 m or all of what you just played as a take |
 | ▾ (KEEP) | How much KEEP keeps: the last 30 s, 2 m, 7 m or all of the feed. KEEP keeps that from then on |
@@ -1608,11 +1618,11 @@ has no tip.
 | Settings | The version, Releases and the guide, then preview features for this device, then the Pi’s interface, feed, MIDI and tape. The Pi’s changes apply when Hindsight restarts, which empties the feed |
 | Releases | Every release you can install, newer or older, and what moving to one changes. Hindsight restarts, so the ring starts empty |
 | All takes | Every take, on a page of its own, to search, filter and sort |
-| Search | Find a take by its name, its time or its tempo |
-| Filters | Show only starred takes, takes with MIDI, takes from a phone, or tape mixdowns |
+| Search | Find a take by what's on its spine, the day (today, October), its tag, its tempo or its notes. The list opens right under it |
+| Filters | Show only starred takes, this week's, or those with MIDI |
 | Tags | Show only the takes with this tag, or only the untagged. Press the lit one again to see everything |
 | Edit tags | Make, rename, recolor or delete tags. They are the same on every device |
-| Newest / Longest / By tag | Newest groups the takes by the day they were made; Longest puts the longest first; By tag gives each tag its own group |
+| Sort ▾ | Newest or oldest first, by month and day; the longest first; or by name. The shelves follow it too |
 | Tag (take) | Give this take a tag and its cassette wears the tag's color. Press the lit tag again to take it off |
 | Cuts | The takes saved from parts of this one. They fold in here to keep the shelf short; tap one to see it |
 | Earlier mixes | This tape's earlier mixdowns. The newest stands on the shelf for them all; tap one to see it |

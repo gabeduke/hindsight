@@ -282,6 +282,18 @@ When you need the history behind one, read it from git:
   ribbon, on a timer of its own) stops in hide and starts in show. Capture
   once came up with dead meters on its first visit, and asked for its
   ribbon once a second from every other room.
+- **A take is named by `takeTitle`** (`lib/rooms/takename.js`), wherever
+  a person reads it: its name, or the time on its spine. One take once had
+  four names (the time on its spine, its date stamp in the bar and
+  Recently deleted, its file on Capture), and a search for what a spine
+  said found nothing. Never a take's file or its date stamp on screen (Open's
+  page is the one still to move, in Open's pass).
+- **The Listening Room** is the shelf wall and the List (`docs/
+  architecture.md`, *The library*). Its toolbar is the search (`#shelf-q`:
+  give it behaviour by its id, wherever the header puts it), the chips,
+  Sort ▾ and Shelf | List; a shelf's All › and the search open over the
+  room on the stack. The drawn room is a backdrop, not a surface: put
+  nothing on it to press.
 - **Per-device switches** (localStorage, this browser only) go in
   `web/static/lib/device-prefs.js` — one line each. They save as they are
   clicked, and have no Save and no Restart, because they are not the Pi's.

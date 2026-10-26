@@ -16,7 +16,9 @@ import { timedFetch } from '/lib/link.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeFor, STRIPES } from '/lib/objects/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
-import { parseBpm, spineTitle, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
+import { parseBpm, tagOf, familyCounts, familySticker, cutsBack, freedBy } from '/lib/shelf.js';
+import { takeTitle } from '/lib/rooms/takename.js';
+import { icon } from '/lib/ui/icons.js';
 import { GESTURE } from '/lib/ui/press.js';
 
 /** setStripe puts one printed stripe on a spine, in place of the one it wore. */
@@ -62,8 +64,12 @@ export class TakesList {
    * spines draws each take as a cassette spine: on the takes page (the
    * rack) for picking, its controls on the picked take's cassette; with
    * spineAction 'play' (the main page's shelf), a press plays or pauses it.
+   *
+   * The Listening Room's List (lib/shell/views/room.js) also asks for
+   * openKey, a › at each row's end that opens the take on its page, and
+   * newFor, how long (ms) a take wears the NEW sticker after it was made.
    */
-  constructor(container, emptyEl, { onToast, onListChange, onSelectChange, onSelected, touchHold = false, showFolded = false, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded, audioFor = null }) {
+  constructor(container, emptyEl, { onToast, onListChange, onSelectChange, onSelected, touchHold = false, showFolded = false, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded, audioFor = null, openKey = false, newFor = 0 }) {
     // A take starting, and playing to its end: the page's now-playing bar hears of both.
     // Settles with the first list the Pi answers (bar/handoff.js waits for it).
     this.loaded = new Promise((resolve) => { this.markLoaded = resolve; });
@@ -79,6 +85,8 @@ export class TakesList {
     this.onEnded = onEnded;
     this.spines = spines;
     this.spineAction = spineAction;
+    this.openKey = openKey;
+    this.newFor = newFor;
     if (spines && spineAction === 'play') {
       const act = (row) => {
         const r = row && this.rows.get(row.dataset.name);
@@ -255,7 +263,8 @@ export class TakesList {
         let h = this.headings.get(g.label);
         if (!h) {
           h = document.createElement('h3');
-          h.className = 'shelf-day';
+          // A month's name over its days, or a day's (lib/shelf.js shelve).
+          h.className = g.kind === 'month' ? 'shelf-month' : 'shelf-day';
           h.textContent = g.label;
           this.headings.set(g.label, h);
         }
@@ -337,7 +346,8 @@ export class TakesList {
         </div>
         <div class="wave pending" aria-hidden="true"></div>
         <span class="spine-led" aria-hidden="true"></span>
-      </span>
+      </span>${this.openKey ? `
+      <a class="spine-open" data-tip="open">${icon('right', { size: 20 })}</a>` : ''}
       <div class="take-actions" hidden>
         <button class="icon-btn play" type="button">Play</button>
         <a class="icon-btn open">Open</a>
@@ -375,6 +385,7 @@ export class TakesList {
     if (this.spines) {
       // The spine is the control: its parts are print on the J-card.
       el.classList.add('spine', 'sinks'); // and it sinks under a finger (lib/ui/keys.js)
+      if (this.openKey) el.classList.add('opens'); // its › beside it
       setStripe(el, stripeFor(t, tagStore.list));
       el.tabIndex = 0;
       el.setAttribute('role', 'button');
@@ -398,6 +409,7 @@ export class TakesList {
       dlEl: el.querySelector('.dl'),
       midiEl: el.querySelector('.midi'),
       delBtn: el.querySelector('.del'),
+      openKey: el.querySelector('.spine-open'),
       ws: null,
       audio: null,
       mounting: false,
@@ -445,7 +457,7 @@ export class TakesList {
     const beginEdit = () => {
       row.editing = true;
       row.nameInput.value = row.data.label || '';
-      row.nameInput.placeholder = row.data.name.replace(/^jam_|\.wav$/g, '');
+      row.nameInput.placeholder = takeTitle({ name: row.data.name });
       row.nameEl.hidden = true;
       row.nameInput.hidden = false;
       row.nameInput.focus();
@@ -541,8 +553,9 @@ export class TakesList {
       el.classList.add('fresh');
       this.fresh = null;
       setTimeout(() => el.classList.remove('fresh'), 1400);
-      // A new cassette on the shelf wears a sticker for a while.
-      if (this.spines) {
+      // A new cassette on the shelf wears a sticker for a while (the
+      // Listening Room's for a day: newFor, in updateRow).
+      if (this.spines && !this.newFor) {
         const tag = document.createElement('span');
         tag.className = 'spine-new';
         tag.setAttribute('aria-hidden', 'true');
@@ -565,14 +578,12 @@ export class TakesList {
     if (this.spines) setStripe(row.el, stripeFor(t, tagStore.list));
     row.starBtn.setAttribute('aria-pressed', t.starred ? 'true' : 'false');
     row.starBtn.classList.toggle('on', !!t.starred);
-    // A take with no label still needs something to show, and the timestamp is
-    // the only thing it has. Skip while the user is mid-edit so a poll cannot
-    // overwrite what they are typing.
+    // Skip while the user is mid-edit so a poll cannot overwrite what they
+    // are typing.
     if (!row.editing) {
-      const stamp = t.name.replace(/^jam_|\.wav$/g, '');
-      // A spine prints the time a never-named take was caught: the full
-      // stamp is in its label (below), and is the same for every take today.
-      row.nameEl.textContent = this.spines ? spineTitle(t) : t.label || stamp;
+      // What the take is called everywhere (lib/rooms/takename.js): its name,
+      // or the time a never-named take was caught.
+      row.nameEl.textContent = takeTitle(t);
       row.nameEl.classList.toggle('unlabelled', !t.label);
     }
     // Skip while the user is mid-edit so a poll cannot overwrite what they are
@@ -587,7 +598,7 @@ export class TakesList {
     const len = t.trim ? `${fmtTime((t.trim.end_frame - t.trim.start_frame) / sr)} of ${fmtTime(t.duration_seconds)}` : fmtTime(t.duration_seconds);
     row.metaEl.textContent = this.spines ? fmtTime(t.duration_seconds) : `${len} · ${fmtSize(t.size_mb)}`;
     if (this.spines) {
-      const name = t.label || t.name.replace(/^jam_|\.wav$/g, '');
+      const name = takeTitle(t);
       const encoding = !t.has_preview;
       row.el.setAttribute('aria-label', [name, len, t.starred ? 'starred' : null, tagOf(t, tagStore.list)?.name,
         fam.cuts ? plural(fam.cuts, 'cut') : null, fam.mixes ? plural(fam.mixes, 'mix', 'mixes') : null,
@@ -611,6 +622,22 @@ export class TakesList {
     row.ws?.setSelection(t.trim, (t.duration_seconds || 0) * sr);
     row.dlEl.href = `/api/download?file=${encodeURIComponent(t.name)}&dl=1`;
     row.openEl.href = `/wave.html?file=${encodeURIComponent(t.name)}`;
+    if (row.openKey) {
+      row.openKey.setAttribute('href', `/wave.html?file=${encodeURIComponent(t.name)}`);
+      row.openKey.setAttribute('aria-label', `Open ${takeTitle(t)}`);
+    }
+    // NEW, on a take made in the last newFor ms: the shelf's sticker, on its row.
+    const made = Date.parse(t.created || '');
+    const isNew = this.newFor > 0 && made <= Date.now() + 60000 && Date.now() - made < this.newFor;
+    row.el.classList.toggle('is-new', isNew);
+    if (isNew && !row.newEl) {
+      row.newEl = document.createElement('span');
+      row.newEl.className = 'spine-new';
+      row.newEl.setAttribute('aria-hidden', 'true');
+      row.newEl.textContent = 'NEW';
+      row.el.append(row.newEl);
+    }
+    if (row.newEl) row.newEl.hidden = !isNew;
     // The .mid exists only when something was received during the take, so
     // the button appears only then rather than sitting disabled on every row.
     row.midiEl.hidden = !t.has_midi;
@@ -920,7 +947,7 @@ export class TakesList {
 
   async deleteTake(row) {
     const name = row.data.name;
-    const label = row.data.label || name.replace(/^jam_|\.wav$/g, '');
+    const label = takeTitle(row.data, { day: true });
     const cuts = row.family?.freed || 0;
     try {
       await this.trash([name]);

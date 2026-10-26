@@ -151,6 +151,9 @@
   /* The header: one 54px row and its 1px border, on every page
      (css/chrome.css). Sticky things park under it. */
   --topbar-h:  calc(55px + env(safe-area-inset-top));
+  /* The room between two spines on the Listening Room's wall (lib/room/
+     doorway.js reads it to space a long shelf's spines wider). */
+  --room-gap:  2px;
 
   --font: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
           Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -2523,9 +2526,13 @@ body:not(.shelf-page) #select-bar { display: none; }
 }
 .shelf-count { font-family: var(--mono); font-weight: 400; font-size: 15px; letter-spacing: 0; color: var(--ink-dim); text-transform: none; }
 main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 14px; }
-.shelf-tools { display: flex; flex-direction: column; gap: 10px; }
+/* The library's toolbar (shell.html, lib/shell/views/room.js): the search,
+   the chips, then Sort ▾ and Shelf | List at its end; on a phone, a row
+   each. */
+.shelf-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .shelf-search {
-  display: flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 12px;
+  flex: 1 1 240px; max-width: 320px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px;
   border-radius: 10px; background: var(--field); color: var(--ink-dim);
   border: 1px solid var(--edge-soft); box-shadow: inset 0 1px 3px var(--field-sh);
 }
@@ -2534,7 +2541,52 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
   color: var(--ink); font: 16px var(--font);
 }
 .shelf-search:focus-within { border-color: var(--focus); box-shadow: inset 0 1px 3px var(--field-sh), 0 0 0 1px var(--focus); }
-.shelf-sort-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+/* The chips, ★ first, then the tags, This week and MIDI, in one row that scrolls sideways. */
+.shelf-chips {
+  flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  /* Its end fades, so a row that goes on says so. */
+  mask-image: linear-gradient(90deg, black calc(100% - 28px), transparent);
+}
+.shelf-chips::-webkit-scrollbar { display: none; }
+.shelf-chips > .shelf-toggles { display: contents; }
+.shelf-chips .icon-btn.toggle { flex: none; min-height: 44px; border-radius: 999px; }
+.shelf-chips .shelf-star { width: 44px; padding: 0; justify-content: center; }
+.shelf-chips .shelf-star[aria-pressed="true"] .i { fill: var(--warn); stroke: var(--warn); }
+.shelf-chips .shelf-later { order: 2; }
+.shelf-chips .tag-edit-btn { order: 3; flex: none; }
+.shelf-order { flex: none; margin-left: auto; display: flex; align-items: center; gap: 8px; }
+/* Sort ▾: a pill, its word and its ▾ (lib/ui/menu.js opens its menu). */
+.shelf-sort {
+  appearance: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px 0 14px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink);
+  font: 600 14px var(--font); white-space: nowrap; cursor: pointer;
+  transition: transform var(--t-spring-snap) var(--spring-snap), background-color var(--t-release) var(--ease-out);
+}
+.shelf-sort .i { color: var(--ink-dim); stroke-width: 2.75; }
+.shelf-sort[aria-expanded="true"] { background: var(--panel-2); border-color: var(--focus); }
+.shelf-sort:active, .shelf-sort.down { transform: translateY(1px); background-color: var(--panel-2); }
+@media (hover: hover) { .shelf-sort:not(:active):not(.down):hover { background: var(--panel-2); } }
+/* Shelf | List: a switch in its recess, the one showing raised. */
+.shelf-view {
+  display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--track);
+  box-shadow: inset 0 1px 2px var(--sh), inset 0 0 0 1px var(--edge-soft);
+}
+.shelf-view button {
+  appearance: none; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px;
+  border: 0; border-radius: 9px; background: transparent; color: var(--ink-dim); font: 600 14px var(--font); cursor: pointer;
+  transition: transform var(--t-spring-snap) var(--spring-snap);
+}
+.shelf-view button[aria-pressed="true"] {
+  background: linear-gradient(180deg, var(--thumb-hi), var(--thumb-lo)); color: var(--ink);
+  box-shadow: 0 1px 2px var(--sh-strong), 0 0 0 1px var(--edge), inset 0 1px 0 var(--hl);
+}
+.shelf-view button:active, .shelf-view button.down { transform: translateY(1px); }
+.shelf-view button:focus-visible, .shelf-sort:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 699.98px) {
+  .shelf-search { flex-basis: 100%; max-width: none; }
+  .shelf-chips { flex-basis: 100%; }
+  .shelf-order { flex: 1 1 100%; justify-content: space-between; }
+}
 .shelf-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
 /* Browsing, not playing: flat toggles, the chosen ones filled in ink. */
 .icon-btn.toggle { min-height: 40px; padding: 0 12px; }
@@ -2574,7 +2626,15 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
 .tag-add { margin-bottom: 10px; }
 .tag-error { color: var(--danger-ink, var(--danger)); margin: 0 0 8px; font-size: 13px; }
 .tag-sheet .sheet-actions .confirm { background: var(--accent); color: var(--on-accent); }
-.shelf-store { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+.shelf-store { flex: 1 1 100%; font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+/* A month's name over its days in the List (lib/shelf.js shelve), as a
+   shelf's plate is over its spines. */
+.shelf-month {
+  display: flex; align-items: center; gap: 10px; margin: 18px 0 0;
+  font: 700 16px/20px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink);
+}
+.shelf-month::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+.shelf-month:first-child { margin-top: 4px; }
 .shelf-day {
   display: flex; align-items: center; gap: 10px; margin: 8px 0 0;
   font-family: var(--label-font); font-weight: 600; font-size: 14px;
@@ -2646,6 +2706,23 @@ main.shelf-main { display: flex; flex-direction: column; max-width: 780px; gap: 
   background: none; box-shadow: none; border-radius: 0; font-size: 0;
 }
 .take.spine .take-flags, .take.spine .take-actions { display: none; }
+/* A row's ›, in the Listening Room's List (TakesList openKey): the take on
+   its page, a key of its own beside the case, so a tap on the case still
+   plays. */
+.take.spine.opens { margin-right: 52px; }
+.spine-open {
+  position: absolute; top: 50%; right: -52px; translate: 0 -50%; width: 44px; height: 44px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; color: var(--ink); text-decoration: none;
+  background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge), 0 2px 4px -2px var(--sh);
+  transition: transform var(--t-spring-snap) var(--spring-snap);
+}
+.spine-open:active, .spine-open.down { transform: translateY(1px); background: linear-gradient(180deg, var(--key-down), var(--key-lo)); box-shadow: inset 0 2px 4px var(--sh); }
+.spine-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 599.98px) {
+  .take.spine.opens { margin-right: 40px; }
+  .spine-open { right: -42px; width: 36px; border-color: transparent; background: none; box-shadow: none; }
+}
 .spine-led {
   flex: none; width: 7px; height: 7px; border-radius: 50%;
   background: color-mix(in srgb, var(--paper-ink) 18%, transparent);
@@ -2713,8 +2790,6 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
     padding: 16px 20px 40px;
   }
   .shelf-tools { grid-area: tools; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-  .shelf-search { flex: 0 1 340px; }
-  .shelf-sort-row { flex: 1; }
   .shelf-page #takes { grid-area: list; }
   .shelf-page #takes-empty { grid-area: empty; }
   .shelf-page #trash { grid-area: trash; }
@@ -3175,6 +3250,8 @@ a.chip, a.icon-btn { text-decoration: none; }
 .phone-btn:active, .phone-btn.down, .passes-row .pass:active, .passes-row .pass.down,
 .seg button:active, .seg button.down, .mark-btn:active, .mark-btn.down,
 .capture-btn:active, .capture-btn.down, .tape-pill:active, .tape-pill.down,
+.shelf-sort:active, .shelf-sort.down, .shelf-view button:active, .shelf-view button.down,
+.spine-open:active, .spine-open.down,
 .sinks:active, .sinks.down { transition-duration: var(--t-press); }
 /* A spine or a cue clip (.sinks, from its module) sinks 2 px under a finger,
    and springs back. By its translate, so one that leans, stands proud or is
@@ -4185,36 +4262,72 @@ body.buffer-fold .tape-sections-row { display: none; }
 }
 
 /* ---------- Rooms P5: the Listening Room (lib/room/) ----------
-   The doorway (the Listening Room, body.room-on) and Open (wave.html).
+   The library (the Listening Room, body.room-on) and Open (wave.html).
    Every rule here is scoped to those body classes or to a room- class only
-   the room's modules make. The
-   room's colours are materials (objects.css, --room-*), the same in both
-   schemes; the header, the tabs, the sheets and Open follow the scheme. */
+   the room's modules make. The room's colours are materials (objects.css,
+   --room-*), the same in both schemes; the header, the tabs, the sheets,
+   the List and Open follow the scheme. */
 
-/* --- the doorway: the room over the rack --- */
+/* --- the library: the shelf wall, or the List (body.room-rack) ---
+   From the first paint the List is out of sight until the room says it is
+   what shows (lib/room/doorway.js): what the wall replaces is never shown
+   for a frame on a tablet. The toolbar (the search, the chips, Sort ▾ and
+   Shelf | List) is over both. */
 body:not(.room-rack) main.shelf-main,
 .room-on main.shelf-main { display: block; max-width: none; padding: 0; }
 body:not(.room-rack) :is(#takes, #takes-empty),
-.room-on:not(.room-rack) :is(#takes, #takes-empty) { display: none; }
-body:not(.room-search) .shelf-tools,
-.room-on:not(.room-search) .shelf-tools { display: none; }
-.room-on.room-search .shelf-tools { padding: 12px 16px; }
-body:not(.room-rack) #shelf-sort,
-.room-on:not(.room-rack) #shelf-sort { display: none; }
+.room-on:not(.room-rack) :is(#takes, #takes-empty, #trash) { display: none; }
 body:not(.room-rack) :is(#play-all, #select-btn),
 .room-on:not(.room-rack) :is(#play-all, #select-btn) { display: none; }
 body:not(.room-rack) .shelf-title,
 .room-on .shelf-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.room-on .room-search-btn[aria-expanded="true"] { color: var(--ink); background: var(--key-down); }
 .room-on .detail-play { display: none; }
 .room-on.room-rack .room { display: none; }
+/* On the wall the filters are its shelves (★, a tag's); a filter left on says so on the wall itself. */
+.room-on:not(.room-rack) .shelf-chips, .room-on:not(.room-rack) .shelf-store { display: none; }
+/* Searching, the results come right under the field: what isn't the search steps aside. */
+.room-on.room-search .shelf-store { display: none; }
+.room-search-done { flex: none; min-height: 44px; }
+@media (max-width: 699.98px) {
+  .room-on.room-search .shelf-search { flex: 1 1 0; }
+  .room-on.room-search .shelf-order { display: none; }
+}
+/* Over the List the toolbar is pinned under the header, so the search's
+   field stays where it was tapped and its results start right under it. */
+.room-on.room-rack .shelf-tools {
+  position: sticky; top: var(--topbar-h); z-index: 5; padding: 10px 16px;
+  background: var(--bg); box-shadow: 0 1px 0 var(--line);
+}
+.room-on .shelf-tools { padding: 10px 16px; }
+
+/* The List's head, over a shelf's takes (All ›) or a search's: the way
+   back, and what it shows. */
 .room-rack-head { display: none; }
-.room-on.room-rack .room-rack-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px 4px; }
-.room-on.room-rack .room-rack-title { margin: 0; font: 700 18px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); }
-.room-on.room-rack #takes { padding: 0 16px; }
+.room-on.room-drill .room-rack-head { display: flex; align-items: center; gap: 12px; padding: 8px 16px 2px; }
+.room-on.room-rack .room-rack-title { flex: 1 1 auto; min-width: 0; margin: 0; font: 700 18px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-rack-back { display: inline-flex; align-items: center; gap: 2px; padding: 0 12px 0 6px; }
+.room-on.room-rack #takes { padding: 4px 16px 0; }
 /* A spine's folded takes (its cuts, its tape's earlier bounces) are lines of the
    List, set in under it: the rooms show them (TakesList showFolded). */
 .room-on .take.spine.folded { margin-left: 22px; opacity: .92; }
+/* The take in the bar, playing: its row is ringed in the lamp's green, as its
+   spine is. The take last tapped stays where it is: the row's › is beside it. */
+.room-on .take.spine.picked { transform: none; }
+.room-on .take.spine.playing { box-shadow: 0 0 0 2px var(--go), 0 2px 3px -1px var(--sh-strong); }
+/* Recently deleted is the List's last row, and opens where it is. */
+.room-on #trash { margin: 16px 16px 24px; padding: 0; border: 0; background: none; box-shadow: none; }
+.room-on #trash > summary {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+}
+.room-on #trash > summary h2 { flex: 1; font: 600 15px var(--font); }
+.room-on #trash > summary h2::before { content: none; }
+.room-on #trash > summary::after {
+  content: ''; flex: none; width: 8px; height: 8px; margin-right: 4px; rotate: 45deg;
+  border: solid var(--ink-dim); border-width: 2px 2px 0 0; transition: rotate var(--t-move) var(--ease-out);
+}
+.room-on #trash[open] > summary::after { rotate: 135deg; }
+.room-on #trash > :not(summary) { padding: 0 4px; }
 /* The select bar with Tag on it (lib/room/tagpick.js): one more key on a phone, so the
    keys sit closer and the count ("2 selected") keeps its room. */
 @media (max-width: 520px) {
@@ -4230,108 +4343,200 @@ body:not(.room-rack) .shelf-title,
   .room-on .select-bar #sel-star { min-width: 0; }
   body.room-on.selecting { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
 }
-.room-on #trash { margin-left: 16px; margin-right: 16px; }
 
+/* --- the room: the drawn room behind, the shelf wall in front --- */
 .room {
-  position: relative; isolation: isolate; overflow: hidden; box-sizing: border-box;
+  position: relative; isolation: isolate; box-sizing: border-box;
   color: var(--room-ink); font-family: var(--font);
   background:
-    radial-gradient(circle at 18% 30%, var(--room-glow), var(--room-glow-far) 22%, transparent 46%),
-    radial-gradient(ellipse at 44% 70%, var(--room-hearth), transparent 34%),
+    radial-gradient(circle at 12% 0%, var(--room-glow), var(--room-glow-far) 30%, transparent 60%),
     linear-gradient(var(--room-wall-hi), var(--room-wall) 70%, var(--room-wall-lo));
 }
 .room button { font-family: inherit; }
 .room :focus-visible { outline: 2px solid var(--room-plate-hi); outline-offset: 2px; }
 
-/* A place's words: cream on its own dark plate, never on the drawing. */
-.room-place {
-  appearance: none; display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
-  min-height: 32px; padding: 0 12px; border-radius: 16px; cursor: pointer;
-  background: var(--room-tag); color: var(--room-ink); border: 1px solid var(--room-tag-edge);
-  font: 600 12.5px var(--font); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  box-shadow: 0 6px 14px rgba(0,0,0,.35);
+/* The drawn room (lib/room/stage.js backdropRoom) is where you are, not
+   what you look at (docs/plan/the-studio-space.md, "The studio is a
+   place"): in full while you walk in -- the router sets
+   html[data-arriving="room"] while the switch into the room plays -- and
+   then, slowly, at ambient light behind the shelves. */
+.room-backdrop {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  container: room / size; opacity: var(--room-ambient);
+  /* Four of the room's own moves: the eyes getting used to the dark. */
+  transition: opacity calc(var(--t-room) * 4) var(--ease-standard);
 }
-.room-led { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--room-walnut-hi); }
-.room-deck.playing .room-led { background: var(--room-led); box-shadow: 0 0 6px var(--room-led); }
+:root[data-arriving="room"] .room-backdrop { opacity: 1; transition-duration: var(--t-room); }
+/* It covers the room whatever its shape: the wide view, or the tall one
+   for a portrait room. --room-u is one centimetre of the room at the wall. */
+.room-frame {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  width: max(100cqw, 160cqh); aspect-ratio: 1.6;
+  --room-u: calc(max(100cqw, 160cqh) / 600);
+}
+@container room (aspect-ratio < 1.1) {
+  .room-frame { width: max(100cqw, 80cqh); aspect-ratio: .8; --room-u: calc(max(100cqw, 80cqh) / 450); }
+}
+.room-scene { position: absolute; inset: 0; contain: layout style; }
+.room-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+/* The lamp's glow in the air breathes, slowly, as a filament does: a layer
+   of its own over the picture (never the SVG, whose filters would be
+   painted again every frame), placed at the lamp by stage.js. Opacity only. */
+.room-scene::after {
+  content: ''; position: absolute; left: var(--lamp-fx, 34%); top: var(--lamp-fy, 32%); z-index: 1;
+  width: calc(var(--room-u) * 120); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255,183,102,.16), rgba(255,183,102,.05) 55%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .room-scene::after { animation: room-lamp 7s ease-in-out infinite alternate; will-change: opacity; }
+}
+@keyframes room-lamp { to { opacity: .55; } }
 
-/* The shelves: a walnut unit, four shelves, a brass plate under each. */
-.room-shelves {
-  position: relative; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px;
-  border: 12px solid var(--room-walnut-lo); border-top-width: 14px;
-  background: linear-gradient(90deg, var(--room-walnut-deep), var(--room-walnut-back) 30%, var(--room-walnut-deep));
-  box-shadow: 0 14px 30px rgba(0,0,0,.5);
+/* The wall: the shelves fill the room from under the header to the bar,
+   in light perspective, with the lamp's light from the upper left. It
+   scrolls up and down; each shelf scrolls sideways. The perspective is
+   drawn (the shadow under each board, each cubby's sides), never a 3D
+   transform: a tilted case is one big layer to scroll, and a finger that
+   starts on a spine in one doesn't scroll the wall at all. */
+.room-wall { position: relative; z-index: 2; }
+.room-case {
+  --room-pitch: 36px;
+  position: relative; box-sizing: border-box; display: flex; flex-wrap: wrap; align-content: flex-start;
+  padding-right: 10px; border-top: 14px solid var(--room-walnut-lo);
+  /* Under the shelves, the boards still empty: room on the wall for more. */
+  background: repeating-linear-gradient(0deg,
+    var(--room-walnut-lo) 0, var(--room-walnut) 14px, var(--room-walnut-hi) 30px,
+    var(--room-walnut-back) 30px, var(--room-walnut-deep) 120px, color-mix(in srgb, var(--room-shadow) 70%, var(--room-walnut-deep)) 170px);
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--room-shadow) 55%, transparent);
 }
-.room-shelf { display: flex; flex-direction: column; min-width: 0; }
-.room-shelf[hidden] { display: none; }
+/* The uprights at its sides, and the lamp's light over all of it, from the
+   upper left: in front of the shelves, taking no press. */
+.room-case::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  border: 0 solid var(--room-walnut); border-width: 0 10px;
+  border-right-color: var(--room-walnut-lo);
+  background: radial-gradient(ellipse 75% 65% at 0% 0%, var(--room-glow-far), transparent 70%);
+}
+@media (pointer: coarse) { .room-case { --room-pitch: 46px; } }
+/* A shelf: as wide as its spines want, two short ones side by side, a long
+   one a row of its own that scrolls; a cubby, dark under the board above,
+   its left side in the upright's shadow and its right side catching the
+   lamp, as a box seen from a little to its left does. */
+.room-shelf {
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-width: min(100%, 250px); max-width: 100%;
+  flex: 1 1 calc(var(--n, 1) * var(--room-pitch) + 48px);
+  border-left: 10px solid var(--room-walnut);
+  background:
+    linear-gradient(color-mix(in srgb, var(--room-shadow) 62%, transparent), transparent 48px),
+    linear-gradient(90deg, color-mix(in srgb, var(--room-shadow) 45%, transparent), transparent 16px,
+      transparent calc(100% - 22px), color-mix(in srgb, var(--room-walnut-hi) 30%, transparent) calc(100% - 3px), var(--room-walnut-lo)),
+    linear-gradient(var(--room-walnut-back), var(--room-walnut-deep));
+}
+/* --room-gap (:root) is the room between two spines; on a shelf that holds
+   more than it shows they are spaced a little wider (--room-spread, lib/
+   room/doorway.js fitRows), so the row ends on half a spine at the upright. */
 .room-row {
-  order: 1; list-style: none; margin: 0; padding: 12px 10px 0; min-height: 56px;
-  display: flex; align-items: flex-end; gap: 3px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
-  border-bottom: 12px solid var(--room-walnut);
-  box-shadow: 0 6px 6px -4px rgba(0,0,0,.5);
+  display: flex; align-items: flex-end; gap: var(--room-spread, var(--room-gap)); margin: 0; list-style: none; box-sizing: border-box;
+  min-height: 126px; padding: 14px 8px 0 6px; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; scroll-snap-type: x proximity; scroll-padding-left: 6px;
 }
-.room-row > li { flex: none; display: flex; align-items: flex-end; }
-.room-shelf-foot { order: 2; display: flex; align-items: flex-start; gap: 8px; margin: -6px 0 6px 12px; }
-.room-list-btn {
-  appearance: none; display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 9px; border-radius: 12px; cursor: pointer;
-  background: var(--room-tag); color: var(--room-ink); border: 1px solid var(--room-tag-edge); font: 600 11.5px var(--font);
+.room-row::-webkit-scrollbar { display: none; }
+.room-row > li { flex: none; display: flex; align-items: flex-end; scroll-snap-align: start; }
+/* The board the spines stand on: its front edge, where the plate and All › are. */
+.room-shelf-foot {
+  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  height: 30px; padding: 0 4px 0 10px; box-sizing: border-box;
+  background: linear-gradient(var(--room-walnut-hi), var(--room-walnut) 40%, var(--room-walnut-lo));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--room-glint) 18%, transparent), 0 8px 12px -6px color-mix(in srgb, var(--room-shadow) 70%, transparent);
 }
-.room-list-btn[hidden] { display: none; }
-.room-filtered {
-  margin: 8px 10px 4px; padding: 6px 10px; border-radius: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
-  background: var(--room-card); color: var(--room-paper-ink); font-size: 13px; line-height: 1.35;
+/* A shelf's plate: a card in a brass holder, lettered by hand. */
+.room-plate {
+  display: inline-flex; align-items: center; gap: 5px; height: 20px; margin: 0; padding: 0 8px; border-radius: 2px;
+  background: var(--room-card); color: var(--marker); font: 400 12px/1 'Permanent Marker', var(--font); white-space: nowrap;
+  box-shadow: 0 0 0 2px var(--room-plate-lo), 0 0 0 3px var(--room-plate-hi), 0 3px 5px 2px color-mix(in srgb, var(--room-shadow) 50%, transparent);
 }
-.room-filtered[hidden] { display: none; }
+.room-plate-dot { flex: none; width: 9px; height: 9px; border-radius: 2px; background: var(--stripe); }
+/* All ›: the shelf in the List, where Select and Play all are. */
+.room-all {
+  appearance: none; display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 0 4px 0 10px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--room-ink); font: 600 13px var(--font); cursor: pointer;
+  transition: translate var(--t-spring-snap) var(--spring-snap);
+}
+@media (pointer: coarse) { .room-all { min-height: 44px; margin: -7px 0; } }
+@media (hover: hover) { .room-all:hover { color: var(--room-plate-hi); } }
+/* A filter left on, and an empty wall: a card propped in the case that says why. */
+.room-filtered, .room-empty {
+  flex: 1 1 100%; margin: 12px 14px 4px; padding: 8px 12px; border-radius: 2px; box-sizing: border-box;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  background: var(--room-card); color: var(--room-paper-ink); font: 600 13px/1.35 var(--font);
+}
+.room-filtered[hidden], .room-empty[hidden] { display: none; }
 .room-filtered-clear {
-  appearance: none; min-height: 28px; padding: 0 10px; border-radius: 6px; cursor: pointer;
+  appearance: none; min-height: 32px; padding: 0 10px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--room-paper-ink); background: transparent; color: var(--room-paper-ink); font: 600 12.5px var(--font);
 }
-.room-plate {
-  align-self: flex-start; margin: 0; padding: 2px 10px;
-  border-radius: 2px; background: linear-gradient(var(--room-plate-hi), var(--room-plate-lo));
-  color: var(--room-plate-ink); font: 700 12px/16px var(--label-font); letter-spacing: .16em;
-  box-shadow: 0 1px 2px rgba(0,0,0,.5);
-}
-.room-empty {
-  order: 1; margin: 8px 12px 0; color: var(--room-ink-dim); font-size: 12.5px; line-height: 1.4;
-}
-.room-empty[hidden] { display: none; }
 
-/* Takes: cassette spines, a stripe at the top, the name in marker. */
+/* Takes: cassette spines, in a clear case, the J-card's spine inside it --
+   the tag's colour as its band, the name in marker -- on one of four
+   papers, its shadow cast away from the lamp. Wider under a finger. */
 .room-cassette {
-  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
-  width: 30px; height: 112px; color: var(--paper-ink);
-  background: linear-gradient(90deg, var(--paper-lo), var(--paper-hi) 50%, var(--paper-lo));
-  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 2px 3px rgba(0,0,0,.35);
-  transition: transform 180ms ease, box-shadow 180ms ease, translate var(--t-spring-snap) var(--spring-snap);
+  appearance: none; position: relative; flex: none; padding: 0; border: 0; cursor: pointer;
+  width: 34px; height: 108px; border-radius: 1.5px; color: var(--paper-ink);
+  background:
+    linear-gradient(rgba(20,24,28,.55), rgba(20,24,28,.15) 4px, transparent 5px, transparent calc(100% - 5px), rgba(20,24,28,.15) calc(100% - 4px), rgba(20,24,28,.55)),
+    linear-gradient(90deg, rgba(255,255,255,.45), transparent 3px, transparent calc(100% - 3px), rgba(0,0,0,.18)),
+    var(--room-jcard, var(--paper-hi));
+  box-shadow: 3px 1px 4px -1px rgba(0,0,0,.55), 0 1px 0 rgba(0,0,0,.5);
+  transition: transform var(--t-move) var(--ease-out), box-shadow var(--t-move) var(--ease-out), translate var(--t-spring-snap) var(--spring-snap);
+  /* A hold on a phone is not the browser's menu or a text selection. */
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation;
 }
-.room-cassette-stripe { position: absolute; left: 0; right: 0; top: 8px; height: 14px; background: var(--stripe); }
+@media (pointer: coarse) { .room-cassette { width: 44px; } }
+.room-cassette.room-tone-0 { --room-jcard: var(--room-jcard-0); }
+.room-cassette.room-tone-1 { --room-jcard: var(--room-jcard-1); }
+.room-cassette.room-tone-2 { --room-jcard: var(--room-jcard-2); }
+.room-cassette.room-tone-3 { --room-jcard: var(--room-jcard-3); }
+.room-cassette-stripe { position: absolute; left: 0; right: 0; top: 9px; height: 16px; background: var(--stripe); box-shadow: inset 0 -1px 0 rgba(0,0,0,.2); }
 .room-cassette-name {
-  position: absolute; left: 0; right: 0; top: 26px; bottom: 6px; overflow: hidden;
+  position: absolute; left: 0; right: 0; top: 29px; bottom: 8px; overflow: hidden;
   display: flex; align-items: center; justify-content: flex-start;
   writing-mode: vertical-rl; transform: rotate(180deg);
-  font: 400 11.5px/1 'Permanent Marker', var(--font); white-space: nowrap; text-overflow: ellipsis;
+  font: 400 12px/1 'Permanent Marker', var(--font); white-space: nowrap; text-overflow: ellipsis;
 }
-.room-cassette-when, .room-fam { display: none; }
-.room-cassette.starred::after { content: '★' / ''; position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; font-size: 11px; color: var(--room-note-lo); text-shadow: 0 0 1px var(--paper-ink); }
+@media (pointer: coarse) { .room-cassette-name { font-size: 13px; } }
+.room-fam { display: none; }
+.room-cassette.starred .room-cassette-name { bottom: 18px; }
+/* A star, drawn: at a starred spine's foot, and on ★'s plate. */
+.room-cassette.starred::after, .room-star {
+  clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 60%, 80% 100%, 50% 77%, 20% 100%, 30% 60%, 0 38%, 38% 35%);
+}
+.room-cassette.starred::after { content: ''; position: absolute; left: 50%; bottom: 4px; width: 10px; height: 10px; translate: -50% 0; background: var(--room-note-lo); }
+.room-star { flex: none; width: 12px; height: 12px; background: var(--marker); }
 .room-new {
   position: absolute; left: -5px; top: -9px; z-index: 1; width: 25px; height: 25px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; transform: rotate(-12deg);
   background: var(--grease-mark); color: var(--paper-ink); font: 400 8.5px 'Permanent Marker', var(--font);
   box-shadow: 0 2px 4px rgba(0,0,0,.4);
 }
-/* In the bar: a pale ring, and still a spine you tap to play or pause. Playing: the
-   ring is the lamp's green and breathes. Selected (a hold, ⇧-click, or Select): it
-   is ringed in the accent and wears a tick. */
+/* In the bar: pulled out toward you, a little proud of the row, with a pale
+   ring; playing, the ring is the lamp's green, breathing, and its light
+   falls on the board. The green ring and its light are a layer of their
+   own (.room-cassette-glow, lib/room/doorway.js), and only its opacity
+   breathes: a box-shadow that changes is painted again every frame.
+   Selected (a hold, ⇧-click, or Select): ringed in the accent, with a tick. */
 .room-cassette.on-deck {
+  transform: translateY(-5px);
   box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px rgba(243,231,211,.55), 0 2px 3px rgba(0,0,0,.35);
 }
-.room-cassette.on-deck[aria-pressed="true"] {
-  box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px var(--room-led), 0 2px 3px rgba(0,0,0,.35);
+.room-cassette-glow { display: none; }
+.room-cassette.on-deck[aria-pressed="true"] > .room-cassette-glow {
+  display: block; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--room-led), 0 10px 18px -2px color-mix(in srgb, var(--room-led) 45%, transparent);
 }
 @media (prefers-reduced-motion: no-preference) {
-  .room-cassette.on-deck[aria-pressed="true"] { animation: room-playing 1.4s ease-in-out infinite; }
+  .room-cassette.on-deck[aria-pressed="true"] > .room-cassette-glow { animation: room-playing 1.4s ease-in-out infinite; }
 }
-@keyframes room-playing { 50% { box-shadow: inset 0 0 0 1px rgba(28,36,48,.25), 0 0 0 2px transparent, 0 2px 3px rgba(0,0,0,.35); } }
+@keyframes room-playing { 50% { opacity: 0; } }
 /* The ring is the accent on the paper's edge; a cream halo outside it carries it off the
    wall, which the accent alone (2.95:1) does not (lib/room/contrast.test.js). */
 .room-cassette.selected { outline: 3px solid var(--accent); outline-offset: -3px; box-shadow: 0 0 0 2px var(--paper-hi); z-index: 2; }
@@ -4340,48 +4545,54 @@ body:not(.room-rack) .shelf-title,
   display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); font: 700 12px var(--font);
   box-shadow: 0 0 0 2px var(--paper-hi);
 }
-/* A hold on a phone is not the browser's menu or a text selection. */
-.room-cassette { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
-@media (hover: hover) { .room-cassette:not(.selected):hover, .room-box:hover { transform: translateY(-3px); } }
+/* The last on the row leans on the one before it, as tapes do. */
+.room-row > li:last-child:not(:first-child) { margin-left: 5px; }
+.room-row > li:last-child:not(:first-child) .room-cassette:not(.selected) { transform: rotate(-5deg); transform-origin: 0 100%; }
+@media (hover: hover) {
+  .room-cassette:not(.selected):not(.on-deck):hover { transform: translateY(-3px); }
+  .room-row > li:last-child:not(:first-child) .room-cassette:not(.selected):hover { transform: rotate(-5deg) translateY(-3px); }
+}
+/* The focused spine stands a little proud, ringed in brass. */
+.room-cassette:focus-visible { outline-width: 3px; transform: translateY(-4px); }
 
-/* The archive: card boxes, a month on each. */
-.room-box {
-  appearance: none; position: relative; padding: 0; cursor: pointer; border: 0; border-radius: 2px;
-  width: 132px; height: 88px; color: var(--marker);
-  background: linear-gradient(var(--room-cardboard-hi), var(--room-cardboard-lo));
-  box-shadow: inset 0 3px 0 rgba(255,255,255,.12), inset 0 -4px 0 rgba(0,0,0,.18), 0 2px 4px rgba(0,0,0,.4);
-  transition: transform 180ms ease;
+/* A tablet and wider: the room fills the page between the header and the
+   bar, the toolbar over its top, and the wall scrolls inside it under a
+   camera that keeps still. */
+@media (min-width: 700px) {
+  body.room-on:not(.room-rack) { height: 100svh; }
+  body.room-on:not(.room-rack) > main.shelf-main { position: relative; flex: 1 1 0; min-height: 0; }
+  /* The room, and its toolbar over its top, are pinned to the window where
+     the page's own box for them is (--room-top, --room-h: main's, from
+     lib/room/doorway.js), so a page pushed sideways (a bar too wide for
+     the screen) moves the header and the bar, never the shelves. */
+  .room-on:not(.room-rack) .shelf-tools { position: fixed; z-index: 3; left: 0; right: 0; top: var(--room-top, var(--topbar-h)); pointer-events: none; }
+  .room-on:not(.room-rack) .shelf-tools > * { pointer-events: auto; }
+  .room {
+    position: fixed; left: 0; right: 0; top: var(--room-top, var(--topbar-h));
+    /* Down to the bar: its height is measured (--np-h, lib/bar/slots.js),
+       which a room mounted out of sight can't measure for itself. */
+    bottom: calc(var(--np-h, 0px) + var(--dock-b, 0px)); min-height: 360px; overflow: hidden;
+  }
+  .room-wall {
+    position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+    padding: 66px clamp(12px, 3vw, 36px) 24px;
+    scrollbar-width: thin; scrollbar-color: var(--room-walnut) transparent;
+  }
+  body.room-on.selecting .room-wall { padding-bottom: 96px; }
+  .room-case { max-width: 1480px; min-height: calc(100% - 4px); margin: 0 auto; }
 }
-.room-box-label {
-  position: absolute; left: 16px; right: 16px; top: 22px; padding: 6px 0; text-align: center;
-  background: var(--room-card); font: 400 15px/1.1 'Permanent Marker', var(--font); white-space: nowrap;
+/* No room to draw it (a phone), or reduced data: the shelves on a plain wall. */
+@media (max-width: 699.98px), (prefers-reduced-data: reduce) {
+  .room-backdrop { display: none; }
 }
-.room-box-hole { position: absolute; left: 50%; bottom: 14px; width: 26px; height: 8px; margin-left: -13px; border-radius: 4px; background: var(--room-cardboard-hole); }
-
-/* The hi-fi. The deck: silver, two reels, the LCD, its keys. */
-.room-deck-art {
-  position: relative; display: block; align-self: stretch; aspect-ratio: 206 / 196; border-radius: 6px;
-  background: linear-gradient(var(--room-silver-hi), var(--room-silver-lo));
-  box-shadow: 0 8px 14px rgba(0,0,0,.45), inset 0 1px 0 #fff;
-}
-.room-deck-svg-reel {
-  position: absolute; top: 6%; width: 41%; aspect-ratio: 1; height: auto; display: block;
-}
-.room-deck-svg-reel:first-of-type { left: 5%; }
-.room-deck-svg-reel:nth-of-type(2) { right: 5%; }
-.room-deck-levels { display: none; }
-.room-deck-lcd {
-  position: absolute; left: 22%; right: 22%; top: 55%; height: 16%; border-radius: 3px;
-  display: flex; align-items: center; justify-content: center; overflow: hidden;
-  background: var(--lcd); color: var(--lcd-ink); font: 600 13px var(--mono); box-shadow: inset 0 0 0 3px #1d1e21;
-}
-.room-deck-meta, .room-deck-progress { display: none; }
-
-/* The sketchbook, on the side table. */
-.room-book-place .room-book-latest { display: none; }
-.room-book-n {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; border-radius: 10px;
-  background: var(--grease-mark); color: var(--paper-ink); font: 700 12px var(--label-font);
+/* A phone: the library is the List (Shelf | List remembers otherwise), and
+   the wall, when it shows, is the page's to scroll, flat. */
+@media (max-width: 699.98px) {
+  .room-case { --room-pitch: 46px; margin: 0 0 12px; padding-right: 0; border-top-width: 10px; }
+  .room-case::after { border-width: 0; }
+  .room-shelf { min-width: 100%; border-left-width: 0; }
+  /* Room for a selected spine's ring, halo and tick (top -6px, +2px halo) to be whole. */
+  .room-row { padding: 14px 10px 0 6px; scroll-padding-left: 6px; }
 }
 
 /* Grease marks on the bar's strip at a take's In and Out. */
@@ -4390,259 +4601,6 @@ body:not(.room-rack) .shelf-title,
 .room-grease i { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1px; background: var(--grease-mark); border-radius: 1px; }
 .room-grease-in { left: calc(var(--in, 0) * 100%); }
 .room-grease-out { left: calc(var(--out, 1) * 100%); }
-
-/* The room drawn, wide enough for it: a laptop, or a tablet either way up.
-   The picture is lib/room/stage.js's SVG, drawn from the room's description
-   (lib/room/space.js); the shelves, the deck and the sketchbook are this
-   page's markup, laid over where those objects stand by the same code, in
-   fractions of the frame. --room-u is one centimetre of the room at the
-   wall, so a drawn edge or a shadow scales with the picture. (Reduced data
-   takes it back to rows, below: a browser that doesn't know the query
-   draws it.) */
-@media (min-width: 700px) {
-  .room {
-    display: block; container: room / size; padding: 0;
-    height: max(540px, calc(100svh - var(--room-top, 107px)));
-    background: var(--room-plaster-lo);
-  }
-  body.room-on:has(.np:not([hidden])) .room { height: max(540px, calc(100svh - var(--room-top, 107px) - var(--np-h, 0px) - env(safe-area-inset-bottom))); }
-  .room-frame {
-    position: absolute; left: 50%; top: 50%; translate: -50% -50%;
-    width: min(100cqw, 160cqh); aspect-ratio: 1.6;
-    --room-u: calc(min(100cqw, 160cqh) / 600);
-  }
-  .room-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; contain: layout style; }
-  .room-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
-  .room-stage { display: contents; }
-
-  /* The shelves: a walnut unit standing on the floor against the wall --
-     uprights, a top, a plinth, a back panel -- with its boards for rows.
-     The lamp's light falls across it from where the lamp is (--lamp-x,
-     --lamp-y, set by stage.js); its spines cast away from it (--cast-dir). */
-  .room-shelves {
-    position: absolute; left: 65.3%; width: 35.5%; bottom: 16.3%; min-height: 60.6%;
-    z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; gap: 0;
-    box-sizing: border-box; border: 0;
-    padding: calc(var(--room-u) * 4.5) calc(var(--room-u) * 4) calc(var(--room-u) * 9);
-    background:
-      radial-gradient(circle at var(--lamp-x, -60%) var(--lamp-y, 20%), rgba(255,183,102,calc(var(--key, .4) * .35)), transparent 75%),
-      linear-gradient(90deg, rgba(0,0,0,.5), transparent 6%, transparent 94%, rgba(0,0,0,.5)),
-      repeating-linear-gradient(90deg, transparent 0 calc(var(--room-u) * 18), rgba(0,0,0,.18) calc(var(--room-u) * 18) calc(var(--room-u) * 18.4)),
-      linear-gradient(var(--room-walnut-back), var(--room-walnut-deep));
-    box-shadow: calc(var(--cast-x, 1) * var(--room-u)) calc(var(--room-u) * 2) calc(var(--room-u) * 6) rgba(0,0,0,.55);
-  }
-  /* Its frame: the uprights, the top and the plinth, each with its lit edge. */
-  .room-shelves::before {
-    content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
-    background:
-      linear-gradient(90deg, var(--room-walnut-hi), var(--room-walnut) 30%, var(--room-walnut-lo)) left top / calc(var(--room-u) * 4) 100% no-repeat,
-      linear-gradient(90deg, var(--room-walnut-lo), var(--room-walnut) 60%, var(--room-walnut-deep)) right top / calc(var(--room-u) * 4) 100% no-repeat,
-      linear-gradient(var(--room-walnut-hi), var(--room-walnut) 40%, var(--room-walnut-lo)) left top / 100% calc(var(--room-u) * 4.5) no-repeat,
-      linear-gradient(var(--room-walnut-lo), var(--room-walnut-deep) 30%, var(--room-walnut-deep) 80%, #000) left bottom / 100% calc(var(--room-u) * 9) no-repeat;
-  }
-  /* And the lamp on its face, over all of it: brighter on the side the lamp is. */
-  .room-shelves::after {
-    content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
-    background: radial-gradient(circle at var(--lamp-x, -60%) var(--lamp-y, 20%), transparent 40%, rgba(0,0,0,.22) 110%);
-  }
-  .room-shelf { position: relative; z-index: 2; flex: none; }
-  .room-shelf-deco { position: relative; z-index: 1; flex: none; overflow: hidden; display: flex; align-items: flex-end; padding: 0 calc(var(--room-u) * 2); }
-  .room-shelf-deco-top { flex: 1 1 0; min-height: 0; }
-  .room-shelf-deco-foot { height: calc(var(--room-u) * 17); padding-top: calc(var(--room-u) * 2); }
-  .room-shelf-deco .room-art-deco { display: block; width: 100%; height: 100%; max-height: calc(var(--room-u) * 34); }
-  .room-shelf-deco-top .room-art-deco { height: auto; max-height: none; aspect-ratio: 200 / 84; flex: none; }
-
-  /* A row is a cubby: dark under the board above it, the spines standing
-     on a board whose front edge catches the lamp. */
-  .room-row {
-    position: relative; min-height: 0; gap: 2px; scrollbar-width: none;
-    padding: calc(var(--room-u) * 3) 6px 0;
-    border-bottom: calc(var(--room-u) * 4) solid var(--room-walnut);
-    background: linear-gradient(rgba(0,0,0,.55), transparent calc(var(--room-u) * 9));
-    box-shadow: 0 calc(var(--room-u) * 1.4) calc(var(--room-u) * 1.4) calc(var(--room-u) * -1) rgba(0,0,0,.6), inset 0 -1px 0 rgba(0,0,0,.4);
-  }
-  .room-row::-webkit-scrollbar { display: none; }
-  .room-shelf-foot { position: relative; z-index: 2; margin: calc(var(--room-u) * -4) 0 0 calc(var(--room-u) * 3); height: calc(var(--room-u) * 4); align-items: center; }
-  .room-shelf-foot .room-plate { align-self: center; padding: 0 7px; font-size: 10px; line-height: 13px; border-radius: 1px; box-shadow: 0 1px 1px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.35); }
-  /* 24 px, the least a target may be (it was 20, under the flows' check). */
-  .room-list-btn { min-height: 24px; padding: 0 8px; font-size: 11px; box-shadow: 0 1px 2px rgba(0,0,0,.5); }
-  .room-filtered { position: relative; z-index: 1; margin: 6px 8px; }
-  /* An empty shelf: a card propped in the cubby that says why. */
-  .room-empty {
-    align-self: flex-start; margin: calc(var(--room-u) * 3) 10px calc(var(--room-u) * 4); padding: 8px 12px; max-width: 30em;
-    background: var(--room-paper); color: var(--room-paper-ink); border-radius: 1px;
-    font: 500 17px/1.2 'Caveat', var(--font); transform: rotate(-1.5deg);
-    box-shadow: 2px 3px 6px rgba(0,0,0,.5);
-  }
-
-  /* Takes, spine out: a clear case, the J-card's spine inside it -- the
-     tag's colour as its band, the name in marker -- on one of four papers. */
-  .room-cassette {
-    width: 34px; height: 108px; border-radius: 1.5px;
-    background:
-      linear-gradient(rgba(20,24,28,.55), rgba(20,24,28,.15) 4px, transparent 5px, transparent calc(100% - 5px), rgba(20,24,28,.15) calc(100% - 4px), rgba(20,24,28,.55)),
-      linear-gradient(90deg, rgba(255,255,255,.45), transparent 3px, transparent calc(100% - 3px), rgba(0,0,0,.18)),
-      var(--room-jcard, var(--paper-hi));
-    box-shadow: calc(var(--cast-dir, 1) * 3px) 1px 4px -1px rgba(0,0,0,.55), 0 1px 0 rgba(0,0,0,.5);
-  }
-  .room-cassette.room-tone-0 { --room-jcard: var(--room-jcard-0); }
-  .room-cassette.room-tone-1 { --room-jcard: var(--room-jcard-1); }
-  .room-cassette.room-tone-2 { --room-jcard: var(--room-jcard-2); }
-  .room-cassette.room-tone-3 { --room-jcard: var(--room-jcard-3); }
-  .room-cassette-stripe { top: 9px; height: 16px; box-shadow: inset 0 -1px 0 rgba(0,0,0,.2); }
-  .room-cassette-name { top: 29px; bottom: 8px; font-size: 12px; }
-  /* The last on the row leans on the one before it, as tapes do. */
-  .room-row > li:last-child:not(:first-child) { margin-left: 5px; }
-  .room-row > li:last-child:not(:first-child) .room-cassette:not(.selected) { transform: rotate(-5deg); transform-origin: 0 100%; }
-  /* The tape in the bar is pulled out toward you, a little proud of the row. */
-  .room-cassette.on-deck { transform: translateY(-5px); }
-  @media (hover: hover) {
-    .room-row > li:last-child:not(:first-child) .room-cassette:not(.selected):hover { transform: rotate(-5deg) translateY(-3px); }
-  }
-  @media (pointer: coarse) { .room-cassette { width: 44px; } }
-  /* The focused spine stands a little proud, ringed in brass. */
-  .room-cassette:focus-visible { outline-width: 3px; transform: translateY(-4px); }
-
-  /* The archive: file boxes, a lid with its lip, a card in a brass holder, a hand-hole. */
-  .room-box {
-    width: 120px; height: 84px; border-radius: 1px;
-    background:
-      linear-gradient(rgba(0,0,0,.28), transparent 3px) 0 13px / 100% 6px no-repeat,
-      linear-gradient(var(--room-cardboard-hi), var(--room-cardboard-hi) 13px, var(--room-cardboard-lo) 13px, var(--room-cardboard-hi) 60%, var(--room-cardboard-lo));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 -3px 0 rgba(0,0,0,.2), calc(var(--cast-dir, 1) * 4px) 2px 6px -1px rgba(0,0,0,.55);
-  }
-  .room-box-label { top: 26px; left: 14px; right: 14px; padding: 5px 0; font-size: 14px; box-shadow: 0 0 0 2px var(--room-plate-lo), 0 1px 2px 2px rgba(0,0,0,.25); }
-  .room-box-hole { bottom: 11px; }
-
-  /* The hi-fi. The deck stands on the console: walnut cheeks, a brushed
-     plate, two reels with the tape run between them over the head block,
-     and a panel of meters, the counter and the keys -- not a face. */
-  .room-deck { position: absolute; left: 42.6%; top: 36%; width: 15.7%; height: 22.9%; z-index: 2; display: block; }
-  .room-deck-art {
-    position: absolute; inset: 0; aspect-ratio: auto; border-radius: 3px; overflow: hidden;
-    background:
-      linear-gradient(90deg, var(--room-walnut-hi), var(--room-walnut) 45%, var(--room-walnut-lo)) left / 5.5% 100% no-repeat,
-      linear-gradient(90deg, var(--room-walnut-lo), var(--room-walnut) 55%, var(--room-walnut-deep)) right / 5.5% 100% no-repeat,
-      repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, rgba(0,0,0,.035) 1px 3px),
-      linear-gradient(var(--room-silver-hi), var(--room-silver) 55%, var(--room-silver-lo));
-    box-shadow:
-      calc(var(--cast-x, -1) * var(--room-u)) calc(var(--room-u) * 1.5) calc(var(--room-u) * 4) rgba(0,0,0,.55),
-      inset 0 1px 0 rgba(255,255,255,.8), inset 0 -2px 0 rgba(0,0,0,.25);
-  }
-  /* The lamp on its brushed face. */
-  .room-deck-art::after {
-    content: ''; position: absolute; inset: 0; pointer-events: none;
-    background: radial-gradient(circle at var(--lamp-x, -50%) var(--lamp-y, 0%), rgba(255,183,102,calc(var(--key, .5) * .4)), transparent 70%),
-      linear-gradient(transparent 60%, rgba(0,0,0,.12));
-  }
-  .room-deck-svg-reel {
-    top: 4%; width: 38%; z-index: 2;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,.45));
-  }
-  .room-deck-svg-reel:first-of-type { left: 7.5%; }
-  .room-deck-svg-reel:nth-of-type(2) { right: 7.5%; }
-  /* The tape: from under each reel, round the guides, across the heads. */
-  .room-deck-tape { position: absolute; left: 33%; right: 33%; top: 33%; height: 21%; color: var(--tape-pack); z-index: 1; }
-  .room-deck-tape svg { display: block; width: 100%; height: 100%; overflow: visible; }
-  /* The head block: a squared cover over the heads, the tape across its face,
-     a guide post either side. */
-  .room-deck-head {
-    position: absolute; left: 35%; right: 35%; top: 41%; height: 16%; border-radius: 2px;
-    background: linear-gradient(var(--room-key-hi), var(--room-key-lo) 70%, var(--room-key-edge));
-    box-shadow: 0 1px 2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18);
-  }
-  .room-deck-head::before, .room-deck-head::after { content: ''; position: absolute; top: 58%; width: 9%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 40% 35%, var(--room-silver-hi), var(--room-silver-lo)); box-shadow: 0 0 0 1px var(--room-key-lo); }
-  .room-deck-head::before { left: -16%; } .room-deck-head::after { right: -16%; }
-  .room-deck-panel {
-    position: absolute; left: 5.5%; right: 5.5%; bottom: 0; height: 34%;
-    background: linear-gradient(var(--room-key-lo), var(--room-key-edge));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 2px 3px rgba(0,0,0,.6);
-  }
-  .room-deck-vu {
-    position: absolute; top: 14%; width: 17%; height: 44%; border-radius: 1px;
-    background: linear-gradient(170deg, transparent 52%, var(--vu-needle) 53% 56%, transparent 57%), radial-gradient(ellipse at 50% 110%, var(--vu-face-hi, var(--vu-face)), var(--vu-face) 70%);
-    box-shadow: 0 0 0 1.5px var(--room-key-edge), inset 0 0 4px rgba(120,60,0,.4);
-  }
-  .room-deck-vu:first-child { left: 5%; } .room-deck-vu:nth-child(2) { left: 24%; }
-  .room-deck-buttons { position: absolute; right: 18%; bottom: 14%; width: 34%; height: 30%; display: flex; gap: 6%; }
-  .room-deck-buttons i { flex: 1; border-radius: 1px; background: linear-gradient(var(--room-key-hi), var(--room-key-lo)); box-shadow: 0 1px 0 var(--room-key-edge), inset 0 1px 0 rgba(255,255,255,.2); }
-  .room-deck-buttons i:nth-child(3) { background: linear-gradient(var(--room-silver-hi), var(--room-silver)); }
-  .room-deck-knob { position: absolute; right: 5%; top: 22%; width: 9%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 40% 35%, var(--room-silver-hi), var(--room-silver-lo) 70%); box-shadow: 0 1px 2px rgba(0,0,0,.6); }
-  .room-deck-lcd {
-    left: 44%; right: auto; width: 17%; top: auto; bottom: 18%; height: 11%; border-radius: 1px;
-    font: 600 max(8px, calc(var(--room-u) * 3.4)) var(--mono); box-shadow: inset 0 0 0 1px #1d1e21, inset 0 1px 3px rgba(0,0,0,.8);
-  }
-  .room-deck.playing .room-deck-vu { animation: none; }
-  /* Its name on a plate, hung above it; the sketchbook's, above the book. */
-  .room-deck-place { position: absolute; left: 50%; bottom: calc(100% + 8px); translate: -50% 0; max-width: 200%; }
-  .room-book { position: absolute; left: 33%; top: 64%; z-index: 2; translate: -50% calc(-100% - 16px); }
-  .room-place { min-height: 32px; box-shadow: 0 4px 12px rgba(0,0,0,.45); }
-  /* The lamp's glow in the air breathes, slowly, as a filament does: a layer
-     of its own over the picture (never the SVG, whose filters would be
-     painted again every frame), placed at the lamp by stage.js. Opacity only. */
-  .room-scene::after {
-    content: ''; position: absolute; left: var(--lamp-fx, 34%); top: var(--lamp-fy, 32%); z-index: 1;
-    width: calc(var(--room-u) * 120); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none;
-    background: radial-gradient(closest-side, rgba(255,183,102,.16), rgba(255,183,102,.05) 55%, transparent);
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .room-scene::after { animation: room-lamp 7s ease-in-out infinite alternate; will-change: opacity; }
-  }
-  @keyframes room-lamp { to { opacity: .55; } }
-}
-/* A portrait frame: the tall view, closer in on the hi-fi and the shelves. */
-@container room (aspect-ratio < 1.1) {
-  .room-frame { width: min(100cqw, 80cqh); aspect-ratio: .8; --room-u: calc(min(100cqw, 80cqh) / 450); }
-}
-/* No room to draw it (a phone), or reduced data: the shelves as rows; the
-   deck is not drawn (the bar, the page's mini player, is what plays). */
-@media (max-width: 699.98px), (prefers-reduced-data: reduce) {
-  .room { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 16px; height: auto; container-type: normal; }
-  .room-frame { display: contents; }
-  .room-shelves::before, .room-shelves::after, .room-shelf-deco { display: none; }
-  .room-shelves { position: relative; min-height: 0; padding: 0; }
-  .room-shelf-foot { height: auto; }
-  .room-row { background: none; }
-  .room-row > li:last-child .room-cassette, .room-cassette.on-deck { transform: none; }
-  .room-scene { display: none; }
-  .room-stage { display: contents; }
-  .room-deck, .room-book { position: static; width: auto; }
-  .room-deck { display: none; }
-  .room-book { order: -1; }
-  .room-book { margin-right: 16px; }
-  .room-shelves { border: 0; background: none; box-shadow: none; gap: 14px; }
-  .room-shelf { gap: 6px; }
-  .room-shelf-foot { order: 0; margin: 0; align-items: center; }
-  .room-filtered { margin: 0 16px 0 0; }
-  /* Room for a selected spine's ring, halo and tick (top -6px, +2px halo) to be whole. */
-  .room-row { border-bottom: 0; box-shadow: none; padding: 10px 16px 6px 4px; gap: 8px; scroll-snap-type: x proximity; scroll-padding-left: 4px; min-height: 0; }
-  .room-row > li { scroll-snap-align: start; }
-  .room-empty { margin: 0 16px 0 0; }
-  .room-cassette {
-    width: 112px; height: 70px; border-radius: 5px; color: var(--paper-ink);
-    background: linear-gradient(var(--cas-hi), var(--cas-mid)); box-shadow: 0 4px 8px rgba(0,0,0,.45);
-  }
-  .room-cassette-stripe { left: 6px; right: 6px; top: 5px; height: 5px; border-radius: 2px 2px 0 0; }
-  .room-cassette-name {
-    left: 6px; right: 6px; top: 10px; bottom: auto; height: 30px; padding: 0 6px; border-radius: 0 0 2px 2px;
-    writing-mode: horizontal-tb; transform: none; display: block; line-height: 30px; text-align: left;
-    background: var(--paper-hi); font-size: 12px;
-  }
-  .room-cassette-when { display: block; position: absolute; left: 8px; right: 8px; bottom: 8px; color: var(--room-ink-dim); font: 500 10px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
-  .room-cassette.starred::after { left: auto; right: 6px; bottom: 6px; width: auto; }
-  .room-new { left: auto; right: -6px; top: -8px; }
-  .room-box { width: 124px; height: 64px; }
-  .room-box-label { top: 50%; transform: translateY(-50%); left: 12px; right: 12px; padding: 3px 0; font-size: 13px; }
-  .room-box-hole { display: none; }
-  /* The sketchbook strip. */
-  .room-book-place {
-    width: 100%; min-height: 52px; border-radius: 8px; padding: 0 12px; gap: 10px; box-shadow: none; border: 0;
-    background: repeating-linear-gradient(var(--room-paper) 0 17px, var(--room-paper-rule) 17px 18px), var(--room-paper);
-    color: var(--room-paper-ink);
-  }
-  .room-book-word { font: 700 22px 'Caveat', var(--font); }
-  .room-book-place .room-book-latest { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 18px 'Caveat', var(--font); color: var(--room-paper-dim); }
-}
 
 /* --- Open: a take's page (lib/room/open.js) ---
    Every rule hangs off a room-open- class (only open.js makes them) or the
@@ -5214,12 +5172,9 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
 .room-face-hub:nth-of-type(1) { left: 22%; }
 .room-face-hub:nth-of-type(2) { left: 78%; }
 
-/* It lands, and what it lands in settles once: the deck's art where the room is
-   drawn, the bar where it is not (a phone has no deck). */
-.room-deck.room-seat .room-deck-art { animation: room-seat var(--t-move) var(--ease-seat); }
+/* It lands, and the bar it lands in settles once. */
 .np.room-seat { animation: room-seat-bar var(--t-move) ease-out; }
-@keyframes room-seat { 40% { transform: scale(1.035); } }
 @keyframes room-seat-bar { 40% { outline: 2px solid var(--accent); outline-offset: -2px; } }
 @media (prefers-reduced-motion: reduce) {
-  .room-deck.room-seat .room-deck-art, .np.room-seat { animation: none; }
+  .np.room-seat { animation: none; }
 }

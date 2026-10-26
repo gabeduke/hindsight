@@ -23,6 +23,7 @@ import { DomRenderer } from '../scene/dom.js';
 import { token, withAlpha } from '../theme.js';
 import { tagStore } from '../tags.js';
 import { dropoutsText } from '../shelf.js';
+import { takeTitle } from '../rooms/takename.js';
 import { stripeFor, STRIPES, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 // A reel hub: a ring, a disc, a dark core and six teeth.
@@ -181,7 +182,7 @@ export class CassetteFace {
     for (let n = 1; n <= STRIPES; n++) this.el.classList.remove(`stripe-${n}`);
     this.el.classList.add(`stripe-${stripeFor(take, tagStore.list)}`);
     this.parts.stamp.textContent = stampOf(take);
-    this.parts.name.textContent = take.label || take.name.replace(/^jam_|\.wav$/g, '');
+    this.parts.name.textContent = takeTitle(take);
     // A sticker where the capture lost audio in it.
     const drops = dropoutsText(take);
     this.parts.drops.hidden = !drops;

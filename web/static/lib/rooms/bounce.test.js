@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { fileCss } from '../stylesheets.js';
 import { bounceMenu, lastBounce, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords, BOUNCE_WORDS } from './bounce.js';
-import { roomShelves } from '../room/shelves.js';
+import { wallShelves } from '../room/shelves.js';
 import { MODELS } from '../scene/models.js';
 
 const tapeHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
@@ -442,11 +442,11 @@ test('a take that carries a record mark appears on a shelf like any other, and n
     { name: 'jam_20261014-100000.wav', created: '2026-10-14T10:00:00Z', duration_seconds: 20, label: 'Once a record', record: { cut: '2026-10-14T11:00:00Z', side: 'A', cover: 2 } },
     { name: 'jam_20260901-100000.wav', created: '2026-09-01T10:00:00Z', duration_seconds: 20, label: 'Old record', record: { cut: '2026-09-02T11:00:00Z', side: 'B', cover: 0 } },
   ];
-  const s = roomShelves(takes, {}, now);
-  assert.equal('records' in s, false, 'there is no Records shelf');
-  const names = s.month.spines.map((x) => x.take.name);
+  const s = wallShelves(takes, {}, now);
+  assert.deepEqual(s.map((x) => x.kind), ['month', 'month'], 'there is no Records shelf');
+  const names = s[0].spines.map((x) => x.take.name);
   assert.ok(names.includes('jam_20261014-100000.wav'), 'the marked take is this month’s');
-  assert.ok(s.archive.some((b) => b.count >= 1), 'and the older one is in the archive');
+  assert.equal(s[1].key, 'month:2026-09', 'and the older one is on its own month’s shelf');
 });
 
 test('a marked take stands in order with the others on the shelf', () => {
@@ -455,7 +455,7 @@ test('a marked take stands in order with the others on the shelf', () => {
     { name: 'jam_b.wav', created: '2026-10-15T10:00:00Z', duration_seconds: 20 },
     { name: 'jam_a.wav', created: '2026-10-14T10:00:00Z', duration_seconds: 20, record: { cut: '2026-10-14T11:00:00Z', side: 'A', cover: 0 } },
   ];
-  assert.deepEqual(roomShelves(takes, {}, now).month.spines.map((x) => x.take.name), ['jam_b.wav', 'jam_a.wav']);
+  assert.deepEqual(wallShelves(takes, {}, now)[0].spines.map((x) => x.take.name), ['jam_b.wav', 'jam_a.wav']);
 });
 
 test('the scene contract has no record kind, and the room has no record module', () => {

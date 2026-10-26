@@ -7,14 +7,13 @@
 
 import { takeCounter } from '../objects/lcd.js';
 import { takeDisplay } from './display.js';
-import { spineTitle } from '../shelf.js';
 import { peakDbAt } from '../objects/reel-window.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
 import { drawTrace, paintOxide, oxideColors } from '../wave/tape-strip.js';
 import { barBeat } from '../wave/geometry.js';
 import { PlayWindow } from '../wave/playwindow.js';
+import { takeTitle } from '../rooms/takename.js';
 
-const stamp = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 
 /**
  * playheadOf is where the take held by the bar is, in seconds -- its list
@@ -45,7 +44,7 @@ export function takeSource(t, player, { onGone } = {}) {
   const playWindow = PlayWindow.of(t);
   const region = playWindow.region;
   const grid = { bpm: t.bpm || null, sampleRate: sr, downbeat: t.downbeat_frame || 0 };
-  const title = t.label || stamp(t.name);
+  const title = takeTitle(t); // as its spine says it
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
   const ac = new AbortController();
@@ -103,7 +102,7 @@ export function takeSource(t, player, { onGone } = {}) {
     },
     lcd: () => takeCounter({ pos: pos(), length, sampleRate: sr, bar: barBeat(pos(), grid), playing: playing() }),
     // The display: its tempo, its name as its spine says it, and here (display.js).
-    display: (here) => takeDisplay({ title: spineTitle(t), bpm: t.bpm }, here),
+    display: (here) => takeDisplay({ title: takeTitle(t), bpm: t.bpm }, here),
     levels: {
       colors: Array.from({ length: Math.min(2, peaks.channels || 1) }, () => 'var(--lcd-ink)'),
       at: (frame) => peakDbAt(peaks, frame / length, gain),

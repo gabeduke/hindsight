@@ -7,7 +7,7 @@
 // attached here; this module only says which take that is (the last bounce),
 // words the menu and the toasts, and plays a take on this device for ▶.
 
-import { spineTitle } from '../shelf.js';
+import { takeTitle } from '../rooms/takename.js';
 import { named } from './words.js';
 
 export const BOUNCE_WORDS = Object.freeze({
@@ -63,8 +63,8 @@ export function bounceMenu(doc) {
   let current = null;
   const show = (take) => {
     last.disabled = !take;
-    note.textContent = take ? spineTitle(take) : NONE_SHORT;
-    last.title = take ? `${spineTitle(take)}: play it, or open it` : NONE_YET;
+    note.textContent = take ? takeTitle(take) : NONE_SHORT;
+    last.title = take ? `${takeTitle(take)}: play it, or open it` : NONE_YET;
   };
   show(null);
   return {
@@ -178,7 +178,7 @@ export function bounceToast({ toast, name, message, player, go = (u) => location
 /** lastBounceToast is the same toast for the tape's newest bounce, from the menu, when the first has gone. */
 export function lastBounceToast({ toast, take, player, go }) {
   if (!take) return toast(`${NONE_YET}. Bounce the loop or the whole tape from this menu.`, 'ok');
-  return bounceToast({ toast, name: take.name, message: `The last bounce: ${named(spineTitle(take))}`, player, go, take });
+  return bounceToast({ toast, name: take.name, message: `The last bounce: ${named(takeTitle(take))}`, player, go, take });
 }
 
 const sleepFor = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -287,7 +287,7 @@ export function takePlayer({
     }
     return Promise.resolve(played).then(() => {
       if (audio !== a) return; // it ended, or was stopped, before play() answered
-      note = toast(`Playing ${named(spineTitle(t))}`, 'ok', {
+      note = toast(`Playing ${named(takeTitle(t))}`, 'ok', {
         ms: ((t.duration_seconds || 0) + 3) * 1000,
         actions: [{ label: '■', run: stop }, { label: 'Open', run: () => go(openHref(name)) }],
       });

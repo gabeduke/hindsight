@@ -12,9 +12,9 @@
 import { CassetteFace } from '/lib/objects/cassette.js';
 import { flagChips, parseBpm, tagOf, tapeName, dropoutsText } from '/lib/shelf.js';
 import { tagStore } from '/lib/tags.js';
+import { takeTitle } from '/lib/rooms/takename.js';
 import { openTagManager } from '/lib/tags-dialog.js';
 
-const stamp = (t) => t.name.replace(/^jam_|\.wav$/g, '');
 const fmtTime = (s) => {
   if (!isFinite(s) || s <= 0) return '0:00';
   const m = Math.floor(s / 60), r = Math.round(s % 60);
@@ -100,7 +100,7 @@ export class TakeDetail {
     // tempo turn into fields, Enter or leaving saves, Escape puts them back.
     this.editor(this.el('.detail-rename'), this.el('.detail-name-input'), {
       value: (t) => t.label || '',
-      placeholder: (t) => stamp(t),
+      placeholder: (t) => takeTitle({ name: t.name }),
       save: async (t, raw) => {
         const label = raw.trim();
         if (label === (t.label || '')) return;
@@ -172,7 +172,7 @@ export class TakeDetail {
     star.setAttribute('aria-pressed', String(!!t.starred));
     star.classList.toggle('on', !!t.starred);
     const rename = this.el('.detail-rename');
-    rename.textContent = t.label || stamp(t);
+    rename.textContent = takeTitle(t);
     rename.classList.toggle('unlabelled', !t.label);
     const len = t.trim ? `${fmtTime((t.trim.end_frame - t.trim.start_frame) / sr)} of ${fmtTime(t.duration_seconds)}` : fmtTime(t.duration_seconds);
     const bpm = this.el('.detail-bpm');
@@ -243,8 +243,8 @@ export class TakeDetail {
     const up = this.el('.detail-up');
     up.hidden = spine.name === t.name;
     up.dataset.name = spine.name;
-    up.textContent = `‹ ${spine.label || stamp(spine)}`;
-    up.setAttribute('aria-label', `Back to ${spine.label || stamp(spine)}`);
+    up.textContent = `‹ ${takeTitle(spine)}`;
+    up.setAttribute('aria-label', `Back to ${takeTitle(spine)}`);
 
     // Where it came from: a cut's original (picked, or opened when a filter
     // hides it), or which of its tape's mixdowns this is.
@@ -255,7 +255,7 @@ export class TakeDetail {
     // "final?" doesn't rename the tape, or every other mix.
     const tape = tapeName(tapeMixes);
     if (t.source) {
-      const name = src ? src.label || stamp(src) : stamp({ name: t.source.name });
+      const name = src ? takeTitle(src) : takeTitle({ name: t.source.name });
       from.append('Cut from ');
       if (src && this.isShown(src.name)) {
         const b = document.createElement('button');
@@ -305,7 +305,7 @@ export class TakeDetail {
     cutBox.querySelector('.detail-family-list').replaceChildren(...(onSpine ? cuts : []).map((c) => {
       const s = c.source;
       const span = s ? `${fmtTime(s.start_frame / sr(c))}–${fmtTime(s.end_frame / sr(c))}` : '';
-      return line(c, '✂', c.label || stamp(c), span);
+      return line(c, '✂', takeTitle(c), span);
     }));
     const mixBox = this.el('.detail-mixes');
     mixBox.hidden = !onSpine || !mixes.length;

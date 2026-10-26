@@ -449,7 +449,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
 
   async function untake(name, label) {
     try { await takeBack(name); } catch (e) { toast(`Could not undo it: ${e.message}`, 'bad'); return; }
-    toast(`Took back ${named(takeTitle(name, undefined, label))}: it’s in Recently deleted`, 'ok', {
+    toast(`Took back ${named(takeTitle({ name, label }, { day: true }))}: it’s in Recently deleted`, 'ok', {
       action: { label: 'Restore', run: () => restoreTake(name).then(() => toast('Restored, starred')).catch((e) => toast(`Could not restore: ${e.message}`, 'bad')) },
     });
   }

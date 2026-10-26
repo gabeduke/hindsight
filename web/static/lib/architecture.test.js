@@ -12,12 +12,11 @@ function read(rel) {
   return fs.readFileSync(path.join(STATIC, rel), 'utf8');
 }
 
-test('Guardrail 1: doorway.js uses ReelWindow and controller subscriptions, not 2Hz DOM scraping or static CSS reels', () => {
+test('Guardrail 1: doorway.js follows the bar by its controller, not 2Hz DOM scraping, and draws no reels of its own', () => {
+  // The deck, which mounted ReelWindow for its reels, left the room with the
+  // library (docs/plan/the-studio-space.md): the bar is the one with reels.
   const doorway = read('lib/room/doorway.js');
-  assert.ok(
-    doorway.includes('ReelWindow'),
-    'doorway.js must mount ReelWindow from lib/objects/reel-window.js for the Hi-Fi deck',
-  );
+  assert.ok(doorway.includes('np?.onChange?.('), 'doorway.js hears the bar change through its controller');
   assert.ok(
     !doorway.includes('room-deck-reel'),
     'doorway.js must not build static .room-deck-reel spans',

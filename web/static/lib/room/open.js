@@ -17,7 +17,8 @@ import { keepLabel, selectionKeepLength } from '../rooms/keeplabel.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick } from '../rooms/grab.js';
 import { tagStore } from '../tags.js';
 import { openTagManager } from '../tags-dialog.js';
-import { fold, familyOf, spineTitle } from '../shelf.js';
+import { fold, familyOf } from '../shelf.js';
+import { takeTitle } from '../rooms/takename.js';
 import { takeHref } from '../bar/take-source.js';
 import { icon } from '../ui/icons.js';
 
@@ -46,7 +47,7 @@ const $ = (id) => document.getElementById(id);
 export function familyLines(list, name) {
   const all = Array.isArray(list) ? list : [];
   const fam = familyOf(fold(all), name);
-  const line = (t) => ({ name: t.name, title: spineTitle(t), length: t.duration_seconds || 0, href: takeHref(t.name) });
+  const line = (t) => ({ name: t.name, title: takeTitle(t), length: t.duration_seconds || 0, href: takeHref(t.name) });
   const self = all.find((t) => t.name === name);
   const isSpine = !!fam.spine && fam.spine.name === name;
   const from = fam.cuts.filter((t) => t.name !== name && (isSpine || (t.source && t.source.name === name))).map(line);

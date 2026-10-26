@@ -9,7 +9,7 @@
 // one playing checked. A pick is the engine's to make (engine.js).
 
 import { menu, menuItem, menuDivider, menuGroup } from '../ui/menu.js';
-import { spineTitle } from '../shelf.js';
+import { takeTitle } from '../rooms/takename.js';
 import { icon } from '../ui/icons.js';
 
 /** RECENT is how many of the newest takes the menu offers. */
@@ -34,7 +34,7 @@ export function sourceRows({ kind, takeName = null, tape = null, recent = [] }) 
     { id: 'feed', word: 'The live feed', sub: 'what the room hears now', checked: kind === 'feed', disabled: false },
   ];
   const takes = recent.map((t) => ({
-    id: `take:${t.name}`, word: spineTitle(t), sub: lengthOf(t), checked: kind === 'take' && takeName === t.name, disabled: false,
+    id: `take:${t.name}`, word: takeTitle(t), sub: lengthOf(t), checked: kind === 'take' && takeName === t.name, disabled: false,
   }));
   return { rows, takes, shelf: { id: 'shelf', word: 'Go to the shelf', href: '/takes.html' } };
 }

@@ -1078,6 +1078,63 @@ bar is the only transport; **Open** (`wave.html`) is the one page to dig in,
 and the bar's **Open ›** is its way in. The bar's display says what plays:
 its **source** (the tape, the live feed or a take), and where it plays.
 
+**A take is called one way** wherever a person reads it: its own name, or
+the time it was caught, which is what its spine prints (`takeTitle`,
+`lib/rooms/takename.js`). The bar, a search, Recently deleted, a toast and
+a screen reader all say that; where nothing around it says the day (a
+toast, Recently deleted) the day goes before the time (`{ day: true }`).
+Never the file (`jam_….wav`) or its date stamp. Open's own page still
+titles a take by its date stamp (`lib/wave/page.js` `stampOf`), until
+Open's pass.
+
+### The library
+
+The Listening Room is a library (`lib/shell/views/room.js`, with the wall
+in `lib/room/doorway.js`):
+
+- **The shelf wall**, on a tablet and wider, fills the room from under the
+  header to the bar: a shelf per month, newest first, then ★, then a shelf
+  per tag (`lib/room/shelves.js` `wallShelves`); a take stands on each
+  shelf it belongs to. Short shelves share a row and a long one scrolls
+  sideways, its spines spaced so that it ends on half a spine at the case's
+  upright, which says it goes on (`fitRows`, measured all at once). The
+  perspective is drawn -- the shadow under each board, each cubby's sides,
+  the lamp's light from the upper left -- and nothing that scrolls is
+  turned in 3D: a tilted case (`rotateX` under the wall's `perspective`)
+  was one big layer to scroll, and on a tablet a drag that started on a
+  spine moved nothing (`styles.test.js`, J2.7). Nothing on it animates by
+  its scroll; the playing spine's green ring breathes by its opacity, on a
+  layer of its own (`.room-cassette-glow`). A shelf's **All ›** opens the
+  List to it (`shelfNames`).
+- **The List** is `#takes` (`lib/takes.js`, the rack): by month and then by
+  day (`lib/shelf.js` `shelve`), each row a case with its **›** to Open,
+  NEW for a day, the playing row ringed; *Recently deleted (n) ›* is its
+  last row. A phone's library is the List.
+- **Shelf | List** is how this device sees the room, remembered in this
+  browser (`lib/room/library.js`, a line in `lib/device-prefs.js`); a
+  phone starts on the List, wider on the wall. **Sort ▾** (`menu.js`):
+  newest, oldest, longest, name, for both. The chips: ★, the tags, *This
+  week*, MIDI.
+- **The search** is `#shelf-q`, found by its id wherever the page puts it.
+  Used, it opens the List with the field pinned and the results right under
+  it; *Cancel*, or Back, empties it. It matches what a person sees
+  (`searchText`): the spine's title, the day in words, the tag, the tempo,
+  the notes' words, every word typed.
+- On a tablet and wider the room (and its toolbar) is pinned to the
+  window where the page's own box for it is (`--room-top`, `--room-h`,
+  measured from `main` by a ResizeObserver), so a page pushed sideways by a
+  bar too wide for the screen moves the header and the bar, never the
+  shelves.
+- A shelf opened by All ›, and the search, are each on the page's stack
+  (`ctx.layers`, kind `drawer`), so Back and Escape put them away.
+- **The drawn room is the backdrop** (`lib/room/stage.js` `backdropRoom`:
+  the room without the bookcase and the deck, whose faces were page
+  markup): at `--room-ambient` behind the wall, in full only while
+  `html[data-arriving="room"]` is set — the router's, while a switch into
+  the room plays — then fading back over four of the room's moves. The deck
+  and the Sketchbook's place are gone from the room; ✎ on the bar opens the
+  Sketchbook's notes until the notes drawer replaces it.
+
 ### Icons
 
 A key's picture is a symbol in one sprite, `web/static/icons/ui.svg`: line
