@@ -41,10 +41,12 @@ jobs:
       # internal/audio/source_portaudio.go and sink_portaudio.go are cgo
       # against PortAudio, so the headers are needed
       # to compile the tests -- not to run them. No audio hardware is touched.
+      # From the Actions cache (.github/actions/apt-install): the mirror
+      # alone took 10 to 37 minutes on most runs of 2026-10-25 and 26.
       - name: Install build dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y portaudio19-dev ffmpeg
+        uses: ./.github/actions/apt-install
+        with:
+          packages: portaudio19-dev ffmpeg
 
       - name: gofmt
         run: |
@@ -113,6 +115,8 @@ jobs:
   # A todo flow (a story not built yet) reports and never fails the job.
   flows:
     runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT: 1.49.0
     # About 9 minutes, 10 at p90; 47 on the slow-mirror day above.
     timeout-minutes: 60
     steps:
@@ -128,15 +132,38 @@ jobs:
 
       # ffmpeg writes a take's preview; a take without one can't be played.
       - name: Install ffmpeg
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg
+        uses: ./.github/actions/apt-install
+        with:
+          packages: ffmpeg
 
       # Pinned to the version docs/flows.md installs.
       - name: Install Playwright
+        run: npm install --no-save playwright@${{ env.PLAYWRIGHT }} axe-core@4.11.4
+
+      # What `playwright install --with-deps` would apt-get, cached like
+      # ffmpeg. The fonts are among them, and the layout baseline
+      # (scripts/flows/layout-known.json) is measured in them.
+      - name: List Chromium's system packages
+        id: chromium-deps
         run: |
-          npm install --no-save playwright@1.49.0 axe-core@4.11.4
-          npx playwright install --with-deps chromium
+          deps="$(npx playwright install-deps --dry-run chromium | sed -n 's/.*--no-install-recommends \([^"]*\)".*/\1/p')"
+          if [ -z "$deps" ]; then echo "::error::playwright install-deps --dry-run listed no packages"; exit 1; fi
+          echo "packages=$deps" >> "$GITHUB_OUTPUT"
+
+      - name: Install Chromium's system packages
+        uses: ./.github/actions/apt-install
+        with:
+          packages: ${{ steps.chromium-deps.outputs.packages }}
+          no-install-recommends: 'true'
+
+      - name: Restore Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ env.PLAYWRIGHT }}
+
+      - name: Install Chromium
+        run: npx playwright install chromium
 
       # Each scenario prints as Given/When/Then; the layout checks run on
       # every screen. No LLM: the review is its own opt-in workflow
