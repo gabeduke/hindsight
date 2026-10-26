@@ -2,8 +2,9 @@
 // (gabeduke/smk37-hindsight; its protocol is app/hindsight.h there, and
 // docs/plan/the-instrument.md step 7 here). It finds the keyboard, takes
 // its screen and draws on it, and sets where its encoders stand. The
-// keyboard answers every message with an ack carrying its seq, and says
-// RELEASE itself when HOME gives the screen back.
+// keyboard answers every message with an ack carrying its seq, says
+// RELEASE itself when HOME gives the screen back, and OFFER when HOME held
+// for a second hands it to Hindsight again.
 //
 // The keyboard's mailbox holds one message, so one is in flight at a time:
 // the next goes when its ack comes, and one with no ack is sent again.
@@ -44,6 +45,7 @@ const (
 	cmdText    = 0x02
 	cmdRelease = 0x03
 	cmdKnob    = 0x04
+	cmdOffer   = 0x05
 	cmdAck     = 0x7F
 
 	statusOK       = 0
@@ -67,7 +69,8 @@ type Status struct {
 	// Screen: Hindsight has its screen.
 	Screen bool
 	// Homed: its player gave the screen back with HOME. It holds until the
-	// keyboard is unplugged (Gone) or Hindsight takes the screen again.
+	// keyboard is unplugged (Gone), its player holds HOME to hand the screen
+	// over (OFFER), or Hindsight takes the screen again.
 	Homed bool
 	// RTT is the last ack's round trip, message to ack.
 	RTT time.Duration
@@ -328,6 +331,20 @@ func (k *Keyboard) Feed(msg []byte) {
 		k.status.Screen = false
 		k.status.Homed = true
 		k.mu.Unlock()
+		return
+	}
+	if cmd == cmdOffer && seq == 0 {
+		// HOME held: the player hands the screen over. It is taken as when
+		// the keyboard first answered, or then, if it hasn't yet.
+		k.status.Homed = false
+		present := k.onPresent
+		if !k.status.Present {
+			present = nil
+		}
+		k.mu.Unlock()
+		if present != nil {
+			go present()
+		}
 		return
 	}
 	if cmd != cmdAck || len(msg) < 9 || k.flight == nil || k.flight.seq != seq {

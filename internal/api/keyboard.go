@@ -7,8 +7,8 @@ package api
 // with it the panel: while Hindsight has the screen, the pads, encoders,
 // faders and buttons send plain MIDI that Play mode's bus binds like any
 // controller's (controls.go, the SMK-37's profile). HOME on the keyboard
-// gives the screen and the panel back, until the keyboard is plugged in
-// again.
+// gives the screen and the panel back, until HOME held for a second hands
+// them over again (OFFER) or the keyboard is plugged in again.
 
 import (
 	"log"
@@ -101,7 +101,7 @@ func isKeyboard(port string) bool {
 }
 
 // ControlSysEx is the watcher's SysEx from a controller
-// (midi.ControlSysExSink): the keyboard's acks and its RELEASE.
+// (midi.ControlSysExSink): the keyboard's acks, its RELEASE and its OFFER.
 func (a *API) ControlSysEx(port string, msg []byte) {
 	if a.keyboard != nil && isKeyboard(port) {
 		a.keyboard.Feed(msg)
@@ -110,7 +110,7 @@ func (a *API) ControlSysEx(port string, msg []byte) {
 
 // keyboardPresent takes the screen, which gives Play mode's bus the panel,
 // and says what the panel does there; not after its player pressed HOME,
-// until the keyboard is plugged in again.
+// until they hold HOME or plug the keyboard in again.
 func (a *API) keyboardPresent() {
 	kb := a.keyboard
 	if kb.Status().Homed {

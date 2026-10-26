@@ -106,15 +106,17 @@ func TestKeyboardSendOpensOnlyAnOpenSMK37Controller(t *testing.T) {
 	}
 }
 
-// After HOME, the keyboard answering again doesn't take its screen back.
-func TestHomeKeepsTheScreenOnAnAnswerAgain(t *testing.T) {
+// takenKeyboard is a keyboard whose screen Hindsight has taken, with
+// nothing in flight, so a message sent now goes at once.
+func takenKeyboard(t *testing.T) (*API, *surface.Keyboard, *firmware) {
+	t.Helper()
 	_, _, a, _ := controlsAPI(t, t.TempDir())
 	fw := &firmware{acks: make(chan []byte, 16)}
 	kb := surface.New(fw.send, func() bool { return true })
 	kb.Probe, kb.AckTimeout = 10*time.Millisecond, time.Second
 	a.SetKeyboard(kb)
 	kb.Start()
-	defer kb.Stop()
+	t.Cleanup(kb.Stop)
 	deadline := time.After(3 * time.Second)
 	for !kb.Status().Screen || len(fw.sent()) < 6 {
 		select {
@@ -124,20 +126,59 @@ func TestHomeKeepsTheScreenOnAnAnswerAgain(t *testing.T) {
 			t.Fatalf("the screen was never taken: %+v", kb.Status())
 		}
 	}
-	// Answer what's still in flight, so a message sent now would go at once.
-	for drained := false; !drained; {
+	answer(a, fw)
+	return a, kb, fw
+}
+
+// answer acks what the keyboard has been sent until it is sent nothing more.
+func answer(a *API, fw *firmware) {
+	for {
 		select {
 		case ack := <-fw.acks:
 			a.ControlSysEx("SMK-37", ack)
 		case <-time.After(50 * time.Millisecond):
-			drained = true
+			return
 		}
 	}
-	a.ControlSysEx("SMK-37", []byte{0xF0, 0x7D, 'H', 'S', 0x01, 0x00, 0x03, 0xF7}) // HOME
+}
+
+var (
+	keyboardHome  = []byte{0xF0, 0x7D, 'H', 'S', 0x01, 0x00, 0x03, 0xF7}
+	keyboardOffer = []byte{0xF0, 0x7D, 'H', 'S', 0x01, 0x00, 0x05, 0xF7}
+)
+
+// After HOME, the keyboard answering again doesn't take its screen back.
+func TestHomeKeepsTheScreenOnAnAnswerAgain(t *testing.T) {
+	a, kb, fw := takenKeyboard(t)
+	a.ControlSysEx("SMK-37", keyboardHome)
 	before := len(fw.sent())
 	a.keyboardPresent()
 	time.Sleep(30 * time.Millisecond)
 	if after := len(fw.sent()); after != before || kb.Status().Screen {
 		t.Fatalf("after HOME, an answer again sent %d messages and the screen is %v", after-before, kb.Status().Screen)
+	}
+}
+
+// HOME held on the keyboard hands the screen back, and Hindsight takes it:
+// CLEAR and the panel's legend again.
+func TestHomeHeldHandsTheScreenBack(t *testing.T) {
+	a, kb, fw := takenKeyboard(t)
+	a.ControlSysEx("SMK-37", keyboardHome)
+	before := len(fw.sent())
+	a.ControlSysEx("SMK-37", keyboardOffer)
+	deadline := time.After(3 * time.Second)
+	for !kb.Status().Screen || len(fw.sent()) < before+5 {
+		select {
+		case ack := <-fw.acks:
+			a.ControlSysEx("SMK-37", ack)
+		case <-deadline:
+			t.Fatalf("sent % x after the offer, status %+v: the screen was never taken", fw.sent()[before:], kb.Status())
+		}
+	}
+	if got, want := string(fw.sent()[before:]), string([]byte{0x01, 0x02, 0x02, 0x02, 0x02}); got != want {
+		t.Fatalf("after the offer % x, want CLEAR and four TEXTs % x", got, want)
+	}
+	if kb.Status().Homed {
+		t.Fatal("the offer left the HOME remembered")
 	}
 }

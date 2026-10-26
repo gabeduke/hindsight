@@ -246,9 +246,12 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
     stands, but nothing calls it yet, so a turn starts from where the
     knob last was.
 - **HOME on the keyboard** gives both back, and the keyboard says RELEASE.
-  Hindsight leaves them with the keyboard until it is plugged in again or
-  Hindsight restarts. A way to hand them back from the keyboard isn't
-  built.
+  Hindsight leaves them with the keyboard (`Status.Homed`), even when it
+  answers HELLO again.
+- **HOME held for a second**, alone, on the keyboard's own screen, hands
+  them back: the keyboard says OFFER, and Hindsight forgets the HOME and
+  takes the screen as when the keyboard first answered. Unplugging the
+  keyboard or restarting Hindsight forgets the HOME too.
 - **As Hindsight stops**, it gives back a screen it has (`Farewell`), so
   the panel doesn't go on talking to nobody.
 - **One message is in flight at a time**, because the keyboard's mailbox

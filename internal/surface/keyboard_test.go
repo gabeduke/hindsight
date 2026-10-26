@@ -327,6 +327,37 @@ func TestHomeIsRememberedUntilUnplugged(t *testing.T) {
 	}
 }
 
+// HOME held on the keyboard hands the screen over: the HOME is forgotten,
+// and the screen is taken as when the keyboard first answered, or then.
+func TestAnOfferForgetsHomeAndPresentsAgain(t *testing.T) {
+	r := newRig(t)
+	r.k.Feed(frame(0, cmdOffer)) // before it has answered: taken when it does
+	r.present()
+	select {
+	case <-r.presents:
+		t.Fatal("an offer from a keyboard that hadn't answered presented it twice")
+	case <-time.After(50 * time.Millisecond):
+	}
+	r.k.Clear(Black)
+	r.k.Feed(ack(2, statusOK))
+	r.k.Feed(frame(0, cmdRelease))
+	r.k.Feed(frame(0, cmdOffer))
+	select {
+	case <-r.presents:
+	case <-time.After(time.Second):
+		t.Fatal("an offer after HOME didn't present the keyboard again")
+	}
+	if r.k.Status().Homed {
+		t.Fatal("an offer left the HOME remembered")
+	}
+	r.k.Feed(frame(5, cmdOffer)) // not the keyboard's own: only seq 0 is
+	select {
+	case <-r.presents:
+		t.Fatal("an OFFER with a seq presented the keyboard")
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 // As Hindsight stops it gives back the screen it has, without waiting.
 func TestFarewell(t *testing.T) {
 	r := newRig(t)
