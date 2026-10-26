@@ -228,6 +228,10 @@ keys, Open's own, the menus' ✓) go as their regions are rebuilt.
    lifted from a track). Open's pass moved into `listening-back.md`. Then
    the rest of `shell-roadmap.md` (the output switch).
 3. Write the missing flows in `docs/flows.md` as each journey is touched.
+
+Beside it, in tracks of their own: `the-instrument.md` (agreed
+2026-10-26), Hindsight as something you play. Its step 1 comes first:
+latency measured in use, every control timed to the ear, kept on the Pi.
 4. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
    no check can see. The coverage map lists the controls no flow touches.
