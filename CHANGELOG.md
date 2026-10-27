@@ -5,6 +5,20 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.27.1 — 2026-10-27
+
+- GRAB's ring goes round its ▾ too, and a take's time in the buffer fits its chip on a phone (b421049)
+- Spec: the instrument -- the SMK-37 is a surface with one small synth page (Gabe): Open's DX7 quick edit and effects pages, deep editing on the phone (7625ae5)
+- Spec: the instrument -- what our SMK-37 firmware does: the hands and a glanceable screen, the Pi the brain; and what each part of Open's app costs, so the room comes from its own pages (b3899b2)
+- Spec: the instrument -- the Mac's own SMK-37 build matched CI's bytes, in 26 minutes (038ad39)
+- Spec: the instrument -- where the SMK-37 firmware's bytes go: the SDK is 366 KB and linked whole, Open's app 83 KB with 42 KB of pages; the first proof reuses its text drawing (f5ed6e7)
+- Spec: the instrument -- the SMK-37 firmware's step 1 is done: the fork builds with M-VAVE's toolchain on Windows and under Wine to the same bytes, and keeps every Flash write off the unit's own regions; V01 leaves 29 bytes for anything new (315b16c)
+- Spec: the instrument -- what Gabe's SMK-37 Elite reports: Baud Girl's SMK-37+VA on it, full-speed USB, its synth over USB audio; rehearse on the FM-1 first (061c1c3)
+- Spec: the instrument -- the SMK-37 firmware checked against its sources: M-VAVE's new open firmware, a Mac toolchain, M-Flasher, and where the flash rules are at risk (d221771)
+- Spec: the instrument -- the SMK-37 research's sources (744c4a1)
+- Spec: the instrument -- latency measured in use, a performance mode in the engine, the FX in Rust for the phone and then the Pi, our own SMK-37 firmware, and a box of our own (42cff7a)
+
+
 ## v2026.10.26.1 — 2026-10-26
 
 - A release can be started by hand from main, for code that merged without one (55cbf60)
