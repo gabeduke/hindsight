@@ -169,4 +169,16 @@ check "port_held survives a port only Caddy holds" \
   "survived" "$(printf 'LISTEN 0 4096 *:80 *:* users:(("caddy",pid=1,fd=7))\n' | port_held_under_pipefail)"
 rm -rf "$stub"
 
+# deploy.sh mirrors a checkout into the Pi's ~/hindsight with --delete, and
+# the app, its updater and the Pi's owner keep files in that same folder. Each
+# has to be excluded, or a deploy deletes it: the settings the Settings sheet
+# saves went that way. Read from deploy.sh's EXCLUDES, so this tests the list.
+DEPLOY="$HERE/../deploy.sh"
+kept_by_deploy() {
+  grep -qF -e "--exclude '/$1'" -e "--exclude '$1'" "$DEPLOY" && echo yes || echo no
+}
+for kept in settings.json hindsight.env bin jam_saves tapes tls releases update.json .update.lock; do
+  check "a deploy keeps the Pi's $kept" "yes" "$(kept_by_deploy "$kept")"
+done
+
 exit "$fail"

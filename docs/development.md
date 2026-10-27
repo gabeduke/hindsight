@@ -187,7 +187,10 @@ make deploy-static       # sync web/static only (./deploy.sh --static)
 A restart clears the ring, so check `make pi-status` and read `make deploy-dry`'s
 deletions first. The sync never sends, or deletes on the Pi, `.claude`,
 `.playwright-mcp` or `.superpowers`: tooling scratch that belongs to the
-checkout it's in.
+checkout it's in. Nor what the Pi keeps beside the checkout: `hindsight.env`,
+the Settings sheet's `settings.json`, the tape, the hub's certificate and
+the updater's releases. `test-release-scripts.sh` fails if one comes off
+deploy.sh's list.
 
 `--static` takes about a second: no rebuild, no restart. The UI is served with
 `http.FileServer` straight from disk on each request, so an HTML, CSS or JS
