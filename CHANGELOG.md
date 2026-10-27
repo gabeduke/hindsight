@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.27.2 — 2026-10-27
+
+- The bar's reels are rendered in Blender now: brushed metal that turns under a lamp that stays put, and blurs as it winds to a jump (4c40035)
+
+
 ## v2026.10.27.1 — 2026-10-27
 
 - GRAB's ring goes round its ▾ too, and a take's time in the buffer fits its chip on a phone (b421049)
