@@ -9,7 +9,7 @@
 // the toast; a take's GRAB, which opens the Studio at once, leaves the note in
 // sessionStorage for the Studio's buffer to read.
 
-import { barsText } from './model.js';
+import { barsText, grabTitle } from './model.js';
 import { lengthWords } from '../rooms/keeplabel.js';
 
 export const KEY = 'hindsight.replaced';
@@ -28,7 +28,7 @@ export function replacedWords(board, seconds) {
   const g = board.grab || {};
   const len = g.bar_frames > 0 ? barsText(board.frames, g.bar_frames).toUpperCase() : lengthWords(seconds);
   const from = board.grab
-    ? (g.take ? (g.sources && g.sources[0]) || g.take : 'the feed')
+    ? (g.take ? grabTitle(g) : 'the feed')
     : board.from || 'a copy';
   return `the buffer’s ${len} from ${from}`;
 }

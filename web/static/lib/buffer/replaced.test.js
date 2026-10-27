@@ -9,7 +9,7 @@ import { replacedWords, replacedLine, remember, recall, forget, raiseUndo, editB
 
 const BAR = 96000;
 const ring = (bars = 4) => ({ created: 'c1', frames: bars * BAR, grab: { bar_frames: BAR, sources: ['main'] } });
-const fromTake = { created: 'c2', frames: 4 * BAR, grab: { bar_frames: BAR, take: 'jam_a.wav', sources: ['Tuesday jam'] } };
+const fromTake = { created: 'c2', frames: 4 * BAR, grab: { bar_frames: BAR, take: 'jam_a.wav', take_label: 'Tuesday jam', sources: ['Tuesday jam'] } };
 
 function store() {
   const m = new Map();
@@ -20,6 +20,9 @@ test('the replaced buffer is named by its length and where it came from', () => 
   assert.equal(replacedWords(ring(4), 8), 'the buffer’s 4 BARS from the feed');
   assert.equal(replacedWords(ring(1), 2), 'the buffer’s 1 BAR from the feed');
   assert.equal(replacedWords(fromTake, 8), 'the buffer’s 4 BARS from Tuesday jam');
+  // A take with no name of its own is its time (takeTitle), never the Pi's stamp.
+  const unnamed = { ...fromTake, grab: { bar_frames: BAR, take: 'jam_2020-01-01_090000.wav', sources: ['Wed 1 Jan 09:00'] } };
+  assert.equal(replacedWords(unnamed, 8), 'the buffer’s 4 BARS from Wed 1 Jan 09:00:00');
 });
 
 test('with no tempo it is named in seconds', () => {

@@ -19,7 +19,7 @@ import { Audition } from './audition.js';
 import { drawWindow, levelsOf, frameOf, xOf, fadeHandles, RULER_H, FADE_BOX } from './draw.js';
 import {
   grabKey, grabSeconds, dropKey, clampWindow, gridOf, snapNear, edgeStep,
-  bufferLines, bufferMeta, bufferNote, boardKey, spanWords, chipsFor, overwritten,
+  bufferLines, bufferMeta, bufferNote, boardKey, spanWords, chipsFor, grabTitle, overwritten,
 } from './model.js';
 import { bindBufferKeys } from './keys.js';
 import { keyState, windowFrames, takesPoll, pulledTo } from './state.js';
@@ -526,7 +526,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     }
     const cols = Math.max(16, Math.min(4096, Math.round(r.width)));
     const clips = st.board.tracks.map((tr) => tr[0]).filter(Boolean);
-    const lanes = clips.map((cl) => ({ levels: levelsFor(cl, g, cols), name: g.take ? g.sources[0] : cl.source, gain: 10 ** ((cl.gain_db || 0) / 20) }));
+    const lanes = clips.map((cl) => ({ levels: levelsFor(cl, g, cols), name: g.take ? grabTitle(g) : cl.source, gain: 10 ** ((cl.gain_db || 0) / 20) }));
     // Quiet audio drawn big enough to see, as the lanes draw it.
     let peak = 0;
     for (const l of lanes) if (l.levels) for (const v of l.levels) peak = Math.max(peak, v);
@@ -793,9 +793,10 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     const phone = sheetMode();
     const was = el.panel.dataset.height;
     if (phone) el.panel.dataset.height = 'peek'; // the lanes come out from under it
+    const g = grabOf();
     lift = new Lift({
       doc, overlay, get: liftGet,
-      label: `${grabOf().sources.join(' + ')} · ${bufferMeta(st.board, sr())}`,
+      label: `${g.take ? grabTitle(g) : g.sources.join(' + ')} · ${bufferMeta(st.board, sr())}`,
       onDrop: ({ track, at }) => dropAt(track, at),
       onEnd: () => { lift = null; if (phone) el.panel.dataset.height = was; },
     });
