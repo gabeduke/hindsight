@@ -732,6 +732,10 @@ func TestATakeGrabsHandlesAreABarOfTheTake(t *testing.T) {
 	if gr.Take != "jam_take.wav" || gr.TakeFrom != 300000 || gr.Sources[0] != "Tuesday jam" || g.Board.From != "Tuesday jam, 0:06–0:10" || g.Board.BPM != 120 {
 		t.Fatalf("grab %+v from %q", gr, g.Board.From)
 	}
+	// No label of its own: the page names it by its time.
+	if gr.TakeLabel != "" {
+		t.Fatalf("take_label %q, want none", gr.TakeLabel)
+	}
 	// TAPE_HANDLE_S, when it's longer than the bar.
 	e.handleS = 3
 	if g, err = e.GrabTake(take, "jam_take.wav", "Tuesday jam", 300000, 492000, []int{0, 1}); err != nil || g.Board.Grab.Before != 144000 {
@@ -818,5 +822,20 @@ func TestAPlainTakeCopyIsNotAGrab(t *testing.T) {
 	g, err := e.GrabTake(take, "jam_take.wav", "Tuesday jam", 100000, 200000, []int{0, 1})
 	if err != nil || len(g.Crated) != 0 {
 		t.Fatalf("a copy replaced by a grab was kept: %+v %v", g.Crated, err)
+	}
+}
+
+func TestATakeGrabCarriesTheTakesOwnName(t *testing.T) {
+	e, _, _ := newEngine(t)
+	take := tempoTake(t, 1200000, 0)
+	if err := audio.WriteMeta(take, audio.Meta{Label: " Tuesday jam "}); err != nil {
+		t.Fatal(err)
+	}
+	g, err := e.GrabTake(take, "jam_take.wav", "Tuesday jam", 0, 96000, []int{0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.Board.Grab.TakeLabel != "Tuesday jam" {
+		t.Fatalf("take_label %q, want the take's label", g.Board.Grab.TakeLabel)
 	}
 }

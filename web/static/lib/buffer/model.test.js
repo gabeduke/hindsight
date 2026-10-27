@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   barStart, barAt, nextBar, nextFreeSpan, spanWords, dropKey, grabKey, grabSeconds, overwritten, landsWords,
-  clampWindow, windowLimits, gridOf, snapNear, edgeStep, bufferLines, bufferMeta, bufferNote, barsText, boardKey, chipsFor,
+  clampWindow, windowLimits, gridOf, snapNear, edgeStep, bufferLines, bufferMeta, bufferNote, barsText, boardKey, chipsFor, grabTitle,
 } from './model.js';
 
 const SR = 48000;
@@ -407,7 +407,7 @@ test('the buffer’s line and its notes', () => {
 test('a grab of a take’s span shows the take as its one source, fixed', () => {
   // The Listening Room's "to the studio": the buffer is the take's own
   // sound, so there are no inputs to pick, and it says so.
-  const take = { ...grab, take: 'jam_2026-10-15_090000.wav', sources: ['Tuesday jam'] };
+  const take = { ...grab, take: 'jam_2026-10-15_090000.wav', take_label: 'Tuesday jam', sources: ['Tuesday jam'] };
   assert.deepEqual(chipsFor(take, ['main', 'ch1', 'ch2', 'aux'], ['aux']),
     [{ name: 'take:jam_2026-10-15_090000.wav', label: 'Tuesday jam', on: true, fixed: true }]);
   assert.match(bufferNote({ grab: take }), /from a take.*sources can’t change/);
@@ -416,6 +416,13 @@ test('a grab of a take’s span shows the take as its one source, fixed', () => 
   assert.deepEqual(feed.map((c) => [c.name, c.on, c.fixed]), [['main', false, false], ['ch1', true, false]]);
   // Nothing grabbed yet: the ones picked for the next GRAB.
   assert.deepEqual(chipsFor(null, ['main', 'aux'], ['aux']).map((c) => c.on), [false, true]);
+  // With no name of its own, it is its time, as on its spine (takeTitle),
+  // with the day, since nothing in the buffer says it -- never the Pi's stamp.
+  const unnamed = { ...grab, take: 'jam_2026-10-21_204700.wav', sources: ['Wed 21 Oct 20:47'] };
+  const now = new Date(2026, 9, 27, 7, 39).getTime();
+  assert.equal(grabTitle(unnamed, { now }), 'Wed 21 Oct 20:47:00');
+  assert.equal(grabTitle({ ...unnamed, take: 'jam_2026-10-27_073000.wav' }, { now }), '07:30:00');
+  assert.equal(chipsFor(unnamed, ['aux'], [])[0].label, grabTitle(unnamed));
   // A stale grab's can't change either.
   assert.equal(chipsFor({ ...grab, sources: ['aux'], stale: true }, ['aux'], []).every((c) => c.fixed), true);
 });

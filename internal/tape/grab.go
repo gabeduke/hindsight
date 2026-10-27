@@ -73,6 +73,9 @@ type Grab struct {
 	// sources can't change; it was never in the ring, so it's never stale.
 	Take     string `json:"take,omitempty"`
 	TakeFrom int64  `json:"take_from,omitempty"`
+	// TakeLabel is the take's own name when it was grabbed, if it had one:
+	// the page names the take from it and Take (takeTitle), as everywhere.
+	TakeLabel string `json:"take_label,omitempty"`
 }
 
 // fileFrames is how long every lane's file is.
@@ -392,7 +395,7 @@ func (e *Engine) GrabTakeOpt(take, file, title string, from, to int64, pick []in
 	}
 	sr := int64(info.SampleRate)
 	m := audio.ReadMeta(take)
-	g := Grab{Take: file, TakeFrom: from, Sources: []string{title}, Frames: to - from}
+	g := Grab{Take: file, TakeFrom: from, TakeLabel: strings.TrimSpace(m.Label), Sources: []string{title}, Frames: to - from}
 	if m.BPM != nil && validBPM(*m.BPM) {
 		g.BarFrames = float64(BeatsPerBar) * 60 * float64(sr) / *m.BPM
 		if m.DownbeatFrame != nil { // its first bar line, counted from the grab's start

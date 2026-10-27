@@ -9,7 +9,7 @@ import { replacedWords, replacedLine, remember, recall, forget, raiseUndo, editB
 
 const BAR = 96000;
 const ring = (bars = 4) => ({ created: 'c1', frames: bars * BAR, grab: { bar_frames: BAR, sources: ['main'] } });
-const fromTake = { created: 'c2', frames: 4 * BAR, grab: { bar_frames: BAR, take: 'jam_a.wav', sources: ['Tuesday jam'] } };
+const fromTake = { created: 'c2', frames: 4 * BAR, grab: { bar_frames: BAR, take: 'jam_a.wav', take_label: 'Tuesday jam', sources: ['Tuesday jam'] } };
 
 function store() {
   const m = new Map();

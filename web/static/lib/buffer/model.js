@@ -7,6 +7,8 @@
 // its frames count from the grab's start, its window is [in, out), and every
 // lane's file holds `before` frames more ahead of it and `after` behind.
 
+import { takeTitle } from '../rooms/takename.js';
+
 /** barStart is where bar n (from 0) begins: n × the exact bar, rounded, as the Pi places it. */
 export function barStart(n, bar) {
   return Math.round(n * bar) || 0; // never -0
@@ -331,11 +333,19 @@ export function bufferNote(board) {
  */
 export function chipsFor(grab, names, picked) {
   if (grab && grab.take) {
-    const label = (grab.sources && grab.sources[0]) || grab.take;
-    return [{ name: `take:${grab.take}`, label, on: true, fixed: true }];
+    return [{ name: `take:${grab.take}`, label: grabTitle(grab), on: true, fixed: true }];
   }
   const on = grab ? grab.sources : picked;
   return names.map((name) => ({ name, label: name, on: on.includes(name), fixed: !!(grab && grab.stale) }));
+}
+
+/**
+ * grabTitle names the take a take's grab came from, as the take is named
+ * everywhere (takeTitle): its own name, else its time, with the day when it
+ * was not today, as nothing in the buffer says the day. `now` is for the tests.
+ */
+export function grabTitle(grab, { now } = {}) {
+  return takeTitle({ name: grab.take, label: grab.take_label || '' }, { day: true, now });
 }
 
 /** boardKey changes whenever what the buffer plays does: to know when to fetch its audio again. */

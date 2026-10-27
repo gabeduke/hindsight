@@ -1083,7 +1083,10 @@ the time it was caught, which is what its spine prints (`takeTitle`,
 `lib/rooms/takename.js`). The bar, a search, Recently deleted, a toast and
 a screen reader all say that; where nothing around it says the day (a
 toast, Recently deleted) the day goes before the time (`{ day: true }`).
-Never the file (`jam_….wav`) or its date stamp. Open's own page still
+Never the file (`jam_….wav`) or its date stamp. The buffer names a take's
+grab the same way (`grabTitle`, `lib/buffer/model.js`), from the grab's
+`take` and `take_label` (the take's name when it was grabbed), not from its
+`sources`, which the Pi writes for its own lines. Open's own page still
 titles a take by its date stamp (`lib/wave/page.js` `stampOf`), until
 Open's pass.
 
