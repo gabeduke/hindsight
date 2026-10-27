@@ -384,6 +384,23 @@ function buildReels(root, { scene, renderer, ticker, clock }) {
     if (at > 200) { at = 0; reels.set({ pos: reels.view.pos + 0.2 * SR, at: clock() }); }
     return true;
   });
+
+  // One winding: it plays, and every two seconds jumps a minute on or back,
+  // as a tap on the ruler or the loop coming round does. The reels wind to
+  // it with the shutter open (spin.js's blurred cells).
+  const winding = scene.add(new SceneObject('reels:winding', 'reels', { pos: 0.4 * LEN, playing: true, length: LEN, sampleRate: SR, at: clock() }));
+  renderer.part(winding.id, reelsDrawer(reelPair(cell(grid, 'winding to a jump, and back'))));
+  let since = 0, polls = 0;
+  ticker.add((dt) => {
+    since += dt;
+    if (since > 200) {
+      since = 0;
+      polls += 1;
+      const jump = polls % 10 === 0 ? (polls % 20 === 0 ? -60 : 60) * SR : 0;
+      winding.set({ pos: winding.view.pos + 0.2 * SR + jump, at: clock() });
+    }
+    return true;
+  });
 }
 
 
@@ -394,7 +411,7 @@ function buildReels(root, { scene, renderer, ticker, clock }) {
  * and the packs, all on one screen and none of it needing a take, a server
  * or a playback path.
  */
-function buildCassettes(root, { scene, renderer }) {
+function buildCassettes(root, { scene, renderer, ticker }) {
   const grid = section(root, 'Cassette',
     'Drawn with no audio, so each is a still. The stripe comes from the name, the stamp from the date in it, and the packs from how far through it is.');
 
@@ -442,6 +459,23 @@ function buildCassettes(root, { scene, renderer }) {
       scene, renderer, id,
     });
   }
+
+  // One playing, on the bench's clock: the hubs turn, the emptier spool the
+  // faster, and the tape goes round again at the end.
+  const id = 'cassette:playing';
+  const playing = scene.add(new SceneObject(id, 'cassette', { played: 0.15, playing: true }));
+  new CassetteFace({
+    container: cell(grid, 'playing: the emptier spool turns faster'),
+    peaks: peaks(),
+    duration: 212,
+    audio: null,
+    take: { name: '2026-10-04_2015_jam', duration: 212, stars: 0, tag: null },
+    scene, renderer, id,
+  });
+  ticker.add((dt) => {
+    playing.set({ played: (playing.state.played + dt / 30000) % 1 });
+    return true;
+  });
 }
 
 

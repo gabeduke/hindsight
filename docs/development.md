@@ -418,7 +418,8 @@ cables write settings, and the default file is `~/hindsight/settings.json`.
 `web/static/lib/objects/` holds the physical things the app draws, one
 module each, with their tests beside them: the VU meters (`vu.js`), the reels
 and the reel window (`reels.js`, `reel-window.js`), the cassette
-(`cassette.js`, `cassette-geom.js`), the ribbon (`ribbon.js` and its draw and
+(`cassette.js`, `cassette-geom.js`), the rendered parts of both (`spin.js`,
+below), the ribbon (`ribbon.js` and its draw and
 maths), the LCD's words (`lcd.js`), grease pencil (`grease.js`), a flag's
 pennant (`pennant.js`). A page keeps its layout and behaviour and asks the
 module for the object. The icons are not objects but chrome: one drawn set,
@@ -432,6 +433,27 @@ and a take's flags are written on is all CSS (`.tt-head .tt-name` and
 in rules across `styles.css` — and every key colour follows the scheme, so
 they stay chrome; their lit materials (`--mute-*`, `--solo-*`) are in
 `objects.css`.
+
+**The rendered parts.** The reels' flanges and the cassette's hubs are
+drawn from frames rendered in Blender (`spin.js`, the sheets in
+`web/static/sprites/`): one turn of each part's symmetry, a step further
+round in each cell, under a lamp that stays put, so the highlights hold
+still while the metal turns under them. The reels' and the cassette's
+models turn them; a drawer shows the nearest cell and turns it the rest of
+the way, half a step at most. A reel winding to a jump is drawn from cells
+rendered with the shutter open. To change one, edit and run the scene:
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender --background \
+  --factory-startup --python scripts/blender/spools.py
+```
+
+It needs `cwebp` (`brew install webp`), takes about twenty seconds, and
+prints the sheets' new addresses for `spin.js` and `sw.js`'s `SHELL`;
+`spin.test.js` fails until both have them, and if the grid in `spools.py`
+and in `spin.js` disagree. `--factory-startup` keeps a Blender that is open
+for something else, and its add-ons, out of it. Until a sheet has loaded,
+the drawn part shows.
 
 `motion.js` holds the shared physics: `ballistic` for a needle (the VU
 standard, 300 ms to 99 % with 1 % overshoot), `lag` for a first-order

@@ -35,6 +35,18 @@ test('Guardrail 2: styles.css has no custom @keyframes room-spin animation outsi
   );
 });
 
+test('Guardrail 2b: no stylesheet turns a reel or a hub by @keyframes: they turn by their models, on the ticker', () => {
+  // The cassette's hubs went round by a CSS spin, at one speed whatever the
+  // packs, until they were rendered (lib/objects/spin.js) and turned by
+  // lib/scene/cassette.js.
+  for (const file of ['styles.css', 'objects.css', 'css/bar.css', 'css/chrome.css', 'css/rooms-motion.css']) {
+    const css = fileCss(file);
+    for (const [, name, body] of css.matchAll(/@keyframes\s+([\w-]+)\s*\{([\s\S]*?\})\s*\}/g)) {
+      assert.ok(!/rotate\(\s*360deg|turn\)/.test(body), `${file}: @keyframes ${name} spins something`);
+    }
+  }
+});
+
 test('Guardrail 3: tape/page.js interpolates playhead at 60fps on the shared ticker Loop', () => {
   const tapePage = read('lib/tape/page.js');
   assert.ok(

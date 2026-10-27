@@ -2868,9 +2868,12 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 }
 .cas-canvas { position: absolute; left: 0; top: 0; display: block; cursor: pointer; }
 .cas-hub { position: absolute; width: 44px; height: 44px; pointer-events: none; }
-.cas-spin { width: 44px; height: 44px; animation: reelspin 2.2s linear infinite; animation-play-state: paused; }
-.cassette.playing .cas-spin { animation-play-state: running; }
+/* A hub turns by its model (lib/scene/cassette.js), drawn from the rendered
+   sheet (lib/objects/spin.js), which cassette.js sets as its background once
+   it has loaded; the drawn hub until then. */
+.cas-spin { width: 44px; height: 44px; background-repeat: no-repeat; }
 .cas-spin svg { display: block; }
+.cassette.rendered .cas-spin svg { display: none; }
 .cas-hub-ring { stroke: var(--hub); }
 .cas-hub-disc { fill: var(--hub); }
 .cas-hub-core { fill: var(--hub-core); }
@@ -2882,8 +2885,6 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
   clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
 }
 .cas-foot span { width: 9%; height: 28%; border-radius: 3px; background: var(--cas-slot); box-shadow: inset 0 1px 2px rgba(0,0,0,.9); }
-@keyframes reelspin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .cas-spin { animation: none; } }
 .detail-actions, .detail-more { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .detail-sel { font-family: var(--mono); font-size: 13px; color: var(--ink-dim); }
 .detail-open { text-decoration: none; }

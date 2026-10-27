@@ -91,10 +91,23 @@ export async function still(node, { sheets = ['/objects.css', '/styles.css'], sk
     img.style.height = `${r.height}px`;
     c.replaceWith(img);
   });
-  await Promise.all([...copy.querySelectorAll('img')].map(async (img) => {
-    const src = img.getAttribute('src') || '';
+  // A picture inside the still loads nothing, so every one goes in as data:
+  // the images, the rendered reels' sheets (an SVG <image>) and the hubs'
+  // (a background). One fetch a sheet, however many reels show it.
+  const fetched = new Map();
+  const dataOf = (u) => { if (!fetched.has(u)) fetched.set(u, fetchData(u)); return fetched.get(u); };
+  await Promise.all([
+    ...[...copy.querySelectorAll('img')].map((n) => [n, 'src']),
+    ...[...copy.querySelectorAll('image')].map((n) => [n, 'href']),
+  ].map(async ([n, attr]) => {
+    const src = n.getAttribute(attr) || '';
     if (!src || src.startsWith('data:')) return;
-    try { img.setAttribute('src', await fetchData(src)); } catch { /* left as it was */ }
+    try { n.setAttribute(attr, await dataOf(src)); } catch { /* left as it was */ }
+  }));
+  await Promise.all([...copy.querySelectorAll('[style*="url("]')].map(async (n) => {
+    const m = /url\(\s*['"]?([^'")]+)['"]?\s*\)/.exec(n.style.backgroundImage || '');
+    if (!m || m[1].startsWith('data:')) return;
+    try { n.style.backgroundImage = `url("${await dataOf(m[1])}")`; } catch { /* left as it was */ }
   }));
   if (skip) for (const n of copy.querySelectorAll(skip)) n.remove();
 

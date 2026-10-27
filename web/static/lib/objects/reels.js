@@ -41,6 +41,7 @@ export class ReelMotion {
     this.pos = 0;       // where the reels show the tape
     this.angleL = 0;
     this.angleR = 0;
+    this.last = null;   // the time of the last frame
   }
 
   setLength(length) { this.length = length; }
@@ -89,14 +90,21 @@ export class ReelMotion {
       }
     }
     const r = packRadii(pos, this.length);
+    let spin = 0;
     if (!this.reduced) {
       // Both reels turn the same way: the tape leaves one as it arrives on
       // the other. A smaller pack turns faster for the same tape.
       const ds = ((pos - this.pos) / this.sr) * SPEED;
-      this.angleL = (this.angleL - (ds / r.left) * (180 / Math.PI)) % 360;
-      this.angleR = (this.angleR - (ds / r.right) * (180 / Math.PI)) % 360;
+      const turnL = (ds / r.left) * (180 / Math.PI), turnR = (ds / r.right) * (180 / Math.PI);
+      this.angleL = (this.angleL - turnL) % 360;
+      this.angleR = (this.angleR - turnR) % 360;
+      // How fast the faster reel turns, in degrees a second: what decides
+      // whether the bar draws it sharp or blurred (spin.js, blurFor).
+      const s = this.last === null ? 0 : (now - this.last) / 1000;
+      if (s > 0) spin = Math.max(Math.abs(turnL), Math.abs(turnR)) / s;
     }
+    this.last = now;
     this.pos = pos;
-    return { pos, left: r.left, right: r.right, angleL: this.angleL, angleR: this.angleR, moving };
+    return { pos, left: r.left, right: r.right, angleL: this.angleL, angleR: this.angleR, spin, moving };
   }
 }
