@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { levelFrac, peakDbAt, progressWriter, HAIRLINE_MEDIA, reelsDrawer } from './reel-window.js';
-import { cssOf, rules } from '../stylesheets.js';
+import { readFileSync } from 'node:fs';
+import { cssOf, fileCss, rules } from '../stylesheets.js';
 
 test('a level bar is empty at −40 dBFS and full 3 dB over the reference', () => {
   assert.equal(levelFrac(-Infinity), 0);
@@ -86,5 +87,22 @@ test('a frame sets a reel\'s pack only when it has changed: an SVG attribute set
     assert.deepEqual(sets.filter(([cls, k]) => cls === 'np-pack' && k === 'r').map(([, , v]) => v), ['52.3', '30.0', '51.9'], 'and again when it has changed');
   } finally {
     globalThis.document = saved;
+  }
+});
+
+test('the bench draws its reels with the bar\'s own rules, kept in step', () => {
+  // The bench doesn't take css/bar.css (stylesheets.test.js), so it carries
+  // the reel's rules scoped to .bench-reel: each must say what the bar's does.
+  const html = readFileSync(new URL('../../objects.html', import.meta.url), 'utf8');
+  const bench = rules(/<style>([\s\S]*?)<\/style>/.exec(html)[1]);
+  const bar = rules(fileCss('css/bar.css'));
+  const norm = (b) => b.replace(/\s+/g, ' ').trim();
+  const reel = bar.filter((r) => r.sel.length === 1 && /^(\.np-reel\.rendered )?\.np-(well|pack|turn|flange|hub|frames|drawn)$/.test(r.sel[0]));
+  assert.ok(reel.length >= 8, `found ${reel.length} of the reel's rules in bar.css`);
+  for (const r of reel) {
+    const sel = r.sel[0].startsWith('.np-reel') ? r.sel[0].replace('.np-reel', '.bench-reel') : `.bench-reel ${r.sel[0]}`;
+    const twin = bench.find((b) => b.sel.includes(sel));
+    assert.ok(twin, `objects.html should have ${sel}`);
+    assert.equal(norm(twin.body), norm(r.body), sel);
   }
 });

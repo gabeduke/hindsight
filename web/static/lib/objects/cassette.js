@@ -14,9 +14,14 @@
 // reads its <audio> and sets the cassette's state, the cassette model
 // (lib/scene/cassette.js) derives the view, and the face's drawer paints
 // it. Without a scene of its own to join it makes one, on the shared ticker.
+//
+// The hubs turn by the model, each at its own speed, and are rendered
+// (spin.js): drawn until the sheet has loaded, then its cell for each
+// hub's angle.
 
 import { levelsFor, takeGain, smooth, drawBars } from '../wave/draw.js';
 import { ticker } from './motion.js';
+import { HUB, spinCell, sheetReady } from './spin.js';
 import { Scene } from '../scene/scene.js';
 import { SceneObject } from '../scene/object.js';
 import { DomRenderer } from '../scene/dom.js';
@@ -26,7 +31,8 @@ import { dropoutsText } from '../shelf.js';
 import { takeTitle } from '../rooms/takename.js';
 import { stripeFor, STRIPES, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
-// A reel hub: a ring, a disc, a dark core and six teeth.
+// A reel hub, drawn: a ring, a disc, a dark core and six teeth. What shows
+// until the rendered one has loaded.
 function hubSVG() {
   const teeth = [0, 60, 120, 180, 240, 300]
     .map((a) => `<rect class="cas-tooth" x="20.2" y="7" width="3.6" height="6" rx="1" transform="rotate(${a} 22 22)"/>`).join('');
@@ -76,8 +82,17 @@ export class CassetteFace {
       screws: q('.cas-screws'), label: q('.cas-label'), band: q('.cas-band'), under: q('.cas-under'),
       side: q('.cas-side'), brand: q('.cas-brand'), stamp: q('.cas-stamp'), rule: q('.cas-rule'), name: q('.cas-name'),
       win: q('.cas-window'), canvas: q('.cas-canvas'), hubs: [...this.el.querySelectorAll('.cas-hub')], foot: q('.cas-foot'),
-      drops: q('.cas-drops'),
+      drops: q('.cas-drops'), spins: [...this.el.querySelectorAll('.cas-spin')],
     };
+    // Each hub as last turned: its cell and the rest of its turn.
+    this.turned = this.parts.spins.map(() => ({ at: null, turn: null }));
+    sheetReady(HUB).then(() => {
+      for (const s of this.parts.spins) {
+        s.style.backgroundImage = `url("${HUB.src}")`;
+        s.style.backgroundSize = `${HUB.cols * HUB.cell}px ${HUB.rows * HUB.cell}px`;
+      }
+      this.el.classList.add('rendered');
+    }, () => {});
     this.ctx = this.parts.canvas.getContext('2d');
     this.setTake(take);
 
@@ -249,12 +264,33 @@ export class CassetteFace {
    */
   drawView(view) {
     this.el.classList.toggle('playing', view.spinning);
+    this.turnHubs(view);
     const at = this.layout ? Math.round(playedX(view.played, this.layout) * (this.dpr || 1)) : null;
     const key = `${at}|${view.spinning}`;
     if (!this.dirty && key === this.painted) return;
     this.dirty = false;
     this.painted = key;
     this.paint(view);
+  }
+
+  /**
+   * turnHubs turns each hub to its angle: the sheet's cell, and the drawn
+   * hub with it, set only when the cell changes; then the rest of the way.
+   */
+  turnHubs(view) {
+    [view.hubL, view.hubR].forEach((angle, i) => {
+      const spin = this.parts.spins[i], was = this.turned[i];
+      if (!spin) return;
+      const c = spinCell(HUB, angle);
+      const at = `${-c.col * HUB.cell}px ${-c.row * HUB.cell}px`;
+      if (at !== was.at) {
+        was.at = at;
+        spin.style.backgroundPosition = at;
+        if (spin.firstElementChild) spin.firstElementChild.style.transform = `rotate(${c.base}deg)`;
+      }
+      const turn = `rotate(${c.rest.toFixed(1)}deg)`;
+      if (turn !== was.turn) { was.turn = turn; spin.style.transform = turn; }
+    });
   }
 
   fraction() {

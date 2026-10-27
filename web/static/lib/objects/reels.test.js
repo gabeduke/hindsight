@@ -90,3 +90,21 @@ test('when the polls stop coming, the machine stops rather than run on forever',
   assert.equal(late.moving, 'stop');
   assert.ok(late.pos <= SR + 0.5 * SR + 1);
 });
+
+test('the reels say how fast they turn: slowly as the tape plays, fast as they wind to a jump', () => {
+  const m = new ReelMotion({ sampleRate: SR, length: 600 * SR });
+  m.poll(30 * SR, true, 0);
+  m.frame(0);
+  const play = m.frame(16);
+  assert.ok(play.spin > 0, 'turning');
+  assert.ok(play.spin < 420, `playing at ${play.spin}°/s is drawn sharp (spin.js blurFor)`);
+  m.poll(150 * SR, true, 20);
+  const wind = m.frame(36);
+  assert.equal(wind.moving, 'wind');
+  assert.ok(wind.spin > 2400, `two minutes on in 450 ms: ${wind.spin}°/s`);
+  // Stopped, nothing turns.
+  const still = new ReelMotion({ sampleRate: SR, length: 600 * SR });
+  still.poll(SR, false, 0);
+  still.frame(0);
+  assert.equal(still.frame(16).spin, 0);
+});

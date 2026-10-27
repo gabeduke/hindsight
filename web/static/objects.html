@@ -34,6 +34,17 @@
   .bench-label { font: 12px var(--mono); color: var(--ink-dim); text-align: center; }
   .bench-reels { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; }
   .bench-reel { width: 56px; height: 56px; }
+  /* A reel's own rules are the bar's (css/bar.css), which a page without the
+     bar doesn't take: these are the same rules, on the bench's reels.
+     reel-window.test.js holds each to the bar's. */
+  .bench-reel .np-well { fill: rgba(0,0,0,.06); }
+  .bench-reel .np-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
+  .bench-reel .np-turn { transform-box: view-box; }
+  .bench-reel .np-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
+  .bench-reel .np-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
+  .bench-reel .np-frames { display: none; overflow: hidden; }
+  .bench-reel.rendered .np-frames { display: inline; }
+  .bench-reel.rendered .np-drawn { display: none; }
   .bench-ribbon { display: block; width: 100%; border-radius: 4px; }
   /* The LCD sits in the reel window, 52 px tall, between two reels. */
   .bench-lcd { display: flex; width: 100%; height: 52px; }

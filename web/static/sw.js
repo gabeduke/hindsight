@@ -5,7 +5,7 @@
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v170';
+const CACHE = 'hindsight-shell-v171';
 const SHELL = [
   '/',
   '/index.html',
@@ -180,6 +180,7 @@ const SHELL = [
   '/lib/tape/cuelane.js',
   '/lib/objects/lcd.js',
   '/lib/objects/reel-window.js',
+  '/lib/objects/spin.js',
   '/lib/bar/bar.js',
   '/lib/bar/engine.js',
   '/lib/bar/tape-source.js',
@@ -229,6 +230,10 @@ const SHELL = [
   '/icons/icon-192.png?v=3',
   '/icons/icon-small.svg?v=3',
   '/icons/favicon-32.png?v=3',
+  // The rendered reel and hub (lib/objects/spin.js): small, and the reels
+  // are on every page, so they are the shell's rather than an asset cache's.
+  '/sprites/reel.webp?v=022b8db1',
+  '/sprites/hub.webp?v=a160f878',
 ];
 
 self.addEventListener('install', (e) => {

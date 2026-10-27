@@ -100,6 +100,11 @@ body.tape-page .np[data-size="mini"][data-source="tape"] [data-mini~="studio"] {
 .np-turn { transform-box: view-box; }
 .np-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
 .np-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
+/* The rendered flange (lib/objects/spin.js) once its sheet has loaded; the
+   drawn one above until then. The frames' box shows one cell of the sheet. */
+.np-frames { display: none; overflow: hidden; }
+.np-reel.rendered .np-frames { display: inline; }
+.np-reel.rendered .np-drawn { display: none; }
 /* The window is the mini player's handle (below); the full bar has none. */
 .np-expand { display: none; }
 

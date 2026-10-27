@@ -1260,6 +1260,12 @@ comes to rest.
   block zeroes every time a thing travels in (the fades stay), and the
   ticker follows the setting as it changes. The room switch reads it at
   each switch and crossfades instead of turning (*Moving between rooms*).
+- **Nothing turns by `@keyframes`.** A reel or a hub turns by its model on
+  the ticker, drawn from frames rendered in Blender (`lib/objects/spin.js`,
+  `scripts/blender/spools.py`): the reels at the tape's speed, each by its
+  pack, blurred as they wind to a jump; the cassette's hubs each by how much
+  tape is on it. Reduced motion holds them still.
+  `lib/architecture.test.js` fails on a stylesheet that spins something.
 - **The room switch is a camera turn** between two walls of one space, the
   header and the bar held still: `css/rooms-motion.css`, drawn by the
   router (*Moving between rooms*, under *The shell*).

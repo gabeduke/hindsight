@@ -72,6 +72,12 @@ is `<pi-host>`.
   bar and the toasts (`takeTitle`); Open's page still titles it by its
   date stamp, for Open's pass (a shorter title there moved ★ over the
   tempo's line, under 24 px apart: its header is the bar track's now).
+- **The reels and the cassette's hubs are rendered** in Blender
+  (`scripts/blender/spools.py` → `web/static/sprites/`, drawn by
+  `lib/objects/spin.js`): the bar's reels turn as sheets of lit frames,
+  blurred as they wind to a jump; the hubs turn by the cassette's model,
+  the emptier spool faster, where a CSS spin turned them at one speed. The
+  cassette face is on the bench only while the take-detail pane is off.
 - **Releases and the hub:** a merge of shipping code is a release; kits update
   from the Update button or `POST /api/update`. The hub runs on the cluster.
 

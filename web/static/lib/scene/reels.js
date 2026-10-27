@@ -9,7 +9,8 @@
 // still news -- it says the Pi is answering.
 //
 // The view is ReelMotion's frame: `pos`, the pack radii `left` and `right`,
-// each reel's angle, and `moving` ('play', 'wind', 'rewind' or 'stop'). It
+// each reel's angle, `spin` (how fast the faster one turns, in degrees a
+// second), and `moving` ('play', 'wind', 'rewind' or 'stop'). It
 // is null until the first poll, so a renderer leaves the reels as drawn.
 //
 // Reduced motion arrives as the ticker's dt = Infinity: the reels then jump
@@ -18,7 +19,7 @@
 import { ReelMotion } from '../objects/reels.js';
 
 const same = (a, b) => a && b && a.pos === b.pos && a.left === b.left && a.right === b.right
-  && a.angleL === b.angleL && a.angleR === b.angleR && a.moving === b.moving;
+  && a.angleL === b.angleL && a.angleR === b.angleR && a.spin === b.spin && a.moving === b.moving;
 
 export class ReelsModel {
   constructor() {
