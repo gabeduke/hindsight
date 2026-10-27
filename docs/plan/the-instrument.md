@@ -340,45 +340,50 @@ My recommendation first in each.
       - on the Pi, by *Capturing an unknown device* in
         `docs/hardware/README.md`: the CC map of the firmware on the
         unit, into `smk-37-elite.json`, in a PR of its own.
-   3. ⌨ *Ours over SMK-37+VA, by the workbench* (Gabe, 2026-10-27).
-      SMK-37+VA answers neither the soft key nor OCT− and OCT+ held
-      (tried 2026-10-26), but it does keep M-VAVE's own update: Baud
-      Girl's installer uses it.
-      - The installer is Open's workbench with our package inside,
-        built on the Mac by `tools/container/build.sh elite package` in
-        the fork. The package is the fork's surface (step 7): passes 1
-        and 2 and the hold-HOME offer.
-      - First, read only: ask the unit who it is, with the update
-        protocol's identity query, `F0 00 32 45 00 00 00 40 7F F7`. The
-        workbench takes only `SMK-37 Elite_<n>`. If SMK-37+VA answers
-        with anything else, M-UPGRADE's force mode is the fallback.
-      - Connect with force, which the workbench asks for over a
-        production firmware, then Install. The unit gets
-        `F0 22 24 35 7F F7`, stages M-VAVE's loader and restarts into it,
-        and the loader writes the package. The unit comes back as
-        `SMK-37 Elite_8000001`, and the page checks its build.
-      - Check that it boots, that the keys and pads respond, and that
-        HOME works.
-   4. ⌨ *Back up:*
-      - into download mode by the soft key (`m-flasher download-mode`).
-        Ours very likely answers it as stock does: the SDK has
-        `platform_enter_mask_usb_update` next to its update handler, and
-        the `usb_update_mode` marker the ROM looks for. If it doesn't,
-        the dongle;
-      - `info`: the chip, the flash's JEDEC id, the model, the firmware
-        and the bootloader;
-      - `backup` to a directory outside every repo. Power-cycle, back up
-        again, and check the two SHA-256s match;
-      - check `trimdat` at 0xC1224, and what 0xFF000–0xFF23C hold. The
-        backup comes after one write, so it says what is there now, not
-        what SMK-37+VA left;
-      - keep two copies, on two disks.
-   5. ⌨ *m-bootloader:* the boot area only (16 KiB), from a pinned
-      release, over the M-VAVE bootloader the workbench put back. SEQ
-      PLAY opens the menu, SEQ REC gives download mode, and ours still
-      starts. Back up and diff with `--accept-unit 0xFF000-0xFF23C`, for
-      its calibration copy (Gabe accepted it, 2026-10-26). From here,
-      every write is M-Flasher's.
+   3. ⌨ *Ours over SMK-37+VA, by the workbench:* done 2026-10-27, with
+      Gabe at the keyboard. SMK-37+VA answers neither the soft key nor
+      OCT− and OCT+ held, but it keeps M-VAVE's own update.
+      - It calls itself `SMK-37+VA_102` (the update protocol's identity
+        query, `F0 00 32 45 00 00 00 40 7F F7`, which only reads). The
+        workbench takes only `SMK-37 Elite_<n>`, so a local copy of it
+        took `SMK-37+VA_<n>` as the Elite too. That was one line, never
+        committed.
+      - The workbench came from `tools/container/build.sh elite package`,
+        and its package was byte for byte CI's for the same commit. Force
+        mode staged M-VAVE's loader, which wrote the package. The unit
+        came back as `SMK-37 Elite_8000001`, USB `3654:7756`, named
+        `SMK37 Open`, running our build.
+      - M-VAVE's loader (`4D4A:4155`, "USB Composite Device") keeps the
+        name it was first staged under, `ota-SMK-37+VA_102`. Every
+        workbench page needs the same one line to find it, or it times
+        out waiting for the unit to reconnect.
+      - A workbench page that has installed ours then hangs on *Checking
+        the sample bank*. That check speaks Open's transfer protocol,
+        which ours replaced, so it writes nothing: cancel it.
+   4. ⌨ *Back up:* done 2026-10-27.
+      - Ours didn't answer the soft key: the SDK hands
+        `F0 22 24 35 7D F7` to the app, and the app's SysEx filter dropped
+        it. Fork #6 answers it as stock and m-bootloader do: it writes the
+        ROM's marker `usb_update_mode` at `0x01C7FD80`, then resets
+        (`0x10000`, bit 4). That build went on by the workbench in the same
+        way (its CI builds the installer now), and
+        `m-flasher download-mode` works.
+      - Two backups, taken across a power-cycle and each checked against
+        the chip's CRC32, match (`a4e761ff…`). They are outside every
+        repo, in `~/smk37-backups`, and still to be copied to a second
+        disk.
+      - The factory calibration is there (`trimdat` at 0xC1224), and so is
+        the wheel calibration at 0xC2000. The Bluetooth pairing page at
+        0xC0000 is blank, and so is the whole 0xFF000 page. Nothing says
+        whether either was blank before today. M-Flasher still reads the
+        chip key, `0x980F`. Bluetooth MIDI is still to check.
+   5. ⌨ *m-bootloader:* done 2026-10-27. M-Flasher installed 1.2-22e2559
+      in the boot area and verified it. A plain start runs ours, SEQ PLAY
+      opens the menu, and SEQ REC gives download mode (Gabe checked all
+      three). Its first start copied the calibration into
+      0xFF000–0xFF23B (`TRIMCOPY`). Diffed against the first backup,
+      `tools/flash-diff.py` finds changes only there and in the boot area.
+      0xC0000–0xC1FFF is unchanged. From here, every write is M-Flasher's.
    6. ⌨ *The first proof: text over SysEx.* The firmware is built and
       tested off the unit, in
       [gabeduke/smk37-hindsight#2](https://github.com/gabeduke/smk37-hindsight/pull/2).
@@ -387,13 +392,19 @@ My recommendation first in each.
       screen, and HOME gives it back and tells the Pi. Replacing the
       workbench's transfer protocol made the room: the image is 450,596
       bytes. On the unit: first from the Mac (`tools/midi.swift hs SMK
-      hello`), then from the Pi (`amidi -S`), then from Hindsight. Today
+      hello`), then from the Pi (`amidi -S`), then from Hindsight. From
+      the Mac: done 2026-10-27. HELLO, CLEAR and TEXT each acked in about
+      1.3 ms, and the text was on the screen. Today
       `internal/midi` only skips SysEx when it reads. It gains a SysEx
       writer and a client for the protocol, with tests, and finds the
       port by the profile's name. The keyboard stays class-compliant, so
       the Pi needs no driver.
    7. *The surface* is built and tested off the unit, in
-      [gabeduke/smk37-hindsight#3](https://github.com/gabeduke/smk37-hindsight/pull/3).
+      [gabeduke/smk37-hindsight#3](https://github.com/gabeduke/smk37-hindsight/pull/3),
+      and on the unit from the Mac (2026-10-27). Every row below came out
+      as written, and HOME sent RELEASE. PLAY and REC to the Pi were
+      still to try. The unit now calls itself `SMK37 Open`, which
+      Hindsight's SMK-37 profile (matched on `SMK-37`) doesn't match yet.
       While the Pi has the screen, the panel speaks to it:
       - pads as notes 36–51 on channel 10, with poly aftertouch. That is
         the SMK-37 profile's Play mode, CATCH and GRAB;
