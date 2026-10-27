@@ -318,12 +318,59 @@ func TestHomeIsRememberedUntilUnplugged(t *testing.T) {
 		t.Fatal("unplugged, the HOME is still remembered")
 	}
 	r.present2()
-	r.k.Clear(Black)
 	r.k.Feed(frame(0, cmdRelease))
+	r.k.Clear(Black)
 	got := r.take()
 	r.k.Feed(ack(got[0][5], statusOK))
 	if s := r.k.Status(); !s.Screen || s.Homed {
 		t.Fatalf("a CLEAR after HOME: %+v, want the screen and HOME forgotten", s)
+	}
+}
+
+// HOME while a CLEAR waits for its ack: the keyboard keeps one reply per
+// port, so its RELEASE can take the ack's place, and the CLEAR sent again
+// would take the screen straight back. The player's HOME wins: what was
+// drawing Hindsight's screen is dropped, and a late ack changes nothing.
+func TestHomeDropsTheDrawingStillWaiting(t *testing.T) {
+	r := newRig(t)
+	r.present()
+	r.k.Clear(Black)
+	r.k.Text(8, 8, 1, Text, "HI")
+	r.k.Knob(0, 64)
+	r.take()
+	r.k.Feed(frame(0, cmdRelease))
+	if got := r.take(); len(got) != 1 || got[0][6] != cmdKnob {
+		t.Fatalf("after HOME sent % x, want the KNOB alone", got)
+	}
+	r.k.Feed(ack(2, statusOK)) // the CLEAR's, late
+	r.advance(r.k.AckTimeout)
+	for _, f := range r.take() {
+		if f[6] == cmdClear || f[6] == cmdText {
+			t.Fatalf("after HOME, sent % x again", f)
+		}
+	}
+	if s := r.k.Status(); s.Screen || !s.Homed {
+		t.Fatalf("after HOME and a late ack: %+v, want homed without the screen", s)
+	}
+}
+
+// A TEXT answered RELEASED on a screen Hindsight had: once a CLEAR has
+// taken it, only HOME gives it back, so that was HOME, its RELEASE lost
+// behind an ack. Before any CLEAR, it says nothing about HOME.
+func TestATextRefusedOnHindsightsScreenIsAHome(t *testing.T) {
+	r := newRig(t)
+	r.present()
+	r.k.Text(8, 8, 1, Text, "HI")
+	r.k.Feed(ack(2, statusReleased))
+	if s := r.k.Status(); s.Homed {
+		t.Fatalf("a TEXT refused before any CLEAR: %+v, want no HOME", s)
+	}
+	r.k.Clear(Black)
+	r.k.Feed(ack(3, statusOK))
+	r.k.Text(8, 8, 1, Text, "HI")
+	r.k.Feed(ack(4, statusReleased))
+	if s := r.k.Status(); s.Screen || !s.Homed {
+		t.Fatalf("a TEXT refused on Hindsight's screen: %+v, want homed without the screen", s)
 	}
 }
 

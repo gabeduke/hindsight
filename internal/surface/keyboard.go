@@ -309,6 +309,24 @@ func (k *Keyboard) forget() {
 	k.flight, k.queue = nil, nil
 }
 
+// dropDrawing forgets the CLEARs and TEXTs waiting or in flight, after
+// HOME: they draw a screen that is the keyboard's now. A late ack for one
+// in flight then matches nothing. Called with mu held.
+func (k *Keyboard) dropDrawing() {
+	drawing := func(m *message) bool { return m.cmd == cmdClear || m.cmd == cmdText }
+	if k.flight != nil && drawing(k.flight) {
+		k.flight = nil
+	}
+	kept := k.queue[:0]
+	for _, m := range k.queue {
+		if !drawing(m) {
+			kept = append(kept, m)
+		}
+	}
+	k.queue = kept
+	k.next()
+}
+
 // Gone says the keyboard's port went (internal/midi's ControllerGone). A
 // keyboard plugged in again starts afresh.
 func (k *Keyboard) Gone() {
@@ -327,9 +345,13 @@ func (k *Keyboard) Feed(msg []byte) {
 	seq, cmd := msg[5], msg[6]
 	k.mu.Lock()
 	if cmd == cmdRelease && seq == 0 {
-		// HOME on the keyboard: the screen is its own until a CLEAR.
+		// HOME on the keyboard: the screen is its own until a CLEAR. A
+		// CLEAR still waiting would take it straight back, sent again
+		// because its ack was late or lost (the keyboard keeps one reply
+		// per port, and its RELEASE can take the ack's place).
 		k.status.Screen = false
 		k.status.Homed = true
+		k.dropDrawing()
 		k.mu.Unlock()
 		return
 	}
@@ -363,7 +385,16 @@ func (k *Keyboard) Feed(msg []byte) {
 	case done.cmd == cmdClear && status == statusOK:
 		k.status.Screen = true
 		k.status.Homed = false
-	case status == statusReleased, done.cmd == cmdRelease && status == statusOK:
+	case status == statusReleased:
+		// A TEXT the keyboard wouldn't draw. Once a CLEAR has taken the
+		// screen only HOME gives it back, so on Hindsight's screen this
+		// was HOME, its RELEASE lost behind an ack.
+		if k.status.Screen {
+			k.status.Homed = true
+			k.dropDrawing()
+		}
+		k.status.Screen = false
+	case done.cmd == cmdRelease && status == statusOK:
 		k.status.Screen = false
 	}
 	k.next()
