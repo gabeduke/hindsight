@@ -79,7 +79,8 @@ func TestKeyboardConnectedOnlyForAnOpenSMK37Controller(t *testing.T) {
 		{listed{{Name: "SMK-37", Controller: false, Connected: true}}, false},
 		{listed{{Name: "SMK-37", Controller: true, Connected: false}}, false},
 		{listed{{Name: "SMK-37", Controller: true, Connected: true}}, true},
-		{listed{{Name: "SMK37 Elite Open", Controller: true, Connected: true}}, true},
+		// The Elite's own name on Hindsight's firmware (2026-10-27).
+		{listed{{Name: "SMK37 Open   ", Controller: true, Connected: true}}, true},
 	} {
 		a.SetControllers(c.devices)
 		if got := a.KeyboardConnected(); got != c.want {

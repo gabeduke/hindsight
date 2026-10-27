@@ -202,13 +202,15 @@ func TestAKnownControllerShipsAProfile(t *testing.T) {
 }
 
 // On Hindsight's firmware the SMK-37's buttons are notes on channel 16:
-// PLAY runs the transport and REC keeps, under either spelling of its name.
-// The same notes on another channel, its keys', run nothing.
+// PLAY runs the transport and REC keeps, under either spelling of its name:
+// "SMK37 Open   " is what the Elite reported on Hindsight's firmware
+// (2026-10-27), trailing spaces and all. The same notes on another channel,
+// its keys', run nothing.
 func TestTheSMK37sSurfaceButtonsRunVerbs(t *testing.T) {
 	_, _, a, _ := controlsAPI(t, t.TempDir())
 	v := &fakeVerbs{}
 	a.controls.verbs = v
-	for _, port := range []string{"SMK-37", "SMK37 Elite Open"} {
+	for _, port := range []string{"SMK-37", "SMK37 Open   "} {
 		a.ControlMIDI(port, 0x90, 16, 100) // channel 1: a key, low
 		a.ControlMIDI(port, 0x9F, 16, 127) // channel 16: PLAY
 		a.ControlMIDI(port, 0x8F, 16, 0)
