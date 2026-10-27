@@ -211,6 +211,25 @@ func TestADeviceThatGoesAwayIsClosedAndOneThatWontOpenIsLeftAWhile(t *testing.T)
 	}
 }
 
+// A scan already under way when Stop closes the ports mustn't close them
+// again: the keyboard's Out is stopped while Hindsight runs, whenever the
+// keyboard comes back under another name.
+func TestAScanAfterStopClosesNothingTwice(t *testing.T) {
+	cards, snd := fixture(t, rigCards, "midiC3D0")
+	o := NewOut([]OutTarget{{Match: "orchid"}})
+	o.cardsPath, o.sndDir = cards, snd
+	o.open = func(string) (io.WriteCloser, error) { return &recorder{}, nil }
+	o.scan()
+	if d := o.Devices(); len(d) != 1 {
+		t.Fatalf("devices = %v", d)
+	}
+	o.Stop()
+	o.scan()
+	if d := o.Devices(); len(d) != 0 {
+		t.Fatalf("after Stop: %v", d)
+	}
+}
+
 func TestSendNowGoesAheadOfWhatsQueued(t *testing.T) {
 	o := NewOut(nil)
 	r := &recorder{}

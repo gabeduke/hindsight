@@ -213,6 +213,11 @@ func (o *Out) scan() {
 	}
 	var opens []want
 	o.mu.Lock()
+	if o.stopped {
+		// Stop closed every port already; closing one again panics.
+		o.mu.Unlock()
+		return
+	}
 	for node, p := range o.ports {
 		if p.dead.Load() || !present[node] {
 			// A device unplugged -- and maybe plugged straight back in at
