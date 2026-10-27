@@ -793,9 +793,10 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     const phone = sheetMode();
     const was = el.panel.dataset.height;
     if (phone) el.panel.dataset.height = 'peek'; // the lanes come out from under it
+    const g = grabOf();
     lift = new Lift({
       doc, overlay, get: liftGet,
-      label: `${grabOf().sources.join(' + ')} · ${bufferMeta(st.board, sr())}`,
+      label: `${g.take ? grabTitle(g) : g.sources.join(' + ')} · ${bufferMeta(st.board, sr())}`,
       onDrop: ({ track, at }) => dropAt(track, at),
       onEnd: () => { lift = null; if (phone) el.panel.dataset.height = was; },
     });
