@@ -149,8 +149,9 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
     and later writes go through M-Flasher's soft key
     (`gabeduke/smk37-hindsight` #6);
   - it answers as "SMK37 Open". With `TAPE_CONTROLLER` naming it, the Pi
-    took its screen and drew the panel on the first try (2026-10-27, this
-    branch deployed unreleased).
+    took its screen and drew the panel the first time it was tried
+    (2026-10-27, this branch deployed unreleased). Its first HELLO went
+    nowhere then, and the next one was answered: fixed since, in review.
 
   Next, at the keyboard: PLAY and REC to the Pi with the interface on (KEEP
   needs something in the ring), and HOME, then HOME held, on the unit. The

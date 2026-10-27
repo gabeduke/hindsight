@@ -90,20 +90,21 @@ func TestKeyboardConnectedOnlyForAnOpenSMK37Controller(t *testing.T) {
 }
 
 // The keyboard's port is opened only for an SMK-37 open as a controller,
-// aimed at that controller's own name: never a keyboard MIDI_IGNORE keeps
-// out or TAPE_CONTROLLER doesn't name.
+// aimed at that controller's own node: never a keyboard MIDI_IGNORE keeps
+// out or TAPE_CONTROLLER doesn't name, even one of the same name.
 func TestKeyboardSendOpensOnlyAnOpenSMK37Controller(t *testing.T) {
 	_, _, a, _ := controlsAPI(t, t.TempDir())
 	defer a.StopKeyboard()
-	a.SetControllers(listed{{Name: "SMK-37+VA", Controller: false, Connected: true}})
+	ignored := midi.DeviceInfo{Name: "SMK37 Open", Node: "/dev/snd/midiC3D0", Controller: false, Connected: true}
+	a.SetControllers(listed{ignored})
 	a.KeyboardSend([]byte{0xF0, 0xF7})
 	if a.kbOut.out != nil {
 		t.Fatal("opened an SMK-37 that isn't a controller")
 	}
-	a.SetControllers(listed{{Name: "SMK-37+VA", Controller: true, Connected: true}})
+	a.SetControllers(listed{ignored, {Name: "SMK37 Open", Node: "/dev/snd/midiC2D0", Controller: true, Connected: true}})
 	a.KeyboardSend([]byte{0xF0, 0xF7})
-	if a.kbOut.out == nil || a.kbOut.name != "SMK-37+VA" {
-		t.Fatalf("port = %q, want one aimed at SMK-37+VA", a.kbOut.name)
+	if a.kbOut.out == nil || a.kbOut.node != "/dev/snd/midiC2D0" {
+		t.Fatalf("port = %q, want one aimed at the controller's node alone", a.kbOut.node)
 	}
 }
 

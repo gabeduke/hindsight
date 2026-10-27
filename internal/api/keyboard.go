@@ -21,26 +21,27 @@ import (
 )
 
 // keyboardOut writes to the keyboard: an Out aimed at the controller's own
-// name, made when the keyboard first opens as a controller, and made again
-// if it comes back under another name. A keyboard MIDI_IGNORE keeps out,
-// or one TAPE_CONTROLLER doesn't name, is never opened.
+// node, made when the keyboard first opens as a controller, and made again
+// if it comes back at another. Its node, not its name: a second keyboard of
+// the same name, or one MIDI_IGNORE keeps out by its node, is never opened.
+// Nor is one TAPE_CONTROLLER doesn't name.
 type keyboardOut struct {
 	mu   sync.Mutex
-	name string
+	node string
 	out  *midi.Out
 }
 
-// to is the Out for the keyboard called name.
-func (k *keyboardOut) to(name string) *midi.Out {
+// to is the Out for the keyboard at node.
+func (k *keyboardOut) to(node string) *midi.Out {
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	if k.out == nil || k.name != name {
+	if k.out == nil || k.node != node {
 		if k.out != nil {
 			k.out.Stop()
 		}
-		k.out = midi.NewOut([]midi.OutTarget{{Match: name}})
+		k.out = midi.NewOut([]midi.OutTarget{{Match: node}})
 		k.out.Start()
-		k.name = name
+		k.node = node
 	}
 	return k.out
 }
@@ -52,14 +53,15 @@ func (a *API) SetKeyboard(kb *surface.Keyboard) {
 	kb.OnPresent(a.keyboardPresent)
 }
 
-// keyboardPort is the name of an SMK-37 open as a controller.
-func (a *API) keyboardPort() (string, bool) {
+// keyboardPort is the SMK-37 open as a controller: the first, as Hindsight
+// speaks to one at a time.
+func (a *API) keyboardPort() (midi.DeviceInfo, bool) {
 	for _, d := range a.controllerDevices() {
 		if d.Controller && d.Connected && isKeyboard(d.Name) {
-			return d.Name, true
+			return d, true
 		}
 	}
-	return "", false
+	return midi.DeviceInfo{}, false
 }
 
 // KeyboardConnected says whether an SMK-37 is open as a controller: the
@@ -72,8 +74,8 @@ func (a *API) KeyboardConnected() bool {
 // KeyboardSend writes a message to the keyboard open as a controller, if
 // there is one. It doesn't block (midi.Out.Send).
 func (a *API) KeyboardSend(msg []byte) {
-	if name, ok := a.keyboardPort(); ok {
-		a.kbOut.to(name).Send(mono.Now(), msg)
+	if d, ok := a.keyboardPort(); ok {
+		a.kbOut.to(d.Node).Send(mono.Now(), msg)
 	}
 }
 

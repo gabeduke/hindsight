@@ -229,12 +229,16 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
 `gabeduke/smk37-hindsight`):
 
 - **The client** (`surface.Keyboard`) writes through `API.KeyboardSend`.
-  That reaches a `midi.Out` aimed at the keyboard's own name, made only
+  That reaches a `midi.Out` aimed at the keyboard's own node, made only
   while an SMK-37 is open as a controller. So a keyboard that
   `MIDI_IGNORE` keeps out, or that `TAPE_CONTROLLER` doesn't name, is
-  never opened or asked anything.
-- **HELLO, every two seconds**, asks whether the keyboard runs Hindsight's
-  firmware. When it answers, the API takes its screen.
+  never opened or asked anything, even beside one of the same name.
+- **One SMK-37 at a time**: the first open as a controller. There is one
+  client, so a second keyboard's HOME, OFFER or unplugging counts as the
+  first one's.
+- **HELLO** asks whether the keyboard runs Hindsight's firmware: three
+  tries a quarter of a second apart, every two seconds, until it answers.
+  When it answers, the API takes its screen.
 - **Taking the screen takes the panel.** While Hindsight has the screen,
   the pads, encoders, faders and buttons send plain MIDI.
   - The SMK-37's profile binds the pads (notes 36–51 on channel 10, as
