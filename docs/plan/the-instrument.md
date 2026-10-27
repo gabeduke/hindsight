@@ -394,17 +394,20 @@ My recommendation first in each.
       bytes. On the unit: first from the Mac (`tools/midi.swift hs SMK
       hello`), then from the Pi (`amidi -S`), then from Hindsight. From
       the Mac: done 2026-10-27. HELLO, CLEAR and TEXT each acked in about
-      1.3 ms, and the text was on the screen. Today
-      `internal/midi` only skips SysEx when it reads. It gains a SysEx
-      writer and a client for the protocol, with tests, and finds the
-      port by the profile's name. The keyboard stays class-compliant, so
-      the Pi needs no driver.
+      1.3 ms, and the text was on the screen. From Hindsight: done the
+      same day, skipping `amidi`. With
+      [gabeduke/hindsight#183](https://github.com/gabeduke/hindsight/pull/183)
+      deployed unreleased, the Pi took the screen and drew its panel. That
+      is Hindsight's side: `internal/midi` reads a controller's SysEx,
+      `internal/surface` is the protocol's client, and it writes to the
+      keyboard's own port, found by the profile's name. The keyboard stays
+      class-compliant, so the Pi needs no driver.
    7. *The surface* is built and tested off the unit, in
       [gabeduke/smk37-hindsight#3](https://github.com/gabeduke/smk37-hindsight/pull/3),
       and on the unit from the Mac (2026-10-27). Every row below came out
-      as written, and HOME sent RELEASE. PLAY and REC to the Pi were
-      still to try. The unit now calls itself `SMK37 Open`, which
-      Hindsight's SMK-37 profile (matched on `SMK-37`) doesn't match yet.
+      as written, and HOME sent RELEASE. PLAY and REC to the Pi are
+      still to try. The unit now calls itself `SMK37 Open`. #183's SMK-37
+      profile matches it; main's, without #183, matches only `SMK-37`.
       While the Pi has the screen, the panel speaks to it:
       - pads as notes 36–51 on channel 10, with poly aftertouch. That is
         the SMK-37 profile's Play mode, CATCH and GRAB;
