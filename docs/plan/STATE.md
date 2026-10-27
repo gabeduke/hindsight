@@ -141,17 +141,21 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 - The instrument's DRIVE make-up by ear with the SMK-37 (about 10 dB quieter
   on a loud loop at full drive).
 - `BenchmarkRenderABlock` on the Pi 4B.
-- The SMK-37 profile's MIDI channel (a guess: channel 10).
-- The SMK-37 on Hindsight's own firmware (`the-instrument.md` step 7):
-  nothing is flashed yet. Built and tested off the unit:
-  - the first proof and the surface, in `gabeduke/smk37-hindsight` #2 and #3;
-  - Hindsight's side, `internal/surface`: HELLO, the screen taken on an
-    answer, PLAY and REC bound, HOME held for a second and let go hands
-    the screen back (OFFER).
+- The SMK-37 profile's MIDI channel on M-VAVE's firmware (a guess: channel
+  10). On Hindsight's own, the pads are channel 10, read off the unit.
+- The SMK-37 on Hindsight's own firmware (`the-instrument.md` step 7). The
+  Elite has run it since 2026-10-27:
+  - installed over SMK-37+VA, then backed up twice; m-bootloader is on it,
+    and later writes go through M-Flasher's soft key
+    (`gabeduke/smk37-hindsight` #6);
+  - it answers as "SMK37 Open". With `TAPE_CONTROLLER` naming it, the Pi
+    took its screen and drew the panel on the first try (2026-10-27, this
+    branch deployed unreleased).
 
-  Next, at the keyboard: steps 2–5 (CC map, two backups, m-bootloader,
-  the fork), then the first proof on the unit. Download mode didn't come
-  up on SMK-37+VA from software: Felucca or a Pico dongle first (step 3).
+  Next, at the keyboard: PLAY and REC to the Pi with the interface on (KEEP
+  needs something in the ring), and HOME, then HOME held, on the unit. The
+  rest is listed in the spec: the virtual keyboard (#4–#5 on the fork) and
+  the K flows, which are written but not agreed.
 - The rig page with the real Sidekick (the eight steps in PR #107).
 - The device spike (iPad standalone audio when backgrounded; Android
   discarding the PWA mid-jam) needs the tablet and the iPad.
