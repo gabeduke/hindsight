@@ -53,6 +53,43 @@ export function stampOf(take) {
   return `${DAYS[day]} ${Number(d)} ${MONTHS[Number(mo) - 1]} · ${hh}:${mm}`;
 }
 
+// The band's type, in em of its size, from the fonts the app ships (fonts/):
+// HINDSIGHT is 3.789 em of Barlow Condensed 700 and the .22em tracking after
+// each of its nine letters; IBM Plex Mono is 0.6 em a character. So the band
+// is fitted without a page to measure it in.
+const BRAND_EM = 3.789 + 9 * 0.22;
+const MONO_EM = 0.6;
+// The side's box is 10 px in from the label's edge (styles.css, .cas-side),
+// the stamp 12 px; and the stamp keeps 12 px clear of whatever is left of it.
+const SIDE_X = 10;
+const STAMP_R = 12;
+const CLEAR = 12;
+
+/**
+ * bandLayout fits the label's band to its width: the side's box, HINDSIGHT
+ * after it, and the date stamp against the right end, each as [x0, x1] in
+ * the label. Each is placed from its own end, so a narrow cassette runs
+ * them together; there they give way in turn -- the brand first, then the
+ * stamp's weekday, then its time, which the title says anyway. The answer
+ * is {side, brand, stamp, stampBox}: `brand` null where it isn't drawn, and
+ * `stamp` the stamp's text as it fits ('' and a null box for none).
+ */
+export function bandLayout(stamp, L) {
+  const { w, side, brandX, brand: bs, stamp: ss } = L.label;
+  const sideBox = [SIDE_X, SIDE_X + side];
+  const brandBox = [brandX, brandX + BRAND_EM * bs];
+  const bare = stamp.replace(/^[A-Z]{3} /, '');
+  const tries = [[true, stamp], [false, stamp], [false, bare], [false, bare.split(' · ')[0]], [false, '']];
+  for (const [brand, text] of tries) {
+    const after = (brand ? brandBox : sideBox)[1] + CLEAR;
+    if (brand && brandBox[1] + CLEAR > w) continue;
+    const stampBox = text ? [w - STAMP_R - text.length * MONO_EM * ss, w - STAMP_R] : null;
+    if (stampBox && stampBox[0] < after) continue;
+    return { side: sideBox, brand: brand ? brandBox : null, stamp: text, stampBox };
+  }
+  return { side: sideBox, brand: null, stamp: '', stampBox: null };
+}
+
 // The two cassettes the design draws: a desk one 786 wide, a phone one 358.
 const KINDS = {
   desk: { H: 300, lx: 34, ly: 22, lh: 218, band: 34, titleTop: 46, titleSize: 25, wx: 40, wy: 98, wh: 104, rc: 60, hub: 1,
@@ -74,7 +111,8 @@ export function windowLayout(W, kind = 'desk') {
   const n = Math.max(1, Math.floor((ww - 2 * x0) / k.pitch) + 1);
   return {
     kind, W, H: k.H, radius: k.radius,
-    label: { x: k.lx, y: k.ly, w: lw, h: k.lh, band: k.band, titleTop: k.titleTop, titleSize: k.titleSize, stamp: k.stamp, brand: k.brand, side: k.side },
+    label: { x: k.lx, y: k.ly, w: lw, h: k.lh, band: k.band, titleTop: k.titleTop, titleSize: k.titleSize, stamp: k.stamp, brand: k.brand, side: k.side,
+      brandX: k.side + 20 },
     win: { x: k.wx, y: k.wy, w: ww, h: k.wh, rc: k.rc, hub: k.hub, cy: k.wh / 2, half: k.half, x0, n, pitch: k.pitch, rMin: k.rMin, rMax: k.rMax, marks: k.marks,
       markTop: k.markTop, markBottom: k.wh - k.markBottom, hook: k.hook },
     screws: { r: k.sr, inset: k.si },
