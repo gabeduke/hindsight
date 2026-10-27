@@ -166,19 +166,21 @@ func (o *Out) AddWriter(name string, w io.WriteCloser) {
 	go p.run()
 }
 
-// Start looks for the devices now and every two seconds.
+// Start looks for the devices now, before it returns, so what's sent next
+// reaches them; then every two seconds.
 func (o *Out) Start() {
+	o.scan()
 	go func() {
 		defer close(o.done)
 		t := time.NewTicker(2 * time.Second)
 		defer t.Stop()
 		for {
-			o.scan()
 			select {
 			case <-o.stop:
 				return
 			case <-t.C:
 			}
+			o.scan()
 		}
 	}()
 }

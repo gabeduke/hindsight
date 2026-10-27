@@ -230,6 +230,21 @@ func TestAScanAfterStopClosesNothingTwice(t *testing.T) {
 	}
 }
 
+// Start has looked once by the time it returns, so a message sent straight
+// after reaches the devices already there: the keyboard's first HELLO, on
+// an Out made for it, went nowhere and waited out its ack.
+func TestStartFindsTheDevicesBeforeItReturns(t *testing.T) {
+	cards, snd := fixture(t, rigCards, "midiC3D0")
+	o := NewOut([]OutTarget{{Match: "orchid"}})
+	o.cardsPath, o.sndDir = cards, snd
+	o.open = func(string) (io.WriteCloser, error) { return &recorder{}, nil }
+	o.Start()
+	defer o.Stop()
+	if d := o.Devices(); len(d) != 1 {
+		t.Fatalf("devices as Start returns = %v, want Orchid", d)
+	}
+}
+
 func TestSendNowGoesAheadOfWhatsQueued(t *testing.T) {
 	o := NewOut(nil)
 	r := &recorder{}
