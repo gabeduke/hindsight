@@ -461,8 +461,10 @@ My recommendation first in each.
      - Its bytes go through the same reader. So `ControlSink`,
        `ControlSysExSink`, `internal/surface` and Play mode's bus run the
        same code as for the real keyboard, and `KeyboardSend`'s
-       `midi.Out` writes back to it by name. One MIDI message goes in each
-       binary frame, both ways.
+       `midi.Out` writes back to it. Since #183's review, that `Out` is
+       aimed at the controller's node rather than its name, so the virtual
+       port needs a node of its own that `Out` can match and write to. One
+       MIDI message goes in each binary frame, both ways.
      - This changes interfaces: `internal/midi` gets a port that isn't a
        rawmidi node, and `midi.Out` a target that isn't one. It is a PR of
        its own, written up in `docs/architecture.md`.
