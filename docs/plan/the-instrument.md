@@ -434,7 +434,7 @@ My recommendation first in each.
      2. **Flash the fork's PR #10** (30 min, and two power cycles by hand).
         The package is CI's `wine-elite` artifact from the PR's run (`gh
         run download <run> -R gabeduke/smk37-hindsight -n wine-elite`; the
-        Mac has head b108192's in
+        Mac has head 7653242's in
         `~/smk37-builds/link-dial-in/wine-elite/generated/SMK37_ELITE_OPEN.fwsc`),
         copied to the Pi. Decision 0053's rules, with `m-flasher` from
         `~/smk-flash` on the Pi and every dump in `~/smk37-backups/`, out of
@@ -452,7 +452,7 @@ My recommendation first in each.
            3's: nothing outside 0x4000–0x7C000 may differ;
         6. power cycle, `systemctl --user start hindsight.service`.
            `features` then says 7.
-        *Decides:* the unit takes the image (957 bytes free).
+        *Decides:* the unit takes the image (861 bytes free).
      3. **Local echo** (10 min). *Press* each pad, and CATCH with nothing to
         catch; *turn* each of K1–K4 fast. *Look:* a pad goes half the
         instant it's pressed, and a refused one glows for a moment and goes
