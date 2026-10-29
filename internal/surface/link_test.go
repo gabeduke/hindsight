@@ -195,7 +195,11 @@ func linkRun(t *testing.T, seed int64, dropAcks float64) {
 			state.Meter = [4]int{rnd.Intn(128), rnd.Intn(128), rnd.Intn(128), rnd.Intn(128)}
 		case n < 6:
 			k, v := rnd.Intn(7), rnd.Intn(128)
-			state.Knobs[k] = Knob{Name: state.Knobs[k].Name, Value: strconv.Itoa(v), Amount: v, Lit: Accent}
+			value := strconv.Itoa(v)
+			if rnd.Intn(3) == 0 {
+				value = Pan(v) // a value that isn't its number: no places, no echo
+			}
+			state.Knobs[k] = Knob{Name: state.Knobs[k].Name, Value: value, Amount: v, Lit: Accent}
 			state.LitKnob = k
 		case n == 6:
 			// The panel: a turn the keyboard echoes, then the Pi hears it.

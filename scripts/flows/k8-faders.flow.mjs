@@ -16,14 +16,15 @@ export default {
       () => api.keyboard({ firmware: true }));
     try {
       await api.until(async () => (await kb.status())?.screen, 'the Pi to take the keyboard’s screen', 8000);
-      const before = (await api.tapeState())?.tracks?.[1]?.gain_db;
+      const gains = async () => (await api.tapeState())?.tracks?.map((tr) => tr.gain_db) ?? [];
+      const [one, before] = await gains();
       await t.step('pull fader 2 down', async () => { for (const v of [100, 70, 40]) { kb.press(FADER(1, v)); await t.wait(30); } });
       const after = await api.until(async () => {
         const g = (await api.tapeState())?.tracks?.[1]?.gain_db;
         return g !== undefined && g !== before && g < (before ?? 0) && g;
       }, 'track 2’s level to come down', 3000).catch(() => null);
       t.expect('track 2 is quieter', after !== null, { before, after });
-      t.expect('track 1 is as it was', (await api.tapeState())?.tracks?.[0]?.gain_db === before);
+      t.expect('track 1 is as it was', (await gains())[0] === one);
     } finally {
       kb.unplug();
     }

@@ -51,20 +51,32 @@ func TestEveryLightIsSentAgainEveryReassert(t *testing.T) {
 }
 
 // A keyboard that echoes pads lit a press itself; the Pi answers it by
-// setting that pad again, whatever it decided, even with nothing changed
-// (a refused press stays dim). Confirm is the press to that answer's ack.
+// setting that pad again with its next frame, whatever it decided: the
+// press's half once it is taken (PadDown), or, refused, the pad as it was.
+// Confirm is the press to that answer's ack.
 func TestAnEchoedPressIsAnsweredAndTimed(t *testing.T) {
 	r := echoing(t, EchoPads)
 	r.k.Pressed(3)
-	r.clock = r.clock.Add(4 * time.Millisecond)
+	r.clock = r.clock.Add(time.Millisecond)
+	r.k.PadDown(3)
+	r.clock = r.clock.Add(3 * time.Millisecond)
 	got := r.lamps()
-	expectLamps(t, "the answer", got, golden("led pad 3 21 8 14"))
+	if len(got) != 1 || got[0].X != 3 || got[0] == PadItem(3, Track(4), StageRest) {
+		t.Fatalf("the answer: %v, want pad 3 at its half alone", got)
+	}
 	if c := r.k.Status().Confirm; c != 4*time.Millisecond {
 		t.Fatalf("Confirm %v, want the 4 ms from the press to its answer's ack", c)
 	}
+	r.k.PadUp(3)
+	r.lamps()
+	// Refused: nothing changes, and the pad is set again all the same.
+	r.k.Pressed(5)
+	r.advance(20 * time.Millisecond)
+	expectLamps(t, "a refused press's answer", r.lamps(), golden("led pad 5 23 11 4"))
 	// A firmware that doesn't echo needs no answer.
 	r = echoing(t, 0)
 	r.k.Pressed(3)
+	r.advance(20 * time.Millisecond)
 	expectLamps(t, "no echo", r.lamps(), "")
 }
 
@@ -95,45 +107,41 @@ func TestTheKnobsStandWhereTheStateSays(t *testing.T) {
 }
 
 // A turn on a keyboard that echoes knobs wrote its number into the cell:
-// the Pi changes its list as the keyboard did, so a State that says
-// otherwise draws the cell again, and for BannerFor sends no KNOB, so the
-// knob doesn't jump back while it is being turned.
+// the Pi changes its list as the keyboard did, and for TurnHold the cell
+// shows the keyboard's value and no KNOB goes, so nothing is put back while
+// the State hasn't heard the turn. After it, the State wins: the cell is
+// drawn as it says, and the knob put where it says.
 func TestATurnIsEchoedThenConfirmed(t *testing.T) {
 	r := echoing(t, EchoKnobs)
 	r.knobs = nil
 	x, y := knobCell(2)
 	r.k.Turned(2, 89)
-	// The State still says 88: the cell is put back, and no KNOB goes.
+	r.k.Show(atRest()) // still 88: it hasn't heard the turn
+	if got := r.batches(); len(got) != 0 || len(r.knobs) != 0 {
+		t.Fatalf("after the echo: sent %v and %v, want nothing: the cell agrees with the keyboard", got, r.knobs)
+	}
+	r.advance(TurnHold)
+	r.k.Show(atRest())
 	got := r.batches()
 	want := []Item{TextItem(x, y+knobValueY, 2, Text, Black, "88"), BarItem(x, y+knobBarY, 52, 2, 88, Dim, Panel)}
 	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
-		t.Fatalf("after the echo: sent %v, want the cell put back as %v", got, want)
+		t.Fatalf("after TurnHold: sent %v, want the cell as the State has it, %v", got, want)
 	}
-	if len(r.knobs) != 0 {
-		t.Fatalf("sent %v while the knob was turned, want no KNOB", r.knobs)
+	if len(r.knobs) != 1 || r.knobs[0].Value != 88 {
+		t.Fatalf("after TurnHold: sent %v, want KNOB 2 at 88", r.knobs)
 	}
-	// The State hears the turn: the cell lit at 89, which the echo drew
-	// already but for its colours; once BannerFor has passed, KNOB again.
+	// The State that heard the turn: nothing to put back, and no KNOB.
+	r.knobs = nil
 	s := atRest()
-	s.Knobs[2] = Knob{Name: "FILTER", Value: strconv.Itoa(89), Amount: 89, Lit: Accent}
+	s.Knobs[2] = Knob{Name: "FILTER", Value: "89", Amount: 89, Lit: Accent}
 	r.k.Turned(2, 89)
+	r.k.Show(s)
 	r.batches()
+	r.advance(TurnHold)
 	r.k.Show(s)
-	got = r.batches()
-	for _, it := range got {
-		if it.Kind == KindText && it.S != "89" {
-			t.Fatalf("sent %v, want only the cell at 89", got)
-		}
-	}
-	r.advance(BannerFor)
-	r.k.Show(s)
-	if r.batches(); len(r.knobs) != 0 {
+	r.batches()
+	if len(r.knobs) != 0 {
 		t.Fatalf("sent %v, want none: the keyboard stands at 89 already", r.knobs)
-	}
-	s.Knobs[2].Value, s.Knobs[2].Amount = "70", 70 // changed elsewhere: a phone, say
-	r.k.Show(s)
-	if r.batches(); len(r.knobs) != 1 || r.knobs[0].Value != 70 {
-		t.Fatalf("sent %v, want KNOB 2 at 70", r.knobs)
 	}
 }
 

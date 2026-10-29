@@ -135,10 +135,13 @@
   it is drawn (its value's TEXT and its BAR, `knobCell`), so a turn writes
   the value there on the keyboard at once. `Keyboard.Turned` (from
   `keyboardTurned`, every encoder CC from the keyboard) then changes the
-  Pi's copy of the list as the keyboard changed it (`echoKnob`), so the
-  plan draws the cell again if the State says otherwise; and for
-  `BannerFor` after a turn no KNOB goes for that knob, so the knob doesn't
-  jump back to a value the State had before it heard the turn.
+  Pi's copy of the list as the keyboard changed it (`echoKnob`). For
+  `TurnHold` (2 s: the second a turn is previewed and the second before
+  it is saved) the cell shows the keyboard's value whatever the State
+  says, and no KNOB goes for that knob, so a turn is never put back and
+  never jumps to a value the State had before it heard it; after that the
+  State wins, cell and KNOB. A CLEAR forgets the places on the keyboard,
+  so every KNOB goes again after one (`stood` emptied with the list).
 - **The banner** is the layout's on version 2: a box over the top line in
   the press's colour, its words black on it (white on red), for
   `BannerFor`; `Keyboard.Banner` puts it in the state and the 20 ms tick
@@ -232,9 +235,12 @@ sent.
 - **A press answered.** A keyboard with `EchoPads` lights a pad at its
   half the moment it is pressed. `Keyboard.Pressed` (from `keyboardPad`,
   every pad note from the keyboard, taken or refused) forgets that pad's
-  light in `lit`, so the next frame sets it, whatever it is: that ends the
-  echo on the keyboard, and the time from the press to that frame's ack is
-  `Status.Confirm`.
+  light in `lit`, so the next frame sets it, whatever it is: its half
+  once the press is taken (`PadDown`, which sends), or the pad as it was
+  if refused (the next Tick). That ends the echo on the keyboard, and the
+  time from the press to that frame's ack is `Status.Confirm`. A light
+  sent before the press and acked after it isn't the answer, so it isn't
+  kept as the keyboard's.
 - **Sent again every `Reassert`** (2 s) while the screen is Hindsight's:
   `lit` is emptied, so every light goes with the next frame. A light that
   went wrong on the panel is never news to the acks; the firmware also

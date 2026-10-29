@@ -231,13 +231,15 @@ export function apiFor(base, { dir = null } = {}) {
       // an OFFER. Nothing answers the HELLO, so Hindsight never takes a
       // screen here, and the presses are plain MIDI.
       await sleep(300); // past the watcher's drain window
-      const write = (bytes) => {
-        try { writeSync(fd, Buffer.from(bytes)); } catch (e) { if (e.code !== 'EAGAIN') throw e; }
-      };
+      const write = (bytes) => { writeSync(fd, Buffer.from(bytes)); };
       // One ack a write, each well under PIPE_BUF, so the Pi's own frames
-      // written to this FIFO can't land inside one.
+      // written to this FIFO can't land inside one. An ack the full FIFO
+      // won't take is dropped, as the next burst acks again; a press never
+      // is: write throws.
       const acks = firmware && setInterval(() => {
-        for (let seq = 1; seq < 128; seq++) write([0xf0, 0x7d, 0x48, 0x53, 0x01, seq, 0x7f, 0x00, 0x02, 0x60, 0x07, 0xf7]);
+        for (let seq = 1; seq < 128; seq++) {
+          try { write([0xf0, 0x7d, 0x48, 0x53, 0x01, seq, 0x7f, 0x00, 0x02, 0x60, 0x07, 0xf7]); } catch (e) { if (e.code !== 'EAGAIN') throw e; }
+        }
       }, 100);
       return {
         press: write,

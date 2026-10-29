@@ -13,7 +13,7 @@ export default {
   profiles: ['tablet'],
   async run(t) {
     const { api } = t;
-    await t.given('a fresh tape, track 1 armed', () => api.tape('Keys'));
+    await t.given('a fresh tape (which arms track 1)', () => api.tape('Keys'));
     const kb = await t.given('the keyboard, on Hindsight’s firmware, has Hindsight’s screen',
       () => api.keyboard({ firmware: true }));
     try {

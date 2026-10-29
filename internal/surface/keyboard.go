@@ -37,6 +37,7 @@ package surface
 
 import (
 	"log"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -94,6 +95,12 @@ const (
 	// BannerFor is how long a banner shows, from its press
 	// (docs/plan/the-instrument.md, *The flash*).
 	BannerFor = time.Second
+	// TurnHold is how long after a turn the keyboard's value is where its
+	// knob stands, whatever the State says: a turn is previewed for
+	// BannerFor and saved once the knob has been still a second after
+	// that (internal/tape's knobQuiet), so a State read between them is
+	// the old value, and a KNOB from it would jump the knob back.
+	TurnHold = 2 * time.Second
 )
 
 // header is a frame's start, before its version: F0 7D "HS".
@@ -236,6 +243,7 @@ type Keyboard struct {
 	knobs   []Item
 	stood   map[int]Item
 	turned  [Knobs]time.Time
+	turnTo  [Knobs]int
 	pressed [Pads]time.Time
 
 	stop chan struct{}
@@ -553,22 +561,24 @@ func (k *Keyboard) Pressed(i int) {
 	}
 	delete(k.lit, i)
 	k.pressed[i] = k.Now()
-	k.next()
+	// Sent with the next frame, which the press's own PadDown, after it is
+	// taken, usually is: so the answer is its half, not the rest before it.
 }
 
 // Turned is encoder i's value from the keyboard. A keyboard that echoes
 // knobs (EchoKnobs) wrote it into the cell its KNOB named, so the screen's
-// list is changed as the keyboard changed it, and the cell is drawn again
-// if the State wants it otherwise. For BannerFor after, the keyboard's value
-// is where the knob stands: no KNOB is sent for it, so a turn never jumps
-// back to a value the State had before it heard the turn.
+// list is changed as the keyboard changed it. For TurnHold after, the
+// keyboard's value is where the knob stands: its cell shows it (redraw)
+// and no KNOB goes for it, so a turn is never put back, and never jumps
+// to a value the State had before it heard the turn. Nothing is sent from
+// here: the cell agrees with the keyboard already.
 func (k *Keyboard) Turned(i, value int) {
 	if i < 0 || i >= Knobs {
 		return
 	}
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	k.turned[i] = k.Now()
+	k.turned[i], k.turnTo[i] = k.Now(), value
 	st, ok := k.stood[i]
 	if !ok {
 		return
@@ -578,7 +588,7 @@ func (k *Keyboard) Turned(i, value int) {
 	if st.Echo && k.status.Features&EchoKnobs != 0 {
 		k.shown = echoKnob(k.shown, st, value)
 	}
-	k.next()
+	k.redraw()
 }
 
 // Landings is where the Keyboard's loop asks, every Tick before the
@@ -680,6 +690,14 @@ func (k *Keyboard) redraw() {
 		f := k.flash
 		s.Banner = &f
 	}
+	for i := range Knobs {
+		// A knob just turned shows the keyboard's value (Turned), where
+		// the State shows its number.
+		kn := &s.Knobs[i]
+		if k.Now().Sub(k.turned[i]) < TurnHold && kn.Amount >= 0 && kn.Value == strconv.Itoa(kn.Amount) {
+			kn.Amount, kn.Value = k.turnTo[i], strconv.Itoa(k.turnTo[i])
+		}
+	}
 	k.want = Layout(s)
 	k.knobs = Stands(s, k.status.Features&EchoKnobs != 0)
 	k.relight()
@@ -719,11 +737,11 @@ func (k *Keyboard) queueScreen() {
 }
 
 // restand is the KNOBs to send: each knob whose stand differs from what the
-// keyboard has, but one turned in the last BannerFor. Called with mu held.
+// keyboard has, but one turned in the last TurnHold. Called with mu held.
 func (k *Keyboard) restand() []Item {
 	var out []Item
 	for _, it := range k.knobs {
-		if have, ok := k.stood[it.X]; ok && have == it || k.Now().Sub(k.turned[it.X]) < BannerFor {
+		if have, ok := k.stood[it.X]; ok && have == it || k.Now().Sub(k.turned[it.X]) < TurnHold {
 			continue
 		}
 		out = append(out, it)
@@ -885,6 +903,9 @@ func (k *Keyboard) dropDrawing() {
 func (k *Keyboard) applied(cmd Item, sent time.Time) {
 	switch cmd.Kind {
 	case KindLED:
+		if cmd.isPad() && !k.pressed[cmd.X].IsZero() && sent.Before(k.pressed[cmd.X]) {
+			return // sent before the press: not its answer, which is still to go
+		}
 		if k.lit == nil {
 			k.lit = map[int]Item{}
 		}
