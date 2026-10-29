@@ -272,7 +272,7 @@ func TestALostBatchAckIsSentAgain(t *testing.T) {
 	if len(first) != 1 {
 		t.Fatalf("sent %d frames, want one BATCH in flight", len(first))
 	}
-	r.advance(r.k.ackWait(r.k.flight)) // its ack never came
+	r.advance(r.k.AckTimeout) // its ack never came
 	again := r.take()
 	if len(again) != 1 || !bytes.Equal(again[0], first[0]) {
 		t.Fatalf("after the timeout sent % x, want the same BATCH again", again)
@@ -389,25 +389,25 @@ func TestWriteSimulatorScript(t *testing.T) {
 	}
 }
 
-// The unit draws a BATCH before it acks it: a whole screen took 250 ms on
-// the keyboard. A big BATCH waits longer for its ack than a small command,
-// so a slow ack is not taken for a lost one and the keyboard not forgotten.
-func TestABigBatchWaitsLongerForItsAck(t *testing.T) {
-	r := newRig(t)
-	r.presentV2()
-	r.k.Show(atRest())
-	first := r.take()
-	if len(first) != 1 || len(first[0]) < 400 {
-		t.Fatalf("sent %d frames, want one big BATCH in flight", len(first))
-	}
-	for range 3 {
-		r.advance(r.k.AckTimeout) // drawing, as the unit does
-	}
-	if got := r.take(); len(got) != 0 {
-		t.Fatalf("sent % x again while the keyboard drew", got)
-	}
-	r.k.Feed(ack2(first[0][5], statusOK))
-	if !r.k.Status().Present {
-		t.Fatal("a slow ack forgot the keyboard")
+// Over the Pi's USB MIDI the unit lost a 764-byte BATCH and took a 624-byte
+// one (2026-10-29), so no frame Hindsight sends may come near that, whatever
+// the screen.
+func TestEveryFrameFitsWhatTheUnitTakesFromThePi(t *testing.T) {
+	for _, sc := range screens {
+		r := newRig(t)
+		r.presentV2()
+		r.k.Show(sc.state())
+		for {
+			got := r.take()
+			if len(got) == 0 {
+				break
+			}
+			for _, f := range got {
+				if len(f) > MaxFrame || MaxFrame > 600 {
+					t.Fatalf("%s: a %d-byte frame (MaxFrame %d), over the 600 the unit takes from the Pi", sc.name, len(f), MaxFrame)
+				}
+				r.k.Feed(ack2(f[5], statusOK))
+			}
+		}
 	}
 }

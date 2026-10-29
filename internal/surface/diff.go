@@ -87,8 +87,12 @@ func apply(list []Item, cmd Item) []Item {
 	return append(list, cmd)
 }
 
-// MaxFrame is the longest frame the keyboard takes, F0 to F7.
-const MaxFrame = 1024
+// MaxFrame is the longest frame Hindsight sends the keyboard, F0 to F7.
+// The firmware's mailbox holds 1,024 bytes, but from the Pi, over Linux's
+// USB MIDI, a BATCH of 624 bytes was acked and one of 764 never was
+// (measured on the unit, 2026-10-29); from a Mac 953 got through. Half the
+// mailbox keeps clear of that edge.
+const MaxFrame = 512
 
 // frameBytes is a frame's own bytes: F0 7D 48 53 <v> <seq> <cmd> and F7.
 const frameBytes = 8
