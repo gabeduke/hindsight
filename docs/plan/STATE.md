@@ -93,6 +93,12 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   the mini player's display is narrow on a 360 px phone (`bar.md`). They
   take in the open steps of `listening-back.md` and
   `the-studio-on-one-screen.md`, which hold their details.
+- **`the-play-look.md`** (not agreed yet): the UI made simpler and more
+  fun, after Gabe's OP-1 field note. An audit, three directions on the
+  canvas `DHqPaBAGJyqDz4PErR4Qir` (A tidied, B Signal recommended, C
+  Toybox), shipped as a theme beside today's Reel. **Gabe picks a
+  direction** before any code. Its motion steps are `the-studio-space.md`
+  step 12's.
 - **`the-instrument.md`** (agreed 2026-10-26), in tracks of its own:
   Hindsight as something you play. Its step 1 is built: latency
   measured in use, every control timed to the ear, kept on the Pi

@@ -696,6 +696,9 @@ claude.ai artifacts, private to Gabe:
 - The wireframes (every view at tablet, phone and desktop size):
   `9VDEexPH2bUo1vVzxZBSQx`
 - The SMK-37's surface: `WrryAkACiz1AgNHGBMYAWV`
+- The play look (the audit and three directions; `the-play-look.md`):
+  `DHqPaBAGJyqDz4PErR4Qir`, built by `play/gen.py` in the design
+  generators' folder
 
 ## Conventions
 
