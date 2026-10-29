@@ -886,6 +886,11 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   ticker step that does nothing while the view is hidden. Every global
   listener, poll and frame loop goes through these, so a hidden view costs no
   CPU and no network.
+- `socket(open)`: a connection held only while the view is shown.
+  `open()` runs on each wake (after `show()`, with the polls) and answers
+  something with a `close()`, called when the view is hidden or destroyed.
+  A room's socket to the Pi (`lib/socket.js`'s `connectSocket` or what is
+  built on it) goes through it, so a room not shown holds none open.
 - `active()`: shown and the document visible.
 - `layers`: the view's scope of the shell's one stack of open things
   (below). A menu, sheet, drawer or selection the view opens goes on it with
