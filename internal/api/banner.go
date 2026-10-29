@@ -41,25 +41,33 @@ func caughtWords(seconds float64) string {
 func grabbedWords(n int, unit string) string { return fmt.Sprintf("GRABBED %d %s", n, unit) }
 func droppedWords(track int) string          { return fmt.Sprintf("DROPPED ON T%d", track) }
 
-// says is a banner: its words and its colour.
+// says is a banner: its words and its colour on the keyboard, and for the
+// tablet's note (press.go) its role, what it lit and the track it changed.
 type says struct {
 	words  string
 	colour surface.Colour
+	role   string
+	lit    []string
+	track  int
 }
 
 // did is the banner for a verb that went through: PLAY green, STOP the
 // text's white, KEEP red, and CATCH, GRAB and DROP white, as the design's
-// command pads are.
-func did(id, words string) says {
+// command pads are. On the tablet, PLAY and STOP light ▶, KEEP (the
+// keyboard's REC) lights ●, and CATCH and DROP the head of the track they
+// put a clip on.
+func did(id string, d verbDone) says {
 	switch {
-	case id == "transport" && words == "PLAY":
-		return says{words, surface.Green}
+	case id == "transport" && d.says == "PLAY":
+		return says{words: d.says, colour: surface.Green, role: rolePlay, lit: []string{litPlay}}
 	case id == "transport":
-		return says{words, surface.Text}
+		return says{words: d.says, colour: surface.Text, role: roleStop, lit: []string{litPlay}}
 	case id == "keep":
-		return says{words, surface.Red}
+		return says{words: d.says, colour: surface.Red, role: roleRec, lit: []string{litRec}}
+	case d.track > 0:
+		return says{words: d.says, colour: surface.White, role: roleVerb, lit: []string{litTrack}, track: d.track}
 	}
-	return says{words, surface.White}
+	return says{words: d.says, colour: surface.White, role: roleVerb}
 }
 
 // refusals name why a press was refused, in the banner's 19 characters.
@@ -93,10 +101,10 @@ var refusals = []struct {
 func refused(id string, err error) says {
 	for _, r := range refusals {
 		if errors.Is(err, r.err) {
-			return says{r.words, surface.Amber}
+			return says{words: r.words, colour: surface.Amber, role: roleRefused}
 		}
 	}
-	return says{strings.ToUpper(id) + " REFUSED", surface.Amber}
+	return says{words: strings.ToUpper(id) + " REFUSED", colour: surface.Amber, role: roleRefused}
 }
 
 // fromThePress says whose banner is timed from the press: the transport,
@@ -114,11 +122,13 @@ func (a *API) keyboardPressed(port string) time.Time {
 	return a.keyboard.Now()
 }
 
-// keyboardSays puts s on the keyboard's screen for a press from it. The
-// keyboard draws nothing unless Hindsight has its screen.
+// keyboardSays puts s on the keyboard's screen for a press from it, and
+// tells the tablets (press.go). The keyboard draws nothing unless Hindsight
+// has its screen; the tablets hear every press from it regardless.
 func (a *API) keyboardSays(port string, pressed time.Time, s says) {
 	if a.keyboard == nil || pressed.IsZero() || !isKeyboard(port) {
 		return
 	}
+	a.presses.publish(s.press(pressed))
 	a.keyboard.Banner(pressed, s.colour, s.words)
 }

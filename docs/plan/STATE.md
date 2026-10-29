@@ -304,7 +304,15 @@ Beside it, in tracks of their own: `the-instrument.md` (agreed
 latency measured in use, every control timed to the ear, kept on the Pi.
 And `pushing-tape-state.md` (agreed 2026-10-28): the Pi nudges the page
 when the tape changes, so the tablet follows a controller's press in about
-30–50 ms instead of up to 235.
+30–50 ms instead of up to 235. Steps 1–3 are built (`/api/tapes/changes`,
+`lib/tape/changes.js`, J1.14); step 4 is at the rig, then Gabe decides
+the fallback poll.
+The surface's build-order step 1 (`the-instrument.md`, step 7) has both
+halves in PRs: the banner on the keyboard (#195) and its note on the
+tablet's bar (`claude/tablet-note`, after #195 and #196): each press's
+words over the bar's display for its second, ▶, ● or a track's head lit,
+on the changes socket (*The keyboard's press* in `architecture.md`, J1.15).
+Not yet looked at on the rig.
 4. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
    no check can see. The coverage map lists the controls no flow touches.

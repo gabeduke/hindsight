@@ -56,7 +56,15 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   // The pages share one ticker: a page the last test left must not run in this one.
   ticker.stop();
   ticker.steps.clear();
-  const w = { navigated: [], windowListeners: {}, raf: [], toasts: [], fetched: [] };
+  const w = { navigated: [], windowListeners: {}, raf: [], toasts: [], fetched: [], sockets: [] };
+  // The Pi's sockets (the tape's changes, lib/tape/changes.js): made, and
+  // never opened, as a Pi that is slow to answer leaves them.
+  class FakeSocket {
+    constructor(url) { this.url = url; this.closed = false; w.sockets.push(this); }
+    close() { this.closed = true; }
+  }
+  const addL = (type, fn) => { (w.windowListeners[type] ??= []).push(fn); };
+  const removeL = (type, fn) => { w.windowListeners[type] = (w.windowListeners[type] || []).filter((f) => f !== fn); };
   const doc = fakeDoc();
   w.session = store(session);
   w.local = store();
@@ -75,8 +83,10 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
     MutationObserver: class { observe() {} disconnect() {} },
     history: { state: null, replaceState() {}, pushState() {} },
     getComputedStyle: () => ({ getPropertyValue: () => '' }),
-    addEventListener: (type, fn) => { (w.windowListeners[type] ??= []).push(fn); },
-    window: { addEventListener: (type, fn) => { (w.windowListeners[type] ??= []).push(fn); } },
+    WebSocket: FakeSocket,
+    addEventListener: addL,
+    removeEventListener: removeL,
+    window: { addEventListener: addL, removeEventListener: removeL },
     fetch: async (url, init) => {
       w.fetched.push(url);
       const body = answer(url, init);

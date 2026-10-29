@@ -168,7 +168,7 @@ func TestAKeyboardCommandPadFlashesWhenDone(t *testing.T) {
 		if err := <-done; err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{"caught", caughtWords(8)}, nil
+		return verbDone{log: "caught", says: caughtWords(8)}, nil
 	})
 	r.a.ControlMIDI("SMK-37", padOn, 50, 100) // CATCH
 	r.expect("pressed", "led pad 14 70 70 70")

@@ -32,3 +32,34 @@ test('the old poll finishing late does not release the newer one', () => {
   g.end(fresh);
   assert.ok(g.begin());
 });
+
+test('a nudge with no poll in flight polls at once', () => {
+  const g = pollGate();
+  assert.equal(g.nudge(), true);
+  const a = g.begin();
+  assert.equal(g.end(a), false, 'and nothing more is owed after it');
+});
+
+test('nudges while a poll is in flight poll once more after it, never twice', () => {
+  const g = pollGate();
+  const a = g.begin();
+  assert.equal(g.nudge(), false, 'not alongside the one in flight');
+  assert.equal(g.nudge(), false);
+  assert.equal(g.end(a), true, 'once more when it ends');
+  const b = g.begin();
+  assert.equal(g.end(b), false, 'and only once');
+});
+
+test('a nudge owed to a poll that a forced one overtook is the forced one\'s', () => {
+  const g = pollGate();
+  const lost = g.begin();
+  g.nudge();
+  const woke = g.begin(true);
+  assert.equal(g.end(lost), false, 'the lost poll owes nothing');
+  assert.equal(g.end(woke), false, 'the forced poll began after the nudge, so it has it');
+  g.begin();
+  g.nudge();
+  const late = g.begin(true);
+  g.nudge();
+  assert.equal(g.end(late), true, 'a nudge after the forced poll began is still owed');
+});
