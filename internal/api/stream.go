@@ -13,7 +13,12 @@ import (
 
 // The tape's mix to a browser: GET /api/tapes/stream is a WebSocket of
 // stamped PCM16 packets (tape.EncodePacket), with JSON text messages for
-// hello, mode and moved; the page reports its buffer as {"type":"fill"}.
+// hello, mode and moved; the page reports its buffer as {"type":"fill"},
+// and, once its Play socket knows the Pi's clock, the output frame it is
+// playing and when, which times a control to the phone's ear
+// (tape/latency.go):
+//
+//	{"type":"fill","ms":842,"frame":…,"at":81240.2,"buf_ms":800,"out_ms":42,"underruns":0}
 // PUT /api/tapes/output moves the tape between the jam room, a phone, both.
 
 // streamReadWait is how long the stream waits to hear from the page. It
@@ -97,9 +102,19 @@ func (a *API) handleTapeStream(w http.ResponseWriter, r *http.Request) {
 			var m struct {
 				Type string `json:"type"`
 				MS   int    `json:"ms"`
+				// The phone's ear: output frame Frame heard at At, on the
+				// Pi's clock in ms; its jitter buffer and its output.
+				Frame     *uint64 `json:"frame"`
+				At        float64 `json:"at"`
+				BufMS     float64 `json:"buf_ms"`
+				OutMS     float64 `json:"out_ms"`
+				Underruns uint64  `json:"underruns"`
 			}
 			if json.Unmarshal(b, &m) == nil && m.Type == "fill" && m.MS >= 0 && m.MS < 60000 {
 				st.SetFill(m.MS)
+				if at := piNS(m.At); m.Frame != nil && at != 0 {
+					a.tape.HearOnPhone(tape.Ear{Frame: *m.Frame, At: at, FillMS: m.BufMS, OutputMS: m.OutMS, Underruns: m.Underruns})
+				}
 			}
 		}
 	}()

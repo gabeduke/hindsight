@@ -836,3 +836,21 @@ func TestTwoKeysOnOnePadHoldItUntilBothLetGo(t *testing.T) {
 	a.ControlMIDI(p, 0x80, 72, 0)
 	f.waitFor(t, "press stop 16th", "release stop")
 }
+
+// What a controller plays is timed to the ear as a controller's
+// (tape/latency.go); what it held when its port went is let go untimed.
+func TestAControllersControlsAreStampedAsMIDI(t *testing.T) {
+	f, _, a, _ := controlsAPI(t, t.TempDir())
+	a.ControlMIDI("Keystation 49", 0x90, 43, 100) // STOP
+	a.ControlMIDI("Keystation 49", 0x90, 43, 0)
+	a.ControlMIDI("Keystation 49", 0x90, 40, 100) // BREAK
+	f.waitFor(t, "press stop 16th", "release stop", "press break 16th")
+	a.ControllerGone("Keystation 49")
+	f.waitFor(t, "press stop 16th", "release stop", "press break 16th", "release break")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	midi := tape.Stamp{Via: tape.ViaMIDI}
+	if want := []tape.Stamp{midi, midi, midi, {}}; !slices.Equal(f.stamps, want) {
+		t.Fatalf("stamps %v, want %v", f.stamps, want)
+	}
+}

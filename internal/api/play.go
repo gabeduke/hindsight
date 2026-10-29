@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"sort"
 	"strings"
@@ -56,6 +57,16 @@ import (
 // or the connection going, puts the tape's own value back. Every screen
 // hears of an amount moving through an at with move set, no more than 30
 // times a second a pad.
+//
+// Each press, set and release is timed to the ear (tape/latency.go,
+// GET /api/latency). The page says when the hand touched it and when it
+// was sent, on the Pi's clock, which it learns from the socket's round
+// trips (a phone listening says on the stream which frame it plays, and
+// when: stream.go):
+//
+//	page → Pi  {"t":"press","pad":"stop","q":"now","touch":81234.5,"sent":81236.1}
+//	           {"t":"clock","c":5120.4}                    c: the page's clock, ms
+//	Pi → page  {"t":"clock","c":5120.4,"pi_in":81230.1,"pi_out":81230.2}
 
 // playPing is how often the Pi pings a player, and playReadWait how long it
 // waits to hear back before taking the player for gone. A held pad of a
@@ -70,12 +81,15 @@ const (
 
 // tricks is what Play mode needs of the tape engine; tests stand in for it.
 type tricks interface {
-	Press(pad, quantum string) error
-	PressAmount(pad, quantum string, v float64) error
-	Set(pad string, v float64) error
-	PreviewMod(mod string, v float64, owner string) error
+	// Press, Set, PreviewMod and Release, timed to the ear
+	// (tape/latency.go): a Stamp says which way the control came in, and
+	// what the page knows of its touch and its send.
+	PressStamped(st tape.Stamp, pad, quantum string, v float64) error
+	SetStamped(st tape.Stamp, pad string, v float64) error
+	PreviewModStamped(st tape.Stamp, mod string, v float64, owner string) error
+	ReleaseStamped(st tape.Stamp, pad string) error
 	EndPreview(mod, owner string) error
-	Release(pad string) error
+	ClockMS() float64
 	TrickEventsSince(seq uint64) ([]tape.TrickEvent, uint64)
 	MovesSince(seq uint64) ([]tape.TrickEvent, uint64)
 	TrickLead() (time.Duration, bool)
@@ -181,13 +195,13 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 			unpreview(p)
 		}
 	}
-	letGo := func(pad string) {
+	letGo := func(pad string, st tape.Stamp) {
 		mineMu.Lock()
 		held := mine[pad]
 		delete(mine, pad)
 		mineMu.Unlock()
 		if held {
-			a.playHolds.release(pad, func() { _ = eng.Release(pad) })
+			a.playHolds.release(pad, func() { _ = eng.ReleaseStamped(st, pad) })
 		}
 	}
 	defer func() {
@@ -198,13 +212,14 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 		}
 		mineMu.Unlock()
 		for _, p := range held {
-			letGo(p)
+			letGo(p, tape.Stamp{}) // gone, not played: not timed
 		}
 		unpreviewAll()
 	}()
 
 	// Only the loop below writes; the reader hands it what to say.
 	notes := make(chan any, 16)
+	type clockReply struct{ c, in float64 }
 	note := func(v any) {
 		select {
 		case notes <- v:
@@ -246,11 +261,21 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				// MIDI LEARN: the action, and the controller ("" any).
 				Action string `json:"action"`
 				Port   string `json:"port"`
+				// Timing (tape/latency.go): the touch and the send, on the
+				// Pi's clock in ms; a clock ping's time on the page's.
+				Touch float64 `json:"touch"`
+				Sent  float64 `json:"sent"`
+				C     float64 `json:"c"`
 			}
 			if json.Unmarshal(b, &m) != nil {
 				continue
 			}
+			st := tape.Stamp{Via: tape.ViaPage, Touch: piNS(m.Touch), Sent: piNS(m.Sent)}
 			switch m.T {
+			case "clock":
+				// Stamped as it is read; the writer stamps its reply as it
+				// goes, so the page can take the Pi's time off both legs.
+				note(clockReply{c: m.C, in: eng.ClockMS()})
 			case "press":
 				mineMu.Lock()
 				already := mine[m.Pad]
@@ -258,11 +283,11 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				if already {
 					continue
 				}
-				press := func() error { return eng.Press(m.Pad, m.Q) }
+				v := math.NaN()
 				if m.V != nil {
-					v := *m.V
-					press = func() error { return eng.PressAmount(m.Pad, m.Q, v) }
+					v = *m.V
 				}
+				press := func() error { return eng.PressStamped(st, m.Pad, m.Q, v) }
 				if err := a.playHolds.press(m.Pad, press); err != nil {
 					note(map[string]string{"t": "refused", "pad": m.Pad, "why": err.Error()})
 					continue
@@ -294,9 +319,9 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				pad, v := m.Pad, *m.V
 				var err error
 				if strings.HasPrefix(pad, "mod.") {
-					err = eng.PreviewMod(pad, v, me)
+					err = eng.PreviewModStamped(st, pad, v, me)
 				} else {
-					err = eng.Set(pad, v)
+					err = eng.SetStamped(st, pad, v)
 				}
 				if err != nil {
 					note(map[string]string{"t": "refused", "pad": pad, "why": err.Error()})
@@ -308,7 +333,7 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 					mineMu.Unlock()
 				}
 			case "release":
-				letGo(m.Pad)
+				letGo(m.Pad, st)
 				unpreview(m.Pad)
 			case "release_all":
 				mineMu.Lock()
@@ -318,7 +343,7 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 				}
 				mineMu.Unlock()
 				for _, p := range held {
-					letGo(p)
+					letGo(p, tape.Stamp{})
 				}
 				unpreviewAll()
 			}
@@ -358,6 +383,9 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 		case <-gone:
 			return
 		case v := <-notes:
+			if c, ok := v.(clockReply); ok {
+				v = map[string]any{"t": "clock", "c": c.c, "pi_in": c.in, "pi_out": eng.ClockMS()}
+			}
 			if write(v) != nil {
 				return
 			}
@@ -400,6 +428,15 @@ func (a *API) handleTapePlay(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// piNS is a time a page gave on the Pi's clock, in ms, as the engine's ns;
+// 0, for none, where it gave none.
+func piNS(ms float64) int64 {
+	if !(ms > 0) || math.IsInf(ms, 0) {
+		return 0
+	}
+	return int64(ms * 1e6)
 }
 
 // byOut merges the presses and releases with the moves in the order they

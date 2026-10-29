@@ -147,14 +147,19 @@ type trickMsg struct {
 	set     bool    // an amount moved, from the next block rendered
 	clear   bool    // a mod's preview let go: back to the tape's own
 	v       float64 // a press's amount, or a set's
-	// heard is when a press or release reached the Pi (mono): the moment
-	// whose sound the player was playing to (landing).
+	// heard is when a press, release or amount reached the Pi (mono): the
+	// moment whose sound the player was playing to (landing), and where a
+	// timed control's time on the Pi begins (latency.go).
 	heard int64
 	// late and line, on a press queued to land: it lands late frames after
 	// the line it was played to, at tape frame line, which has already
 	// been rendered. A head starts as if it had left the tape there.
 	late uint64
 	line int64
+	// st is the control's own times (latency.go), and drain the render
+	// head when it was drained: applied there, it went out at once.
+	st    Stamp
+	drain uint64
 }
 
 // trickInbox is where Press, Release and ReleaseAll leave their messages for
@@ -168,7 +173,7 @@ type trickInbox struct {
 // beat or bar. A track key drops its track out; a trick pad moves the head;
 // a punch-in FX comes in at its default amount.
 func (e *Engine) Press(pad, quantum string) error {
-	return e.press(pad, quantum, math.NaN())
+	return e.press(pad, quantum, math.NaN(), Stamp{})
 }
 
 // PressAmount is Press with an amount, 0 to 1 (the bend -1 to 1): a
@@ -177,10 +182,19 @@ func (e *Engine) PressAmount(pad, quantum string, v float64) error {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		return fmt.Errorf("%w: an amount is a number", ErrBadParameter)
 	}
-	return e.press(pad, quantum, v)
+	return e.press(pad, quantum, v, Stamp{})
 }
 
-func (e *Engine) press(pad, quantum string, v float64) error {
+// PressStamped is Press, or PressAmount when v is a number (NaN: none),
+// for a control that is timed (latency.go).
+func (e *Engine) PressStamped(st Stamp, pad, quantum string, v float64) error {
+	if math.IsInf(v, 0) {
+		return fmt.Errorf("%w: an amount is a number", ErrBadParameter)
+	}
+	return e.press(pad, quantum, v, st)
+}
+
+func (e *Engine) press(pad, quantum string, v float64, st Stamp) error {
 	i := padIndex(pad)
 	if i < 0 {
 		return ErrNoSuchPad
@@ -221,7 +235,7 @@ func (e *Engine) press(pad, quantum string, v float64) error {
 		log.Printf("[!] tape: trick inbox full, a press of %s dropped", pad)
 		return nil
 	}
-	e.tricks.msgs = append(e.tricks.msgs, trickMsg{pad: i, press: true, quantum: q, v: v, heard: e.now()})
+	e.tricks.msgs = append(e.tricks.msgs, trickMsg{pad: i, press: true, quantum: q, v: v, heard: e.now(), st: st})
 	e.tricks.mu.Unlock()
 	e.wake()
 	return nil
@@ -234,7 +248,12 @@ func (e *Engine) press(pad, quantum string, v float64) error {
 // (Release), or is replaced when the tape's mods change. A flood of sets
 // costs nothing: one waiting for the render goroutine is replaced, not
 // queued behind.
-func (e *Engine) Set(pad string, v float64) error {
+func (e *Engine) Set(pad string, v float64) error { return e.set(pad, v, Stamp{}) }
+
+// SetStamped is Set, for a control that is timed (latency.go).
+func (e *Engine) SetStamped(st Stamp, pad string, v float64) error { return e.set(pad, v, st) }
+
+func (e *Engine) set(pad string, v float64, st Stamp) error {
 	i := padIndex(pad)
 	if i < 0 {
 		if m := modIndex(pad); m >= 0 {
@@ -250,9 +269,9 @@ func (e *Engine) Set(pad string, v float64) error {
 		return fmt.Errorf("%w: an amount is a number", ErrBadParameter)
 	}
 	if i >= numPads {
-		return e.PreviewMod(pad, v, "")
+		return e.previewMod(pad, v, "", st)
 	}
-	e.postAmount(trickMsg{pad: i, set: true, v: clampAmount(i, v)})
+	e.postAmount(trickMsg{pad: i, set: true, v: clampAmount(i, v), heard: e.now(), st: st})
 	return nil
 }
 
@@ -272,6 +291,15 @@ type previewOwners struct {
 // tape's own value comes back when owner lets it go (EndPreview), or when
 // the tape's own value changes -- saved, or replaced.
 func (e *Engine) PreviewMod(mod string, v float64, owner string) error {
+	return e.previewMod(mod, v, owner, Stamp{})
+}
+
+// PreviewModStamped is PreviewMod, for a control that is timed (latency.go).
+func (e *Engine) PreviewModStamped(st Stamp, mod string, v float64, owner string) error {
+	return e.previewMod(mod, v, owner, st)
+}
+
+func (e *Engine) previewMod(mod string, v float64, owner string, st Stamp) error {
 	i := modIndex(mod)
 	if i < 0 {
 		return ErrNoSuchPad
@@ -282,7 +310,7 @@ func (e *Engine) PreviewMod(mod string, v float64, owner string) error {
 	e.owners.mu.Lock()
 	defer e.owners.mu.Unlock()
 	e.owners.owner[i], e.owners.on[i] = owner, true
-	e.postAmount(trickMsg{pad: numPads + i, set: true, v: math.Max(0, math.Min(1, v))})
+	e.postAmount(trickMsg{pad: numPads + i, set: true, v: math.Max(0, math.Min(1, v)), heard: e.now(), st: st})
 	return nil
 }
 
@@ -330,7 +358,12 @@ func (e *Engine) postAmount(m trickMsg) {
 // Release lets a pad go, on the next line of the quantum it was pressed with
 // and never before it has sounded for one whole line. Released, a mod's
 // preview goes back to the tape's own value.
-func (e *Engine) Release(pad string) error {
+func (e *Engine) Release(pad string) error { return e.release(pad, Stamp{}) }
+
+// ReleaseStamped is Release, for a control that is timed (latency.go).
+func (e *Engine) ReleaseStamped(st Stamp, pad string) error { return e.release(pad, st) }
+
+func (e *Engine) release(pad string, st Stamp) error {
 	i := padIndex(pad)
 	if i < 0 {
 		if modIndex(pad) >= 0 {
@@ -338,7 +371,7 @@ func (e *Engine) Release(pad string) error {
 		}
 		return ErrNoSuchPad
 	}
-	e.post(trickMsg{pad: i, heard: e.now()})
+	e.post(trickMsg{pad: i, heard: e.now(), st: st})
 	return nil
 }
 
@@ -413,13 +446,14 @@ func (e *Engine) drainTricks(out uint64, m *Mix) {
 				p.setAmount(msg.pad, msg.v, out)
 			}
 			p.moved[msg.pad] = true
+			e.timed(msg.st, msg.heard, out, out)
 		case msg.clear:
 			p.preview[msg.pad-numPads].on = false
 			p.moved[msg.pad] = true
 		case msg.all:
 			for i := range pads {
 				if p.down[i] {
-					e.queueRelease(i, msg.quantum, msg.heard, out, m)
+					e.queueRelease(i, msg.quantum, msg.heard, out, m, msg.st)
 				}
 			}
 		case msg.press:
@@ -439,10 +473,10 @@ func (e *Engine) drainTricks(out uint64, m *Mix) {
 			// pressAt is where it sounds, so a tap still sounds a whole unit
 			// (queueRelease), even one that lands late on its line.
 			p.down[msg.pad], p.quantum[msg.pad], p.pressAt[msg.pad] = true, msg.quantum, at
-			e.tr.queue(pending{at: at, action: Action{Kind: "trick", trick: &trickMsg{pad: msg.pad, press: true, late: late, line: line}}})
+			e.tr.queue(pending{at: at, action: Action{Kind: "trick", trick: &trickMsg{pad: msg.pad, press: true, late: late, line: line, heard: msg.heard, st: msg.st, drain: out}}})
 		default:
 			if p.down[msg.pad] {
-				e.queueRelease(msg.pad, p.quantum[msg.pad], msg.heard, out, m)
+				e.queueRelease(msg.pad, p.quantum[msg.pad], msg.heard, out, m, msg.st)
 			}
 		}
 	}
@@ -481,14 +515,14 @@ func (e *Engine) logMoves(out uint64, m *Mix) {
 // queueRelease queues pad i's release on quantum's next line, and no sooner
 // than one whole line after its press: a tap shorter than a sixteenth still
 // plays a sixteenth, as the page's surface promises (lib/play/surface.js).
-func (e *Engine) queueRelease(i int, quantum string, heard int64, out uint64, m *Mix) {
+func (e *Engine) queueRelease(i int, quantum string, heard int64, out uint64, m *Mix, st Stamp) {
 	p := &e.perf
 	at, _, _ := e.landing(quantum, heard, out, m) // a release has nothing to anchor
 	if u := unitFrames(p.quantum[i], m); at < p.pressAt[i]+u {
 		at = p.pressAt[i] + u
 	}
 	p.down[i] = false
-	e.tr.queue(pending{at: at, action: Action{Kind: "trick", trick: &trickMsg{pad: i}}})
+	e.tr.queue(pending{at: at, action: Action{Kind: "trick", trick: &trickMsg{pad: i, heard: heard, st: st, drain: out}}})
 }
 
 // cancelRelease takes pad i's release off the queue if it hasn't landed,

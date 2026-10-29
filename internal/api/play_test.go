@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"net/http"
 	"net/http/httptest"
 	"sort"
 	"strings"
@@ -25,42 +27,40 @@ type fakeTricks struct {
 	moves  []tape.TrickEvent
 	seq    uint64
 	refuse map[string]error
-	held   []string // set: what the tape holds, whatever the events say
+	held   []string     // set: what the tape holds, whatever the events say
+	stamps []tape.Stamp // each press, set, preview and release's, in order
 }
 
-func (f *fakeTricks) Press(pad, q string) error {
+func (f *fakeTricks) PressStamped(st tape.Stamp, pad, q string, v float64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.refuse[pad]; err != nil {
 		return err
 	}
-	f.calls = append(f.calls, "press "+pad+" "+q)
+	f.stamps = append(f.stamps, st)
+	if math.IsNaN(v) {
+		f.calls = append(f.calls, "press "+pad+" "+q)
+	} else {
+		f.calls = append(f.calls, fmt.Sprintf("press %s %s %v", pad, q, v))
+	}
 	return nil
 }
 
-func (f *fakeTricks) PressAmount(pad, q string, v float64) error {
+func (f *fakeTricks) SetStamped(st tape.Stamp, pad string, v float64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.refuse[pad]; err != nil {
 		return err
 	}
-	f.calls = append(f.calls, fmt.Sprintf("press %s %s %v", pad, q, v))
-	return nil
-}
-
-func (f *fakeTricks) Set(pad string, v float64) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if err := f.refuse[pad]; err != nil {
-		return err
-	}
+	f.stamps = append(f.stamps, st)
 	f.calls = append(f.calls, fmt.Sprintf("set %s %v", pad, v))
 	return nil
 }
 
-func (f *fakeTricks) PreviewMod(mod string, v float64, owner string) error {
+func (f *fakeTricks) PreviewModStamped(st tape.Stamp, mod string, v float64, owner string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.stamps = append(f.stamps, st)
 	f.calls = append(f.calls, fmt.Sprintf("preview %s %v by %s", mod, v, owner))
 	return nil
 }
@@ -74,12 +74,16 @@ func (f *fakeTricks) EndPreview(mod, owner string) error {
 	return nil
 }
 
-func (f *fakeTricks) Release(pad string) error {
+func (f *fakeTricks) ReleaseStamped(st tape.Stamp, pad string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.stamps = append(f.stamps, st)
 	f.calls = append(f.calls, "release "+pad)
 	return nil
 }
+
+// ClockMS is the Pi's clock: a fixed 1000 ms, so a test reads the reply.
+func (f *fakeTricks) ClockMS() float64 { return 1000 }
 
 func (f *fakeTricks) TrickEventsSince(seq uint64) ([]tape.TrickEvent, uint64) {
 	f.mu.Lock()
@@ -432,5 +436,75 @@ func TestPlaySendsMovesAndReleasesInTheOrderTheyHappened(t *testing.T) {
 	}
 	if _, has := got[0]["on"]; has {
 		t.Fatalf("a move says on: %v", got[0])
+	}
+}
+
+func TestAPagesControlsCarryTheirTouchAndSendOnThePisClock(t *testing.T) {
+	f, url := newPlayAPI(t)
+	c, _ := dialPlay(t, url)
+	sendPlay(t, c, map[string]any{"t": "press", "pad": "stop", "q": "now", "touch": 1000.5, "sent": 1002.25})
+	sendPlay(t, c, map[string]any{"t": "set", "pad": "filter", "v": 0.4})
+	sendPlay(t, c, map[string]any{"t": "release", "pad": "stop", "touch": -1})
+	f.waitFor(t, "press stop now", "set filter 0.4", "release stop")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	want := []tape.Stamp{
+		{Via: tape.ViaPage, Touch: 1000500000, Sent: 1002250000},
+		{Via: tape.ViaPage},
+		{Via: tape.ViaPage}, // a time before the Pi's clock began is none
+	}
+	if fmt.Sprint(f.stamps) != fmt.Sprint(want) {
+		t.Fatalf("stamps %v, want %v", f.stamps, want)
+	}
+}
+
+func TestAPlayerGoneLetsGoUntimed(t *testing.T) {
+	f, url := newPlayAPI(t)
+	c, _ := dialPlay(t, url)
+	sendPlay(t, c, map[string]any{"t": "press", "pad": "stop", "q": "now"})
+	f.waitFor(t, "press stop now")
+	c.Close()
+	f.waitFor(t, "press stop now", "release stop")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.stamps[1] != (tape.Stamp{}) {
+		t.Fatalf("the let-go of a player gone was timed: %+v", f.stamps[1])
+	}
+}
+
+func TestTheClockPingIsAnsweredWithThePisTimeBothWays(t *testing.T) {
+	_, url := newPlayAPI(t)
+	c, _ := dialPlay(t, url)
+	sendPlay(t, c, map[string]any{"t": "clock", "c": 5120.5})
+	_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
+	var m struct {
+		T     string  `json:"t"`
+		C     float64 `json:"c"`
+		PiIn  float64 `json:"pi_in"`
+		PiOut float64 `json:"pi_out"`
+	}
+	for m.T != "clock" {
+		if err := c.ReadJSON(&m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if m.C != 5120.5 || m.PiIn != 1000 || m.PiOut != 1000 {
+		t.Fatalf("%+v: want the page's c back, and the Pi's 1000 ms in and out", m)
+	}
+}
+
+func TestLatencySaysWhatTheEngineMeasured(t *testing.T) {
+	_, url, _ := newPlayAPIWith(t)
+	resp, err := http.Get("http" + strings.TrimPrefix(strings.TrimSuffix(url, "/tapes/play"), "ws") + "/latency")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var rep tape.LatencyReport
+	if err := json.NewDecoder(resp.Body).Decode(&rep); err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK || rep.Paths == nil || rep.Buffers.BlockFrames != tape.BlockFrames || rep.Buffers.OutputLatencyMS != 100 {
+		t.Fatalf("%d %+v", resp.StatusCode, rep)
 	}
 }
