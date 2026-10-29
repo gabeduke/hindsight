@@ -17,7 +17,7 @@ func TestOutTargetsParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []OutTarget{{"bento", 0}, {"mpc", -3}, {"keystep", 2.5}}
+	want := []OutTarget{{Match: "bento"}, {Match: "mpc", NudgeMS: -3}, {Match: "keystep", NudgeMS: 2.5}}
 	if len(got) != len(want) {
 		t.Fatalf("got %+v", got)
 	}
@@ -283,5 +283,38 @@ func TestAFollowerHearsTheTempoAndTheTransport(t *testing.T) {
 	f.Write([]byte{StopByte})
 	if _, _, running, _ := f.Heard(); running {
 		t.Fatal("still running after Stop")
+	}
+}
+
+// A target with Chunk gets a long message in pieces of at most Chunk bytes,
+// ChunkGap apart, on the port's clock: the SMK-37 loses a long SysEx frame
+// written whole.
+func TestAChunkedTargetGetsALongMessageInPiecesApart(t *testing.T) {
+	cards, snd := fixture(t, rigCards, "midiC3D0")
+	clk := &fakeClock{ns: int64(time.Hour)}
+	o := NewOut([]OutTarget{{Match: "orchid", Chunk: 4, ChunkGap: 2 * time.Millisecond}})
+	o.cardsPath, o.sndDir = cards, snd
+	o.now, o.sleep = clk.Now, clk.Sleep
+	var dev *recorder
+	o.open = func(node string) (io.WriteCloser, error) {
+		dev = &recorder{clock: clk.Now}
+		return dev, nil
+	}
+	o.scan()
+	defer o.Stop()
+	start := clk.Now()
+	o.Send(start, []byte{0xF0, 1, 2, 3, 4, 5, 6, 7, 8, 0xF7})
+	waitFor(t, "the first piece", func() bool { return dev.count() == 1 && clk.Sleeping() == 1 })
+	clk.Set(start + int64(2*time.Millisecond))
+	waitFor(t, "the second piece", func() bool { return dev.count() == 2 && clk.Sleeping() == 1 })
+	clk.Set(start + int64(4*time.Millisecond))
+	waitFor(t, "the last piece", func() bool { return dev.count() == 3 })
+	dev.mu.Lock()
+	defer dev.mu.Unlock()
+	want := [][]byte{{0xF0, 1, 2, 3}, {4, 5, 6, 7}, {8, 0xF7}}
+	for i, w := range want {
+		if string(dev.got[i]) != string(w) || dev.at[i] != start+int64(i)*int64(2*time.Millisecond) {
+			t.Fatalf("piece %d: % x at %v, want % x at %v", i, dev.got[i], time.Duration(dev.at[i]-start), w, time.Duration(i)*2*time.Millisecond)
+		}
 	}
 }

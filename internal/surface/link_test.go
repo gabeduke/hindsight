@@ -13,9 +13,11 @@ import (
 // The link, as the unit showed it (docs/architecture/keyboard.md, *Learnt on
 // the unit*): over the Pi's USB MIDI a frame of about 700 bytes or more
 // never arrives (764 was lost, 624 acked in 2 ms), and an ack can be lost
-// like any message. Where in the path it goes (the SDK's USB MIDI assembly,
-// Linux's snd-usb-midi) is not known yet; this models what was seen, so a
-// client that sends what the unit can't take never draws its screen here.
+// like any message. Where it goes was found on the unit: Linux puts all of
+// it on the wire, and the keyboard's SysEx reader loses a frame that comes
+// in one burst (internal/api writes chunks, which it takes). This models
+// what was seen, so a client that sends what the unit can't take never
+// draws its screen here.
 
 // unitLoses is the shortest frame the model loses: the edge seen on the
 // unit, rounded down.

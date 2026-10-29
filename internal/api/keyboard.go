@@ -21,6 +21,16 @@ import (
 	"github.com/gabeduke/hindsight/internal/surface"
 )
 
+// The keyboard's SysEx reader loses a frame written at USB's full speed (a
+// 512-byte BATCH two times in three) and takes every frame up to 996 bytes
+// written keyboardChunk at a time, keyboardChunkGap apart: measured on the
+// unit from the Pi, 2026-10-29 (docs/architecture/keyboard.md, *Learnt on
+// the unit*). A 512-byte frame then takes about 4 ms to write.
+const (
+	keyboardChunk    = 240
+	keyboardChunkGap = 2 * time.Millisecond
+)
+
 // keyboardOut writes to the keyboard: an Out aimed at the controller's own
 // node, made when the keyboard first opens as a controller, and made again
 // if it comes back at another. Its node, not its name: a second keyboard of
@@ -40,7 +50,7 @@ func (k *keyboardOut) to(node string) *midi.Out {
 		if k.out != nil {
 			k.out.Stop()
 		}
-		k.out = midi.NewOut([]midi.OutTarget{{Match: node}})
+		k.out = midi.NewOut([]midi.OutTarget{{Match: node, Chunk: keyboardChunk, ChunkGap: keyboardChunkGap}})
 		k.out.Start()
 		k.node = node
 	}
