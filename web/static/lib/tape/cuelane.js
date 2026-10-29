@@ -1,5 +1,5 @@
 // web/static/lib/tape/cuelane.js
-// The Cue Lane (docs/plan/shell-roadmap.md):
+// The Cue Lane (docs/architecture/tape.md, The cue lane):
 // Staging swimlane above track 1 in the Studio. A tap on a clip launches it
 // on the next bar line (⇧: at once) and a second tap stops it, on the Pi
 // (internal/tape/cuelive.go); a drag puts it down on tracks 1-4. Solo leaves

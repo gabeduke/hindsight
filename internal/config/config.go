@@ -49,7 +49,7 @@ type Config struct {
 	MIDILatencyMS  float64 // added to every MIDI timestamp before alignment
 	MIDISnapBars   bool    // start a take on the last downbeat before the window
 
-	// The tape (docs/architecture.md). Always on.
+	// The tape (docs/architecture/tape.md). Always on.
 	TapeDir     string
 	TapeTracks  int
 	TapeLengthS int    // a track's length: 20 minutes by default

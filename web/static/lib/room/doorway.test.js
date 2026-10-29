@@ -2,8 +2,8 @@
 // The Listening Room's doorway (lib/room/doorway.js), the real module mounted
 // on takes.html's real markup, built on a stand-in document: a tap plays, a
 // hold selects, the sheet is gone, tapes are not on the shelves, and the deck
-// is a picture of the bar (docs/architecture.md, Vocabulary,
-// F5a). The take list, its players, the bar and the Pi are stand-ins; the
+// is a picture of the bar (docs/architecture/rooms.md, Vocabulary;
+// the flow spec's F5a). The take list, its players, the bar and the Pi are stand-ins; the
 // clock is the test's.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -239,7 +239,7 @@ test('no tapes on the shelves, whatever the Pi lists; their bounces stand there 
   assert.ok(r.spine('jam_b2.wav').querySelector('.room-fam'), 'its earlier bounce is its sticker');
 });
 
-// --- the shelf wall (docs/plan/the-studio-space.md, "The library") -------------------
+// --- the shelf wall (docs/architecture/rooms.md, "The library") -------------------
 
 const MONTHS_AGO = (n, d = 10) => { const x = new Date(NOW); x.setDate(d); x.setMonth(x.getMonth() - n); return x.toISOString(); };
 const shelves = (r) => r.doc.querySelectorAll('.room-shelf').map((s) => [s.dataset.shelf, s.querySelectorAll('.room-cassette').map((b) => b.dataset.key.slice(5))]);

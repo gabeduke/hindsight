@@ -160,13 +160,14 @@ which is also what lets the Phone button record.
 | [docs/install-raspberry-pi.md](docs/install-raspberry-pi.md) | Getting it running on a Pi, and operating it afterwards |
 | [docs/configuration.md](docs/configuration.md) | Every environment variable, and why the defaults are what they are |
 | [docs/api.md](docs/api.md) | The HTTP API |
-| [docs/architecture.md](docs/architecture.md) | How the capture path is put together, and the traps it avoids |
+| [docs/architecture.md](docs/architecture.md) | How it is put together, one file per area, and the traps it avoids |
+| [docs/decisions/](docs/decisions/README.md) | Why: one record per decision Gabe made or rule the project learnt |
 | [docs/development.md](docs/development.md) | Building, testing, deploying, and the hardware probes |
 | [docs/hub.md](docs/hub.md) | The hub: a real HTTPS name and certificate for a Hindsight on any network |
 | [docs/midi-first-run.md](docs/midi-first-run.md) | Checking MIDI capture the first time on a rig |
 | [docs/sidekick-routing.md](docs/sidekick-routing.md) | What the EP-136 Sidekick sends on which channel |
 | [docs/hardware/](docs/hardware/README.md) | Notes on each device profile the rig draws |
-| [docs/plan/](docs/plan/STATE.md) | Where the work is: state, decisions, roadmap, backlog |
+| [docs/plan/](docs/plan/STATE.md) | Where the work is: what is open, the specs, the backlog |
 
 Release history is in [CHANGELOG.md](CHANGELOG.md).
 

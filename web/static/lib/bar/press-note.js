@@ -1,6 +1,6 @@
 // web/static/lib/bar/press-note.js
-// The keyboard's press on the bar (docs/architecture.md, *The keyboard's
-// press*): the banner's words over the bar's display for the second the
+// The keyboard's press on the bar (docs/architecture/push.md, *The
+// keyboard's press*): the banner's words over the bar's display for the second the
 // keyboard shows them, marked as the keyboard's by its icon, in the press's
 // colour (amber for a refusal), and what it changed lit for that second:
 // ▶, ●, or (lightFor, from the Studio) a track's head.

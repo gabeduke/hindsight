@@ -1,12 +1,12 @@
 /* web/static/css/chrome.css
    The frame: the header on every page -- the Studio, the Listening Room,
    Capture, Open, the rig and the guide -- and, on a phone, the rooms' tabs
-   along the bottom (docs/architecture.md, "The frame"). Every rule that
+   along the bottom (docs/architecture/shell.md, "The frame"). Every rule that
    places the header is here, once: four blocks of overrides once moved the
    room switch per page, so it sat top left in the rooms, top centre on Open
    and Capture, and a tap where it usually was landed on the brand.
 
-   Three zones (docs/plan/the-studio-space.md, "One frame on every page"):
+   Three zones (docs/architecture/shell.md, "The frame"):
      .appbar-start  what you're working on: the tape's name (the Studio),
                     the search (the Listening Room), ‹ Takes and the take's
                     name (Open), the feed (Capture); the brand before it,

@@ -1,5 +1,5 @@
 // web/static/lib/shell/view.js
-// The view contract (docs/architecture.md, The shell):
+// The view contract (docs/architecture/shell.md, The shell):
 // what a room is to the shell, and what the shell hands it. The shell is one
 // document that owns the header, the bar and the audio engine. The Studio,
 // the Listening Room and Capture are views inside it, switched by the router
@@ -15,7 +15,7 @@
 // window or document level goes through ctx.on, ctx.every and ctx.loop,
 // which do nothing while it is hidden and pick up again when it is shown, so
 // "hidden" is kept in one place and not remembered at sixty call sites
-// (docs/architecture.md, The shell has the list).
+// (docs/architecture/shell.md, The shell, has the list).
 //
 // Pure: the document, the timers and the ticker are handed in, so the tests
 // stand in for all three (view.test.js). Nothing here is wired into a page

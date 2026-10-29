@@ -1,5 +1,5 @@
 // web/static/lib/tape/tape-menu.js
-// The tape's name is its menu (docs/architecture.md, The frame): the tapes
+// The tape's name is its menu (docs/architecture/shell.md, The frame): the tapes
 // and New tape; Rename…, Duplicate; the mix, the bounces, the stems and the
 // last bounce; Record from this phone…; and Delete this tape…, last, in red,
 // asked first in the confirm sheet. ⋯ beside the name held half of this

@@ -142,7 +142,7 @@ type Keyboard struct {
 	// Refresh is how often, on version 2, Follow's source is asked for the
 	// screen; MeterEvery how often its meters are taken from it, the rest
 	// of the time held as they were, so the levels' flicker can't fill the
-	// link (docs/architecture.md, *The SMK-37's screen*).
+	// link (docs/architecture/keyboard.md, *The SMK-37's screen*).
 	Refresh    time.Duration
 	MeterEvery time.Duration
 	// Heal is the least time between the CLEARs that draw the screen again

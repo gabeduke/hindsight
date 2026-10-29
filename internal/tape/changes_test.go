@@ -43,7 +43,7 @@ func TestChangesTapEverySubscriberAndForgetACancelledOne(t *testing.T) {
 }
 
 // Every change a page sees in /api/tapes/state moves the revision
-// (docs/plan/pushing-tape-state.md), or a page told to poll on a new one
+// (docs/architecture/push.md), or a page told to poll on a new one
 // never hears of it.
 func TestEveryChangeThePageSeesMovesTheRevision(t *testing.T) {
 	e, sink, tp := newEngine(t)

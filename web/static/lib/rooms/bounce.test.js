@@ -1,5 +1,5 @@
 // web/static/lib/rooms/bounce.test.js
-// F2 of the flow spec (docs/architecture.md, Vocabulary):
+// F2 of the flow spec (docs/architecture/rooms.md, Vocabulary):
 // BOUNCE is the tape's menu's one verb for a tape into a take, in place of
 // Mix down ×2 and Cut a record. Its toast has ▶ and Open, the menu keeps
 // the last bounce, and a take that was once marked as a record is an
@@ -7,7 +7,7 @@
 // built on a stand-in document; the player runs on a stand-in <audio>.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { fileCss } from '../stylesheets.js';
@@ -462,7 +462,12 @@ test('the scene contract has no record kind, and the room has no record module',
   assert.equal('record' in MODELS, false);
   assert.deepEqual(Object.keys(MODELS).sort(), ['cable', 'cassette', 'prop', 'reels', 'ribbon', 'vu']);
   assert.throws(() => readFileSync(new URL('../room/record.js', import.meta.url)), /ENOENT/);
-  const contract = readFileSync(new URL('../../../../docs/architecture.md', import.meta.url), 'utf8');
+  // The scene contract is docs/architecture/css-and-motion.md now; read every
+  // architecture file, so the check still holds wherever the contract moves.
+  const docs = new URL('../../../../docs/architecture/', import.meta.url);
+  const contract = readdirSync(docs).filter((f) => f.endsWith('.md'))
+    .map((f) => readFileSync(new URL(f, docs), 'utf8')).join('\n');
+  assert.match(contract, /^## The scene contract$/m, 'the contract is where this test reads it');
   assert.doesNotMatch(contract, /^\| `record` \|/m, 'the contract’s table of kinds');
   assert.doesNotMatch(readFileSync(new URL('../scene/models.js', import.meta.url), 'utf8'), /still to come \([^)]*record/);
 });

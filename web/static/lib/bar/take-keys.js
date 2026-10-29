@@ -1,6 +1,6 @@
 // web/static/lib/bar/take-keys.js
 // The keys the bar has for what it holds besides the transport
-// (docs/architecture.md, Vocabulary, "A tap plays"; listening-back.md, "The
+// (docs/architecture/rooms.md, Vocabulary; listening-back.md, "The
 // way in"): with a take, ✎ at its end, which takes the frame being heard
 // for a note, beside Open › (bar.js gives it its page); with the feed, GRAB,
 // which sends the feed into the Studio's buffer; and ⟲ called Repeat for a

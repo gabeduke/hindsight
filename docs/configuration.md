@@ -322,7 +322,7 @@ On disk, `TAPE_DIR` holds:
 - `crate.json`, the clips kept on the crate (their audio is in `audio/`).
 
 On the Pi the tape plays through the Sidekick's USB playback, on the same
-card the capture uses (see [architecture](architecture.md#the-tape)):
+card the capture uses (see [architecture/tape.md](architecture/tape.md)):
 
 | Variable | Default | What it does |
 |---|---|---|

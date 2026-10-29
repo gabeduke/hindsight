@@ -2,8 +2,8 @@
 // Tapes live in the Studio only (docs/superpowers/specs/2026-10-15-flow-
 // design.md, "Answered by Gabe" 2): they are off the Listening Room's shelf,
 // so the Studio is the one place to open one, and its name's menu must stay
-// there. The tape's name is its menu (docs/plan/the-studio-space.md, "The
-// name is the menu; ⋯ goes"): the tapes, then what acts on this one, Delete
+// there. The tape's name is its menu (docs/architecture/shell.md, "The
+// frame"): the tapes, then what acts on this one, Delete
 // last. shell.html's real markup. (The menu's listing and loading are the
 // tape page's own, seen in the browser run: J3.2, J3.3.)
 import { test } from 'node:test';

@@ -1,6 +1,6 @@
 // web/static/lib/room/doorway.js
-// The Listening Room is a library (docs/plan/the-studio-space.md, "The
-// library" and "The studio is a place"): on a tablet and wider, a wall of
+// The Listening Room is a library (docs/architecture/rooms.md, "The
+// library"; docs/decisions/0058-the-studio-is-a-place.md): on a tablet and wider, a wall of
 // shelves from under the header to the bar -- one shelf per month, newest
 // first, then ★ and a shelf per tag -- in light perspective, under the
 // lamp; on a phone, the List (shell/views/room.js's rack), with the wall one

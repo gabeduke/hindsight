@@ -316,7 +316,7 @@ test('Guardrail 11: no hold or double-tap time is a literal outside lib/ui/press
 // Three schemes for Back once grew (the phone's player, the cassette sheet,
 // Open's notes pane), each with its own history entry, and Escape ladders
 // that had to know about each other's menus. Back and Escape now close the
-// top of one stack (docs/plan/the-studio-space.md, "One way to close
+// top of one stack (docs/architecture/shell.md, "One way to close
 // things"). The ratchet: only the router and the stack write history
 // entries; what still keeps its own is listed, with why, and comes off the
 // list when it moves onto the stack.

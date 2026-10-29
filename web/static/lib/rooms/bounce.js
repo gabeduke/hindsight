@@ -1,6 +1,6 @@
 // web/static/lib/rooms/bounce.js
-// BOUNCE (docs/architecture.md, Vocabulary, the verbs table
-// and "The Studio: one selection, two verbs"): the tape's menu makes a take
+// BOUNCE (docs/architecture/rooms.md, Vocabulary, the verbs
+// table): the tape's menu makes a take
 // from the tape by playing it once through the mixer. It is the request Mix
 // down always sent (POST /api/tapes/mixdown), and the take it saves is what a
 // tape's family already holds: origin "tape" and the tape's id. Nothing is

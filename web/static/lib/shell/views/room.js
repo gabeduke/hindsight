@@ -1,6 +1,6 @@
 // web/static/lib/shell/views/room.js
-// The Listening Room as a shell view (docs/architecture.md, The shell,
-// step 4): the library -- the shelf wall (lib/room/doorway.js) and the List
+// The Listening Room as a shell view (docs/architecture/shell.md,
+// The shell): the library -- the shelf wall (lib/room/doorway.js) and the List
 // under it, with the search, the filters and Sort ▾ over both -- mounted
 // once by the shell and driven through ctx so its polls, frame loops and
 // global listeners go quiet while another room is shown.

@@ -292,7 +292,7 @@ func NewEngine(o Options) *Engine {
 }
 
 // Changes is the revision of what the page shows, for a page to be told
-// when to poll (docs/plan/pushing-tape-state.md).
+// when to poll (docs/architecture/push.md).
 func (e *Engine) Changes() *Changes { return &e.changes }
 
 // Start opens the output and starts rendering. Without a sink, nothing

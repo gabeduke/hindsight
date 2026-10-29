@@ -1,7 +1,7 @@
 /* web/static/css/bar.css
    The bar: the one transport, docked at the foot of both rooms and of Open,
-   the same object across a room switch (lib/bar/bar.js; docs/architecture.md,
-   "The bar"). Every rule that draws it is here, and nowhere else: it once had
+   the same object across a room switch (lib/bar/bar.js;
+   docs/architecture/bar.md). Every rule that draws it is here, and nowhere else: it once had
    232 selectors in 14 sections of styles.css, hid its keys with :not() lists
    and !important, and ran off a tablet's right edge.
 

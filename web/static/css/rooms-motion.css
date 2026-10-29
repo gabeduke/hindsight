@@ -1,5 +1,5 @@
 /* web/static/css/rooms-motion.css
-   Moving between rooms (docs/architecture.md, The UI, "Moving between
+   Moving between rooms (docs/architecture/shell.md, "Moving between
    rooms"). The Studio's desk and the Listening Room's shelves are two walls
    of one space, the Studio on the left, as the tabs are. A switch from one
    to the other turns the camera, in a View Transition the router draws

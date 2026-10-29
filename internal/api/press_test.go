@@ -115,7 +115,7 @@ func TestAPressRoleIsItsBannerColour(t *testing.T) {
 }
 
 // The changes socket says a press the moment it is made, with the revision,
-// in the shape architecture.md gives it.
+// in the shape docs/architecture/push.md gives it.
 func TestTheChangesSocketSaysAKeyboardPress(t *testing.T) {
 	r, a := newTapeAPIWithAPI(t)
 	makeLoadedTape(t, r)
