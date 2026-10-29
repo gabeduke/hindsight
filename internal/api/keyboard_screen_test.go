@@ -111,7 +111,7 @@ func TestOnVersion2TheDesignedScreenIsDrawn(t *testing.T) {
 func TestOnVersion2ThePressesBannerIsABox(t *testing.T) {
 	a, _, fw := takenKeyboardV2(t)
 	before := len(fw.sent())
-	a.keyboardSays("SMK-37", a.keyboardPressed("SMK-37"), says{"PLAY", surface.Green})
+	a.keyboardSays("SMK-37", a.keyboardPressed("SMK-37"), says{words: "PLAY", colour: surface.Green})
 	pump(a, fw, 100*time.Millisecond)
 	found := false
 	for _, f := range fw.sent()[before:] {

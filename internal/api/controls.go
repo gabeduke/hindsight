@@ -386,9 +386,11 @@ type verbs interface {
 }
 
 // verbDone is what a verb did: a sentence for the log, and the words for
-// the keyboard's banner (banner.go), in capitals, at most 19 characters.
+// the keyboard's banner (banner.go), in capitals, at most 19 characters,
+// and the track it changed (1 up; 0 for none), lit on the tablet.
 type verbDone struct {
 	log, says string
+	track     int
 }
 
 // learnReq is MIDI LEARN waiting for a controller.
@@ -1061,7 +1063,7 @@ func (a *API) runVerb(j verbJob) {
 		return
 	}
 	log.Printf("[*] %s: %s", holder(j.port), done.log)
-	a.keyboardSays(j.port, j.pressed, did(j.id, done.says))
+	a.keyboardSays(j.port, j.pressed, did(j.id, done))
 }
 
 // piVerbs are the verbs on this Pi's tape, capture and clipboard.
@@ -1084,7 +1086,7 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 		if err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{fmt.Sprintf("kept the last %d s as %s", keepSeconds, name), keptWords(keepSeconds)}, nil
+		return verbDone{log: fmt.Sprintf("kept the last %d s as %s", keepSeconds, name), says: keptWords(keepSeconds)}, nil
 	}
 	if a.tape == nil {
 		return verbDone{}, errTapeOff
@@ -1106,7 +1108,7 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 		if _, err := a.tape.Transport(t.ID, tape.Action{Kind: kind}); err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{kind, strings.ToUpper(kind)}, nil
+		return verbDone{log: kind, says: strings.ToUpper(kind)}, nil
 	case "catch":
 		req, err := a.catchRequest(t)
 		if err != nil {
@@ -1119,8 +1121,8 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 			return verbDone{}, err
 		}
 		secs := float64(c.Frames) / float64(t.SampleRate)
-		return verbDone{fmt.Sprintf("caught %.1f s from %s onto track %d", secs, req.Source, req.Track),
-			caughtWords(secs)}, nil
+		return verbDone{log: fmt.Sprintf("caught %.1f s from %s onto track %d", secs, req.Source, req.Track),
+			says: caughtWords(secs), track: req.Track}, nil
 	case "grab":
 		req := tape.GrabRequest{Sources: []string{src}}
 		says := grabbedWords(grabBars, "BARS")
@@ -1133,7 +1135,7 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 		if _, err := a.tape.Grab(req); err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{fmt.Sprintf("grabbed the last %d bars of %s into the buffer", grabBars, src), says}, nil
+		return verbDone{log: fmt.Sprintf("grabbed the last %d bars of %s into the buffer", grabBars, src), says: says}, nil
 	case "drop":
 		if !armed {
 			return verbDone{}, errNotArmed
@@ -1158,7 +1160,7 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 		if _, err := a.tape.DropClipboardAt(t.ID, track, false, &at); err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{fmt.Sprintf("dropped the buffer on track %d", track), droppedWords(track)}, nil
+		return verbDone{log: fmt.Sprintf("dropped the buffer on track %d", track), says: droppedWords(track), track: track}, nil
 	}
 	return verbDone{}, fmt.Errorf("%s isn't a verb the Pi runs", id)
 }

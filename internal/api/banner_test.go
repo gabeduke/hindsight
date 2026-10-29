@@ -181,17 +181,17 @@ func TestEachKeyboardPressBannersItsWordsForASecond(t *testing.T) {
 		case "transport":
 			playing = !playing
 			if playing {
-				return verbDone{"play", "PLAY"}, nil
+				return verbDone{log: "play", says: "PLAY"}, nil
 			}
-			return verbDone{"stop", "STOP"}, nil
+			return verbDone{log: "stop", says: "STOP"}, nil
 		case "keep":
-			return verbDone{"kept", keptWords(keepSeconds)}, nil
+			return verbDone{log: "kept", says: keptWords(keepSeconds)}, nil
 		case "catch":
-			return verbDone{"caught", caughtWords(7.6)}, nil
+			return verbDone{log: "caught", says: caughtWords(7.6)}, nil
 		case "grab":
-			return verbDone{"grabbed", grabbedWords(grabBars, "BARS")}, nil
+			return verbDone{log: "grabbed", says: grabbedWords(grabBars, "BARS")}, nil
 		case "drop":
-			return verbDone{"dropped", droppedWords(2)}, nil
+			return verbDone{log: "dropped", says: droppedWords(2)}, nil
 		}
 		return verbDone{}, errors.New("not in this test")
 	})
@@ -303,7 +303,7 @@ func TestTheVerbsWordsFitTheBanner(t *testing.T) {
 		}
 	}
 	for _, id := range []string{"catch", "grab", "drop"} {
-		if c := did(id, "X").colour; c != surface.White {
+		if c := did(id, verbDone{says: "X"}).colour; c != surface.White {
 			t.Errorf("%s's banner is colour %d, want white", id, c)
 		}
 	}
