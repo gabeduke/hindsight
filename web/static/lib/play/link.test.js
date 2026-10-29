@@ -250,3 +250,21 @@ test('the socket learns the Pi\'s clock, and the pads then carry their touch and
   for (let i = 0; i < 3; i++) timers.at(-1).f();
   assert.equal(timers.at(-1).ms, 2000, 'then every two seconds');
 });
+
+test('an old socket closing after a quick pause and resume leaves the new one alone', () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface();
+  const live = new Set();
+  let n = 0;
+  const link = connect(s, {
+    WebSocketImpl: FakeWS, url: 'x', clock: new PiClock(),
+    setTimer: () => { n++; live.add(n); return n; }, clearTimer: (id) => live.delete(id),
+  });
+  link.pause();
+  link.resume();
+  made[1].onopen(); // the new socket's pings start
+  const pinging = [...live];
+  made[0].onclose?.(); // the old one's close arrives late
+  assert.deepEqual([...live], pinging, 'its pings go on, and no second socket is retried');
+  assert.equal(made.length, 2);
+});

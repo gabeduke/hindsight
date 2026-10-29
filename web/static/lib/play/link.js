@@ -185,8 +185,12 @@ export function connect(surface, {
     ws.onmessage = (e) => {
       try { handle(JSON.parse(e.data)); } catch { /* not ours */ }
     };
+    const sock = ws;
     ws.onclose = () => {
       if (learning) { learning.reject(new Error('the Pi went out of reach')); learning = null; }
+      // A socket paused and replaced since: the new one's pings and its
+      // retry are its own.
+      if (ws !== sock) return;
       clearTimer(ping);
       if (closed || paused) return;
       // Out of reach: the pads still light, and say they aren't sounding.

@@ -114,14 +114,17 @@ heard, and the Pi keeps the figures, never sending them anywhere.
   lock and no allocation (`TestTimingAllocatesNothing`, which also holds a
   timed block to an untimed one's allocations). A control applied later
   than the render head it was drained at waited for a grid line: it is
-  counted as quantised and not timed, as its wait is the music's.
+  counted as quantised and not timed, as its wait is the music's. One that
+  lands late on a line already rendered goes out at once and is timed;
+  one applied where the device played silence (a late render's catch-up)
+  was never heard and is not.
 - *When it is heard.* A collector, four times a second, reads the ring
   and, once a control's frame has gone to the device, asks `heardAt` (the
   output's clock bridge, or the demo's pull bridge) when the room hears
   it; with the tape on a phone, the phone's own report of the frame it
   plays and when (`HearOnPhone`, from the stream's `fill` message).
-  A slot the render goroutine lapped, or a frame nobody hears, is
-  counted as missed.
+  A slot the render goroutine lapped (or may be writing), or a frame
+  nobody hears, is counted as missed.
 - *The figures.* Each way in to each ear is a path (`page→room`,
   `page→phone`, `midi→room`), with the median, 95th percentile and worst
   of its last 256 controls: in total, from the touch where the page said,

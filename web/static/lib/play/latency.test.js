@@ -27,7 +27,7 @@ test('a path is the way in and the ear, in words', () => {
 
 test('the Rig\'s line is each path\'s total and what it was taken with', () => {
   assert.equal(line(report),
-    'Control to ear: Controller → room 108 ms (95% 115, worst 131) · Page → phone 1180 ms (95% 1260, worst 1302). '
+    'Control to ear: Controller → room 108 ms (95% 115, worst 131) · Page → phone 1180 ms (95% 1260, worst 1302); '
     + 'rendered 107 ms ahead, the device asked for 100 ms, the phone buffers 800 ms, 3 underflows.');
   assert.equal(line({ ...report, paths: [] }), '', 'nothing timed: no line');
   assert.equal(line(null), '');

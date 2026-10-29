@@ -5193,10 +5193,10 @@ body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .t
 }
 
 /* The latency overlay (lib/play/latency.js), on a device that turned it on
-   (lib/device-prefs.js): a developer's readout over the page's corner,
-   under the header's layer, taking no input. */
+   (lib/device-prefs.js): a developer's readout in the page's top corner,
+   under the header and clear of the bar, taking no input. */
 .latency-overlay {
-  position: fixed; left: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 15;
+  position: fixed; right: 8px; top: calc(var(--topbar-h) + 8px); z-index: 15;
   max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 6px; pointer-events: none;
   background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--edge);
   font-family: var(--mono); font-size: 11px; line-height: 1.4; color: var(--ink);

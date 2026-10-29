@@ -125,8 +125,8 @@ func TestAPhoneListeningTimesByWhatItSaysItPlays(t *testing.T) {
 		t.Fatalf("%+v: want the phone alone", rep.Paths)
 	}
 	p := path(t, rep, "page→phone")
-	if p.Total.P50 != 900 || p.SendToPi.P50 != 15 {
-		t.Fatalf("total %+v, send→pi %+v: want 900 from the arrival, 15 on the Wi-Fi", p.Total, p.SendToPi)
+	if p.Total.P50 != 915 || p.PiToEar.P50 != 900 || p.SendToPi.P50 != 15 {
+		t.Fatalf("total %+v, pi→ear %+v, send→pi %+v: want 915 from the send, 900 from the arrival, 15 on the Wi-Fi", p.Total, p.PiToEar, p.SendToPi)
 	}
 	if rep.Phone == nil || rep.Phone.FillMS != 800 || rep.Phone.OutputMS != 40 || rep.Underflows.Phone == nil || *rep.Underflows.Phone != 2 {
 		t.Fatalf("phone %+v, underflows %+v", rep.Phone, rep.Underflows)
@@ -149,6 +149,23 @@ func TestAControlNotYetAtTheDeviceWaitsToBeTimed(t *testing.T) {
 	}
 }
 
+func TestAControlWhereTheDevicePlayedSilenceIsNotTimed(t *testing.T) {
+	r := newRig(t, Loop{})
+	r.playFrom(0)
+	r.run(1)
+	r.latRig(50)
+	_ = r.e.SetStamped(Stamp{Via: ViaMIDI}, PadFilter, 0.4)
+	_ = r.e.PressStamped(Stamp{Via: ViaMIDI}, PadStop, QuantumNow, math.NaN())
+	// A late render: the tape counts on through what the device played as
+	// silence, applying what came in, unheard.
+	r.e.advance(nil, r.out, BlockFrames)
+	r.out += BlockFrames
+	r.run(1)
+	if rep := r.heard(); len(rep.Paths) != 0 {
+		t.Fatalf("timed what nobody heard: %+v", rep.Paths)
+	}
+}
+
 func TestTheRingKeepsTheNewestAndCountsWhatItLost(t *testing.T) {
 	r := newRig(t, Loop{})
 	for i := 0; i < latSlots+10; i++ {
@@ -157,11 +174,12 @@ func TestTheRingKeepsTheNewestAndCountsWhatItLost(t *testing.T) {
 	r.e.heardFn = func(o uint64) (int64, bool) { return 2, true }
 	r.e.delivered.Store(1 << 20)
 	rep := r.e.Latency()
-	if rep.Missed != 10 {
-		t.Fatalf("missed %d, want 10", rep.Missed)
+	// The oldest slot kept is the next to be written: a read trusts one less.
+	if rep.Missed != 11 {
+		t.Fatalf("missed %d, want 11", rep.Missed)
 	}
-	if p := path(t, rep, "midi→room"); p.Count != latSlots || p.Total.N != latKeep {
-		t.Fatalf("%+v: want %d timed, figures of the last %d", p, latSlots, latKeep)
+	if p := path(t, rep, "midi→room"); p.Count != latSlots-1 || p.Total.N != latKeep {
+		t.Fatalf("%+v: want %d timed, figures of the last %d", p, latSlots-1, latKeep)
 	}
 }
 
@@ -194,7 +212,7 @@ func TestTimingAllocatesNothing(t *testing.T) {
 		return func() {
 			set()
 			// What the render goroutine does: drain the inbox, render a block.
-			r.e.drainTricks(r.out, r.e.mix.Load())
+			r.e.drainTricks(r.out, r.e.mix.Load(), true)
 			r.e.advance(buf, r.out, BlockFrames)
 			r.out += BlockFrames
 		}
@@ -204,5 +222,26 @@ func TestTimingAllocatesNothing(t *testing.T) {
 	timed := testing.AllocsPerRun(200, block(func() { v = 1 - v; _ = r.e.SetStamped(st, PadFilter, v) }))
 	if timed > plain {
 		t.Fatalf("a timed set costs %v allocations a block, an untimed one %v", timed, plain)
+	}
+	// A press and a release, timed as they land in advance.
+	down := false
+	hit := func(stamped bool) func() {
+		return func() {
+			down = !down
+			s := Stamp{}
+			if stamped {
+				s = st
+			}
+			if down {
+				_ = r.e.PressStamped(s, PadStop, QuantumNow, math.NaN())
+			} else {
+				_ = r.e.ReleaseStamped(s, PadStop)
+			}
+		}
+	}
+	plain = testing.AllocsPerRun(200, block(hit(false)))
+	timed = testing.AllocsPerRun(200, block(hit(true)))
+	if timed > plain {
+		t.Fatalf("a timed press or release costs %v allocations a block, an untimed one %v", timed, plain)
 	}
 }

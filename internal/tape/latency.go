@@ -25,8 +25,11 @@ import (
 // the output's clock bridge when it is heard (heardAt), or, for a phone
 // listening, the phone's own report of the frame it is playing (HearOnPhone).
 //
-// A control that waited for a grid line (a press quantised to a 16th) is
-// counted apart and not timed: its wait is the music's, not the machine's.
+// A control that waited for a grid line (a press quantised to a 16th,
+// landing on a line still to come) is counted apart and not timed: its wait
+// is the music's, not the machine's. One that lands late on its line goes
+// out at once, so it is timed. One applied where the device played silence
+// (a render that fell behind) was never heard, and isn't timed either.
 
 // Via is the way a control came in.
 type Via uint8
@@ -187,9 +190,11 @@ func (e *Engine) collectLatency() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	n := l.ring.n.Load()
-	if n-l.cursor > latSlots {
-		l.missed += n - l.cursor - latSlots
-		l.cursor = n - latSlots
+	// Slot n%latSlots, the oldest still kept, may be the one being written:
+	// latSlots-1 behind the writer is as far back as a read can trust.
+	if n-l.cursor >= latSlots {
+		l.missed += n - l.cursor - (latSlots - 1)
+		l.cursor = n - (latSlots - 1)
 	}
 	for ; l.cursor < n; l.cursor++ {
 		s := &l.ring.slots[l.cursor%latSlots]
@@ -200,7 +205,7 @@ func (e *Engine) collectLatency() {
 			sent:    s.sent.Load(),
 			frame:   uint64(s.frame.Load()),
 		}
-		if l.ring.n.Load()-l.cursor > latSlots {
+		if l.ring.n.Load()-l.cursor >= latSlots {
 			l.missed++ // lapped while it was read
 			continue
 		}

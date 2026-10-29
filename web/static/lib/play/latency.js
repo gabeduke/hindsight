@@ -41,7 +41,7 @@ export function line(rep) {
   if (rep.phone) taken.push(`the phone buffers ${ms(rep.phone.fill_ms)}`);
   const g = gaps(rep.underflows);
   taken.push(g === 1 ? '1 underflow' : `${g} underflows`);
-  return `Control to ear: ${paths.join(' · ')}. ${taken.join(', ')}.`;
+  return `Control to ear: ${paths.join(' · ')}; ${taken.join(', ')}.`;
 }
 
 /**

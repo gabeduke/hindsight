@@ -431,7 +431,7 @@ func (e *Engine) wake() {
 // release on the output frame its quantum lands on, with the render head at
 // out -- the same queue, and the same splitting of a block at its frame, as
 // a quantised ▶.
-func (e *Engine) drainTricks(out uint64, m *Mix) {
+func (e *Engine) drainTricks(out uint64, m *Mix, played bool) {
 	e.tricks.mu.Lock()
 	msgs := e.tricks.msgs
 	e.tricks.msgs = nil
@@ -446,7 +446,9 @@ func (e *Engine) drainTricks(out uint64, m *Mix) {
 				p.setAmount(msg.pad, msg.v, out)
 			}
 			p.moved[msg.pad] = true
-			e.timed(msg.st, msg.heard, out, out)
+			if played {
+				e.timed(msg.st, msg.heard, out, out)
+			}
 		case msg.clear:
 			p.preview[msg.pad-numPads].on = false
 			p.moved[msg.pad] = true
