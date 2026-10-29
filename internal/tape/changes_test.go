@@ -1,6 +1,9 @@
 package tape
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestChangesTapEverySubscriberAndForgetACancelledOne(t *testing.T) {
 	var c Changes
@@ -50,6 +53,20 @@ func TestEveryChangeThePageSeesMovesTheRevision(t *testing.T) {
 		f()
 		if e.Changes().Rev() == was {
 			t.Fatalf("%s didn't move the revision", what)
+		}
+	}
+	// rendered is moves for what the render goroutine carries out: it runs
+	// beside the test, so the bump may come a little after f returns.
+	rendered := func(what string, f func()) {
+		t.Helper()
+		was := e.Changes().Rev()
+		f()
+		deadline := time.Now().Add(2 * time.Second)
+		for e.Changes().Rev() == was {
+			if time.Now().After(deadline) {
+				t.Fatalf("%s didn't move the revision", what)
+			}
+			time.Sleep(time.Millisecond)
 		}
 	}
 	take := takeWAV(t, 200000, func(i int) float64 { return 0.5 })
@@ -106,7 +123,7 @@ func TestEveryChangeThePageSeesMovesTheRevision(t *testing.T) {
 			<-tapped
 			seen <- e.Live().Playing
 		}()
-		moves(kind+", once it's carried out", func() {
+		rendered(kind+", once it's carried out", func() {
 			if _, err := e.Transport(tp.ID, Action{Kind: kind}); err != nil {
 				t.Fatal(err)
 			}
@@ -116,14 +133,16 @@ func TestEveryChangeThePageSeesMovesTheRevision(t *testing.T) {
 			t.Fatalf("the tap for %s came before the view said so", kind)
 		}
 	}
-	if _, err := e.Transport(tp.ID, Action{Kind: "play"}); err != nil {
-		t.Fatal(err)
-	}
-	sink.play(t, 4096)
+	rendered("▶ again", func() {
+		if _, err := e.Transport(tp.ID, Action{Kind: "play"}); err != nil {
+			t.Fatal(err)
+		}
+		sink.play(t, 4096)
+	})
 	// Nothing else is asked of it now: a whole pass of the loop, which Catch
 	// can take, is what moves it.
-	moves("a pass of the loop", func() { sink.play(t, 2*96000) })
-	moves("■", func() {
+	rendered("a pass of the loop", func() { sink.play(t, 2*96000) })
+	rendered("■", func() {
 		if _, err := e.Transport(tp.ID, Action{Kind: "stop"}); err != nil {
 			t.Fatal(err)
 		}
@@ -138,10 +157,11 @@ func TestEveryChangeThePageSeesMovesTheRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	sink.play(t, 8192)
-	if l := e.Live(); l.Playing || l.CountIn == 0 {
-		t.Fatalf("not counting in: %+v", l.Status)
+	waitFor(t, func() bool { return e.Live().CountIn > 0 })
+	if e.Live().Playing {
+		t.Fatal("playing before the count-in")
 	}
-	moves("the count-in ending", func() {
+	rendered("the count-in ending", func() {
 		for !e.Live().Playing {
 			sink.play(t, 4096)
 		}
