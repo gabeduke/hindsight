@@ -28,6 +28,7 @@ import (
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/hub"
 	"github.com/gabeduke/hindsight/internal/midi"
+	"github.com/gabeduke/hindsight/internal/surface"
 	"github.com/gabeduke/hindsight/internal/tape"
 	"github.com/gorilla/mux"
 )
@@ -77,6 +78,10 @@ type API struct {
 	// they hold, and MIDI LEARN (controls.go); controllers lists them.
 	controls    controlBus
 	controllers DeviceLister
+	// keyboard is the SMK-37 on Hindsight's firmware, when there could be
+	// one, and kbOut its port (keyboard.go).
+	keyboard *surface.Keyboard
+	kbOut    keyboardOut
 	// playConns names Play mode's connections, as the owners of the tape
 	// mods they preview.
 	playConns atomic.Uint64

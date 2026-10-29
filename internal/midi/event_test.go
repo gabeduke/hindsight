@@ -87,6 +87,46 @@ func TestParserSysExSkippedAndCounted(t *testing.T) {
 	}
 }
 
+func TestParserSysExPassedOn(t *testing.T) {
+	var got [][]byte
+	var msgs []msg
+	p := Parser{
+		OnSysEx:   func(m []byte) { got = append(got, m) },
+		OnMessage: func(s, d1, d2 byte) { msgs = append(msgs, msg{s, d1, d2}) },
+	}
+	long := append([]byte{0xF0}, make([]byte, MaxSysEx-1)...)  // MaxSysEx + 1 with its F7
+	exact := append([]byte{0xF0}, make([]byte, MaxSysEx-2)...) // MaxSysEx with its F7
+	var in []byte
+	in = append(in, 0xF0, 0x7D, 0x48, 0x53, 0x01, 0x05, 0xF8, 0x7F, 0x00, 0xF7) // an ack, a clock inside
+	in = append(in, 0xF0, 0x41, 0x10, 0x90, 61, 50)                             // cut short by a note-on
+	in = append(in, long...)
+	in = append(in, 0xF7)
+	in = append(in, exact...)
+	in = append(in, 0xF7)
+	in = append(in, 0xF0, 0x7D, 0x48, 0x53, 0x01, 0x00, 0x03, 0xF7)
+	for _, b := range in {
+		p.Feed(b)
+	}
+	want := [][]byte{
+		{0xF0, 0x7D, 0x48, 0x53, 0x01, 0x05, 0x7F, 0x00, 0xF7},
+		append(exact, 0xF7),
+		{0xF0, 0x7D, 0x48, 0x53, 0x01, 0x00, 0x03, 0xF7},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %d messages %x, want %x", len(got), got, want)
+	}
+	if want := []msg{{0x90, 61, 50}}; !reflect.DeepEqual(msgs, want) {
+		t.Fatalf("the note that cut a SysEx short: got %v want %v", msgs, want)
+	}
+	if p.SysExDropped != 5 {
+		t.Fatalf("SysExDropped = %d, want 5: passed on or not, none goes in the ring", p.SysExDropped)
+	}
+	got[0][1] = 0 // each message is its own buffer, for the receiver to keep
+	if got[2][1] != 0x7D {
+		t.Fatal("SysEx messages share a buffer")
+	}
+}
+
 func TestParserSystemCommonCancelsRunningStatus(t *testing.T) {
 	// Song position (2 data bytes) between two note-ons; the data after it
 	// must not be read as a note under the old running status.

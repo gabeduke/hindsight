@@ -62,10 +62,12 @@ type portReader struct {
 	opened func()
 
 	// onEvent receives complete messages; onRealtime receives clock and
-	// transport bytes with the read's timestamp. Both are called on the
-	// reader's goroutine.
+	// transport bytes with the read's timestamp; onSysEx, a controller's
+	// SysEx messages (Parser.OnSysEx). All are called on the reader's
+	// goroutine.
 	onEvent    func(Event)
 	onRealtime func(ts time.Time, ns int64, b byte)
+	onSysEx    func(msg []byte)
 
 	parser Parser
 
@@ -156,6 +158,7 @@ func (r *portReader) readLoop(f *os.File) {
 			r.onRealtime(now, ns, b)
 		}
 	}
+	r.parser.OnSysEx = r.onSysEx
 
 	for {
 		n, err := f.Read(buf)

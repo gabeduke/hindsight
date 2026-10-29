@@ -10,6 +10,7 @@ cmd/hindsight-hub      the hub: certificates and heartbeats for every kit (docs/
 internal/config        environment → Config
 internal/audio         device, ring, levels, envelope, saving  (cgo, PortAudio)
 internal/midi          rawmidi watcher, parser, event ring, clock, tempo map, SMF export
+internal/surface       the SMK-37 on Hindsight's firmware: its screen and its panel
 internal/smf           Standard MIDI File writer and reader
 internal/bundle        writes a take's .mid and manifest from audio's window and midi's events
 internal/mono          the one monotonic clock audio and MIDI both stamp with
@@ -197,7 +198,8 @@ clock changes nothing.
 Each reader timestamps once per `read(2)` return, with `time.Now()`'s
 monotonic reading, and feeds a parser that assembles complete messages —
 running status, realtime bytes tested first so a clock pulse inside a note-on
-disturbs nothing, SysEx skipped and counted. Channel messages and transport
+disturbs nothing, SysEx skipped and counted (a controller's is passed on:
+*Controllers*, below). Channel messages and transport
 go to a bounded ring of 16-byte events; clock pulses go to the tempo ring
 and are not stored per event, since at 24 a beat from every device they would
 be most of the traffic and none of the content.
@@ -207,6 +209,66 @@ be most of the traffic and none of the content.
 after the WAV is on disk, so no MIDI failure — missing device, parse error,
 third-party panic — can cost a recording. The worst case is a take with no
 BPM and no `.mid`.
+
+### Controllers
+
+A port that `TAPE_CONTROLLER` names is a controller: its notes and CCs
+go to Play mode's bus on the Pi (`internal/api/controls.go`), a
+`midi.ControlSink`, whatever page is open. Each one is looked up in that
+controller's bindings: `controls.json`, keyed by the controller's name, or
+a known controller's profile, or the defaults. The bus presses a pad, moves
+an amount or runs a verb (CATCH, the transport, GRAB, DROP, KEEP). MIDI
+LEARN binds the next message.
+
+A controller can also talk back in SysEx. The parser hands a controller's
+complete SysEx messages, up to `midi.MaxSysEx` bytes, to the sink if it
+is also a `midi.ControlSysExSink`. They still stay out of the event ring.
+
+**The SMK-37 on Hindsight's own firmware** (`internal/surface`;
+`docs/plan/the-instrument.md`, step 7; the protocol is `app/hindsight.h` in
+`gabeduke/smk37-hindsight`):
+
+- **The client** (`surface.Keyboard`) writes through `API.KeyboardSend`.
+  That reaches a `midi.Out` aimed at the keyboard's own node, made only
+  while an SMK-37 is open as a controller. So a keyboard that
+  `MIDI_IGNORE` keeps out, or that `TAPE_CONTROLLER` doesn't name, is
+  never opened or asked anything, even beside one of the same name.
+- **One SMK-37 at a time**: the first open as a controller. There is one
+  client, so a second keyboard's HOME, OFFER or unplugging counts as the
+  first one's.
+- **HELLO** asks whether the keyboard runs Hindsight's firmware: three
+  tries a quarter of a second apart, every two seconds, until it answers.
+  When it answers, the API takes its screen.
+- **Taking the screen takes the panel.** While Hindsight has the screen,
+  the pads, encoders, faders and buttons send plain MIDI.
+  - The SMK-37's profile binds the pads (notes 36–51 on channel 10, as
+    any controller's), PLAY (the transport) and REC (KEEP).
+  - Encoders 1–4 send CC 21–24, the tape mods' defaults.
+  - The faders, encoders 5–7 and the other buttons are free for MIDI
+    LEARN.
+  - The encoders send absolute values. `Keyboard.Knob` can say where each
+    stands, but nothing calls it yet, so a turn starts from where the
+    knob last was.
+- **HOME on the keyboard** gives both back, and the keyboard says RELEASE.
+  Hindsight leaves them with the keyboard (`Status.Homed`), even when it
+  answers HELLO again.
+- **HOME held for a second** on the keyboard's own screen, and let go with
+  nothing else pressed or turned meanwhile, hands them back: the keyboard
+  says OFFER, and Hindsight forgets the HOME and takes the screen as when
+  the keyboard first answered (`Keyboard.Feed`). Unplugging the keyboard
+  or restarting Hindsight forgets the HOME too.
+- **As Hindsight stops**, it gives back a screen it has (`Farewell`), so
+  the panel doesn't go on talking to nobody.
+- **One message is in flight at a time**, because the keyboard's mailbox
+  holds one frame. Frames are written under the client's lock, in the
+  order the keyboard must see them.
+  - The next message goes when its ack comes.
+  - A message without an ack goes again.
+  - Three unanswered tries forget the keyboard until it answers HELLO
+    again.
+  - A TEXT waiting for the place a newer TEXT draws to is replaced, unless
+    a CLEAR waits between them.
+- **Each ack's round trip** is kept (`Status.RTT`), for step 1's latency.
 
 ### The clock bridge
 
