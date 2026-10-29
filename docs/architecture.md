@@ -571,6 +571,30 @@ queued, and forgets the passes, so one tape's pass is never caught onto
 another. Panics in the render goroutine and the device callback are
 recovered and reported in the state; the dashcam keeps rolling.
 
+**The revision** (`changes.go`, `Engine.Changes()`) moves whenever what
+`/api/tapes/state` shows moves, apart from the playhead and the device's
+counts, which move all the time: the loaded tape once it is the new one
+(an edit, an undo, a load); in the render goroutine, a transport action,
+trick or cue launch queued or carried out, a count-in ending, the tape
+running off its end, the cue lane's clips starting, ending or leaving,
+and each pass of the loop logged; ● Rec arming, turning on and ending; a
+mixdown's state; the output mode; and the clipboard and the crate once
+written (the store's `changed` hook). A page is told of a new revision so
+that it polls at once (`docs/plan/pushing-tape-state.md`). `Bump` runs on
+the render goroutine, so it takes no lock and never blocks: each
+subscriber's channel holds one tap, and a subscriber reads `Rev` when it
+wakes. The render goroutine bumps once a block, after it has published
+the block's view of the transport and the cue lane, so a page polling at
+the tap finds what it was told of. A carried-out action bumps when it is
+rendered, up to the FIFO's 100 ms before it is heard; the page's playhead
+goes by `heard`, so it doesn't jump ahead. Not bumped yet, so a page sees
+them on its next poll: the alignment locking (Δ), a render panic, the
+output device going or coming back, the stream's listeners, tap tempo's
+pending tap, the clock's status and a failed pool file.
+`TestEveryChangeThePageSeesMovesTheRevision` drives the tape, ● Rec, the
+clipboard, ▶ and ■ (and that the view already shows them at the tap), a
+pass and a count-in, and fails on one that doesn't move the revision.
+
 **Catching.** What the tape played at output frame `o` is in the capture
 ring at `o + delta`. A catch looks up the output frames it wants -- a pass
 from the cycle log, or the last N bars from the position map, back from the
