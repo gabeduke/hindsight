@@ -355,11 +355,10 @@ rack's list, its selection and Play all, and the bar; a take, its flags and its
 clock — and the room draws itself around them:
 
 - `doorway.js` — the shelves (this month's takes, the archive by month), the
-  deck (`ReelWindow` driven at 60fps from `NowPlaying.onChange`), the inline
-  Sketchbook sheet (`#room-sketchbook` for adding/editing notes, renaming,
-  starring, tagging, and grabbing a note's span to the Studio buffer without
-  leaving the room or interrupting playback), and the dock (`#np` with its
-  3-way `Feed` · `Tape` · `Shelf` source switcher).
+  deck (`ReelWindow` driven at 60fps from `NowPlaying.onChange`), and the
+  dock (`#np` with its 3-way `Feed` · `Tape` · `Shelf` source switcher).
+  A take's notes are the notes drawer's (`drawer.js`, the shell's and
+  Open's: `docs/architecture/rooms.md`, *The notes drawer*).
 - `open.js` — the take page (`wave.html`) with the rooms' words laid over it:
   `✎ Note`, `GRAB` beside `KEEP`, the take's notes one line each with `▶` and
   `GRAB`, its tag beside its star, and its family lines (`Made from`, `From

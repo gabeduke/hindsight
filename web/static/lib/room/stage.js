@@ -77,7 +77,7 @@ export function drawRoom(objects, name = 'wide', room = ROOM, { onError = null }
 /**
  * RoomRenderer draws a room scene into an element, and places its twins.
  * twins: object id → the element that is that object's control and face
- * ({shelves, deck, book}). box: the element the picture and the twins
+ * ({shelves, deck}). box: the element the picture and the twins
  * share (it is the view's crop).
  */
 export class RoomRenderer {
@@ -134,11 +134,7 @@ export class RoomRenderer {
       const r = inFrame(fc, view);
       const st = el.style;
       const pct = (n) => `${(n * 100).toFixed(3)}%`;
-      if (oid === 'book') {
-        // The sketchbook's twin is its name on a plate, over the book.
-        st.left = pct(Math.min(0.94, Math.max(0.06, r.left + r.width / 2)));
-        st.top = pct(Math.min(0.97, Math.max(0.1, r.top)));
-      } else if (oid === 'shelves') {
+      if (oid === 'shelves') {
         st.left = pct(r.left);
         st.width = pct(r.width);
         st.bottom = pct(1 - r.top - r.height);
@@ -190,7 +186,7 @@ export class RoomRenderer {
     return null;
   }
 
-  /** twin is the control laid over an object: the shelves, the deck, the sketchbook; null for a picture. */
+  /** twin is the control laid over an object: the shelves, the deck; null for a picture. */
   twin(id) { return this.twins[id] || null; }
 
   destroy() {

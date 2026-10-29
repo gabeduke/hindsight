@@ -152,9 +152,13 @@ as you walk in.
     **↺ 5 s** in ●'s place, the take as a strip (tap it to jump there, drag
     it to scrub), its name on the window, and at its right end **⏏** (back
     to the tape), **Open ›** and **✎**. **Open ›** opens the take on its
-    page. **✎** opens the take's **Sketchbook** right here, at the spot you
-    were hearing, and the take plays on: write a note, *Add note*. Star, tag
-    and name it there too; **Open waveform ›** goes to its page (§4.1).
+    page. **✎** opens the **notes drawer** from the foot of the screen,
+    right here, in the Studio or the Listening Room, at the spot you were
+    hearing, and the take plays on: write what you hear and press Enter.
+    Each note is a line: its number, its time (tap it to go there), its
+    words (tap to change them), **▶** to play from it, **GRAB** to send it to
+    the Studio's buffer and **✕** to take it out. Name, star and tag the take
+    there too. Swipe it down, or Back, to put it away.
     **⟲** is **Repeat** for a take: its selection, or the whole take without
     one; for the tape in the bar it stays **Loop**. On a phone the mini
     player keeps its window and **▶** where the tape's are, with **Open ›**
@@ -481,12 +485,12 @@ selection, **IN** and **OUT**), not the Listening Room's. What is different:
   deck) it starts at the spot you were hearing, and plays on if it was
   playing. A browser that won't start sound without a tap on the page (an
   iPhone always) leaves it paused at that spot. From the bar's **✎** it also
-  starts a note there (below).
-- **✎ Note** puts a note at the playhead, or opens the one already there, with
-  the cursor in its words: type, Enter. The **✎ Note** key at the head of the
-  *Notes* list is always there; the bar's own **✎** is folded away on a phone
-  until the player opens. **◂✎** and **✎▸** step from note to
-  note, and **✎ 3** is the list.
+  opens the notes drawer there (below).
+- **✎ Note** opens the **notes drawer** at the playhead, the same drawer as
+  in the Studio and the Listening Room (§3.1): type what you hear, Enter. The
+  **✎ Note** key at the head of the *Notes* list is always there; the bar's
+  own **✎** is folded away on a phone until the player opens. **◂✎** and
+  **✎▸** step from note to note, and **✎ 3** is the list.
 - **Notes,** one line each: its number, its time, its words (the only field;
   they save when you leave it), **▶** to play from it, **GRAB** and **✕**. A
   note's **GRAB** puts this note, up to the next note or eight bars (16
@@ -1559,8 +1563,8 @@ or see.
    track's **●**. Then press **DROP ON TRACK N**. The toast says *Dropped on track N* with
    **Undo**.
 3. **Listen back, jot a note.** In the Listening Room tap a take → it plays in
-   the bar. At the spot you like press **✎** in the bar → the Sketchbook
-   opens over the room at that moment, playing on. Type, *Add note*.
+   the bar. At the spot you like press **✎** in the bar → the notes drawer
+   comes up at that moment, playing on. Type, then Enter.
 4. **Reuse a bit.** Tap a take in the Listening Room → it plays. Let it play
    past the bit you want, then tap its **name** in the bar → Open. Press **GRAB
    4 BARS** → the Studio opens with up to four bars in the buffer (fewer if
@@ -1607,7 +1611,7 @@ has no tip.
 | ☰ (header) | The menu: Settings, the rig, help mode, the guide and Releases. A dot on it means a release is waiting, or the rig needs a look |
 | The rig (menu) | Your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
 | Shelf · List | The takes on shelves, a month to a shelf, or in a list by month and day. This device remembers which |
-| ✎ Note | A note at the playhead, with the cursor in its words |
+| ✎ Note | The notes drawer, at the playhead: write what you hear, and Enter puts it there |
 | GRAB (a take) | Into the Studio's buffer, and the Studio opens: the take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
 | GRAB (a note) | This note, to the next note or eight bars, into the Studio's buffer |
 | Tag (a take) | The take's one tag |
@@ -1676,7 +1680,9 @@ has no tip.
 | ⏏ (bar) | Stop the take in the bar and put the tape back in it |
 | Open › (bar) | Open what’s in the bar on its own page: the take, or the tape in the Studio. A double tap on a spine opens a take too |
 | The bar’s strip | The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays |
-| ✎ (bar) | A note at the spot you are hearing: the Listening Room’s Sketchbook opens, and the take keeps playing |
+| ✎ (bar) | A note at the spot you are hearing: the notes drawer opens there, and the take keeps playing |
+| ✎ at (notes) | Where the words go: the spot you were hearing when ✎ was pressed. Enter adds the note, and the next goes where the take is then |
+| ★ (notes) | Star this take: the Starred chip finds it |
 | ⟲ Repeat (bar) | Repeat the take in the bar: its selection, or the whole take without one |
 | The mini player (phone) | On a phone: a tap, or a drag up, pulls the player up over the page — the whole bar. A swipe down on its grabber or its reels, Back or Esc puts it away |
 | ● on the mini player (phone) | Record from this phone, straight into Hindsight: its take goes on the shelf. Tap again to stop. In the Studio, ● is the tape’s: hold it to record from this phone instead |

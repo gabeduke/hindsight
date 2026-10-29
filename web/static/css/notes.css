@@ -1,0 +1,84 @@
+/* web/static/css/notes.css
+   The notes drawer (lib/room/drawer.js; docs/architecture/rooms.md, "The
+   notes drawer"): a sheet from the foot of the screen, standing on the bar
+   so the take it is about plays on in view. It is the same drawer in the
+   Studio, the Listening Room and on Open, so it is a place of its own, and
+   every page that has ✎ links this. The sheet (lib/ui/sheet.js) moves it by
+   a transform alone; nothing here animates. Every class is notes-*, which
+   only drawer.js makes. */
+
+.notes-drawer {
+  /* Over the room and the player (50), level with the select bar it never
+     shares a screen with; under a menu (60), so its tag menu shows. */
+  position: fixed; z-index: 55;
+  left: 0; right: 0; margin: 0 auto; width: min(560px, 100%); box-sizing: border-box;
+  bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px));
+  max-height: min(72svh, 640px);
+  display: flex; flex-direction: column;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: 0 -14px 32px -8px var(--sh-strong);
+}
+.notes-drawer[hidden] { display: none; }
+
+/* The grabber, and the head beside it: a drag on either moves the drawer. */
+.notes-grabber { flex: none; height: 22px; cursor: grab; touch-action: none; }
+.notes-grabber::before {
+  content: ''; display: block; width: 40px; height: 5px; margin: 9px auto 0;
+  border-radius: 3px; background: var(--line);
+}
+.notes-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 0 14px 14px;
+}
+.notes-head { display: flex; align-items: center; gap: 8px; touch-action: none; }
+.notes-name {
+  flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 10px; box-sizing: border-box;
+  border: 1px solid transparent; border-radius: 8px; background: transparent;
+  color: var(--ink); font: 600 16px var(--font); text-overflow: ellipsis;
+}
+/* A take with no name of its own is called by its time (takeTitle): that
+   is its name, so it reads as one, not as a hint. */
+.notes-name::placeholder { color: var(--ink); opacity: 1; }
+.notes-name:focus { border-color: var(--line); background: var(--field); outline: none; }
+.notes-name:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.notes-star.on { color: var(--accent); border-color: var(--accent); }
+.notes-tag { padding: 0 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+.notes-tag.on { border: 0; background: var(--stripe); color: var(--stripe-ink); }
+.notes-done { margin-left: auto; }
+
+/* ✎ at 0:09, and the words. 16 px, so a phone doesn't zoom into the field. */
+.notes-write { display: flex; flex-direction: column; gap: 4px; }
+.notes-at { display: flex; align-items: center; gap: 4px; font: 600 12px var(--mono); color: var(--ink-dim); }
+.notes-at .i { color: var(--flag); }
+.notes-words {
+  min-height: 44px; padding: 0 12px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--field);
+  color: var(--ink); font: 16px var(--font);
+}
+
+/* The notes: number, time, words, ▶, GRAB, ✕, one line each. */
+.notes-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.notes-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 4px; }
+.notes-n {
+  min-width: 22px; height: 22px; padding: 0 4px; box-sizing: border-box; border-radius: 11px;
+  display: grid; place-items: center; background: var(--flag); color: var(--on-accent); font: 700 12px var(--mono);
+}
+.notes-time {
+  appearance: none; min-width: 44px; min-height: 44px; padding: 0 4px;
+  border: 0; background: none; color: var(--ink-dim); font: 600 13px var(--mono); cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+}
+.notes-time:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.notes-row-words {
+  min-width: 0; min-height: 40px; padding: 0 8px; box-sizing: border-box;
+  border: 1px solid transparent; border-radius: 6px; background: transparent;
+  color: var(--ink); font: 15px var(--font);
+}
+.notes-row-words:focus { border-color: var(--line); background: var(--field); }
+.notes-play, .notes-out { min-width: 44px; min-height: 44px; padding: 0; }
+.notes-grab { min-height: 44px; padding: 0 10px; font: 700 13px var(--label-font); letter-spacing: .06em; }
+.notes-out { color: var(--danger-ink); }
+.notes-none { margin: 0; font-size: 14px; color: var(--ink-dim); }
+.notes-none[hidden] { display: none; }

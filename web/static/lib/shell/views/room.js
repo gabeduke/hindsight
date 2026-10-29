@@ -448,7 +448,9 @@ export const roomView = {
 
     let roomInst = null;
     ctx.engine.setFind?.(takesFinder(takes));
-    ctx.engine.setOnNote?.((f) => roomInst?.openSketchbook?.(f.take, f));
+    // The notes drawer is the shell's (boot.js): what it changes on a take
+    // (its notes, name, ★, tag) is fetched again here.
+    const offNotes = ctx.notes?.onChange(() => { takes.etag = null; poll(true); });
 
     renderControls();
     showNextToast();
@@ -461,7 +463,6 @@ export const roomView = {
       get np() { return np; },
       barSlot: ctx.barSlot,
       go: (u) => ctx.go(u),
-      openSketchbook: (name, f) => roomInst?.openSketchbook?.(name, f),
       opts: () => ({ ...view, tags: tagStore.list, tag: shownTag() }),
       pick: (name) => pick(name),
       rack: $('takes'),
@@ -507,6 +508,7 @@ export const roomView = {
       },
       destroy() {
         stopPlayAll();
+        offNotes?.();
         roomInst?.destroy?.();
       },
     };

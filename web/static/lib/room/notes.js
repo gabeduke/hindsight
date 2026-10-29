@@ -1,18 +1,21 @@
 // web/static/lib/room/notes.js
-// The sketchbook's notes (docs/superpowers/specs/2026-10-15-listening-room-design.md,
-// "The chair: the sketchbook"). A note is a take flag with words: the model
-// and the per-flag endpoints exist (lib/flags.js), and a label travels in
-// the WAV's cue chunk, so a note made here shows up in a DAW. Pure, but for
-// the one request that sends a span to the Studio.
+// A take's notes (docs/architecture/rooms.md, "The notes drawer"). A note is
+// a take flag with words: the model and the per-flag endpoints exist
+// (lib/flags.js), and a label travels in the WAV's cue chunk, so a note made
+// here shows up in a DAW. Pure, but for the requests: the one that sends a
+// span to the Studio, and barNotes, the take in the bar as the notes
+// drawer's source.
 
 import { replacedLine, remember, forget } from '../buffer/replaced.js';
 import { forTheTape } from '../bar/carry.js';
+import { flagRequest, asFlags } from '../flags.js';
+import { withClient } from '../client.js';
 
 /** SPAN_BARS is how far a note reaches at most, with a tempo; SPAN_SECONDS without one. */
 export const SPAN_BARS = 8;
 export const SPAN_SECONDS = 16;
 
-/** fmtAt is a frame as the sketchbook writes it: "0:42", "12:05". */
+/** fmtAt is a frame as a note writes it: "0:42", "12:05". */
 export function fmtAt(frame, sampleRate = 48000) {
   const s = Math.max(0, Math.floor(frame / sampleRate));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -62,7 +65,7 @@ export function freeFrame(notes, at, total = Infinity) {
 }
 
 /**
- * fieldEnter is what Enter in the sketchbook's note field does. Writing the
+ * fieldEnter is what Enter in the notes drawer's words does. Writing the
  * words of a note NOTE HERE made (`current`) edits that note. With none, the
  * words make a new note at the playhead -- a new one, a frame on if a note
  * is already there: Enter never writes over another note's words.
@@ -117,3 +120,52 @@ export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, s
 export function forgetNote({ storage = pageStorage() } = {}) { forget(storage); }
 
 const pageStorage = () => { try { return globalThis.sessionStorage || null; } catch { return null; } };
+
+/**
+ * barNotes is the take `name` as the notes drawer's source (drawer.js): the
+ * Pi's record of it (GET /api/take), its notes by the take's flags, and the
+ * bar (`bar`, the engine's: frameNow, seekTake) for where it is heard and
+ * where a time or ▶ sends it. `go` is where GRAB goes next (the router's);
+ * `onChanged(take)` hears every change it makes, for the room's list.
+ * Answers the source, or throws with the Pi's words.
+ */
+export async function barNotes(name, { bar, go, onChanged = () => {}, fetchImpl = globalThis.fetch } = {}) {
+  const url = `/api/take?file=${encodeURIComponent(name)}`;
+  const res = await fetchImpl(url, { cache: 'no-store', headers: withClient() });
+  const got = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(got.error || `HTTP ${res.status}`);
+  let take = { ...got, flags: asFlags(got.flags) };
+  const fns = new Set();
+  const changed = () => { for (const fn of fns) fn(); onChanged(take); };
+  const sr = take.sample_rate || 48000;
+  const flags = async (op, args) => {
+    const b = await flagRequest(name, op, args, fetchImpl);
+    take = { ...take, flags: asFlags(b.flags) };
+    changed();
+  };
+  return {
+    name,
+    sampleRate: sr,
+    total: Math.max(1, Math.round((take.duration_seconds || 0) * sr)),
+    take: () => take,
+    notes: () => notesOf(take.flags, sr),
+    bpm: () => take.bpm || 0,
+    frame() {
+      const f = bar.frameNow?.();
+      return f && f.take === name ? f.frame : 0;
+    },
+    add: (frame, label) => flags('add', { frame, label }),
+    edit: (id, label) => flags('edit', { id, label }),
+    remove: (id) => flags('remove', { id }),
+    async patch(fields) {
+      const r = await fetchImpl(url, { method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }), body: JSON.stringify(fields) });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(b.error || `HTTP ${r.status}`);
+      take = { ...take, ...fields };
+      changed();
+    },
+    seek: (frame, opts) => bar.seekTake?.(name, frame, opts),
+    async grab(span) { go(await sendToStudio(name, span, { fetchImpl })); },
+    onChange(fn) { fns.add(fn); return () => fns.delete(fn); },
+  };
+}

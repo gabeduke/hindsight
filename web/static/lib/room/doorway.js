@@ -26,7 +26,7 @@
 // shelves stand on a plain wall.
 
 import { wallShelves, shelfNames, at, filterWords } from './shelves.js';
-import { forgetNote, fmtAt } from './notes.js';
+import { forgetNote } from './notes.js';
 import { openTheTape } from '../bar/carry.js';
 import { bindPress, SPINE_PRESS } from '../ui/press.js';
 import { icon } from '../ui/icons.js';
@@ -35,9 +35,8 @@ import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
 import { openTagManager } from '../tags-dialog.js';
 import { deckOf, readBar } from './deck.js';
-import { familyCounts, familySticker, flagChips } from '../shelf.js';
+import { familyCounts, familySticker } from '../shelf.js';
 import { takeTitle, fmtLen } from '../rooms/takename.js';
-import { flagRequest } from '../flags.js';
 import { tagStore } from '../tags.js';
 import { stripeFor } from '../objects/cassette-geom.js';
 import { RoomRenderer, roomScene, backdropRoom } from './stage.js';
@@ -426,160 +425,6 @@ export function mount(h) {
     }
   }
 
-  // The Sketchbook: the notes of the take in the bar, which ✎ on the bar
-  // opens (the engine's setOnNote). It left the room's floor with the deck;
-  // the notes drawer (listening-back.md, step 2) is to take its place.
-  function openSketchbook(takeName, stashed = null) {
-    const t0 = h.takes.all.find((x) => x.name === takeName);
-    if (!t0) return;
-    let dlg = $('room-sketchbook');
-    if (!dlg) {
-      dlg = el('dialog', 'sheet room-book-sheet', { id: 'room-sketchbook', 'aria-labelledby': 'room-book-title' },
-        el('div', 'sheet-inner room-book-inner', {},
-          el('div', 'room-book-head', {},
-            el('h3', '', { id: 'room-book-title', text: 'Sketchbook' }),
-            el('button', 'icon-btn room-book-star', { id: 'room-book-star', type: 'button', 'aria-label': 'Star take' }, '★'),
-            el('button', 'icon-btn room-book-tag', { id: 'room-book-tag', type: 'button', 'aria-label': 'Tag take' }, '+ tag'),
-            el('a', 'icon-btn room-book-wave', { id: 'room-book-wave', text: 'Open waveform ›' }),
-            el('button', 'icon-btn room-book-close', { id: 'room-book-close', type: 'button', text: 'Done' })),
-          el('div', 'room-book-meta-row', {},
-            el('input', 'room-book-name-input', { id: 'room-book-name-input', type: 'text', maxlength: '80', placeholder: 'Name this take…', 'aria-label': 'Take name' })),
-          el('form', 'room-book-form', { id: 'room-book-form' },
-            el('label', 'room-book-at', { id: 'room-book-at', for: 'room-book-input' }),
-            el('div', 'room-book-row', {},
-              el('input', '', { id: 'room-book-input', type: 'text', maxlength: '120', placeholder: 'Write a note at this moment…', autocomplete: 'off' }),
-              el('button', 'icon-btn primary', { type: 'submit', text: 'Add note' }))),
-          el('div', 'room-book-list', { id: 'room-book-list', role: 'list' })));
-      body.append(dlg);
-      $('room-book-close').addEventListener('click', () => dlg.close?.());
-      dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close?.(); });
-    }
-    const curTake = () => h.takes.all.find((x) => x.name === takeName) || t0;
-    const sr = () => curTake().sample_rate || 48000;
-    const frameAt = () => {
-      if (stashed && stashed.take === takeName && typeof stashed.frame === 'number') return stashed.frame;
-      const now = h.np?.frameNow?.();
-      if (now && now.take === takeName) return now.frame;
-      return 0;
-    };
-    let targetFrame = frameAt();
-    const patchTake = async (fields) => {
-      const res = await fetch(`/api/take?file=${encodeURIComponent(takeName)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fields),
-      });
-      const b = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
-      h.takes.etag = null;
-      await h.takes.refresh();
-      render();
-      renderPlaces();
-      renderBook();
-    };
-    $('room-book-star').onclick = async () => {
-      try {
-        await patchTake({ starred: !curTake().starred });
-      } catch (e) { toast?.(`Could not star take: ${e.message}`, 'bad'); }
-    };
-    $('room-book-tag').onclick = async () => {
-      const list = tagStore.list;
-      if (!list.length) {
-        openTagManager({ onToast: toast, onCreated: (g) => patchTake({ tag: g.id }).catch(() => {}) });
-        return;
-      }
-      const cur = curTake().tag || '';
-      const idx = list.findIndex((g) => g.id === cur);
-      const next = idx < 0 ? list[0].id : (idx + 1 < list.length ? list[idx + 1].id : '');
-      try {
-        await patchTake({ tag: next });
-      } catch (e) { toast?.(`Could not tag take: ${e.message}`, 'bad'); }
-    };
-    $('room-book-name-input').onchange = async (e) => {
-      const label = e.target.value.trim();
-      if (label === (curTake().label || '')) return;
-      try {
-        await patchTake({ label });
-      } catch (err) { toast?.(`Could not rename take: ${err.message}`, 'bad'); }
-    };
-    const renderBook = () => {
-      const t = curTake();
-      $('room-book-title').textContent = `Sketchbook · ${takeTitle(t)}`;
-      $('room-book-wave').setAttribute('href', `/wave.html?file=${encodeURIComponent(t.name)}`);
-      $('room-book-at').textContent = `Note at ${fmtAt(targetFrame, sr())}`;
-      const starBtn = $('room-book-star');
-      starBtn.setAttribute('aria-pressed', String(!!t.starred));
-      starBtn.classList.toggle('on', !!t.starred);
-      const g = tagStore.list.find((x) => x.id === t.tag);
-      const tagBtn = $('room-book-tag');
-      tagBtn.className = `icon-btn room-book-tag${g ? ` stripe-${g.color} on` : ''}`;
-      tagBtn.textContent = g ? g.name : '+ tag';
-      const nameIn = $('room-book-name-input');
-      if (document.activeElement !== nameIn) nameIn.value = t.label || '';
-      const list = $('room-book-list');
-      const chips = flagChips(t);
-      if (!chips.length) {
-        list.replaceChildren(el('p', 'muted room-book-empty', { text: 'No notes on this take yet. Add one above while it plays.' }));
-        return;
-      }
-      list.replaceChildren(...chips.map((f) => {
-        const jump = el('button', 'chip room-book-jump mono', { type: 'button', 'aria-label': `Seek to ${f.at}`, text: `✎ ${f.at}` });
-        jump.addEventListener('click', async () => {
-          const p = await h.takes.player(t.name);
-          if (p?.audio) p.audio.currentTime = f.frame / sr();
-        });
-        const input = el('input', 'room-book-edit', { type: 'text', maxlength: '120', placeholder: 'Note…' });
-        input.value = f.label || '';
-        input.addEventListener('change', async () => {
-          const label = input.value.trim();
-          if (label === (f.label || '')) return;
-          try {
-            await flagRequest(t.name, 'edit', { id: f.id, label });
-            h.takes.etag = null;
-            await h.takes.refresh();
-            renderPlaces();
-            renderBook();
-          } catch (e) { toast?.(`Could not save note: ${e.message}`, 'bad'); }
-        });
-        const rm = el('button', 'icon-btn danger room-book-rm', { type: 'button', 'aria-label': `Remove note at ${f.at}`, text: '×' });
-        rm.addEventListener('click', async () => {
-          try {
-            await flagRequest(t.name, 'remove', { id: f.id });
-            h.takes.etag = null;
-            await h.takes.refresh();
-            renderPlaces();
-            renderBook();
-          } catch (e) { toast?.(`Could not remove note: ${e.message}`, 'bad'); }
-        });
-        return el('div', 'room-book-item', { role: 'listitem' }, jump, input, rm);
-      }));
-    };
-    const form = $('room-book-form');
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const input = $('room-book-input');
-      const label = input.value.trim();
-      const frame = targetFrame;
-      try {
-        await flagRequest(takeName, 'add', { frame, label });
-        input.value = '';
-        h.takes.etag = null;
-        await h.takes.refresh();
-        targetFrame = frameAt();
-        renderPlaces();
-        renderBook();
-      } catch (err) {
-        toast?.(`Could not add note: ${err.message}`, 'bad');
-      }
-    };
-    renderBook();
-    if (!dlg.open) {
-      if (typeof dlg.showModal === 'function') dlg.showModal();
-      else dlg.setAttribute('open', '');
-    }
-    $('room-book-input')?.focus();
-  }
-
   h.onChange(() => { render(); renderPlaces(); });
   h.onSelected(() => { tagging.sync(); syncSpines(); });
   tagStore.subscribe(() => render());
@@ -687,11 +532,9 @@ export function mount(h) {
   return {
     render,
     renderPlaces,
-    openSketchbook,
     shown: followPref,
     hide() {
       flights.cancel();
-      $('room-sketchbook')?.close?.();
     },
     destroy() {
       offBar?.();

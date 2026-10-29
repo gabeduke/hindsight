@@ -68,7 +68,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
   const bar = new NowPlaying({
     onEject: () => backToTape({ byHand: true }),
     onTouch: () => { touches++; handoff.touch(); },
-    // ✎: open inline sketchbook if provided by the room, else stash frame and navigate.
+    // ✎: the page's notes drawer (setOnNote, the shell's boot.js), else stash the frame and open the take.
     onNote: () => {
       if (typeof onNote === 'function') {
         const f = frameNow();

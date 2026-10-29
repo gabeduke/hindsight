@@ -36,7 +36,7 @@ test('every object has a box, an art that draws it, and a unique id; the control
       assert.equal(o.at.y, base.at.y + base.size.h, `${o.id} sits on top of ${base.id}`);
     }
   }
-  assert.deepEqual(ROOM.objects.filter((o) => o.twin).map((o) => o.twin).sort(), ['book', 'deck', 'shelves']);
+  assert.deepEqual(ROOM.objects.filter((o) => o.twin).map((o) => o.twin).sort(), ['deck', 'shelves']);
 });
 
 test('every colour the room names is a token that exists', () => {
@@ -104,7 +104,7 @@ test('drawn in order: the shell, then the wall’s things, then back to front, a
   const at = (id) => order.indexOf(id);
   assert.ok(at('window') < at('console'));
   assert.ok(at('rug') < at('chair') && at('rug') < at('table'));
-  assert.ok(at('table') < at('book') && at('table') < at('glass'));
+  assert.ok(at('table') < at('glass'));
   assert.ok(at('console') < at('deck'));
 });
 
@@ -125,7 +125,7 @@ test('the controls are laid over their objects in the frame, and taken back off 
     const m = new Map();
     return { m, setProperty: (k, v) => m.set(k, v), removeProperty: (k) => m.delete(k), set left(v) { m.set('left', v); }, set top(v) { m.set('top', v); }, set width(v) { m.set('width', v); }, set height(v) { m.set('height', v); }, set bottom(v) { m.set('bottom', v); }, set minHeight(v) { m.set('min-height', v); } };
   };
-  const twins = { shelves: { style: style() }, deck: { style: style() }, book: { style: style() } };
+  const twins = { shelves: { style: style() }, deck: { style: style() } };
   const el = { innerHTML: '' };
   const r = new RoomRenderer({ twins });
   const scene = roomScene(ROOM, { ticker: new Ticker({ raf: () => 0, now: () => 0 }) });

@@ -92,5 +92,53 @@ in `lib/room/doorway.js`):
   markup): at `--room-ambient` behind the wall, in full only while
   `html[data-arriving="room"]` is set — the router's, while a switch into
   the room plays — then fading back over four of the room's moves. The deck
-  and the Sketchbook's place are gone from the room; ✎ on the bar opens the
-  Sketchbook's notes until the notes drawer replaces it.
+  and the Sketchbook are gone from the room (the book on its table went
+  with its dialog: the table, the lamp and the glass stay); ✎ on the bar
+  opens the notes drawer (below).
+
+## The notes drawer
+
+One drawer for a take's notes, the same in the Studio, the Listening Room
+and on Open (decided in `listening-back.md`, *One notes drawer*; flows J2.4
+and U3). **✎ is the only pencil, and it means a note here, now**: ✎ on the
+bar opens the drawer on the take in the bar at the frame being heard; the
+take plays on, and the URL stays. On Open, ✎ Note (in the bar's own keys,
+and at the head of the page's *Notes*) opens it at the playhead, and ✎ on
+the bar arriving at Open opens it at the frame that was heard.
+
+From the top: the take's name (edited in place; a take with none shows
+`takeTitle`), ★ and its tag (a `menu()`: the tags, *No tag*, *Edit
+tags…*), and Done; then *✎ at 0:09* over the words, where Enter adds the
+note (`fieldEnter`: never over another note, a frame on if one is there)
+and the next goes where the take is by then; then the notes, each its
+number, its time (a tap goes there), its words (edited in place; Escape
+puts them back), ▶ (plays from it), GRAB (from it to the next note or
+eight bars, into the Studio's buffer: `noteSpan`) and ✕. With the tape in
+the bar ✎ is hidden, as it was: notes on tapes are in `backlog.md`.
+
+- **`lib/room/drawer.js` `createNotesDrawer({doc, layers, toast, head})`**
+  makes it, put away, at the end of `<body>` (`#notes-drawer`, every class
+  `notes-*`, styled by `css/notes.css`), and answers `{el, open(source,
+  {at}), close(), refresh(), isOpen, source, destroy()}`. It is a
+  `createSheet` (`kind: 'drawer'`, a half-way detent), on the page's
+  stack: a swipe down on its grabber or head, Back, Escape and Done put it
+  away. `head: false` leaves out the name, ★ and tag, for Open, whose
+  header has them.
+- **It keeps nothing of the take's.** It draws a *source* it is handed:
+  `take()`, `notes()`, `sampleRate`, `total`, `bpm()`, `frame()` (the
+  frame heard now), `add`, `edit`, `remove`, `patch`, `seek(frame,
+  {play})`, `grab(span)` and `onChange(fn)`, and redraws on its change.
+- **The shell's** (`lib/shell/boot.js`) is mounted at boot and opened by
+  the engine's `setOnNote`, on `barNotes(name, {bar, go, onChanged})`
+  (`lib/room/notes.js`): the Pi's record of the take (`GET /api/take`),
+  its notes by the per-flag requests (`lib/flags.js`), `PATCH /api/take`
+  for the name, ★ and tag, and the engine's `seekTake(name, frame,
+  {play})` for a time and ▶. The views hear what it changed through
+  `ctx.notes.onChange` (the Listening Room fetches its list again); no
+  view has notes of its own (`architecture.test.js`, guardrail 9).
+- **Open's** (`lib/room/open.js`) is its own, on Open's stack, on a source
+  over the page's handle (`addNote`, `editNote`, `removeNote`: optimistic,
+  in order, with the page's Undo for a note taken out). Docking it beside
+  the waveform, and the page's own list going, are Open's pass
+  (`the-studio-space.md`, step 10).
+

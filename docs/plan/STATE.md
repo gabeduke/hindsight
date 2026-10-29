@@ -21,8 +21,6 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 - Open (`wave.html`), the rig (`rig.html`) and the guide are still pages of
   their own, outside the shell ([decision 0011](../decisions/0011-open-is-its-own-page.md)).
-- Notes on a take are still the Sketchbook's dialog (✎ on the bar), until
-  the notes drawer (`listening-back.md`).
 - Open still titles a take by its date stamp, not `takeTitle`, until Open's
   pass.
 - The cue lane takes GRABs only; adding from the shelf and from a track is
@@ -86,8 +84,9 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
-- **`the-studio-space.md` is the build order**: steps 1–8 have landed; 9
-  (the notes drawer, on `lib/ui/sheet.js`), 10 (Open), 11 (the buffer into
+- **`the-studio-space.md` is the build order**: steps 1–9 have landed (9,
+  the notes drawer: `docs/architecture/rooms.md`, *The notes drawer*); 10
+  (Open, which docks the drawer beside its waveform), 11 (the buffer into
   the cue lane) and 12 (polish) are open.
   The phone's player as a sheet and its ● want a look on a real phone:
   the mini player's display is narrow on a 360 px phone (`bar.md`). They

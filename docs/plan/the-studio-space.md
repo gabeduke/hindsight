@@ -105,7 +105,8 @@ what's next.
 8. ~~The Studio's heads and ruler~~ (`the-studio-on-one-screen.md`, steps 3
    and 4). Landed: `docs/architecture/tape.md`, *The track heads*; J1.5,
    J1.16.
-9. **The notes drawer** (`listening-back.md`, step 2), on `sheet.js`.
+9. ~~The notes drawer~~ (`listening-back.md`, step 2). Landed:
+   `docs/architecture/rooms.md`, *The notes drawer*; J2.4, U3.
 10. **Open** (`listening-back.md`, step 3, with the decisions above), and
     the dolly into a take.
 11. **The buffer into the cue lane** (`the-studio-on-one-screen.md`, step

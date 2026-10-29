@@ -36,7 +36,7 @@ async function open({ file = 'jam_a.wav', arrivalNote = null, jams = [], region 
     editNote: (id, label) => { calls.push(`edit ${id} ${label}`); state.flags.find((x) => x.id === id).label = label; },
     removeNote: (id) => { calls.push(`remove ${id}`); state.flags = state.flags.filter((x) => x.id !== id); hooks.forEach((fn) => fn()); },
     patch: async (b) => b,
-    onRedraw: (fn) => hooks.push(fn),
+    onRedraw: (fn) => { hooks.push(fn); return () => { hooks = hooks.filter((x) => x !== fn); }; },
     arrivalNote,
   };
   const { mount } = await import('./open.js');
@@ -55,33 +55,46 @@ test('Open adds ✎ Note in place of the flag key, and the flag key is out of th
   assert.ok(p.doc.body.classList.contains('room-open-on'));
 });
 
-test('✎ Note makes a note at the playhead and puts the cursor in its words', async () => {
+// Enter in the drawer's words: a note there.
+function write(p, words) {
+  p.$('notes-words').value = words;
+  p.$('notes-write').dispatchEvent({ type: 'submit', preventDefault() {} });
+  return new Promise((r) => setTimeout(r, 0));
+}
+
+test('✎ Note opens the notes drawer at the playhead, its words ready; Enter puts the note there', async () => {
   const p = await open();
   p.$('room-open-note').dispatchEvent({ type: 'click' });
-  assert.deepEqual(p.calls.filter((c) => c.startsWith('add')), [`add ${7 * SR}`]);
-
-  const rows = p.all('.room-open-note-row');
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0].querySelector('.room-open-at').textContent, '0:07');
-  assert.equal(p.doc.activeElement, rows[0].querySelector('.room-open-words'), 'its words are ready for typing');
+  assert.equal(p.$('notes-drawer').hidden, false, 'the drawer is up');
+  assert.match(p.$('notes-at').textContent, /at 0:07$/);
+  assert.equal(p.doc.activeElement, p.$('notes-words'), 'its words are ready for typing');
+  assert.equal(p.$('notes-name'), null, 'Open’s header has the name, ★ and tag: the drawer leaves them out');
+  assert.deepEqual(p.calls.filter((c) => c.startsWith('add')), [], 'nothing is written until there are words');
+  await write(p, 'the bridge');
+  assert.deepEqual(p.calls.filter((c) => /^(add|edit)/.test(c)), [`add ${7 * SR}`, 'edit f1 the bridge']);
+  assert.equal(p.all('.notes-row').length, 1);
+  assert.equal(p.all('.notes-row')[0].querySelector('.notes-time').textContent, '0:07');
 });
 
 test('the Notes heading has a ✎ Note too, since a phone’s bar folds its own keys away', async () => {
   const p = await open();
   p.all('.room-open-note-btn')[0].dispatchEvent({ type: 'click' });
-  assert.deepEqual(p.calls.filter((c) => c.startsWith('add')), [`add ${7 * SR}`]);
+  assert.equal(p.$('notes-drawer').hidden, false);
 });
 
-test('✎ on the bar arrives with a note already started at the frame that was heard', async () => {
+test('✎ on the bar arrives with the drawer open at the frame that was heard', async () => {
   const p = await open({ arrivalNote: 44 * SR });
+  assert.equal(p.$('notes-drawer').hidden, false);
+  assert.match(p.$('notes-at').textContent, /at 0:44$/);
+  await write(p, 'here');
   assert.deepEqual(p.calls.filter((c) => c.startsWith('add')), [`add ${44 * SR}`]);
-  assert.equal(p.doc.activeElement, p.all('.room-open-words')[0]);
   const none = await open();
-  assert.deepEqual(none.calls.filter((c) => c.startsWith('add')), [], 'no note when the bar did not ask for one');
+  assert.equal(none.$('notes-drawer').hidden, true, 'no drawer when the bar did not ask for one');
 });
 
 test('a note is one line: number, time, words, ▶ from here, GRAB from here, ✕', async () => {
   const p = await open({ arrivalNote: 10 * SR });
+  await write(p, 'x');
   const row = p.all('.room-open-note-row')[0];
   const words = row.querySelector('.room-open-words');
   words.value = 'the bridge';
