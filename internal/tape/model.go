@@ -119,6 +119,18 @@ func (g Grid) DivisionStart(n int64, per int) int64 {
 	return int64(math.Round(float64(n) * g.BarFrames() / float64(per)))
 }
 
+// DivisionAt is the last line of a bar divided `per` ways at or before pos.
+func (g Grid) DivisionAt(pos int64, per int) int64 {
+	n := int64(math.Floor(float64(pos) / (g.BarFrames() / float64(per))))
+	for g.DivisionStart(n+1, per) <= pos {
+		n++
+	}
+	for g.DivisionStart(n, per) > pos {
+		n--
+	}
+	return g.DivisionStart(n, per)
+}
+
 // NextDivision is the first line of a bar divided `per` ways at or after pos.
 func (g Grid) NextDivision(pos int64, per int) int64 {
 	n := int64(math.Floor(float64(pos) / (g.BarFrames() / float64(per))))

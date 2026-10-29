@@ -571,6 +571,26 @@ queued, and forgets the passes, so one tape's pass is never caught onto
 another. Panics in the render goroutine and the device callback are
 recovered and reported in the state; the dashcam keeps rolling.
 
+**When a pad lands** (`trick.go`, `landing`). Play mode's pads, from a
+page or a controller, are quantised to the line the player was playing
+to: the line nearest what they heard at the moment the press reached the
+Pi, worked out from the lead (`heardAt`, the blocks rendered ahead and the
+device's latency). A hit up to half a unit after a line, and never more
+than 100 ms, goes back to it; anything later goes on to the next. A line
+still to come lands on its frame. One already rendered lands at once, and
+a trick pad's head starts as if it had left the tape on that line
+(`anchor` the line, `start` that many frames back), so a STOP is that far
+into its wind-down and a ROLL in its phase. Snapping instead to the next
+line after the render head, as it once did, put every hit on the beat a
+whole unit late to the ear. Releases snap the same way, with nothing to
+anchor, and a tap still sounds a whole unit from where its press is first
+heard, however late on its line it lands. A late start is crossfaded in
+like any other; what it means is each trick's own: STOP is already part
+way down, REV jumps back twice the lateness, DOUBLE forward by it. With no output, the tape on a phone's stream (whose delay the Pi
+doesn't hear), or no straight play from the line to the render head, a
+press lands on the transport's own target, the next line after the
+render head.
+
 **The revision** (`changes.go`, `Engine.Changes()`) moves whenever what
 `/api/tapes/state` shows moves, apart from the playhead and the device's
 counts, which move all the time: the loaded tape once it is the new one
