@@ -29,7 +29,7 @@ import { token, withAlpha } from '../theme.js';
 import { tagStore } from '../tags.js';
 import { dropoutsText } from '../shelf.js';
 import { takeTitle } from '../rooms/takename.js';
-import { stripeFor, STRIPES, stampOf, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
+import { stripeFor, STRIPES, stampOf, bandLayout, packRadii, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 // A reel hub, drawn: a ring, a disc, a dark core and six teeth. What shows
 // until the rendered one has loaded.
@@ -196,12 +196,23 @@ export class CassetteFace {
     this.take = take;
     for (let n = 1; n <= STRIPES; n++) this.el.classList.remove(`stripe-${n}`);
     this.el.classList.add(`stripe-${stripeFor(take, tagStore.list)}`);
-    this.parts.stamp.textContent = stampOf(take);
+    this.fitBand();
     this.parts.name.textContent = takeTitle(take);
     // A sticker where the capture lost audio in it.
     const drops = dropoutsText(take);
     this.parts.drops.hidden = !drops;
     this.parts.drops.textContent = drops;
+  }
+
+  /**
+   * fitBand writes as much of HINDSIGHT and the date stamp as the band has
+   * room for at this width (cassette-geom.js, bandLayout).
+   */
+  fitBand() {
+    if (!this.layout) return;
+    const band = bandLayout(stampOf(this.take), this.layout);
+    this.parts.brand.hidden = !band.brand;
+    this.parts.stamp.textContent = band.stamp;
   }
 
   /** setSelection draws the take's selection; frames out of totalFrames. */
@@ -232,8 +243,9 @@ export class CassetteFace {
     this.parts.band.style.height = px(lb.band);
     Object.assign(this.parts.under.style, { top: px(lb.band + 2) });
     Object.assign(this.parts.side.style, { width: px(lb.side), height: px(lb.side), top: px((lb.band - lb.side) / 2), fontSize: px(lb.side * 0.65) });
-    Object.assign(this.parts.brand.style, { left: px(lb.side + 20), lineHeight: px(lb.band), fontSize: px(lb.brand) });
+    Object.assign(this.parts.brand.style, { left: px(lb.brandX), lineHeight: px(lb.band), fontSize: px(lb.brand) });
     Object.assign(this.parts.stamp.style, { lineHeight: px(lb.band), fontSize: px(lb.stamp) });
+    this.fitBand();
     this.parts.rule.style.top = px(lb.titleTop + lb.titleSize + 8);
     Object.assign(this.parts.name.style, { top: px(lb.titleTop), fontSize: px(lb.titleSize) });
     Object.assign(this.parts.win.style, { left: px(win.x), top: px(win.y), width: px(win.w), height: px(win.h), borderRadius: px(win.h / 2) });
