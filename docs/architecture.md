@@ -639,17 +639,26 @@ the tape off it is a 404, as the rest of `/api/tapes` is. Not on
 In the page, `lib/tape/changes.js` (`watchChanges(onNudge)`, and
 `revisions()`, which says whether a message's rev is one not yet heard) is
 the client, kept open by `lib/socket.js`'s `connectSocket`, the reconnect
-and dead-socket rules `lib/live.js` had, moved so both use them. The Studio
-(`lib/tape/page.js`) opens it on show and closes it on hide; a nudge asks
-`poll-gate.js`'s `nudge()`, which polls at once with no poll out, or has the
-poll that is out poll once more when it ends (`end()` says so), never two at
-once. The bar's tape source (`lib/bar/tape-source.js`) watches while it
-polls the tape itself: in the bar and not handed to the Studio
-(`delegate`), which the Studio does only while it is shown, so the bar in
-another room polls and follows the tape again. The 200 ms and 500 ms polls
-stay, as the fallback for a socket that is down. J1.14 times ▶, ■ and a
-rename made at the Pi to the page's paint, in the Studio and in the
-Listening Room's bar: within 100 ms on the demo.
+and dead-socket rules `lib/live.js` had, moved so both use them. A watch
+takes its socket's first rev as seen, not news: whoever opens one polls as
+they do, and counting it would ask the Pi twice; after a reconnect, a rev
+that moved while it was down is news. The Studio (`lib/tape/page.js`) holds
+it through `ctx.socket` (*The shell*), so it is open only while the Studio
+is shown, and with it the bar's hand-over: opening it delegates the bar's
+tape to the Studio, closing it hands it back (`delegate(null)`). A nudge
+asks `poll-gate.js`'s `nudge()`, which polls at once with no poll out, or
+has the poll that is out poll once more when it ends (`end()` says so),
+never two at once. The bar's tape source (`lib/bar/tape-source.js`) is not
+a view: its socket's life is tied to `del` and `active` instead. It
+watches while it polls the tape itself (in the bar, `active`, and not
+handed to the Studio, `!del`), and closes on `delegate(d)`, on
+`setActive(false)` and on `destroy()`. Its polls go through a gate of their
+own on the same rules (a tick skipped while one is out, a wake-up forced,
+a nudge, a press or the hand-back asked for once), with a 4 s timeout so a
+poll lost in a sleep frees the gate. The 200 ms and 500 ms polls stay, as
+the fallback for a socket that is down. J1.14 times ▶, ■ and a rename made
+at the Pi to the page's paint, in the Studio and in the Listening Room's
+bar: within 100 ms on the demo.
 
 **Catching.** What the tape played at output frame `o` is in the capture
 ring at `o + delta`. A catch looks up the output frames it wants -- a pass
@@ -973,7 +982,8 @@ the desk (the lit tab, a bar of another shape) changes in place.
   saved scroll is restored only by a room that mounts shown, never by one
   warming while the Studio is up). Its first visit is a reveal, still
   `first: true`, but its `hide()` has run before it: so its `show()` puts
-  back on every visit what `hide()` put away (Capture's live socket), and
+  back on every visit what `hide()` put away, and what `ctx` holds comes
+  back with it (Capture's live socket is `ctx.socket`'s), and
   what it runs outside `ctx` (Capture's ribbon, on its own timer) stops in
   `hide()` and starts in `show()`.
 - **A tap lands where it looks, or nowhere.** While a switch is drawn,
@@ -1068,7 +1078,8 @@ touches media or an AudioContext. Autoplay gates are per document with sticky
 activation, so after the first tap a later `play()` needs no new gesture. The
 AudioContext is made once, on a tap, with `audioSession.type = 'playback'`,
 and resumes on `visibilitychange`. Media Session has one owner, the engine.
-`connectLive` closes its socket on `pagehide` and reopens on `pageshow`, since
+`connectSocket` (`lib/socket.js`, under `connectLive` and `watchChanges`)
+closes its socket on `pagehide` and reopens on `pageshow`, since
 an open socket keeps the shell out of the back-forward cache, and a restored
 shell applies a carry record rather than dropping it.
 

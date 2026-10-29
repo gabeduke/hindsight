@@ -46,13 +46,33 @@ export default {
     const stopped = () => !document.getElementById('np-play')?.classList.contains('playing');
     const named = (n) => document.getElementById('tape-name-text')?.textContent === n;
     const worst = (xs) => Math.max(...xs);
-    const pause = () => t.wait(150 + Math.round(Math.random() * 200));
-
+    // heard(n) resolves when the n-th /api/tapes/changes socket the page
+    // opens from now on has carried its first message, the ones before it
+    // closed: the page is listening, on the socket that stays. Loading the
+    // Studio opens two (the bar's, then the Studio's, which takes the tape
+    // from it as the Studio is shown); going to the Listening Room, one
+    // (the bar's, back). False if that doesn't happen within 5 s.
+    const heard = (n) => new Promise((resolve) => {
+      const made = [];
+      const done = (ok) => { clearTimeout(quit); page.off('websocket', onWs); resolve(ok); };
+      const check = () => {
+        if (made.length >= n && made[n - 1].heard && made.slice(0, n - 1).every((m) => m.closed)) done(true);
+      };
+      const quit = setTimeout(() => done(false), 5000);
+      function onWs(ws) {
+        if (!ws.url().includes('/api/tapes/changes')) return;
+        const m = { heard: false, closed: false };
+        made.push(m);
+        ws.once('framereceived', () => { m.heard = true; check(); });
+        ws.once('close', () => { m.closed = true; check(); });
+      }
+      page.on('websocket', onWs);
+    });
+    const studioListens = heard(2);
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-play').waitFor({ state: 'visible' });
     t.expect('the Studio shows the tape', await t.poll((n) => document.getElementById('tape-name-text')?.textContent === n, tape.name));
-    // Let the socket open and the first polls land.
-    await t.wait(500);
+    t.expect('the Studio is listening to the Pi', await studioListens);
 
     const plays = [], stops = [], names = [];
     for (let i = 0; i < TRIES; i++) {
@@ -76,9 +96,10 @@ export default {
 
     // The Listening Room, after the Studio: the bar is the bar's again, and
     // follows the Pi as the Studio did.
+    const barListens = heard(1);
     await t.step('go to the Listening Room', () => t.tap(page.locator('.appnav a[data-tab="room"]')));
     t.expect('the Listening Room is shown', await t.poll(() => location.pathname === '/takes.html'));
-    await t.wait(800); // the turn, and the bar's socket opening
+    t.expect('the bar is listening to the Pi', await barListens);
     const roomPlays = [];
     for (let i = 0; i < TRIES; i++) {
       await t.step(`▶ pressed at the Pi, in the Listening Room (${i + 1} of ${TRIES})`, async () => {
