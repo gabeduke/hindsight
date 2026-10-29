@@ -281,8 +281,9 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
 
   async function grab(req, what) {
     if (st.grabbing) return;
+    // With no tape heard of yet (a GRAB pressed as the page opens), the Pi
+    // takes the tape it has loaded.
     const id = tapeId();
-    if (!id) { toast('Load a tape first: GRAB lands on its cue lane', 'warn'); return; }
     st.dropped = '';
     st.grabbing = true;
     render();
