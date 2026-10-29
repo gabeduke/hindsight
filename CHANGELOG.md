@@ -5,6 +5,20 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.3 — 2026-10-29
+
+- The tape answers a press sooner on a kit set to a low output latency: it renders only as far ahead as the device buffers (59c7bd3)
+- Spec: the instrument -- Gabe wants playable sound design on the keyboard (filter, oscillators) rather than editing on the phone; its library has 16 patches (b32a0ff)
+- Spec: the instrument -- every press on the keyboard answers at once, on its screen and on the tablet, starting with a line of text (dbe1238)
+- Spec: the instrument -- the K stories agreed with Gabe: REC punches in on the tape, an FX page and a Mixer page (SHIFT held), the master knob scrubs, the faders are tracks 1-4, and one map per device for the guide, the keyboard's help page and the overlay (7d3e378)
+- Spec: the virtual keyboard's port needs a node of its own, now that Hindsight writes to the keyboard's node (795c2dd)
+- Spec: the first proof from Hindsight is done (the Pi took the screen), and #183's profile does match "SMK37 Open" (bd5f1f5)
+- Spec: the instrument -- ours is on the SMK-37 Elite, by the workbench over SMK-37+VA; the soft key answered, two backups match, m-bootloader on, and only its own bytes changed (4c2210c)
+- Spec: the instrument -- ours goes on over SMK-37+VA by the workbench (Gabe), then the backups; a virtual keyboard and the K flows to check the keyboard with (4113b0e)
+- Spec: the instrument -- SMK-37+VA ignores the soft key, so the first backup takes Felucca or a Pico dongle (Gabe's choice, at the keyboard); HOME held a second gives the screen back to Hindsight (bc0f594)
+- Spec: the instrument -- the SMK-37's first proof and surface are built off the unit (fork #2, #3); m-bootloader's calibration copy accepted; encoders absolute, set by the Pi (06012fa)
+
+
 ## v2026.10.29.2 — 2026-10-29
 
 - Play mode's pads land on the beat you heard: a hit on the line is no longer a whole sixteenth late (5bbf1f4)
