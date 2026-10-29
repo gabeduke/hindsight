@@ -336,7 +336,8 @@ lane alike; `File` and `Src` are the first lane's. A clip from before then
 is one summed file, with no handles: it launches and drops, but its window
 and Reverse are a track's job. `GrabToCue` (`POST /api/tapes/cue/grab`)
 copies off the ring as `Grab` does, then takes the place of the lane's
-newest clip while that one is an untouched grab (never trimmed, shaped,
+newest clip while that one is an untouched GRAB (`Source` "grab", never a
+take's or the buffer's; never trimmed, shaped,
 renamed or dropped, `Touched` in the state; never launched or kept,
 `Engine.cueUsed`, which isn't undone and starts empty), so a run of presses
 doesn't fill the lane, or else is added; the tape's Undo brings the one it
@@ -345,10 +346,13 @@ clip's span again from other inputs, its window and shape carrying on. The
 drawer's edits (`PATCH /api/tapes/cue/clip`: `CueTrim`, inside the handles
 as the buffer's trim is; `CueShape`: level, fades, Normalize, Reverse) are
 edits of the tape, a run of trims or of levels one Undo; Reverse and
-Normalize do their file work first and are refused (409) if the clip moved
-meanwhile. `CueDrop` (`POST /api/tapes/cue/drop`, and `cue-to-track` for a
-clip with lanes) lays the clip as a drop lays the clipboard, a lane a track
-from the one given, handles and all, and marks it touched in the same edit;
+Normalize do their file work first, and they and a GRAB taken again are
+refused (409) if the clip moved meanwhile; a window and a shape go in one
+request each. `CueDrop` (`POST /api/tapes/cue/drop`) lays the clip as a drop lays the
+clipboard, a lane a track from the one given (`merge`: all on that one),
+handles and all, over what was there, and marks it touched in the same
+edit; a drag (`cue-to-track`) of a clip with lanes is a merged drop on the
+track it points at;
 `CueKeep` (`POST /api/tapes/cue/keep`) saves it as a take of its window
 summed; `CueAudio` (`GET /api/tapes/cue/audio`) is its Audition. All of
 them read the clip as a board (`CueClip.boardOf`), so they are the buffer's

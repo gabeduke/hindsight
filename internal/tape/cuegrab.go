@@ -137,12 +137,13 @@ type CueGrabbed struct {
 // sources, its window and shape carrying on (req.Again is implied).
 func (e *Engine) GrabToCue(id string, req GrabRequest, again string) (CueGrabbed, error) {
 	var keep *Clipboard
+	var was *CueClip
 	if again != "" {
 		c, err := e.cueClip(id, again)
 		if err != nil {
 			return CueGrabbed{}, err
 		}
-		keep, req.Again = c.boardOf(), true
+		keep, req.Again, was = c.boardOf(), true, &c
 	} else if t := e.Loaded(); t == nil {
 		return CueGrabbed{}, ErrNoTape
 	} else if t.ID != id {
@@ -152,7 +153,7 @@ func (e *Engine) GrabToCue(id string, req GrabRequest, again string) (CueGrabbed
 	if err != nil {
 		return CueGrabbed{}, err
 	}
-	g, err := e.placeGrab(id, b, again, "grab")
+	g, err := e.placeGrab(id, b, again, was, "grab")
 	if err != nil {
 		for _, rel := range made {
 			e.store.removePoolFile(rel)
@@ -173,7 +174,7 @@ func (e *Engine) GrabTakeToCue(id, take, file, title string, from, to int64, pic
 	if err != nil {
 		return CueGrabbed{}, err
 	}
-	g, err := e.placeGrab(id, b, "", "take")
+	g, err := e.placeGrab(id, b, "", nil, "take")
 	if err != nil {
 		e.store.removePoolFile(rel)
 	}
@@ -181,10 +182,11 @@ func (e *Engine) GrabTakeToCue(id, take, file, title string, from, to int64, pic
 }
 
 // placeGrab puts a grab's board on the lane, as GrabToCue says: in again's
-// place, in the place of the newest clip if it is an untouched grab, or at
-// the end. One edit, never run together with another (kind ""), so one Undo
-// takes back one GRAB.
-func (e *Engine) placeGrab(id string, b *Clipboard, again, source string) (CueGrabbed, error) {
+// place (refused if that clip changed while the ring was copied: was is it
+// as it was read), in the place of the newest clip if it is an untouched
+// GRAB, or at the end. One edit, never run together with another (kind ""),
+// so one Undo takes back one GRAB.
+func (e *Engine) placeGrab(id string, b *Clipboard, again string, was *CueClip, source string) (CueGrabbed, error) {
 	var out CueGrabbed
 	err := e.Edit(id, "", func(_ *Tape, s *State) error {
 		if again != "" {
@@ -193,6 +195,9 @@ func (e *Engine) placeGrab(id string, b *Clipboard, again, source string) (CueGr
 				return err
 			}
 			c := &s.Cue.Clips[i]
+			if was != nil && !sameLanes(*c, *was) {
+				return ErrCueChanged
+			}
 			if c.Name == cueName(c.boardOf()) { // never renamed: it names its inputs
 				c.Name = cueName(b)
 			}
@@ -206,7 +211,7 @@ func (e *Engine) placeGrab(id string, b *Clipboard, again, source string) (CueGr
 		if s.Cue != nil {
 			if n := len(s.Cue.Clips); n > 0 {
 				last := s.Cue.Clips[n-1]
-				if last.Grab != nil && !last.Touched && !e.cueUsed[last.ID] {
+				if last.Source == "grab" && !last.Touched && !e.cueUsed[last.ID] {
 					old := last.clone()
 					out.Replaced = &old
 					s.Cue.Clips[n-1] = c
@@ -304,7 +309,7 @@ func (e *Engine) CueShape(id, clip string, sh BoardShape) (CueClip, error) {
 			return err
 		}
 		c := s.Cue.Clips[i].clone()
-		if turned != nil && !sameLanes(c, before) {
+		if (turned != nil || sh.Normalize) && !sameLanes(c, before) {
 			return ErrCueChanged
 		}
 		if turned != nil {

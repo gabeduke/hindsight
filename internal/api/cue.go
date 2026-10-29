@@ -18,10 +18,10 @@ import (
 //	                                {take, from, to}: a take's span. The tape's state, with
 //	                                edit.cue_clip, and edit.cue_replaced when it took an
 //	                                untouched clip's place (the tape's Undo brings that back).
-//	PATCH /api/tapes/cue/clip?id=   {clip, in, out} its window; {clip, gain_db | fade_in,
+//	PATCH /api/tapes/cue/clip?id=   {clip, in, out} its window, or {clip, gain_db | fade_in,
 //	                                fade_out, fade_in_shape, fade_out_shape | normalize |
-//	                                reverse}. The tape's state, edit.cue_clip. One Undo each,
-//	                                a run of trims or of levels one together.
+//	                                reverse}, not both. The tape's state, edit.cue_clip. One
+//	                                Undo each, a run of trims or of levels one together.
 //	POST  /api/tapes/cue/drop?id=   {clip, track, at?, merge?}: on the tape, a lane a track,
 //	                                as /api/tapes/drop answers. One Undo.
 //	POST  /api/tapes/cue/keep?id=   {clip}: KEEP, as a take on the shelf: {name, label, seconds}.
@@ -96,13 +96,17 @@ func (a *API) handleCueClip(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "change the clip's {in, out}, gain_db, fades, normalize or reverse")
 		return
 	}
+	if b.In != nil && !b.BoardShape.Empty() {
+		writeErr(w, http.StatusBadRequest, "a window or a shape, one at a time: each is an Undo of its own")
+		return
+	}
 	id := r.URL.Query().Get("id")
 	var c tape.CueClip
 	var err error
 	if b.In != nil {
 		c, err = a.tape.CueTrim(id, b.Clip, *b.In, *b.Out)
 	}
-	if err == nil && !b.BoardShape.Empty() {
+	if !b.BoardShape.Empty() {
 		c, err = a.tape.CueShape(id, b.Clip, b.BoardShape)
 	}
 	if err != nil {

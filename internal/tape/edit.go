@@ -248,9 +248,10 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 			return EditResult{}, fmt.Errorf("%w: cue-to-track needs clip, track and at", ErrBadParameter)
 		}
 		if c, err := e.cueClip(id, req.Clip); err == nil && len(c.Lanes) > 0 {
-			// A grabbed clip lands as a drop does: a lane a track, with
-			// its handles, over what was there (cuegrab.go).
-			d, err := e.CueDrop(id, req.Clip, req.Track, false, req.At)
+			// A clip with lanes lands as a drop does, with its handles,
+			// over what was there (cuegrab.go): every lane on the track it
+			// was dragged to, as one track is what a drag points at.
+			d, err := e.CueDrop(id, req.Clip, req.Track, true, req.At)
 			return EditResult{Op: "cue-to-track", Clips: d.Tracks, Clip: &d.Clip, At: *req.At}, err
 		}
 		var placed Clip

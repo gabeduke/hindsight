@@ -103,13 +103,26 @@ func TestAGrabReplacesTheNewestClipOnlyWhileItIsUntouched(t *testing.T) {
 		t.Fatalf("a grab after a kept clip replaced %+v", g.Replaced)
 	}
 
+	// A take's span on the lane is never a GRAB's to replace.
+	take, err := e.CueFromTake(tp.ID, takeWAV(t, 96000, func(int) float64 { return 0.25 }), "Jam", 0, 48000, []int{0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g = grabCue(t, e, tp.ID, 80000, 128000, "aux"); g.Replaced != nil || len(e.Loaded().State.Cue.Clips) != 6 {
+		t.Fatalf("a grab after a take's span replaced %+v", g.Replaced)
+	}
+	if e.Loaded().State.Cue.Clips[4].ID != take.ID {
+		t.Fatal("the take's span left the lane")
+	}
+	n := 6
+
 	// Renamed, too.
 	c := g.Clip
 	c.Name = "Riff"
 	if _, err := e.EditOp(tp.ID, EditRequest{Op: "cue-set", CueClip: &c}); err != nil {
 		t.Fatal(err)
 	}
-	if g = grabCue(t, e, tp.ID, 80000, 128000, "aux"); g.Replaced != nil || len(e.Loaded().State.Cue.Clips) != 5 {
+	if g = grabCue(t, e, tp.ID, 80000, 128000, "aux"); g.Replaced != nil || len(e.Loaded().State.Cue.Clips) != n+1 {
 		t.Fatalf("a grab after a renamed clip replaced %+v", g.Replaced)
 	}
 }
@@ -242,14 +255,18 @@ func TestACueClipDropsEveryLaneWithItsHandlesInOneUndo(t *testing.T) {
 	if len(st.Tracks[1].Clips) != 0 || st.Cue.Clips[0].GainDB != -3 || st.Cue.Clips[0].Touched != true {
 		t.Fatalf("one Undo should take back the drop alone: %+v / %+v", st.Tracks[1].Clips, st.Cue.Clips[0])
 	}
-	// Dragged onto a track, it lands the same way.
+	// Dragged onto a track, every lane lands on that one, with its handles:
+	// a drag points at one track, the last one too.
 	at = 96000
-	if _, err := e.EditOp(tp.ID, EditRequest{Op: "cue-to-track", Clip: c.ID, Track: 1, At: &at}); err != nil {
+	if _, err := e.EditOp(tp.ID, EditRequest{Op: "cue-to-track", Clip: c.ID, Track: 4, At: &at}); err != nil {
 		t.Fatal(err)
 	}
 	st = e.Loaded().State
-	if n := len(st.Tracks[1].Clips); n != 1 || st.Tracks[1].Clips[0].Source != "aux" || st.Tracks[1].Clips[0].At != 96000 {
-		t.Fatalf("dragged: track 2 = %+v", st.Tracks[1].Clips)
+	if cl := st.Tracks[3].Clips; len(cl) != 2 || cl[0].At != 96000 || cl[1].At != 96000 || cl[0].Src != c.Grab.Before {
+		t.Fatalf("dragged: track 4 = %+v", cl)
+	}
+	if len(st.Tracks[2].Clips) != 0 {
+		t.Fatalf("a drag onto track 4 reached track 3: %+v", st.Tracks[2].Clips)
 	}
 	if _, err := e.CueDrop(tp.ID, c.ID, 4, false, &at); !errors.Is(err, ErrNoSuchTrack) {
 		t.Fatalf("two lanes from track 4 of 4: %v", err)

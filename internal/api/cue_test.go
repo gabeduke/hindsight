@@ -85,8 +85,10 @@ func TestTheCueClipsDrawerOverTheAPI(t *testing.T) {
 	}
 
 	// The drawer: its window, then its level.
-	w = send(t, r, http.MethodPatch, "/api/tapes/cue/clip"+q, `{"clip":"`+c.ID+`","in":-24000,"out":24000,"gain_db":-2}`)
-	want(t, w, http.StatusOK, "trim and level")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes/cue/clip"+q, `{"clip":"`+c.ID+`","in":-24000,"out":24000,"gain_db":-2}`), http.StatusBadRequest, "a window and a shape at once")
+	want(t, send(t, r, http.MethodPatch, "/api/tapes/cue/clip"+q, `{"clip":"`+c.ID+`","in":-24000,"out":24000}`), http.StatusOK, "trim")
+	w = send(t, r, http.MethodPatch, "/api/tapes/cue/clip"+q, `{"clip":"`+c.ID+`","gain_db":-2}`)
+	want(t, w, http.StatusOK, "level")
 	if got := cueEditOf(t, w.Body).Edit.CueClip; got.Frames != 48000 || got.Grab.In != -24000 || got.GainDB != -2 || got.Lanes[0].Src != got.Grab.Before-24000 {
 		t.Fatalf("trimmed = %s", w.Body.String())
 	}

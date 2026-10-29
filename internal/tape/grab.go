@@ -379,6 +379,9 @@ func (e *Engine) grabRing(req GrabRequest, keep *Clipboard) (*Clipboard, []strin
 			forget()
 			return nil, nil, err
 		}
+		for _, tr := range c.Tracks { // the reversed files are its too
+			made = append(made, tr[0].File)
+		}
 	}
 	return c, made, nil
 }
