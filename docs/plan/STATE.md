@@ -37,9 +37,6 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   0.6–0.9 s at 4× CPU in headless Chromium (later turns 0.25–0.5 s),
   measured before the shelf wall replaced the stage. Re-measure, on the
   tablet.
-- Red Go tests not seen since mid-October, and never fixed:
-  `TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail` and the MIDI clock's
-  tempo tests.
 - **Flow flakes not yet explained** (both 2026-10-19, neither seen
   locally): J1.9 on the tablet once tapped ↶ right after dragging a
   section's edge and the Pi kept the new edge (look at
