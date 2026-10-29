@@ -33,11 +33,11 @@ import { takeTitle } from '../rooms/takename.js';
  *   notes()             its notes (notes.js notesOf), in time order
  *   sampleRate, total   frames per second, and the take's length in frames
  *   bpm()               its tempo, or 0: how far a note's GRAB reaches
- *   frame()             the frame being heard now
+ *   frame()             the frame being heard now, or null when it isn't
  *   add(frame, words), edit(id, words), remove(id)
  *                       a note, by the take's flags; each a promise
  *   patch(fields)       { label } { starred } { tag }: a promise
- *   seek(frame, {play}) the take to a frame, and playing, if asked
+ *   seek(frame, {play}) the take to a frame, and playing, if asked: a promise
  *   grab(span)          { from, to } into the Studio's buffer: a promise
  *   onChange(fn)        fn() whenever the take changes; answers a way off
  */
@@ -105,6 +105,9 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
     handles: [grabber, head],
     onShow: () => { el.hidden = false; },
     onHide: () => {
+      // Back, Escape and a swipe don't blur: a field being written in
+      // saves now (its change), while the drawer still has its take.
+      if (el.contains(doc.activeElement)) doc.activeElement.blur?.();
       el.hidden = true;
       off?.();
       off = null;
@@ -166,8 +169,9 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
       fail('add the note')(err);
       return;
     }
-    // The take played on: the next note goes where it is now.
-    if (src === s) { aim = s.frame(); render(); }
+    // The take played on: the next note goes where it is now (or, if the
+    // bar has moved on to something else, a frame on from this one).
+    if (src === s) { aim = s.frame() ?? aim; render(); }
   });
 
   // --- the notes: number, time, words, ▶, GRAB, ✕ ---------------------------------------
@@ -176,7 +180,7 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
     const s = src;
     const num = mk('span', 'notes-n', { 'aria-hidden': 'true', text: String(n.n) });
     const time = mk('button', 'notes-time mono', { type: 'button', 'aria-label': `Go to note ${n.n}, at ${n.at}`, text: n.at });
-    time.addEventListener('click', () => s.seek(n.frame));
+    time.addEventListener('click', () => Promise.resolve(s.seek(n.frame)).catch(fail('go there')));
     const w = mk('input', 'notes-row-words', { type: 'text', maxlength: '120', placeholder: 'what you heard…', 'aria-label': `Note ${n.n}, at ${n.at}: its words` });
     w.value = n.label;
     w.addEventListener('change', () => {
@@ -189,7 +193,7 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
       if (e.key === 'Escape') { e.preventDefault(); w.value = n.label; w.blur(); }
     });
     const play = keyWith('play', 'notes-play', { 'aria-label': `Play from note ${n.n}, at ${n.at}` });
-    play.addEventListener('click', () => s.seek(n.frame, { play: true }));
+    play.addEventListener('click', () => Promise.resolve(s.seek(n.frame, { play: true })).catch(fail('play it')));
     const span = noteSpan(ns, n.id, { sampleRate: s.sampleRate, bpm: s.bpm(), total: s.total });
     const grab = mk('button', 'icon-btn notes-grab', { type: 'button', 'aria-label': `GRAB from note ${n.n} into the Studio’s buffer`, 'data-tip': 'notes-grab', disabled: !span, text: 'GRAB' });
     grab.addEventListener('click', () => { if (span) s.grab(span).catch(fail('GRAB it into the Studio')); });
@@ -247,7 +251,7 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
         off = source.onChange?.(() => render()) || null;
         if (withHead) tagStore.load();
       }
-      aim = Math.max(0, Math.round(frame ?? source.frame()));
+      aim = Math.max(0, Math.round(frame ?? source.frame() ?? 0));
       render();
       if (!sheet.isOpen) sheet.open();
       words.focus({ preventScroll: true });

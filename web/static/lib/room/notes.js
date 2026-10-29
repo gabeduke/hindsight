@@ -150,9 +150,18 @@ export async function barNotes(name, { bar, go, onChanged = () => {}, fetchImpl 
     take: () => take,
     notes: () => notesOf(take.flags, sr),
     bpm: () => take.bpm || 0,
+    // Null while the bar holds something else: nothing of this take is heard.
     frame() {
       const f = bar.frameNow?.();
-      return f && f.take === name ? f.frame : 0;
+      return f && f.take === name ? f.frame : null;
+    },
+    /** reload fetches the take again, for a drawer opened on it once more: a ★ or a name may have changed elsewhere. */
+    async reload() {
+      const r = await fetchImpl(url, { cache: 'no-store', headers: withClient() });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(b.error || `HTTP ${r.status}`);
+      take = { ...b, flags: asFlags(b.flags) };
+      for (const fn of fns) fn();
     },
     add: (frame, label) => flags('add', { frame, label }),
     edit: (id, label) => flags('edit', { id, label }),
@@ -164,7 +173,9 @@ export async function barNotes(name, { bar, go, onChanged = () => {}, fetchImpl 
       take = { ...take, ...fields };
       changed();
     },
-    seek: (frame, opts) => bar.seekTake?.(name, frame, opts),
+    async seek(frame, opts) {
+      if (!(await bar.seekTake(name, frame, opts))) throw new Error('it can’t play yet');
+    },
     async grab(span) { go(await sendToStudio(name, span, { fetchImpl })); },
     onChange(fn) { fns.add(fn); return () => fns.delete(fn); },
   };

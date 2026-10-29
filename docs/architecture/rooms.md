@@ -126,19 +126,21 @@ the bar ✎ is hidden, as it was: notes on tapes are in `backlog.md`.
   header has them.
 - **It keeps nothing of the take's.** It draws a *source* it is handed:
   `take()`, `notes()`, `sampleRate`, `total`, `bpm()`, `frame()` (the
-  frame heard now), `add`, `edit`, `remove`, `patch`, `seek(frame,
+  frame heard now, null when it isn't), `add`, `edit`, `remove`, `patch`, `seek(frame,
   {play})`, `grab(span)` and `onChange(fn)`, and redraws on its change.
 - **The shell's** (`lib/shell/boot.js`) is mounted at boot and opened by
   the engine's `setOnNote`, on `barNotes(name, {bar, go, onChanged})`
   (`lib/room/notes.js`): the Pi's record of the take (`GET /api/take`),
   its notes by the per-flag requests (`lib/flags.js`), `PATCH /api/take`
   for the name, ★ and tag, and the engine's `seekTake(name, frame,
-  {play})` for a time and ▶. The views hear what it changed through
+  {play})` for a time and ▶. A ✎ on the take it is open on fetches it
+  again (`reload`); the newest ✎ wins a race. The views hear what it changed through
   `ctx.notes.onChange` (the Listening Room fetches its list again); no
   view has notes of its own (`architecture.test.js`, guardrail 9).
 - **Open's** (`lib/room/open.js`) is its own, on Open's stack, on a source
   over the page's handle (`addNote`, `editNote`, `removeNote`: optimistic,
-  in order, with the page's Undo for a note taken out). Docking it beside
+  in order, with the page's Undo for a note taken out; `onRedraw(fn)`
+  answers a way to let it go). Docking it beside
   the waveform, and the page's own list going, are Open's pass
   (`the-studio-space.md`, step 10).
 

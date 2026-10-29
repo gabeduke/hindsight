@@ -338,13 +338,16 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     loadTakeByName,
     /**
      * seekTake puts take `name` at `frame` in the bar, and plays it if
-     * `play` (a note's time, its ▶): loaded first if the bar holds another.
-     * Answers false when it can't be.
+     * `play` (a note's time, its ▶): loaded first if the bar holds another,
+     * and back in the bar if the feed or the tape took its place. Answers
+     * false when it can't be.
      */
     async seekTake(name, frame, { play = false } = {}) {
       if (!take || take.name !== name) {
         if (!(await loadTakeByName(name))) return false;
       }
+      if (feed && feed.playing()) feed.pause();
+      if (bar.src !== take.src) { bar.load(take.src); eject(); }
       take.src.seek(frame);
       if (play && !take.src.playing()) take.src.play();
       bar.kick();

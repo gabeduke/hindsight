@@ -161,6 +161,38 @@ test('Done, Back and Escape put it away, by its layer on the stack', () => {
   assert.equal(s.drawer.source, null, 'put away, it lets the take go');
 });
 
+test('a name being written in is saved when Back puts the drawer away, not lost with it', async () => {
+  const s = stage();
+  s.drawer.open(s.source);
+  const name = s.$('notes-name');
+  // A browser fires change when a changed field loses the focus.
+  name.blur = () => { s.doc.activeElement = null; name.dispatchEvent({ type: 'change' }); };
+  name.focus();
+  name.value = 'kept';
+  s.layers.top().close('back');
+  await tick();
+  assert.equal(s.calls.at(-1), 'patch {"label":"kept"}');
+  assert.equal(s.drawer.source, null);
+});
+
+test('a time or ▶ the bar can’t go to says so', async () => {
+  const s = stage({ flags: [{ id: 'a', frame: SR, label: '' }] });
+  s.source.seek = async () => { throw new Error('it can’t play yet'); };
+  s.drawer.open(s.source);
+  s.rows()[0].querySelector('.notes-play').dispatchEvent({ type: 'click' });
+  await tick();
+  assert.deepEqual(s.toasts, ['Couldn’t play it: it can’t play yet']);
+});
+
+test('the bar on something else: the next note goes a frame on, not to the start', async () => {
+  const s = stage();
+  s.drawer.open(s.source, { at: 9 * SR });
+  s.setNow(null);
+  await s.write('one');
+  await s.write('two');
+  assert.deepEqual(s.calls, [`add ${9 * SR} one`, `add ${9 * SR + 1} two`]);
+});
+
 test('without its head (Open, whose header has them) there is no name, ★ or tag', () => {
   const s = stage({ head: false });
   s.drawer.open(s.source);
@@ -210,7 +242,7 @@ test('barNotes: the Pi’s take, its notes by its flags, where the bar is, and w
   const went = [];
   const src = await barNotes('jam_a.wav', {
     fetchImpl: p.fetchImpl,
-    bar: { frameNow: () => ({ take: 'jam_a.wav', frame: 5 * SR }), seekTake: (n, f, o) => seeks.push([n, f, o]) },
+    bar: { frameNow: () => ({ take: 'jam_a.wav', frame: 5 * SR }), seekTake: async (n, f, o) => seeks.push([n, f, o]) },
     go: (u) => went.push(u),
     onChanged: (t) => heard.push(t.flags.length),
   });
@@ -228,15 +260,21 @@ test('barNotes: the Pi’s take, its notes by its flags, where the bar is, and w
   await src.patch({ starred: true });
   assert.equal(src.take().starred, true);
   assert.match(p.sent.at(-1), /^PATCH \/api\/take\?file=jam_a\.wav \{"starred":true\}$/);
-  src.seek(SR, { play: true });
+  await src.seek(SR, { play: true });
   assert.deepEqual(seeks, [['jam_a.wav', SR, { play: true }]]);
   await src.grab({ from: SR, to: 2 * SR });
   assert.deepEqual(went, ['/tape.html'], 'GRAB goes to the Studio, by the router');
 });
 
-test('barNotes: the bar holding another take is heard from 0, and a take the Pi hasn’t got throws', async () => {
-  const p = pi({ name: 'jam_a.wav', sample_rate: SR, duration_seconds: 10 });
-  const src = await barNotes('jam_a.wav', { fetchImpl: p.fetchImpl, bar: { frameNow: () => ({ take: 'jam_b.wav', frame: 99 }) }, go() {} });
-  assert.equal(src.frame(), 0);
+test('barNotes: the bar holding another take hears none of it; one that can’t be loaded throws; reload fetches it again; a take the Pi hasn’t got throws', async () => {
+  const p = pi({ name: 'jam_a.wav', sample_rate: SR, duration_seconds: 10, starred: false });
+  const src = await barNotes('jam_a.wav', { fetchImpl: p.fetchImpl, bar: { frameNow: () => ({ take: 'jam_b.wav', frame: 99 }), seekTake: async () => false }, go() {} });
+  assert.equal(src.frame(), null);
+  await assert.rejects(src.seek(0), /can’t play yet/);
+  let told = 0;
+  src.onChange(() => told++);
+  await src.reload();
+  assert.equal(p.sent.filter((x) => x.startsWith('GET')).length, 2);
+  assert.equal(told, 1);
   await assert.rejects(barNotes('jam_z.wav', { fetchImpl: async () => ({ ok: false, status: 404, json: async () => ({ error: 'no such take' }) }), bar: {}, go() {} }), /no such take/);
 });

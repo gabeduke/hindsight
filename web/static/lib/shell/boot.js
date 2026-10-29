@@ -47,14 +47,23 @@ const notes = {
   /** onChange calls fn(take) when the drawer changes a take; answers a way off. */
   onChange(fn) { noteHooks.add(fn); return () => noteHooks.delete(fn); },
 };
+// A second ✎ before the first one's take has come back wins: only the
+// newest press opens.
+let presses = 0;
 engine.setOnNote(async (f) => {
+  const press = ++presses;
   const open = drawer.source;
   try {
-    const src = open && open.name === f.take ? open : await barNotes(f.take, {
-      bar: engine.bar,
-      go: (url) => router.go(url),
-      onChanged: (t) => { for (const fn of noteHooks) fn(t); },
-    });
+    let src = open;
+    if (open && open.name === f.take) await open.reload();
+    else {
+      src = await barNotes(f.take, {
+        bar: engine.bar,
+        go: (url) => router.go(url),
+        onChanged: (t) => { for (const fn of noteHooks) fn(t); },
+      });
+    }
+    if (press !== presses) return;
     drawer.open(src, { at: f.frame });
   } catch (e) {
     toast(`Couldn’t open the notes: ${e.message}`, 'bad');

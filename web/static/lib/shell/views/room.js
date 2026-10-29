@@ -449,8 +449,13 @@ export const roomView = {
     let roomInst = null;
     ctx.engine.setFind?.(takesFinder(takes));
     // The notes drawer is the shell's (boot.js): what it changes on a take
-    // (its notes, name, ★, tag) is fetched again here.
-    const offNotes = ctx.notes?.onChange(() => { takes.etag = null; poll(true); });
+    // (its notes, name, ★, tag) is fetched again here, now if the room is
+    // shown, else when it next is.
+    let notesChanged = false;
+    const offNotes = ctx.notes?.onChange(() => {
+      takes.etag = null;
+      if (ctx.active()) poll(true); else notesChanged = true;
+    });
 
     renderControls();
     showNextToast();
@@ -496,6 +501,7 @@ export const roomView = {
         // too: mounted out of sight (prewarm), the room's body classes were
         // taken off again, and a phone showed the wall under a lit List key.
         roomInst?.shown?.();
+        if (notesChanged) { notesChanged = false; poll(true); }
         if (!first) {
           showNextToast();
           roomInst?.render?.();
