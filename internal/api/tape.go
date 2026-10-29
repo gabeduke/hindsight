@@ -90,7 +90,7 @@ func tapeErr(w http.ResponseWriter, err error) {
 		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
 		errors.Is(err, tape.ErrEmptyClipboard), errors.Is(err, tape.ErrNoOutput), errors.Is(err, tape.ErrMixingDown),
 		errors.Is(err, tape.ErrNoSaver), errors.Is(err, tape.ErrExporting), errors.Is(err, tape.ErrLoopMoved),
-		errors.Is(err, tape.ErrNeedsJamRoom), errors.Is(err, tape.ErrNoStream):
+		errors.Is(err, tape.ErrNeedsJamRoom), errors.Is(err, tape.ErrNoStream), errors.Is(err, tape.ErrCueChanged):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
 		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid),
@@ -1546,6 +1546,12 @@ func (a *API) handleClipboardAudio(w http.ResponseWriter, r *http.Request) {
 		tapeErr(w, err)
 		return
 	}
+	a.serveWAV16(w, r, "clipboard.wav", pcm)
+}
+
+// serveWAV16 serves interleaved stereo as a 16-bit WAV, with ranges and
+// HEAD, as a phone's audio element wants.
+func (a *API) serveWAV16(w http.ResponseWriter, r *http.Request, name string, pcm []float32) {
 	b := wav16Header(len(pcm)/2, 2, a.tape.Store().SampleRate())
 	for _, v := range pcm {
 		x := int32(math.Round(float64(v) * 32767))
@@ -1554,7 +1560,7 @@ func (a *API) handleClipboardAudio(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Cache-Control", "no-store")
-	http.ServeContent(w, r, "clipboard.wav", time.Time{}, bytes.NewReader(b))
+	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(b))
 }
 
 // wav16Header is a 44-byte RIFF header for 16-bit PCM.

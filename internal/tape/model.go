@@ -310,6 +310,49 @@ type CueClip struct {
 	Source  string  `json:"source,omitempty"`
 	FadeIn  int64   `json:"fade_in,omitempty"`
 	FadeOut int64   `json:"fade_out,omitempty"`
+	// The fades' curves, as a tape clip's ("": equal power).
+	FadeInShape  string `json:"fade_in_shape,omitempty"`
+	FadeOutShape string `json:"fade_out_shape,omitempty"`
+	// Lanes and Grab are a grabbed clip's (cuegrab.go): one clip per input
+	// it was grabbed from, each over the window Grab says, in its own pool
+	// file with the grab's handles either side. Gain, the fades and their
+	// curves are the clip's, and apply to every lane alike. File, Src and
+	// Frames are the first lane's, so what reads one file still can. A clip
+	// put on the lane before clips kept their inputs has neither: one
+	// summed file.
+	Lanes []Clip `json:"lanes,omitempty"`
+	Grab  *Grab  `json:"grab,omitempty"`
+	// BPM is the tempo of what it was grabbed from, if it had one.
+	BPM float64 `json:"bpm,omitempty"`
+	// Touched: it was dropped, trimmed, shaped or renamed, so a GRAB adds a
+	// clip rather than replacing it. Launching or keeping one touches it
+	// too, but outside the tape's state (Engine.cueUsed): neither is undone.
+	Touched bool `json:"touched,omitempty"`
+}
+
+// clone is a deep copy: a state's cue clips share nothing with another's.
+func (c CueClip) clone() CueClip {
+	c.Lanes = slices.Clone(c.Lanes)
+	if c.Grab != nil {
+		g := *c.Grab
+		g.Sources = slices.Clone(g.Sources)
+		if g.Downbeat != nil {
+			db := *g.Downbeat
+			g.Downbeat = &db
+		}
+		c.Grab = &g
+	}
+	return c
+}
+
+// poolFiles marks every pool file the cue clip needs.
+func (c CueClip) poolFiles(into map[string]bool) {
+	if c.File != "" {
+		into[c.File] = true
+	}
+	for _, l := range c.Lanes {
+		l.poolFiles(into)
+	}
 }
 
 // State is the undoable part of a tape.
@@ -339,7 +382,10 @@ func (s State) clone() State {
 	}
 	if s.Cue != nil {
 		c := *s.Cue
-		c.Clips = append(make([]CueClip, 0, len(s.Cue.Clips)), s.Cue.Clips...)
+		c.Clips = make([]CueClip, 0, len(s.Cue.Clips))
+		for _, cl := range s.Cue.Clips {
+			c.Clips = append(c.Clips, cl.clone())
+		}
 		out.Cue = &c
 	}
 	for i, t := range s.Tracks {
@@ -562,9 +608,7 @@ func (s State) files(into map[string]bool) {
 	}
 	if s.Cue != nil {
 		for _, c := range s.Cue.Clips {
-			if c.File != "" {
-				into[c.File] = true
-			}
+			c.poolFiles(into)
 		}
 	}
 }

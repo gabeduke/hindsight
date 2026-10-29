@@ -62,16 +62,19 @@ func (s *State) cueSet(clip CueClip) (CueClip, error) {
 	if clip.Name != "" {
 		target.Name = clip.Name
 	}
-	if clip.Frames > 0 {
+	// A grabbed clip's span is its window, which only CueTrim moves: its
+	// lanes read it together.
+	if clip.Frames > 0 && len(target.Lanes) == 0 {
 		target.Frames = clip.Frames
 	}
-	if clip.Src >= 0 {
+	if clip.Src >= 0 && len(target.Lanes) == 0 {
 		target.Src = clip.Src
 	}
 	target.Loop = clip.Loop
 	target.GainDB = clip.GainDB
 	target.FadeIn = clip.FadeIn
 	target.FadeOut = clip.FadeOut
+	target.Touched = true
 	s.Cue.Clips[idx] = target
 	return target, nil
 }
