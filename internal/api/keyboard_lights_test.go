@@ -209,3 +209,81 @@ func TestShiftIsLitWhileHeld(t *testing.T) {
 	r.tick(r.kb.Refresh)
 	r.expect("let go", "led button 0 0")
 }
+
+// homeAndBack is HOME on the keyboard, then HOME held and let go, which
+// hands the screen back: taken again, as when it first answered.
+func (r *lightsRig) homeAndBack(away func()) {
+	r.t.Helper()
+	r.a.ControlSysEx("SMK-37", []byte{0xF0, 0x7D, 'H', 'S', 0x01, 0x00, 0x03, 0xF7}) // RELEASE
+	if r.kb.Status().Screen {
+		r.t.Fatal("HOME left the screen Hindsight's")
+	}
+	r.tick(r.kb.Refresh)
+	if got := r.leds(); len(got) != 0 {
+		r.t.Fatalf("lit while the screen was the keyboard's: %v", got)
+	}
+	away()
+	r.a.ControlSysEx("SMK-37", []byte{0xF0, 0x7D, 'H', 'S', 0x01, 0x00, 0x05, 0xF7}) // OFFER
+	deadline := time.After(3 * time.Second)
+	for !r.kb.Status().Screen {
+		select {
+		case ack := <-r.fw.acks:
+			r.a.ControlSysEx("SMK-37", ack)
+		case <-deadline:
+			r.t.Fatalf("the screen was never taken again: %+v", r.kb.Status())
+		}
+	}
+	r.tick(r.kb.Refresh)
+}
+
+// HOME gives the lights back; taken again, every light is sent again, from
+// what the tape holds then: CHOP, pressed again while the screen was away
+// and then let go by a tape loaded under it (its press in the log, no
+// release), is not replayed, and STOP, pressed by a phone meanwhile and
+// still held, is full.
+func TestTheLightsAreSentAgainAfterHomeFromTheTape(t *testing.T) {
+	r := newLightsRig(t)
+	r.land("chop", true, 0)
+	r.tick(r.kb.Refresh)
+	r.expect("CHOP heard", "led pad 6 127 62 20")
+	r.homeAndBack(func() {
+		r.land("chop", true, 0) // pressed again, then a tape loaded under it
+		r.land("stop", true, 0)
+		r.pads.mu.Lock()
+		r.pads.held = []string{"stop"} // the tape holds STOP alone
+		r.pads.mu.Unlock()
+	})
+	want := []string{"led pad 0 5 13 20", "led pad 1 4 16 15", "led pad 2 20 15 1", "led pad 3 21 8 14",
+		"led pad 4 23 11 4", "led pad 5 23 11 4", "led pad 6 23 11 4", "led pad 7 127 62 20",
+		"led pad 8 15 10 22", "led pad 9 15 10 22", "led pad 10 0 23 23", "led pad 11 0 23 23",
+		"led pad 12 0 23 23", "led pad 13 0 23 23", "led pad 14 23 23 23", "led pad 15 23 23 23",
+		"led button 0 0", "led button 16 0", "led button 17 0"}
+	r.expect("taken again", want...)
+	r.tick(r.kb.Refresh)
+	r.expect("and then")
+}
+
+// SHIFT held when the keyboard's port goes, its release lost with it, is
+// not lit when the keyboard comes back.
+func TestShiftIsLetGoWhenTheKeyboardGoes(t *testing.T) {
+	r := newLightsRig(t)
+	r.a.ControlMIDI("SMK-37", 0x9F, 0, 127)
+	r.tick(r.kb.Refresh)
+	r.expect("held", "led button 0 1")
+	r.a.ControllerGone("SMK-37") // unplugged; its SHIFT release never came
+	r.tick(r.kb.Probe)           // HELLO again
+	deadline := time.After(3 * time.Second)
+	for !r.kb.Status().Screen {
+		select {
+		case ack := <-r.fw.acks:
+			r.a.ControlSysEx("SMK-37", ack)
+		case <-deadline:
+			t.Fatalf("the screen was never taken again: %+v", r.kb.Status())
+		}
+	}
+	r.tick(r.kb.Refresh)
+	got := r.leds()
+	if len(got) != surface.Pads+3 || got[surface.Pads] != "led button 0 0" {
+		t.Fatalf("plugged in again, lit %v: want every light again, SHIFT off", got)
+	}
+}

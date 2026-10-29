@@ -52,11 +52,9 @@ type keyboardScreen struct {
 	style tape.Style
 	beat  float64 // frames a beat, 0 with no grid
 	turn  *keyboardTurn
-	shift bool // SHIFT held on the keyboard
 
-	// The pads' landings read so far (Play mode's trick log, keyboardLandings);
-	// landed is false until the first read, which starts from now.
-	landed   bool
+	// trickSeq is how far keyboardLandings has read Play mode's trick log.
+	// Only the keyboard's loop asks it, but under mu all the same.
 	trickSeq uint64
 }
 
@@ -78,17 +76,16 @@ const (
 	buttonChannel = 16
 )
 
-// keyboardButton notes SHIFT held or let go on the keyboard, for its light.
-// What SHIFT does (the Mixer page) is K6's; until then the pads keep the FX
-// page, and only its light follows the hand.
+// keyboardButton tells the keyboard SHIFT is held or let go, for its
+// light. What SHIFT does (the Mixer page) is K6's; until then the pads keep
+// the FX page, and only its light follows the hand. The keyboard lets it
+// go with its screen, and as its port goes (ControllerGone, Gone), so a
+// release lost then can't leave it lit.
 func (a *API) keyboardButton(port string, m midiMsg) {
 	if a.keyboard == nil || m.ch != buttonChannel || m.note != shiftNote || (m.typ != "on" && m.typ != "off") || !isKeyboard(port) {
 		return
 	}
-	ks := &a.kbScreen
-	ks.mu.Lock()
-	ks.shift = m.typ == "on"
-	ks.mu.Unlock()
+	a.keyboard.ShiftHeld(m.typ == "on")
 }
 
 // keyboardFinger is a pad pressed (down) or let go on the keyboard: its
@@ -115,34 +112,36 @@ func (a *API) keyboardDone(port, id string, ok bool) {
 	a.keyboard.PadDone(i, ok)
 }
 
-// keyboardLandings tells the keyboard when each pad's press and release is
-// heard: Play mode's landing for it (the trick log's output frame, the
-// same at a page's "at" carries), mapped to the keyboard's clock through
-// the lead (HeardIn). A landing from any holder lights the pad, as it is
-// what is heard. With them goes what the tape holds, read first, so a pad
-// let go with no release logged (a tape loaded under it) goes dim: the
-// engine logs an event before it changes the pads held, so a release read
-// as not held is among the events read after. Called with ks.mu held,
-// from the screen's feed.
-func (a *API) keyboardLandings(ks *keyboardScreen) {
+// keyboardLandings is Play mode's word on the pads, as the keyboard's loop
+// asks it every Tick (Keyboard.Landings), before it asks for the screen:
+// which pads the tape holds now, read first, and each press's and
+// release's landing since the last ask (the trick log's output frame, the
+// same a page's "at" carries), mapped to the keyboard's clock through the
+// lead (HeardIn). A landing from any holder lights the pad, as it is what
+// is heard. The engine logs an event before it changes the pads held, so a
+// release read as not held is among the events read after it. fresh: the
+// screen was taken (again), so the log is read from now on: what landed
+// while the screen was the keyboard's is not news.
+func (a *API) keyboardLandings(fresh bool) (held [surface.Pads]bool, landed []surface.Landing) {
 	p, kb := a.playerOrNil(), a.keyboard
 	if p == nil || kb == nil {
-		return
+		return held, nil
 	}
-	if !ks.landed {
-		_, ks.trickSeq = p.TrickEventsSince(^uint64(0) >> 1) // what landed before is not news
-		ks.landed = true
-	}
-	var held [surface.Pads]bool
 	for _, id := range p.HeldPads() {
 		if i, ok := fxPadIndex[id]; ok {
 			held[i] = true
 		}
 	}
+	ks := &a.kbScreen
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	if fresh {
+		_, ks.trickSeq = p.TrickEventsSince(^uint64(0) >> 1)
+		return held, nil
+	}
 	var ev []tape.TrickEvent
 	ev, ks.trickSeq = p.TrickEventsSince(ks.trickSeq)
 	now := kb.Now()
-	var landed []surface.Landing
 	for _, e := range ev {
 		i, ok := fxPadIndex[e.Pad]
 		if !ok || e.Move {
@@ -154,7 +153,7 @@ func (a *API) keyboardLandings(ks *keyboardScreen) {
 		}
 		landed = append(landed, surface.Landing{Pad: i, On: e.On, At: at})
 	}
-	kb.PadsLanded(held, landed)
+	return held, landed
 }
 
 // keyboardTurned notes an encoder turned on the keyboard, to light it.
@@ -207,8 +206,6 @@ func (a *API) keyboardState() surface.State {
 			s.Held[i] = true
 		}
 	}
-	s.Shift = ks.shift
-	a.keyboardLandings(ks)
 	levels := eng.TrackLevels()
 	for i := range s.Meter {
 		s.Meter[i] = meterOf(levels[i])

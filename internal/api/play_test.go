@@ -25,6 +25,7 @@ type fakeTricks struct {
 	moves  []tape.TrickEvent
 	seq    uint64
 	refuse map[string]error
+	held   []string // set: what the tape holds, whatever the events say
 }
 
 func (f *fakeTricks) Press(pad, q string) error {
@@ -111,6 +112,9 @@ func (f *fakeTricks) TrickLead() (time.Duration, bool) { return 212 * time.Milli
 func (f *fakeTricks) HeldPads() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.held != nil {
+		return f.held
+	}
 	on := map[string]bool{}
 	for _, e := range f.events {
 		on[e.Pad] = e.On

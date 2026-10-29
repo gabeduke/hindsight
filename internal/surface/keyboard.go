@@ -189,6 +189,16 @@ type Keyboard struct {
 	pads  PadLights
 	lamps []Item
 	lit   map[int]Item
+	// shift: SHIFT held, for its light; let go with the screen, so a lost
+	// release can't leave it lit. landings is Landings' source; fresh says
+	// the screen was (re)taken since it was last asked, and takes counts
+	// the screens lost, so an answer about one lost meanwhile is dropped.
+	// wake tells the loop a light's time may have moved.
+	shift    bool
+	landings func(fresh bool) ([Pads]bool, []Landing)
+	fresh    bool
+	takes    int
+	wake     chan struct{}
 
 	stop chan struct{}
 	done chan struct{}
@@ -208,6 +218,8 @@ func New(send func([]byte), connected func() bool) *Keyboard {
 		Refresh:    40 * time.Millisecond,
 		MeterEvery: 100 * time.Millisecond,
 		Heal:       2 * time.Second,
+		fresh:      true,
+		wake:       make(chan struct{}, 1),
 		stop:       make(chan struct{}),
 		done:       make(chan struct{}),
 	}
@@ -221,21 +233,42 @@ func (k *Keyboard) OnPresent(f func()) {
 	k.onPresent = f
 }
 
-// Start sends, resends and probes until Stop.
+// tickEvery is the loop's longest wait between Ticks.
+const tickEvery = 20 * time.Millisecond
+
+// Start sends, resends and probes until Stop. It Ticks every tickEvery, and
+// sooner when a pad's light changes before then (Wait), so a light comes
+// on at its landing rather than at the next tick.
 func (k *Keyboard) Start() {
 	go func() {
 		defer close(k.done)
-		t := time.NewTicker(20 * time.Millisecond)
+		t := time.NewTimer(tickEvery)
 		defer t.Stop()
 		for {
 			select {
 			case <-k.stop:
 				return
+			case <-k.wake:
+				t.Stop() // Go 1.23's timers: nothing stale left to drain
 			case <-t.C:
 				k.Tick()
 			}
+			t.Reset(k.Wait())
 		}
 	}()
+}
+
+// Wait is how long the loop may sleep before its next Tick: tickEvery, or
+// less, to the next time a pad's light changes. At least a millisecond.
+func (k *Keyboard) Wait() time.Duration {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	now := k.Now()
+	d := tickEvery
+	if next := k.pads.Next(now); !next.IsZero() && next.Sub(now) < d {
+		d = next.Sub(now)
+	}
+	return max(d, time.Millisecond)
 }
 
 // Stop ends the loop and waits for it.
@@ -254,7 +287,7 @@ func (k *Keyboard) Farewell() []byte {
 		return nil
 	}
 	k.status.Screen = false
-	k.lit = nil
+	k.lostScreen()
 	return k.frame(&message{cmd: cmdRelease, version: k.version(), seq: k.nextSeq()})
 }
 
@@ -447,29 +480,81 @@ func (k *Keyboard) Follow(f func() State) {
 	k.follow = f
 }
 
-// PadDown is pad i, 0-15, pressed on the keyboard: half, until what it
-// does is heard (PadHeard) or, a command pad, until it is done (PadDone).
+// PadDown is pad i, 0-15, pressed on the keyboard, or a command pad's
+// verb queued: half, until what it does is heard (Landings) or, a command
+// pad, until each verb queued is done (PadDone).
 func (k *Keyboard) PadDown(i int) { k.padsDo(func(now time.Time) { k.pads.Down(i) }) }
 
-// PadUp is pad i let go on the keyboard: back to dim, unless what it does
-// is heard, until its release is.
-func (k *Keyboard) PadUp(i int) { k.padsDo(func(now time.Time) { k.pads.Up(i) }) }
+// PadUp is pad i let go on the keyboard: half still until its press is
+// heard, then full until its release is heard, then dim.
+func (k *Keyboard) PadUp(i int) { k.padsDo(func(now time.Time) { k.pads.Up(i, now) }) }
 
-// PadsLanded is what Play mode says of the pads since it was last asked:
-// the presses and releases landed, each with when it is heard on the
-// Keyboard's clock (its landing frame mapped to now through the lead), and
-// which pads the tape holds now, read before them. A pad is full from its
-// press's landing until its release's, whichever holder pressed it; one
-// the tape no longer holds, with no release among these or before, goes
-// back now (a tape loaded under it), so it can't stay lit.
-func (k *Keyboard) PadsLanded(held [Pads]bool, landed []Landing) {
-	k.padsDo(func(now time.Time) { k.pads.Landed(held, landed, now) })
-}
-
-// PadDone is command pad i done (ok) or refused: it flashes full once,
-// for FlashFor, if it went through; either way it stops being half.
+// PadDone is one of command pad i's verbs done (ok) or refused: it flashes
+// full once, for FlashFor, if it went through.
 func (k *Keyboard) PadDone(i int, ok bool) {
 	k.padsDo(func(now time.Time) { k.pads.Done(i, ok, now) })
+}
+
+// ShiftHeld is SHIFT pressed or let go on the keyboard, for its light.
+func (k *Keyboard) ShiftHeld(held bool) {
+	k.padsDo(func(now time.Time) { k.shift = held })
+}
+
+// Landings is where the Keyboard's loop asks, every Tick before the
+// screen, what Play mode says of the pads since it last asked, while a
+// version 2 keyboard's screen is Hindsight's: which pads the tape holds
+// now, read first, and the presses and releases landed since, each with
+// when it is heard on the Keyboard's clock (its landing frame mapped to
+// now through the lead). fresh: the screen was taken (again) since the
+// last ask, so what landed meanwhile is not news: f answers only what the
+// tape holds, and starts its log from there. A pad is full from its
+// press's landing until its release's, whichever holder pressed it; one
+// the tape no longer holds, with no release among these or before, goes
+// back now (a tape loaded under it), so it can't stay lit. f runs without
+// the Keyboard's lock.
+func (k *Keyboard) Landings(f func(fresh bool) (held [Pads]bool, landed []Landing)) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.landings = f
+}
+
+// pump asks Landings' source, when the screen is Hindsight's, and keeps
+// what it says for the Tick's relight: nothing is sent from here, so the
+// lights go with the screen's next change, not before it.
+func (k *Keyboard) pump() {
+	k.mu.Lock()
+	f, fresh, takes := k.landings, k.fresh, k.takes
+	due := f != nil && k.status.Present && k.status.Version >= 2 && k.status.Screen
+	k.mu.Unlock()
+	if !due {
+		return
+	}
+	held, landed := f(fresh)
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.takes != takes {
+		return // the screen went meanwhile: ask afresh when it is back
+	}
+	if fresh {
+		k.fresh = false
+		k.pads.Fresh(held, k.Now())
+	}
+	k.padsLanded(held, landed)
+}
+
+// padsLanded is the landings and the pads held, as Landings' source says
+// them. Called with mu held.
+func (k *Keyboard) padsLanded(held [Pads]bool, landed []Landing) {
+	k.pads.Landed(held, landed, k.Now())
+}
+
+// lostScreen is the screen gone back to the keyboard, or the keyboard
+// gone: the lights went with it, SHIFT is let go, and the pads start again
+// from the tape when the screen is next taken. Called with mu held.
+func (k *Keyboard) lostScreen() {
+	k.lit, k.shift = nil, false
+	k.pads, k.fresh = PadLights{}, true
+	k.takes++
 }
 
 // padsDo changes the pads' lights and sends what that changes.
@@ -479,6 +564,10 @@ func (k *Keyboard) padsDo(f func(now time.Time)) {
 	f(k.Now())
 	k.relight()
 	k.next()
+	select {
+	case k.wake <- struct{}{}: // a flash's end, say, sooner than a tick
+	default:
+	}
 }
 
 // pull shows Follow's screen when it is due.
@@ -520,7 +609,7 @@ func (k *Keyboard) relight() {
 		k.lamps = nil
 		return
 	}
-	k.lamps = Lamps(*k.state, k.pads.Stages(k.Now()))
+	k.lamps = Lamps(*k.state, k.pads.Stages(k.Now()), k.shift)
 }
 
 // queueScreen queues the next BATCH of what the screen wants, when nothing
@@ -529,9 +618,15 @@ func (k *Keyboard) queueScreen() {
 	if k.status.Version < 2 || !k.status.Screen || k.want == nil || k.refused {
 		return
 	}
+	k.relight() // the stages now, as an ack can come between ticks
 	// The screen's changes, then the lights': a whole screen is two frames,
 	// and a light that changes on its own goes in a frame of its own.
-	cmds := append(plan(k.shown, k.want), relit(k.lit, k.lamps)...)
+	cmds := plan(k.shown, k.want)
+	if !k.fresh || k.landings == nil {
+		// Once the tape's pads are known (pump), or with no Play mode to
+		// ask: a light sent before then would flicker to what they are.
+		cmds = append(cmds, relit(k.lit, k.lamps)...)
+	}
 	if len(cmds) == 0 {
 		return
 	}
@@ -621,6 +716,7 @@ func (k *Keyboard) frame(m *message) []byte {
 // may call it instead of Start.
 func (k *Keyboard) Tick() {
 	connected := k.connected()
+	k.pump()
 	k.pull()
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -657,7 +753,8 @@ func (k *Keyboard) forget() {
 	k.flight, k.queue = nil, nil
 	k.top, k.banner = nil, time.Time{}
 	k.state, k.want, k.shown, k.refused = nil, nil, nil, false
-	k.pads, k.lamps, k.lit = PadLights{}, nil, nil
+	k.lamps = nil
+	k.lostScreen()
 }
 
 // dropDrawing forgets the CLEARs and TEXTs waiting or in flight, after
@@ -666,7 +763,7 @@ func (k *Keyboard) forget() {
 func (k *Keyboard) dropDrawing() {
 	k.banner = time.Time{} // nothing to put back on a screen that isn't ours
 	k.shown = nil          // a CLEAR starts it again
-	k.lit = nil            // the lights went back with the screen: all sent again
+	k.lostScreen()         // the lights went back with the screen: all sent again
 	drawing := func(m *message) bool { return m.cmd == cmdClear || m.cmd == cmdText || m.cmd == cmdBatch }
 	if k.flight != nil && drawing(k.flight) {
 		k.flight = nil
@@ -786,10 +883,10 @@ func (k *Keyboard) Feed(msg []byte) {
 			k.dropDrawing()
 		}
 		k.status.Screen = false
-		k.lit = nil
+		k.lostScreen()
 	case done.cmd == cmdRelease && status == statusOK:
 		k.status.Screen = false
-		k.lit = nil
+		k.lostScreen()
 	}
 	k.next()
 	k.mu.Unlock()

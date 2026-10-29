@@ -48,13 +48,41 @@ var restLamps = golden(
 	"led button 17 0",
 )
 
+// landings is a stand-in for Play mode, as the Keyboard's loop asks it:
+// the pads the tape holds and the landings given since the last ask.
+type landings struct {
+	held   [Pads]bool
+	landed []Landing
+	fresh  int // asks that were fresh
+}
+
+func (l *landings) ask(fresh bool) ([Pads]bool, []Landing) {
+	if fresh {
+		l.fresh++
+	}
+	out := l.landed
+	l.landed = nil
+	return l.held, out
+}
+
+// land says the tape holds held and these landed, and ticks the keyboard
+// once, as its loop asks then.
+func (r *rig) land(held [Pads]bool, ls ...Landing) {
+	r.play.held = held
+	r.play.landed = append(r.play.landed, ls...)
+	r.advance(0)
+}
+
 // lit is a rig on version 2 with the screen at rest drawn and its lights
-// sent, nothing waiting.
+// sent, nothing waiting, Play mode's landings the rig's.
 func lit(t *testing.T) *rig {
 	t.Helper()
 	r := newRig(t)
+	r.play = &landings{}
+	r.k.Landings(r.play.ask)
 	r.presentV2()
 	r.k.Show(atRest())
+	r.advance(0) // the loop asks Play mode, and the lights go
 	expectLamps(t, "the lights at rest", r.lamps(), restLamps)
 	return r
 }
@@ -76,7 +104,7 @@ func TestAPadIsHalfThenFullAtItsLandingThenDim(t *testing.T) {
 	r.k.PadDown(4) // BREAK
 	expectLamps(t, "pressed", r.lamps(), golden("led pad 4 70 34 11"))
 	held := [Pads]bool{4: true}
-	r.k.PadsLanded(held, []Landing{{4, true, r.clock.Add(120 * time.Millisecond)}})
+	r.land(held, Landing{4, true, r.clock.Add(120 * time.Millisecond)})
 	expectLamps(t, "its landing known", r.lamps(), "")
 	r.advance(100 * time.Millisecond)
 	expectLamps(t, "before its landing", r.lamps(), "")
@@ -84,31 +112,102 @@ func TestAPadIsHalfThenFullAtItsLandingThenDim(t *testing.T) {
 	expectLamps(t, "at its landing", r.lamps(), golden("led pad 4 127 62 20"))
 	r.k.PadUp(4)
 	expectLamps(t, "let go, its release not heard yet", r.lamps(), "")
-	r.k.PadsLanded([Pads]bool{}, []Landing{{4, false, r.clock.Add(60 * time.Millisecond)}})
+	r.land([Pads]bool{}, Landing{4, false, r.clock.Add(60 * time.Millisecond)})
 	r.advance(40 * time.Millisecond)
 	expectLamps(t, "before its release is heard", r.lamps(), "")
 	r.advance(20 * time.Millisecond)
 	expectLamps(t, "its release heard", r.lamps(), golden("led pad 4 23 11 4"))
 }
 
-// A pad let go before anything is heard of it goes back to dim at once.
-func TestAPadLetGoUnheardGoesBackToDim(t *testing.T) {
+// A quantised press let go before it is heard stays half until it is, then
+// full until its release is heard; one never heard goes dim after
+// AwaitFor.
+func TestAPadLetGoUnheardStaysHalfUntilHeard(t *testing.T) {
 	r := lit(t)
 	r.k.PadDown(10)
 	expectLamps(t, "pressed", r.lamps(), golden("led pad 10 0 70 70"))
 	r.k.PadUp(10)
-	expectLamps(t, "let go", r.lamps(), golden("led pad 10 0 23 23"))
+	expectLamps(t, "let go, its press not landed yet", r.lamps(), "")
+	r.advance(30 * time.Millisecond)
+	r.land([Pads]bool{10: true}, Landing{10, true, r.clock.Add(40 * time.Millisecond)}, Landing{10, false, r.clock.Add(80 * time.Millisecond)})
+	expectLamps(t, "landed, not heard yet", r.lamps(), "")
+	r.advance(40 * time.Millisecond)
+	expectLamps(t, "heard", r.lamps(), golden("led pad 10 0 127 127"))
+	r.advance(40 * time.Millisecond)
+	expectLamps(t, "its release heard", r.lamps(), golden("led pad 10 0 23 23"))
+
+	r.k.PadDown(11)
+	r.k.PadUp(11)
+	expectLamps(t, "FILTER pressed and let go", r.lamps(), golden("led pad 11 0 70 70"))
+	r.advance(AwaitFor - time.Millisecond)
+	expectLamps(t, "still waiting", r.lamps(), "")
+	r.advance(time.Millisecond)
+	expectLamps(t, "never heard", r.lamps(), golden("led pad 11 0 23 23"))
+}
+
+// Two CATCHes queued: the first done flashes, and the pad is half again
+// while the second waits, then flashes for it.
+func TestASecondQueuedCommandStaysHalf(t *testing.T) {
+	r := lit(t)
+	r.k.PadDown(14)
+	r.k.PadDown(14)
+	expectLamps(t, "pressed twice", r.lamps(), golden("led pad 14 70 70 70"))
+	r.k.PadDone(14, true)
+	expectLamps(t, "the first done", r.lamps(), golden("led pad 14 127 127 127"))
+	r.advance(FlashFor)
+	expectLamps(t, "the second waiting", r.lamps(), golden("led pad 14 70 70 70"))
+	r.k.PadDone(14, true)
+	r.advance(FlashFor)
+	expectLamps(t, "the second done", r.lamps(), golden("led pad 14 127 127 127", "led pad 14 23 23 23"))
+}
+
+// Landings are asked on the loop and sent with the Tick's screen, never
+// alone before it: the getter's change and the light go in one frame.
+func TestLandingsGoWithTheTicksScreen(t *testing.T) {
+	r := lit(t)
+	s := atRest()
+	s.Playing = true
+	r.k.Follow(func() State { return s })
+	r.play.landed = []Landing{{4, true, r.clock.Add(r.k.Refresh)}}
+	r.advance(r.k.Refresh)
+	got := r.take()
+	if len(got) != 1 {
+		t.Fatalf("sent %d frames, want the screen and the lights in one", len(got))
+	}
+	items := decodeBatch(t, got[0][7:len(got[0])-1])
+	if l := lines(items); !strings.Contains(l, "led pad 4 127 62 20") || !strings.Contains(l, "PLAY") {
+		t.Fatalf("the frame:\n%s", l)
+	}
+	r.k.Feed(ack2(got[0][5], statusOK))
+}
+
+// A light whose time comes between Ticks: Wait wakes the loop at it, not at
+// the next tick, and an ack between ticks sends the stage of that moment.
+func TestTheLoopWakesAtALanding(t *testing.T) {
+	r := lit(t)
+	r.land([Pads]bool{4: true}, Landing{4, true, r.clock.Add(7 * time.Millisecond)})
+	if w := r.k.Wait(); w != 7*time.Millisecond {
+		t.Fatalf("Wait = %v, want 7ms: the landing", w)
+	}
+	r.k.Show(func() State { s := atRest(); s.Beats++; return s }()) // a frame in flight
+	f := r.take()
+	r.clock = r.clock.Add(7 * time.Millisecond)
+	r.k.Feed(ack2(f[0][5], statusOK)) // its ack after the landing, before a tick
+	expectLamps(t, "the ack's frame", r.lamps(), golden("led pad 4 127 62 20"))
+	if w := r.k.Wait(); w != tickEvery {
+		t.Fatalf("Wait = %v with nothing due, want %v", w, tickEvery)
+	}
 }
 
 // A pad heard that the tape lets go of with no release heard (a tape
 // loaded under it) goes back to dim, rather than stay lit.
 func TestAPadTheTapeLetGoOfGoesDim(t *testing.T) {
 	r := lit(t)
-	r.k.PadsLanded([Pads]bool{}, []Landing{{7, true, r.clock}}) // pressed after the tape was read
+	r.land([Pads]bool{}, Landing{7, true, r.clock}) // pressed after the tape was read
 	expectLamps(t, "heard", r.lamps(), golden("led pad 7 127 62 20"))
-	r.k.PadsLanded([Pads]bool{7: true}, nil)
+	r.land([Pads]bool{7: true})
 	expectLamps(t, "still held", r.lamps(), "")
-	r.k.PadsLanded([Pads]bool{}, nil)
+	r.land([Pads]bool{})
 	expectLamps(t, "let go by the tape", r.lamps(), golden("led pad 7 23 11 4"))
 }
 
@@ -149,12 +248,63 @@ func TestTheButtonsLights(t *testing.T) {
 	s.Recording, s.Armed = false, 0
 	r.k.Show(s)
 	expectLamps(t, "playing, nothing armed", r.lamps(), golden("led button 17 0"))
-	s.Shift = true
-	r.k.Show(s)
+	r.k.ShiftHeld(true)
 	expectLamps(t, "SHIFT held", r.lamps(), golden("led button 0 1"))
-	s.Playing, s.Shift = false, false
+	r.k.ShiftHeld(false)
+	s.Playing = false
 	r.k.Show(s)
 	expectLamps(t, "stopped, SHIFT let go", r.lamps(), golden("led button 0 0", "led button 16 0"))
+}
+
+// SHIFT held when the screen goes back, its release lost with it, is let
+// go: taken again, it is off.
+func TestShiftIsLetGoWithTheScreen(t *testing.T) {
+	for name, lose := range map[string]func(r *rig){
+		"HOME":      func(r *rig) { r.k.Feed(frame(0, cmdRelease)) },
+		"Gone":      func(r *rig) { r.k.Gone() },
+		"forgotten": func(r *rig) { r.connected = false; r.advance(0); r.connected = true },
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := lit(t)
+			r.k.ShiftHeld(true)
+			expectLamps(t, "SHIFT held", r.lamps(), golden("led button 0 1"))
+			lose(r)
+			if !r.k.Status().Present {
+				r.advance(r.k.Probe)
+				got := r.take()
+				r.k.Feed(ack(got[0][5], statusOK, 2, 0x60))
+				<-r.presents
+			}
+			r.k.Clear(Black)
+			got := r.take()
+			r.k.Feed(ack2(got[len(got)-1][5], statusOK))
+			r.k.Show(atRest())
+			r.advance(0)
+			expectLamps(t, "taken again", r.lamps(), restLamps)
+		})
+	}
+}
+
+// Taken again, the pads start from what the tape holds then: what landed
+// while the screen was the keyboard's is not replayed, and a pad still held
+// is full.
+func TestARetakeStartsThePadsFromTheTape(t *testing.T) {
+	r := lit(t)
+	r.land([Pads]bool{6: true}, Landing{6, true, r.clock})
+	expectLamps(t, "CHOP heard", r.lamps(), golden("led pad 6 127 62 20"))
+	r.k.Feed(frame(0, cmdRelease)) // HOME
+	asked := r.play.fresh
+	r.k.Clear(Black)
+	got := r.take()
+	r.k.Feed(ack2(got[0][5], statusOK))
+	r.play.held = [Pads]bool{2: true} // a tape loaded under CHOP; T3 held
+	r.k.Show(atRest())
+	r.advance(0)
+	if r.play.fresh != asked+1 {
+		t.Fatalf("asked fresh %d times after the retake, want once", r.play.fresh-asked)
+	}
+	want := strings.Replace(restLamps, "led pad 2 20 15 1", "led pad 2 111 81 8", 1)
+	expectLamps(t, "taken again", r.lamps(), want)
 }
 
 // The Mixer page: every pad its track's colour, full when on (mute,
@@ -164,7 +314,7 @@ func TestTheMixerPagesLights(t *testing.T) {
 	s.Page, s.Mute[3], s.Solo[2] = PageMixer, true, true
 	var held [Pads]Stage
 	held[0] = StageFull
-	got := Lamps(s, held)[:Pads]
+	got := Lamps(s, held, false)[:Pads]
 	expectLamps(t, "the Mixer page", got, golden(
 		"led pad 0 5 13 20", "led pad 1 4 16 15", "led pad 2 20 15 1", "led pad 3 115 42 78", // mute T4
 		"led pad 4 5 13 20", "led pad 5 20 89 82", "led pad 6 20 15 1", "led pad 7 21 8 14", // select T2
@@ -203,6 +353,7 @@ func TestHomeGivesTheLightsBack(t *testing.T) {
 	got := r.take()
 	r.k.Feed(ack2(got[0][5], statusOK))
 	r.k.Show(atRest())
+	r.advance(0)
 	want := strings.Replace(restLamps, "led pad 4 23 11 4", "led pad 4 70 34 11", 1) // BREAK still pressed
 	expectLamps(t, "the screen taken again", r.lamps(), want)
 }
@@ -213,7 +364,7 @@ func TestVersion1LightsNothing(t *testing.T) {
 	r.taken()
 	r.k.Follow(func() State { s := atRest(); s.Playing = true; return s })
 	r.k.PadDown(4)
-	r.k.PadsLanded([Pads]bool{4: true}, []Landing{{4, true, r.clock}})
+	r.k.Landings(func(bool) ([Pads]bool, []Landing) { return [Pads]bool{4: true}, []Landing{{4, true, r.clock}} })
 	r.k.PadDown(15)
 	r.k.PadDone(15, true)
 	r.advance(r.k.Refresh)
@@ -235,6 +386,8 @@ func TestWriteLightsScript(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("# Hindsight's internal/surface: the lights as its Keyboard sends them (go test -run TestWriteLightsScript -lights=...).\nboot\nwait 1500\nstrict\n")
 	r := newRig(t)
+	r.play = &landings{}
+	r.k.Landings(r.play.ask)
 	r.presentV2()
 	r.take()
 	// What the firmware keeps for a pad: each level scaled to its full, 48.
@@ -284,14 +437,15 @@ func TestWriteLightsScript(t *testing.T) {
 	r.k.Clear(Black)
 	frames("CLEAR")
 	r.k.Show(atRest())
+	r.advance(0)
 	frames("at rest")
 	r.k.PadDown(4)
 	frames("BREAK pressed: half")
-	r.k.PadsLanded([Pads]bool{}, []Landing{{4, true, r.clock.Add(40 * time.Millisecond)}})
+	r.land([Pads]bool{}, Landing{4, true, r.clock.Add(40 * time.Millisecond)})
 	r.advance(40 * time.Millisecond)
 	frames("BREAK heard: full")
 	r.k.PadUp(4)
-	r.k.PadsLanded([Pads]bool{}, []Landing{{4, false, r.clock}})
+	r.land([Pads]bool{}, Landing{4, false, r.clock})
 	r.advance(20 * time.Millisecond)
 	frames("BREAK let go and its release heard: dim")
 	r.k.PadDown(15)
@@ -301,7 +455,8 @@ func TestWriteLightsScript(t *testing.T) {
 	r.advance(FlashFor)
 	frames("GRAB's flash over: dim")
 	s := atRest()
-	s.Playing, s.Recording, s.Shift = true, true, true
+	s.Playing, s.Recording = true, true
+	r.k.ShiftHeld(true)
 	r.k.Show(s)
 	frames("recording, SHIFT held")
 	b.WriteString("# HOME: the lights are the keyboard's again\npress 2\nrelease 2\nwait 100\n")

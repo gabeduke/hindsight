@@ -112,16 +112,16 @@ func (it Item) ledString() string {
 	return fmt.Sprintf("led button %d %d", it.X-Pads, it.Lamp[0])
 }
 
-// Lamps is the lights for s with the pads at stages: the sixteen pads,
-// then SHIFT, PLAY and REC.
+// Lamps is the lights for s, with the pads at stages and SHIFT held or
+// not: the sixteen pads, then SHIFT, PLAY and REC.
 //   - The FX page, by family: T1-T4 in their tracks' colours, BREAK,
 //     REVERSE, CHOP and STOP orange, HALF and DOUBLE violet, ROLL, FILTER,
 //     ECHO and CRUSH cyan (the accent), CATCH and GRAB white (FXPads).
 //   - The Mixer page: every pad in its track's colour, full when on (muted,
 //     selected, soloed, armed) and dim when off.
 //   - PLAY on while the tape plays; REC on while recording, and blinking
-//     while the tape plays with a track armed; SHIFT on while held.
-func Lamps(s State, stages [Pads]Stage) []Item {
+//     while the tape plays with a track armed; SHIFT on while held (shift).
+func Lamps(s State, stages [Pads]Stage, shift bool) []Item {
 	out := make([]Item, 0, Pads+3)
 	for i := range Pads {
 		if s.Page == PageMixer {
@@ -144,7 +144,7 @@ func Lamps(s State, stages [Pads]Stage) []Item {
 		rec = LightBlink
 	}
 	return append(out,
-		ButtonItem(ButtonShift, onOff(s.Shift)),
+		ButtonItem(ButtonShift, onOff(shift)),
 		ButtonItem(ButtonPlay, onOff(s.Playing)),
 		ButtonItem(ButtonRec, rec))
 }
@@ -168,12 +168,19 @@ func relit(lit map[int]Item, want []Item) []Item {
 	return out
 }
 
-// padTimeline is one pad's light over time. down: pressed on the keyboard
-// and not let go (a command pad: not done yet). on and off: when what it
-// does is heard and stops being heard, zero when not known. flash: a
-// command pad's full until then.
+// AwaitFor is the longest a pad let go before anything of it is heard
+// stays half, waiting for its press to land: a bar at 60 BPM, the longest
+// a quantised press waits. Its landing, or its release's, ends it sooner.
+const AwaitFor = 4 * time.Second
+
+// padTimeline is one pad's light over time. presses: pressed on the
+// keyboard and not let go, or a command pad's verbs not done yet. await:
+// let go before its press was heard, half until then. on and off: when
+// what it does is heard and stops being heard, zero when not known.
+// flash: a command pad's full until then.
 type padTimeline struct {
-	down    bool
+	presses int
+	await   time.Time
 	on, off time.Time
 	flash   time.Time
 }
@@ -189,18 +196,25 @@ type PadLights struct {
 
 func padOK(i int) bool { return i >= 0 && i < Pads }
 
-// Down is pad i pressed on the keyboard: half, until what it does is heard.
+// Down is pad i pressed on the keyboard, or a command pad's verb queued:
+// half, until what it does is heard, or the verb is done.
 func (p *PadLights) Down(i int) {
 	if padOK(i) {
-		p.pads[i].down = true
+		p.pads[i].presses++
 	}
 }
 
-// Up is pad i let go on the keyboard. It stays full while what it does is
-// still heard: until its release lands.
-func (p *PadLights) Up(i int) {
-	if padOK(i) {
-		p.pads[i].down = false
+// Up is pad i let go on the keyboard at now. It stays full while what it
+// does is still heard, until its release lands; let go before its press
+// is heard, it stays half until it is (at most AwaitFor).
+func (p *PadLights) Up(i int, now time.Time) {
+	if !padOK(i) || p.pads[i].presses == 0 {
+		return
+	}
+	pd := &p.pads[i]
+	pd.presses--
+	if pd.presses == 0 && pd.on.IsZero() {
+		pd.await = now.Add(AwaitFor)
 	}
 }
 
@@ -224,6 +238,7 @@ func (p *PadLights) Landed(held [Pads]bool, landed []Landing, now time.Time) {
 		}
 		touched[l.Pad] = true
 		pd := &p.pads[l.Pad]
+		pd.await = time.Time{} // heard of, one way or the other
 		if l.On {
 			pd.on, pd.off = l.At, time.Time{}
 		} else if !pd.on.IsZero() {
@@ -237,16 +252,44 @@ func (p *PadLights) Landed(held [Pads]bool, landed []Landing, now time.Time) {
 	}
 }
 
-// Done is command pad i done at now: it stops waiting, and flashes full for
-// FlashFor if it went through (ok).
+// Fresh is the tape's pads as the screen is taken (again), with nothing
+// known of them since the screen went (the Keyboard starts its PadLights
+// again then, and what landed meanwhile isn't replayed): a pad the tape
+// holds is full from now, since it is heard.
+func (p *PadLights) Fresh(held [Pads]bool, now time.Time) {
+	for i := range p.pads {
+		if pd := &p.pads[i]; held[i] && pd.on.IsZero() {
+			pd.on, pd.off, pd.await = now, time.Time{}, time.Time{}
+		}
+	}
+}
+
+// Done is one of command pad i's verbs done at now: it flashes full for
+// FlashFor if it went through (ok), and is half again after while another
+// press of it waits.
 func (p *PadLights) Done(i int, ok bool, now time.Time) {
 	if !padOK(i) {
 		return
 	}
-	p.pads[i].down = false
+	if p.pads[i].presses > 0 {
+		p.pads[i].presses--
+	}
 	if ok {
 		p.pads[i].flash = now.Add(FlashFor)
 	}
+}
+
+// Next is the first time after now at which a stage changes, zero for none.
+func (p *PadLights) Next(now time.Time) time.Time {
+	var next time.Time
+	for _, pd := range p.pads {
+		for _, t := range []time.Time{pd.on, pd.off, pd.flash, pd.await} {
+			if t.After(now) && (next.IsZero() || t.Before(next)) {
+				next = t
+			}
+		}
+	}
+	return next
 }
 
 // Stages is each pad's stage at now, forgetting what is over.
@@ -260,12 +303,15 @@ func (p *PadLights) Stages(now time.Time) [Pads]Stage {
 		if !pd.flash.IsZero() && !now.Before(pd.flash) {
 			pd.flash = time.Time{}
 		}
+		if !pd.await.IsZero() && !now.Before(pd.await) {
+			pd.await = time.Time{}
+		}
 		switch {
 		case !pd.flash.IsZero():
 			out[i] = StageFull
 		case !pd.on.IsZero() && !now.Before(pd.on):
 			out[i] = StageFull
-		case pd.down || !pd.on.IsZero():
+		case pd.presses > 0 || !pd.on.IsZero() || !pd.await.IsZero():
 			out[i] = StageHalf // pressed, or its press still to be heard
 		}
 	}

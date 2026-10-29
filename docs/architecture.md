@@ -369,7 +369,7 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
   since only the keyboard knows it).
 
 **The SMK-37's lights** on protocol version 2 (`internal/surface`'s
-`lights.go`; the feed's `keyboardLandings` in `internal/api/
+`lights.go`; `keyboardLandings`, Play mode asked on its loop, in `internal/api/
 keyboard_screen.go`). Version 1 answers LED unknown, so there nothing is
 sent.
 
@@ -386,38 +386,56 @@ sent.
     0.55 half, full. A level is 0–127 of the colour; the firmware scales
     127 to the pads' own brightest it allows (48).
   - PLAY on while `State.Playing`; REC on while `Recording`, blinking
-    while playing with a track armed; SHIFT on while `State.Shift`, which
-    the feed sets from SHIFT's note (0 on channel 16) whatever it's bound
-    to (`keyboardButton`).
+    while playing with a track armed; SHIFT on while held
+    (`Keyboard.ShiftHeld`, from SHIFT's note, 0 on channel 16, whatever
+    it's bound to: `keyboardButton`). The Keyboard lets SHIFT go with the
+    screen (HOME, RELEASE) and with the keyboard (`Gone`, as
+    `ControllerGone` says, or forgotten), so a release lost then can't
+    leave it lit.
 - **A pad's stage over time** is `surface.PadLights`, which the
   `Keyboard` keeps under its lock:
   - half from the keyboard's press (`PadDown`, from `controllerPress`
     once the press is taken; a refused one stays dim) until what it does
-    is heard; let go unheard (`PadUp`), dim again;
+    is heard, even when let go first (`PadUp`): a quantised press waits
+    for its line, and stays half for it, at most `AwaitFor` (4 s, a bar
+    at 60 BPM) if nothing of it is ever heard;
   - full from its press's landing until its release's, from any holder: a
     phone's BREAK lights the keyboard's too, since it is what is heard;
   - a command pad (CATCH, GRAB) is half from its press (`queueVerb`) until
     its verb is done, then flashes full once for `FlashFor` (150 ms) if
     it went through (`PadDone`, from `runVerb`), or goes dim if refused.
+    Presses are counted, so a second CATCH queued is half again after the
+    first one's flash.
 - **The landing time** is Play mode's, as a page's `at` gets it. The
-  screen's feed, every `Refresh`, reads the trick log
-  (`TrickEventsSince`, from where it was when the keyboard was first
-  asked) and maps each press's and release's output frame to the
-  keyboard's clock through the lead (`HeardIn`: the blocks rendered ahead
-  and the device's latency), then hands them to `Keyboard.PadsLanded`
-  with the pads the tape holds (`HeldPads`, read first). An event is
-  logged as it is rendered, up to the lead before it is heard, so the
-  40 ms feed finds it in time. With no output, it is lit as it lands. A
+  Keyboard's loop asks for it every `Tick`, as its own step before the
+  screen (`Keyboard.Landings(a.keyboardLandings)`; the screen's getter
+  has no side effects): the pads the tape holds (`HeldPads`, read
+  first), and each press's and release's output frame from the trick log
+  (`TrickEventsSince`), mapped to the keyboard's clock through the lead
+  (`HeardIn`: the blocks rendered ahead and the device's latency). What
+  it says is kept for that Tick's send, so the lights go in one frame
+  with the screen's change. With no output, a pad is lit as it lands. A
   pad heard that the tape no longer holds, with no release landed, goes
   dim (a tape loaded under it), so a light can't stick.
-- **Sent as they change**, in the screen's BATCH sender: every `Tick`
-  (20 ms) asks the stages at that moment, and the lights that differ from
-  what the keyboard has (`lit`, kept from the acks, by target) go after
-  the screen's changes in the next BATCH. So a light is up to a tick late,
-  plus a frame in flight. A CLEAR keeps the lights, as the firmware does,
-  so a screen drawn again whole sends none of them; HOME, a RELEASE or a
-  keyboard forgotten empties `lit`, as the lights go back to the
-  keyboard, and the screen taken again sends them all.
+- **On time.** The loop Ticks at least every 20 ms (`tickEvery`), and
+  sooner, at the next time a pad's stage changes (`Keyboard.Wait`,
+  `PadLights.Next`); a pad's change from another goroutine wakes it. An
+  event is logged as it renders, so with any lead over 20 ms (the Pi's
+  is about 100–200 ms; 40 ms is the least the tests rely on) it is read
+  before it is heard, and the light is sent at its landing, to the
+  timer's precision, when nothing is in flight. When a frame is in
+  flight it goes with that frame's ack, which works the stages out again
+  at that moment (`queueScreen`): late by at most the rest of one round
+  trip.
+- **Sent as they change**, in the screen's BATCH sender: the lights that
+  differ from what the keyboard has (`lit`, kept from the acks, by
+  target) go after the screen's changes. A CLEAR keeps the lights, as the
+  firmware does, so a screen drawn again whole sends none of them. HOME,
+  a RELEASE or a keyboard forgotten empties `lit` and starts the pads
+  again (`lostScreen`): the screen taken again asks Play mode afresh,
+  reading the trick log from then on (what landed while the screen was
+  the keyboard's is not replayed), lights a pad the tape still holds
+  full, and only then sends every light.
 - **Checked in the fork's simulator**: `go test ./internal/surface -run
   TestWriteLightsScript -lights=<file>` writes the frames for rest, a
   press, its landing and release, GRAB's flash, recording with SHIFT
