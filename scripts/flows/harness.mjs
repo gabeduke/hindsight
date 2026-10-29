@@ -216,6 +216,12 @@ export function apiFor(base, { dir = null } = {}) {
         const c = await call('GET', '/api/tapes/controls');
         return (c?.controllers ?? []).some((d) => /SMK/.test(d.name) && d.connected);
       }, 'the keyboard to show as connected', 10_000);
+      // The demo's keyboard client says HELLO to the keyboard at the
+      // controller's own node (keyboard.go's Out), so the watcher can read
+      // Hindsight's own HELLO back off this FIFO. It is ignored: the
+      // client's Feed (internal/surface) acts only on an ack, a RELEASE or
+      // an OFFER. Nothing answers the HELLO, so Hindsight never takes a
+      // screen here, and the presses are plain MIDI.
       await sleep(300); // past the watcher's drain window
       return {
         press: (bytes) => { writeSync(fd, Buffer.from(bytes)); },
