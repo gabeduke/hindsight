@@ -13,7 +13,8 @@ import (
 // The buffer on the cue lane (internal/tape/cuegrab.go): GRAB onto the lane,
 // and a cue clip's drawer.
 //
-//	POST  /api/tapes/cue/grab?id=   GRAB: {bars | seconds | ring_from, ring_to}, from sources;
+//	POST  /api/tapes/cue/grab[?id=] GRAB (no id: the loaded tape): {bars | seconds |
+//	                                ring_from, ring_to}, from sources;
 //	                                {clip, sources}: that clip's span again, from those;
 //	                                {take, from, to}: a take's span. The tape's state, with
 //	                                edit.cue_clip, and edit.cue_replaced when it took an
@@ -45,7 +46,12 @@ func (a *API) handleCueGrab(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &b) {
 		return
 	}
+	// Without an id, the loaded tape's lane: a take's page and the
+	// Listening Room GRAB into the Studio without knowing which tape it has.
 	id := r.URL.Query().Get("id")
+	if id == "" {
+		id = a.tape.LoadedID()
+	}
 	var g tape.CueGrabbed
 	var err error
 	if b.Take != "" {

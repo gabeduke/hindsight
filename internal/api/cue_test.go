@@ -69,8 +69,8 @@ func TestTheCueClipsDrawerOverTheAPI(t *testing.T) {
 	if w := send(t, r, http.MethodGet, "/api/clipboard", ""); w.Body.String() != "{\"clipboard\":null}\n" {
 		t.Fatalf("the clipboard = %s", w.Body.String())
 	}
-	// Again, untouched: in its place.
-	w = send(t, r, http.MethodPost, "/api/tapes/cue/grab"+q, `{"seconds":1,"sources":["aux"]}`)
+	// Again, untouched: in its place. With no id, it's the loaded tape's lane.
+	w = send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"seconds":1,"sources":["aux"]}`)
 	want(t, w, http.StatusOK, "grab again")
 	b = cueEditOf(t, w.Body)
 	if b.Edit.CueReplaced == nil || b.Edit.CueReplaced.ID != c.ID || len(b.Tape.Cue.Clips) != 1 {
