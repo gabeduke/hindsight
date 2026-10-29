@@ -56,10 +56,17 @@ type Out struct {
 
 // OutTarget is a device to send to: a substring of its name, and how many
 // milliseconds early (negative) or late its messages should be written, for
-// a device that's slow or quick to act on them.
+// a device that's slow or quick to act on them. Chunk, when set, is the most
+// of a message written at once, with ChunkGap between, for a device that
+// loses a long burst: the SMK-37's own SysEx reader loses a frame of 512
+// bytes written whole, as Linux's USB MIDI sends it at full speed, and takes
+// one of 996 in chunks (measured on the unit, 2026-10-29). The gap follows
+// every chunk, a message's last too, so two messages never run together.
 type OutTarget struct {
-	Match   string
-	NudgeMS float64
+	Match    string
+	NudgeMS  float64
+	Chunk    int
+	ChunkGap time.Duration
 }
 
 // ParseOutTargets reads "bento, mpc:-3": comma-separated name substrings,
@@ -96,6 +103,9 @@ type outPort struct {
 	name  string
 	node  string
 	nudge int64 // ns
+	// chunk and gap: the most written at once, and the wait between (OutTarget).
+	chunk int
+	gap   time.Duration
 	w     io.WriteCloser
 	q     chan timed
 	wmu   sync.Mutex // one write at a time: run's and SendNow's
@@ -212,6 +222,8 @@ func (o *Out) scan() {
 	type want struct {
 		port  Port
 		nudge float64
+		chunk int
+		gap   time.Duration
 	}
 	var opens []want
 	o.mu.Lock()
@@ -238,7 +250,7 @@ func (o *Out) scan() {
 		}
 		for _, t := range o.targets {
 			if port.Matches(t.Match) {
-				opens = append(opens, want{port, t.NudgeMS})
+				opens = append(opens, want{port, t.NudgeMS, t.Chunk, t.ChunkGap})
 				break
 			}
 		}
@@ -262,7 +274,8 @@ func (o *Out) scan() {
 			return
 		}
 		delete(o.failed, w.port.Node)
-		p := &outPort{name: w.port.Name, node: w.port.Node, nudge: int64(w.nudge * 1e6), w: f, q: make(chan timed, outQueue), out: o}
+		p := &outPort{name: w.port.Name, node: w.port.Node, nudge: int64(w.nudge * 1e6), chunk: w.chunk, gap: w.gap,
+			w: f, q: make(chan timed, outQueue), out: o}
 		o.ports[w.port.Node] = p
 		o.mu.Unlock()
 		log.Printf("[*] midi out: sending to %s (%s)", w.port.Name, w.port.Node)
@@ -361,19 +374,30 @@ func (p *outPort) run() {
 	}
 }
 
-// write writes msg, and answers whether the device is still there.
+// write writes msg, in chunks if the port says, and answers whether the
+// device is still there.
 func (p *outPort) write(msg []byte) bool {
 	p.wmu.Lock()
 	defer p.wmu.Unlock()
 	if p.dead.Load() {
 		return false
 	}
-	if _, err := p.w.Write(msg); err != nil {
-		if !p.dead.Swap(true) {
-			log.Printf("[!] midi out: %s: %v", p.name, err)
-			p.w.Close()
+	for rest := msg; len(rest) > 0; {
+		n := len(rest)
+		if p.chunk > 0 && n > p.chunk {
+			n = p.chunk
 		}
-		return false
+		if _, err := p.w.Write(rest[:n]); err != nil {
+			if !p.dead.Swap(true) {
+				log.Printf("[!] midi out: %s: %v", p.name, err)
+				p.w.Close()
+			}
+			return false
+		}
+		rest = rest[n:]
+		if p.chunk > 0 {
+			p.out.sleep(p.gap) // after the last chunk too: the next message waits
+		}
 	}
 	p.sent.Add(1)
 	if p.lost.Swap(false) {

@@ -280,15 +280,16 @@ As of 2026-10-29. The firmware is `gabeduke/smk37-hindsight`, whose
 rules for writing to the unit are decision 0053
 (`docs/decisions/0053-smk37-flashing-rules.md`).
 
-- **Built, not flashed:** the fork's PR #10 (local echo, the quiet clock,
-  the pads' chain sent again), 453,060 bytes, 861 free (the change cost
-  832), built by its CI on Windows and under Wine to the same bytes.
-- **The keyboard** runs the fork's `main` at 97159f3a: protocol version 2
-  (BOX, BAR, TEXT's background, LED, BATCH, 16 colours, 96 items) and
-  partial repaint. Flashed from the Pi on 2026-10-29 with M-Flasher built
-  for aarch64 (`~/smk-flash` on the Pi, with a backup from before the
-  write); only 0x04000–0x72FFF changed, the bootloader, calibration and
-  0xFF000 checked unchanged. 1,693 bytes of the image are free.
+- **The keyboard** runs the fork's `main` at f3563c3 (facd9b7's build):
+  protocol version 2 (BOX, BAR, TEXT's background, LED, BATCH, 16
+  colours, 96 items), partial repaint, and from #10 and #11 local echo,
+  the quiet clock, the pads' chain sent again and its longer reset
+  (HELLO's features 7). Flashed from the Pi on 2026-10-29 with M-Flasher
+  built for aarch64 (`~/smk-flash` on the Pi, run with sudo for
+  `/dev/sg0`; two matching backups before each write, in
+  `~/smk-flash/backups`); each write changed only 0x04000–0x73000, the
+  bootloader, calibration and 0xFF000 checked unchanged with
+  `flash-diff.py`. The image is 453,060 bytes, 861 free.
 - **The Pi** lays out the screen (`internal/surface`, `Layout`) and sends
   only what changed, in BATCH frames; the firmware keeps the item list and
   repaints the bands that changed.
@@ -297,10 +298,31 @@ rules for writing to the unit are decision 0053
 
 None of it showed in the simulator:
 
-- Over the Pi's USB MIDI the keyboard takes a BATCH of 624 bytes (acked
-  in 2 ms) and silently loses one of 764 or more; from a Mac 953 got
-  through, paced by macOS at about 250 ms. `MaxFrame` is 512 (#202;
-  decision 0052, `docs/decisions/0052-smk37-frames-of-512-bytes.md`).
+- Over the Pi's USB MIDI the keyboard silently loses a SysEx frame that
+  arrives in one burst. A first sweep had 624 bytes acked and 764 lost;
+  `MaxFrame` became 512 (#202; decision 0052,
+  `docs/decisions/0052-smk37-frames-of-512-bytes.md`). From a Mac 953 got
+  through, paced by macOS at about 250 ms.
+- **Where it goes**, found 2026-10-29 with `usbmon`: Linux puts every frame
+  on the wire whole (a 512-byte frame is 684 bytes of USB MIDI packets in
+  11 transfers, each one completed), so it must be the keyboard's SysEx
+  reader, after USB, that loses it: every frame of 600 bytes or more, and two in
+  three of 512, written whole. Written in chunks it loses none: every size
+  from 512 to 996, three times each, at 48 bytes a 0.5 ms or 2 ms gap, 120
+  a 1 ms gap or 240 a 2 ms gap. So the API writes the keyboard's frames
+  240 bytes at a time, 2 ms apart, the gap after a frame's last chunk too
+  (`keyboardChunk`; `midi.OutTarget`'s `Chunk` and `ChunkGap`, which any
+  port may take). With one frame in flight at a time nothing queues
+  behind a chunked frame long enough to go stale. Before that the
+  client was silently sending most whole screens twice or more (a lost
+  frame goes again after `AckTimeout`, and isn't logged).
+- **The pads' chain** (the fork's #11): Open held it low for 36 bytes,
+  about 45 µs, before the pads' data, under these LEDs' reset, so a
+  glitch as SPI1 switched from the LCD came through as a stray bit at its
+  front: pad 1 blinking, and on a press every pad after it shifted to a
+  bright wrong colour until the next transfer, which #10's 500 ms resend
+  made frequent. 256 bytes held low cured it (Gabe: *"the pads are perfect
+  now"*).
 - A lost frame looks like a dead keyboard: after three tries the Pi
   forgets it and takes the screen again, blank, every few seconds. While
   the Pi is away, the keyboard's PLAY runs its own sequencer.
@@ -318,8 +340,9 @@ None of it showed in the simulator:
   and a pad is sent only when its colour changes, so a chain sent wrong
   stays wrong; nor does the Pi, sending only changes, put it back. Fixed
   both ways too: the firmware sends the chain again every 500 ms while
-  the Pi has the pads, and the Pi every light every 2 s. Whether it was
-  the chain is for the rig to confirm.
+  the Pi has the pads, and the Pi every light every 2 s. It was the
+  chain, but not only its being sent once: its reset was too short (the
+  next item).
 
 What these lead to is the list under *Next* in `docs/plan/the-instrument.md`,
 step 7.
