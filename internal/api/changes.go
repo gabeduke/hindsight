@@ -63,9 +63,14 @@ func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// last is the revision last said. A tap whose revision that already
+	// was (a bump between Subscribe and the hello) says nothing: a nudge is
+	// always news, and only the beat repeats.
+	var last uint64
 	send := func() error {
+		last = changes.Rev()
 		_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
-		return conn.WriteJSON(changesMsg{Rev: changes.Rev(), AtMS: time.Now().UnixMilli()})
+		return conn.WriteJSON(changesMsg{Rev: last, AtMS: time.Now().UnixMilli()})
 	}
 	if send() != nil {
 		return
@@ -82,6 +87,9 @@ func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
 		case <-gone:
 			return
 		case <-taps:
+			if changes.Rev() == last {
+				continue
+			}
 			if send() != nil {
 				return
 			}

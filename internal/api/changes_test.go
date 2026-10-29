@@ -63,22 +63,40 @@ func TestTheChangesSocketNudgesTheMomentTheTapeChanges(t *testing.T) {
 }
 
 // Nothing happening, the socket still says the revision once a second, the
-// same one: lib/socket.js would take a silent socket for a dead one.
+// same one: lib/socket.js would take a silent socket for a dead one. A
+// nudge just after the socket opens (the engine settling after the load)
+// carries a new revision; a beat repeats the last. So the beat measured is
+// the first message that repeats the one before it, timed from that one.
 func TestAQuietChangesSocketBeatsOnceASecond(t *testing.T) {
 	r, _ := newTapeAPIWithAPI(t)
 	makeLoadedTape(t, r)
 	c := dialChanges(t, r)
 
-	hello := readChanges(t, c, time.Second)
+	prev := readChanges(t, c, time.Second)
+	since := time.Now()
+	for {
+		m := readChanges(t, c, changesBeat+500*time.Millisecond)
+		if m.Rev != prev.Rev {
+			if m.Rev < prev.Rev {
+				t.Fatalf("rev went back: %d after %d", m.Rev, prev.Rev)
+			}
+			prev, since = m, time.Now() // a nudge: the tape is still settling
+			continue
+		}
+		if took := time.Since(since); took < changesBeat/2 {
+			t.Fatalf("a beat after %v, want about %v", took, changesBeat)
+		}
+		break
+	}
+	// And the next, a second on, still the same revision.
 	start := time.Now()
-	beat := readChanges(t, c, changesBeat+500*time.Millisecond)
+	m := readChanges(t, c, changesBeat+500*time.Millisecond)
+	if m.Rev != prev.Rev {
+		t.Fatalf("a quiet tape's beat moved the rev: %d after %d", m.Rev, prev.Rev)
+	}
 	if took := time.Since(start); took < changesBeat/2 {
-		t.Fatalf("a beat after %v, want about %v", took, changesBeat)
+		t.Fatalf("the second beat after %v, want about %v", took, changesBeat)
 	}
-	if beat.Rev != hello.Rev {
-		t.Fatalf("a quiet tape's beat moved the rev: %d after %d", beat.Rev, hello.Rev)
-	}
-	readChanges(t, c, changesBeat+500*time.Millisecond)
 }
 
 // With the tape off there is nothing to watch: a 404, as the rest of
