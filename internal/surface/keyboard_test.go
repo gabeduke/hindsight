@@ -17,6 +17,7 @@ type rig struct {
 	clock     time.Time
 	presents  chan struct{}
 	leds      []Item    // the lights batches has seen, for lamps
+	knobs     []Item    // the KNOBs batches has seen
 	play      *landings // Play mode's landings, as lit gives them
 }
 
@@ -28,6 +29,7 @@ func newRig(t *testing.T) *rig {
 		r.sent = append(r.sent, b)
 	}, func() bool { return r.connected })
 	r.k.Clock = func() time.Time { return r.clock }
+	r.k.Reassert = 0 // its own test turns it on
 	r.k.OnPresent(func() { r.presents <- struct{}{} })
 	return r
 }

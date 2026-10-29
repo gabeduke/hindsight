@@ -14,6 +14,7 @@ import (
 	"log"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/gabeduke/hindsight/internal/midi"
 	"github.com/gabeduke/hindsight/internal/mono"
@@ -96,6 +97,41 @@ func (a *API) StopKeyboard() {
 		}
 	}
 	out.Stop()
+}
+
+// keyboardFirmware says whether port is the SMK-37 and runs Hindsight's
+// firmware: it answered HELLO. Its PLAY is then a button to the Pi (note 16
+// on channel 16), and the realtime Start and Stop it sends are its own
+// sequencer's: a screen take made it send several Stops, which stopped the
+// tape (docs/architecture/keyboard.md, *Learnt on the unit*), so they are
+// not the transport's. The firmware's quiet clock sends none, but a unit on
+// an older build still does.
+func (a *API) keyboardFirmware(port string) bool {
+	return a.keyboard != nil && isKeyboard(port) && a.keyboard.Status().Present
+}
+
+// keyboardStatus is /api/status's keyboard: whether it answered HELLO, has
+// Hindsight's screen or was homed, its protocol and features, the last
+// ack's round trip and the last pad press's answer (surface.Status), in
+// milliseconds.
+type keyboardStatus struct {
+	Present   bool    `json:"present"`
+	Screen    bool    `json:"screen"`
+	Homed     bool    `json:"homed"`
+	Version   int     `json:"version"`
+	Features  int     `json:"features"`
+	RTTMS     float64 `json:"rtt_ms"`
+	ConfirmMS float64 `json:"confirm_ms"`
+}
+
+func (a *API) keyboardStatus() *keyboardStatus {
+	if a.keyboard == nil {
+		return nil
+	}
+	s := a.keyboard.Status()
+	ms := func(d time.Duration) float64 { return float64(d.Microseconds()) / 1000 }
+	return &keyboardStatus{Present: s.Present, Screen: s.Screen, Homed: s.Homed, Version: s.Version,
+		Features: int(s.Features), RTTMS: ms(s.RTT), ConfirmMS: ms(s.Confirm)}
 }
 
 // isKeyboard is a port the SMK-37's profile answers for.

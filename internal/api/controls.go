@@ -540,7 +540,11 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	if !ok {
 		return
 	}
+	if m.typ == "rt" && a.keyboardFirmware(port) {
+		return // its own sequencer's Start and Stop, not its PLAY: keyboard.go
+	}
 	a.keyboardButton(port, m) // SHIFT's light, whatever it's bound to
+	a.keyboardPad(port, m)    // a pad's echo answered, taken or refused
 	b := &a.controls
 	down := m.typ == "on" || m.typ == "rt" || (m.typ == "cc" && (m.value >= 64 || m.cc >= 120))
 	key := msgKey(m)

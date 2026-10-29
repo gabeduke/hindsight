@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/midi"
 	"github.com/gabeduke/hindsight/internal/surface"
 )
@@ -184,5 +185,35 @@ func TestHomeHeldHandsTheScreenBack(t *testing.T) {
 	}
 	if kb.Status().Homed {
 		t.Fatal("the offer left the HOME remembered")
+	}
+}
+
+// A screen take made the keyboard send several MIDI Stops, its own
+// sequencer's, which stopped the tape (docs/architecture/keyboard.md,
+// *Learnt on the unit*). On Hindsight's firmware its PLAY is a button to the
+// Pi, so its realtime Start and Stop move nothing; another controller's
+// still do.
+func TestTheKeyboardsOwnStartAndStopDontMoveTheTape(t *testing.T) {
+	a, _, _ := takenKeyboard(t)
+	v := &fakeVerbs{}
+	a.controls.verbs = v
+	a.ControlMIDI("SMK-37", 0xFC, 0, 0)
+	a.ControlMIDI("SMK-37", 0xFA, 0, 0)
+	a.ControlMIDI("SMK-37", 0x9F, 16, 127) // PLAY, on channel 16
+	a.ControlMIDI("SMK-37", 0x8F, 16, 0)
+	v.wait(t, "transport")
+	a.ControlMIDI("Keystation 49", 0xFC, 0, 0)
+	v.wait(t, "transport", "transport stop")
+}
+
+// /api/status says what the keyboard's client knows of it.
+func TestTheStatusSaysTheKeyboards(t *testing.T) {
+	a, _, _ := takenKeyboard(t)
+	ks := a.keyboardStatus()
+	if ks == nil || !ks.Present || !ks.Screen || ks.Homed || ks.Version != 1 || ks.RTTMS <= 0 {
+		t.Fatalf("keyboard status %+v, want present with the screen on version 1, and a round trip", ks)
+	}
+	if b := New(&config.Config{}, nil, nil, nil, nil); b.keyboardStatus() != nil {
+		t.Fatal("a status with no keyboard's client, want null")
 	}
 }

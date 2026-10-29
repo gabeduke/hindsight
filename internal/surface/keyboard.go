@@ -113,7 +113,30 @@ type Status struct {
 	RTT time.Duration
 	// Version is the protocol its HELLO ack named: 1 or 2.
 	Version int
+	// Features is what its firmware does beyond version 2's first build,
+	// the byte after <version> <items> in HELLO's ack (EchoPads,
+	// EchoKnobs, QuietClock); 0 from a firmware that says none.
+	Features byte
+	// Confirm is the last pad press's round trip to the Pi's answer: from
+	// its note reaching Pressed to the ack of the frame that set its light.
+	// The keyboard lit it at once (EchoPads); this is how long the Pi took
+	// to agree, and how long a light waits without the echo.
+	Confirm time.Duration
 }
+
+// The features a version 2 firmware's HELLO ack may name (HS_FEATURES in
+// app/hindsight.h).
+const (
+	// EchoPads: a pad pressed shows at its half at once, until the Pi sets
+	// it again or 300 ms pass, so the Pi sets a pad after each press.
+	EchoPads byte = 1 << iota
+	// EchoKnobs: KNOB may say where its value is drawn, and a turn writes
+	// the value there before the Pi can.
+	EchoKnobs
+	// QuietClock: none of the keyboard's own clock or transport reaches
+	// the Pi while it has the screen.
+	QuietClock
+)
 
 type message struct {
 	cmd     byte
@@ -148,6 +171,10 @@ type Keyboard struct {
 	// Heal is the least time between the CLEARs that draw the screen again
 	// whole after the keyboard refused part of it.
 	Heal time.Duration
+	// Reassert is how often, while the screen is Hindsight's, every light
+	// is sent again, as if the keyboard had none: a light that went wrong
+	// on the panel is never news to the acks, so only this puts it back.
+	Reassert time.Duration
 
 	mu        sync.Mutex
 	queue     []*message
@@ -199,6 +226,17 @@ type Keyboard struct {
 	fresh    bool
 	takes    int
 	wake     chan struct{}
+	// reasserted is when the lights were last all sent again (Reassert).
+	reasserted time.Time
+	// The encoders (Stands): knobs is where the State wants each to stand,
+	// stood each KNOB as its acks have said, by knob, and turned when the
+	// keyboard last said one was turned, while which the keyboard's value is
+	// the one that counts. pressed is when each pad was last pressed, for
+	// Confirm, zero once answered.
+	knobs   []Item
+	stood   map[int]Item
+	turned  [Knobs]time.Time
+	pressed [Pads]time.Time
 
 	stop chan struct{}
 	done chan struct{}
@@ -218,6 +256,7 @@ func New(send func([]byte), connected func() bool) *Keyboard {
 		Refresh:    40 * time.Millisecond,
 		MeterEvery: 100 * time.Millisecond,
 		Heal:       2 * time.Second,
+		Reassert:   2 * time.Second,
 		fresh:      true,
 		wake:       make(chan struct{}, 1),
 		stop:       make(chan struct{}),
@@ -500,6 +539,48 @@ func (k *Keyboard) ShiftHeld(held bool) {
 	k.padsDo(func(now time.Time) { k.shift = held })
 }
 
+// Pressed is pad i's note from the keyboard, taken or refused. A keyboard
+// that echoes pads (EchoPads) lit it already, so its light is sent again,
+// whatever it is now: that is the Pi's answer, which ends the echo.
+func (k *Keyboard) Pressed(i int) {
+	if i < 0 || i >= Pads {
+		return
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if !k.status.Screen || k.status.Features&EchoPads == 0 {
+		return
+	}
+	delete(k.lit, i)
+	k.pressed[i] = k.Now()
+	k.next()
+}
+
+// Turned is encoder i's value from the keyboard. A keyboard that echoes
+// knobs (EchoKnobs) wrote it into the cell its KNOB named, so the screen's
+// list is changed as the keyboard changed it, and the cell is drawn again
+// if the State wants it otherwise. For BannerFor after, the keyboard's value
+// is where the knob stands: no KNOB is sent for it, so a turn never jumps
+// back to a value the State had before it heard the turn.
+func (k *Keyboard) Turned(i, value int) {
+	if i < 0 || i >= Knobs {
+		return
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.turned[i] = k.Now()
+	st, ok := k.stood[i]
+	if !ok {
+		return
+	}
+	st.Value = value
+	k.stood[i] = st
+	if st.Echo && k.status.Features&EchoKnobs != 0 {
+		k.shown = echoKnob(k.shown, st, value)
+	}
+	k.next()
+}
+
 // Landings is where the Keyboard's loop asks, every Tick before the
 // screen, what Play mode says of the pads since it last asked, while a
 // version 2 keyboard's screen is Hindsight's: which pads the tape holds
@@ -553,6 +634,7 @@ func (k *Keyboard) padsLanded(held [Pads]bool, landed []Landing) {
 // from the tape when the screen is next taken. Called with mu held.
 func (k *Keyboard) lostScreen() {
 	k.lit, k.shift = nil, false
+	k.stood, k.pressed = nil, [Pads]time.Time{}
 	k.pads, k.fresh = PadLights{}, true
 	k.takes++
 }
@@ -589,7 +671,7 @@ func (k *Keyboard) pull() {
 // while it shows. Called with mu held.
 func (k *Keyboard) redraw() {
 	if k.state == nil {
-		k.want, k.lamps = nil, nil
+		k.want, k.lamps, k.knobs = nil, nil, nil
 		return
 	}
 	s := *k.state
@@ -599,6 +681,7 @@ func (k *Keyboard) redraw() {
 		s.Banner = &f
 	}
 	k.want = Layout(s)
+	k.knobs = Stands(s, k.status.Features&EchoKnobs != 0)
 	k.relight()
 }
 
@@ -627,11 +710,25 @@ func (k *Keyboard) queueScreen() {
 		// ask: a light sent before then would flicker to what they are.
 		cmds = append(cmds, relit(k.lit, k.lamps)...)
 	}
+	cmds = append(cmds, k.restand()...)
 	if len(cmds) == 0 {
 		return
 	}
 	payload, n := nextBatch(cmds)
 	k.queue = append(k.queue, &message{cmd: cmdBatch, payload: payload, version: 2, items: cmds[:n]})
+}
+
+// restand is the KNOBs to send: each knob whose stand differs from what the
+// keyboard has, but one turned in the last BannerFor. Called with mu held.
+func (k *Keyboard) restand() []Item {
+	var out []Item
+	for _, it := range k.knobs {
+		if have, ok := k.stood[it.X]; ok && have == it || k.Now().Sub(k.turned[it.X]) < BannerFor {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 // Release gives the screen back.
@@ -722,6 +819,10 @@ func (k *Keyboard) Tick() {
 	defer k.mu.Unlock()
 	k.unbanner()
 	k.heal()
+	if k.status.Screen && k.status.Version >= 2 && k.Reassert > 0 && k.Now().Sub(k.reasserted) >= k.Reassert {
+		k.reasserted = k.Now()
+		k.lit = nil // every light sent again with the next frame
+	}
 	k.relight() // a pad heard, or its flash over, since the last
 	switch {
 	case !connected:
@@ -778,14 +879,26 @@ func (k *Keyboard) dropDrawing() {
 	k.next()
 }
 
-// applied keeps cmd as done by the keyboard: a light in lit, an item in the
-// screen's list. Called with mu held.
-func (k *Keyboard) applied(cmd Item) {
-	if cmd.Kind == KindLED {
+// applied keeps cmd, sent at sent, as done by the keyboard: a light in lit,
+// a knob's stand in stood, an item in the screen's list. A pad's light sent
+// after its press answers it (Confirm). Called with mu held.
+func (k *Keyboard) applied(cmd Item, sent time.Time) {
+	switch cmd.Kind {
+	case KindLED:
 		if k.lit == nil {
 			k.lit = map[int]Item{}
 		}
 		k.lit[cmd.X] = cmd
+		if cmd.isPad() && !k.pressed[cmd.X].IsZero() && !sent.Before(k.pressed[cmd.X]) {
+			k.status.Confirm = k.Now().Sub(k.pressed[cmd.X])
+			k.pressed[cmd.X] = time.Time{}
+		}
+		return
+	case KindKnob:
+		if k.stood == nil {
+			k.stood = map[int]Item{}
+		}
+		k.stood[cmd.X] = cmd
 		return
 	}
 	k.shown = apply(k.shown, cmd)
@@ -851,15 +964,21 @@ func (k *Keyboard) Feed(msg []byte) {
 		k.status.Version = 1
 		if len(msg) >= 11 && msg[8] >= 2 {
 			k.status.Version = 2
+			if len(msg) >= 12 {
+				k.status.Features = msg[10]
+			}
 		}
 		present = k.onPresent
 	case done.cmd == cmdClear && status == statusOK:
+		if !k.status.Screen {
+			k.reasserted = k.Now()
+		}
 		k.status.Screen = true
 		k.status.Homed = false
 		k.shown, k.refused = nil, false // the list is empty
 	case done.cmd == cmdBatch && status == statusOK:
 		for _, it := range done.items {
-			k.applied(it)
+			k.applied(it, done.sent)
 		}
 	case done.cmd == cmdBatch && status != statusReleased:
 		// Stopped short: what came before it is done. A screen the keyboard
@@ -870,7 +989,7 @@ func (k *Keyboard) Feed(msg []byte) {
 			n = int(msg[8]) | int(msg[9])<<7
 		}
 		for _, it := range done.items[:min(n, len(done.items))] {
-			k.applied(it)
+			k.applied(it, done.sent)
 		}
 		log.Printf("[!] SMK-37: the keyboard refused a screen's command %d (status %d): %v", n, status, done.items[min(n, len(done.items)-1)])
 		k.refused = true // until heal draws it again whole

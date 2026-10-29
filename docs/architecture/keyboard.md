@@ -22,9 +22,14 @@
   - Encoders 1–4 send CC 21–24, the tape mods' defaults.
   - The faders, encoders 5–7 and the other buttons are free for MIDI
     LEARN.
-  - The encoders send absolute values. `Keyboard.Knob` can say where each
-    stands, but nothing calls it yet, so a turn starts from where the
-    knob last was.
+  - The encoders send absolute values, from where the Pi says each stands
+    (KNOB, *The SMK-37's screen*, below), so a turn never jumps.
+  - **The keyboard's own Start and Stop move nothing.** On Hindsight's
+    firmware PLAY is a button to the Pi, so realtime Start, Continue and
+    Stop from a keyboard that answered HELLO are dropped
+    (`API.keyboardFirmware`, in `ControlMIDI`); another controller's still
+    run the transport. A screen take used to make the keyboard send
+    several Stops, which stopped the tape (*Learnt on the unit*).
 - **HOME on the keyboard** gives both back, and the keyboard says RELEASE.
   Hindsight leaves them with the keyboard (`Status.Homed`), even when it
   answers HELLO again.
@@ -44,7 +49,11 @@
     again.
   - A TEXT waiting for the place a newer TEXT draws to is replaced, unless
     a CLEAR waits between them.
-- **Each ack's round trip** is kept (`Status.RTT`), for step 1's latency.
+- **Each ack's round trip** is kept (`Status.RTT`), for step 1's latency,
+  and so is a pad press's answer (`Status.Confirm`, below). Both are on
+  `/api/status` as `keyboard` (`present`, `screen`, `homed`, `version`,
+  `features`, `rtt_ms`, `confirm_ms`; null with no client), which the rig
+  and the K flows read.
 - **Every press on the keyboard answers on its screen** (`Keyboard.Banner`;
   `internal/api/banner.go`): its words over the top line for
   `surface.BannerFor` (a second), then the line that was there.
@@ -75,7 +84,9 @@
 `items.go`, `layout.go`, `diff.go`; `internal/api/keyboard_screen.go`):
 
 - **The version** is HELLO's ack's: `<version> <items>` after the status,
-  `02 60` on version 2. HELLO goes as version 1, which every version
+  `02 60` on version 2, and then the firmware's features (`Status.Features`,
+  `07` from the fork's PR #10 on: `EchoPads`, `EchoKnobs`, `QuietClock`;
+  none from an older build). HELLO goes as version 1, which every version
   reads; once the keyboard says 2, every frame is version 2's (TEXT with
   its back), and `Feed` takes acks of either version, the keyboard's own
   RELEASE and OFFER always saying 1. On version 1 nothing below happens:
@@ -116,6 +127,18 @@
   it, so one refusal doesn't freeze the screen and a screen the keyboard
   can't take isn't sent over and over. A BATCH whose ack is lost is sent
   again as it was, as every message is: each command can be repeated.
+- **Where the knobs stand** (`surface.Stands`, layout.go): a KNOB for
+  each encoder whose cell has an amount, sent in the screen's BATCH frames
+  after the lights when it differs from what the keyboard acked
+  (`Keyboard.stood`), and again with every screen taken. On a keyboard
+  with `EchoKnobs`, a knob whose value shows as its number also says where
+  it is drawn (its value's TEXT and its BAR, `knobCell`), so a turn writes
+  the value there on the keyboard at once. `Keyboard.Turned` (from
+  `keyboardTurned`, every encoder CC from the keyboard) then changes the
+  Pi's copy of the list as the keyboard changed it (`echoKnob`), so the
+  plan draws the cell again if the State says otherwise; and for
+  `BannerFor` after a turn no KNOB goes for that knob, so the knob doesn't
+  jump back to a value the State had before it heard the turn.
 - **The banner** is the layout's on version 2: a box over the top line in
   the press's colour, its words black on it (white on red), for
   `BannerFor`; `Keyboard.Banner` puts it in the state and the 20 ms tick
@@ -206,6 +229,16 @@ sent.
   flight it goes with that frame's ack, which works the stages out again
   at that moment (`queueScreen`): late by at most the rest of one round
   trip.
+- **A press answered.** A keyboard with `EchoPads` lights a pad at its
+  half the moment it is pressed. `Keyboard.Pressed` (from `keyboardPad`,
+  every pad note from the keyboard, taken or refused) forgets that pad's
+  light in `lit`, so the next frame sets it, whatever it is: that ends the
+  echo on the keyboard, and the time from the press to that frame's ack is
+  `Status.Confirm`.
+- **Sent again every `Reassert`** (2 s) while the screen is Hindsight's:
+  `lit` is emptied, so every light goes with the next frame. A light that
+  went wrong on the panel is never news to the acks; the firmware also
+  sends its pads' chain again every 500 ms (PR #10).
 - **Sent as they change**, in the screen's BATCH sender: the lights that
   differ from what the keyboard has (`lit`, kept from the acks, by
   target) go after the screen's changes. A CLEAR keeps the lights, as the
@@ -215,6 +248,18 @@ sent.
   reading the trick log from then on (what landed while the screen was
   the keyboard's is not replayed), lights a pad the tape still holds
   full, and only then sends every light.
+- **The link, modelled** (`internal/surface/link_test.go`): a Go model of
+  the firmware (the list by kind and place, at most 96, BATCH's stops, the
+  lights, KNOB and its echo) on a link that loses any frame of 700 bytes
+  or more, as the unit did from the Pi, and drops 5% of acks. The real
+  `Keyboard` drives it for 30 s of a screen changing at random, with
+  turns on the panel; then, the link quiet, the model's screen must be the
+  last State's Layout (the same items, and the ones that overlap in its
+  order), its lights `Lamps` and its knobs `Stands`. With `MaxFrame` at
+  1,024, as before #202, it fails as the rig did: frames lost, the
+  keyboard forgotten, its screen never drawn. Where in the path the
+  frames go is still the rig's to find (the checklist in
+  `the-instrument.md`, step 7).
 - **Checked in the fork's simulator**: `go test ./internal/surface -run
   TestWriteLightsScript -lights=<file>` writes the frames for rest, a
   press, its landing and release, GRAB's flash, recording with SHIFT
@@ -229,6 +274,9 @@ As of 2026-10-29. The firmware is `gabeduke/smk37-hindsight`, whose
 rules for writing to the unit are decision 0053
 (`docs/decisions/0053-smk37-flashing-rules.md`).
 
+- **Built, not flashed:** the fork's PR #10 (local echo, the quiet clock,
+  the pads' chain sent again), 452,964 bytes, 957 free (the change cost
+  736), built by its CI on Windows and under Wine to the same bytes.
 - **The keyboard** runs the fork's `main` at 97159f3a: protocol version 2
   (BOX, BAR, TEXT's background, LED, BATCH, 16 colours, 96 items) and
   partial repaint. Flashed from the Pi on 2026-10-29 with M-Flasher built
@@ -250,12 +298,22 @@ None of it showed in the simulator:
 - A lost frame looks like a dead keyboard: after three tries the Pi
   forgets it and takes the screen again, blank, every few seconds. While
   the Pi is away, the keyboard's PLAY runs its own sequencer.
-- Taking the screen makes the keyboard send several MIDI Stops (its own
-  sequencer), and Hindsight's transport obeys realtime start/stop from
-  a controller: a re-take mid-play stops the tape.
-- The pads drop the Pi's colours at times: the stock firmware still
-  paints pads itself (on a press, and `fm1_led_set` in `screen.c`), and
-  the Pi, sending only changes, never puts them back.
+- Taking the screen makes the keyboard send several MIDI Stops, and
+  Hindsight's transport obeyed realtime start/stop from a controller: a
+  re-take mid-play stopped the tape. The source, in the fork's sources:
+  Open's clock is on by default (CLOCK_OUT), and `midi_router.c`'s
+  `recover()`, run on any send a busy port refuses (a take fills the
+  link), queues a Stop for every port with it. Fixed both ways: the Pi
+  drops a firmware keyboard's realtime transport, and PR #10's quiet
+  clock sends the Pi's port none while the Pi has the screen.
+- The pads drop the Pi's colours at times. The Pi's colours already win
+  in the firmware (`panel.c` asks `hindsight_pad` before Open's own for
+  every pad the Pi set), but the pads' chain shares SPI1 with the LCD,
+  and a pad is sent only when its colour changes, so a chain sent wrong
+  stays wrong; nor does the Pi, sending only changes, put it back. Fixed
+  both ways too: the firmware sends the chain again every 500 ms while
+  the Pi has the pads, and the Pi every light every 2 s. Whether it was
+  the chain is for the rig to confirm.
 
 What these lead to is the list under *Next* in `docs/plan/the-instrument.md`,
 step 7.
