@@ -287,18 +287,78 @@ My recommendation first in each.
        moves to the phone, if it is built. Unplugged from the Pi, the
        keyboard plays its voices and nothing more: no step sequencer and
        no projects on the unit.
-   - *What the Pi does with them*, in Gabe's order:
-     - transport: play, stop, record, scrub on an encoder, loop in and
-       out, back to the start, tap tempo. And a button only Hindsight
-       has: keep the last N seconds or bars of the ring as a take;
-     - FX: DRIVE, AGE, FILTER, CRUSH and ECHO on five encoders, with
-       their values on the screen. Pads play effects only while held,
-       and never go in undo;
-     - mixing: the four faders set track or input levels (the mixer
-       Gabe wants in the Rig), banked to 5–8. SHIFT and a pad mutes,
-       solos or arms, as Open does;
-     - clip arranging: the 16 pads are the tape's clips, to pick, cue,
-       launch and move. They are Play mode's pads too.
+   - *What the Pi does with them*, as Gabe answered a quiz on how he
+     plays (2026-10-28). He plays with his hands on the keyboard and an
+     eye on the tablet, into the keyboard's synth, other gear through the
+     interface, and the tape itself, in short noodles and hour-long
+     builds alike. When something good went by, he keeps playing and
+     sorts it out later on the tablet: the ring has it.
+     - transport: PLAY plays and stops. REC records onto the tape: with
+       the tape playing it punches in on the armed track and, pressed
+       again, out; from a stop it starts the tape and records. KEEP is
+       not on the keyboard any more, only on the tablet. Loop in and
+       out, back to the start and tap tempo stay on the tablet too;
+     - scrub: the master knob, while the Pi has the screen, with the
+       counter on the screen. SHIFT and the master knob set the synth's
+       volume, which the master knob alone sets on the keyboard's own
+       screen;
+     - the pads and the encoders have two pages. The FX page is theirs
+       normally: Play mode's effects on the pads, played only while held
+       and never in undo, and the tape's FX on the encoders (DRIVE, AGE,
+       FILTER, CRUSH, ECHO, wow and flutter), their values on the screen.
+       The Mixer page is theirs while SHIFT is held. Its pads, for the
+       tape's four tracks, track *n* in column *n* on both rows:
+
+       | Pads | 1–4 | 5–8 |
+       |---|---|---|
+       | top row | mute | select |
+       | bottom row (9–16) | solo | arm |
+
+       Each pad is lit in its track's colour, so a pad's track can be
+       seen at a glance;
+     - mixing: the four faders are the levels of tracks 1–4, always, with
+       no bank. FADER BANK stays the keyboard's;
+     - HOME is for picking one of the synth's voices;
+     - clip arranging is not on the keyboard for now (the earlier plan
+       had the pads as the tape's clips).
+
+     The keyboard's screen, while the Pi has it, shows the counter and
+     the transport (playing, recording, the armed track), what the knobs
+     are and their values, which pad page is up and what its pads do,
+     and the levels.
+
+     The tablet follows the keyboard: the armed track, the mutes and
+     the pad page show there as the keyboard changes them, with a strip
+     of what the 16 pads do now. It follows on its poll (200 ms) and
+     the Wi-Fi hop, so it lags the keyboard; the sound never waits on
+     it, since the keyboard's controls act on the Pi. Gabe has a Pi touch
+     display, which would take the Wi-Fi hop out: parked, to weigh with
+     a push from the Pi in place of the poll.
+   - *The map.* What each control does, on each page, is written once,
+     per device, beside its profile: the control, what it sends, what it
+     does on each page, the track colour of a Mixer pad, and the K flow
+     that checks it. Three things read it, so none of them can drift
+     from the bindings:
+     - a section of the guide (`docs/guide.md`), with the panel drawn;
+     - a help page on the keyboard's own screen;
+     - the overlay: labels over the virtual keyboard's panel, and the
+       pad strip on the tablet. It can be hidden once the map is learned
+       (Gabe: *"we should be able to hide the map/overlay as well once we
+       have learned it"*).
+
+     The SMK-37 is the first device with a map, not the only one: *"the
+     midi functions should be mapable to other types of midi devices as
+     well so the overlay could be an object that is swapped out for
+     other supported devices"*. So the overlay is an object the
+     connected controller's profile picks, and another controller with a
+     map gets its own. The map is an interface (who writes it, who reads
+     it), so it gets a short spec of its own before it is built.
+   - *The pads' timing* is open. The lag Gabe feels most is the pads',
+     and they are quantised to a 16th by default (`controls.json`'s
+     quantum): 0–114 ms at 132 BPM. PLAY and REC are not quantised. He
+     chose to A/B a 16th against `now` by ear at the rig, then decide.
+   - *Still open:* what the encoders do on the Mixer page; and whether
+     pads 15 and 16 on the FX page stay CATCH and GRAB.
    - *Where the room comes from.* The image's symbol table says what
      Open's app spends (about 80 of its 83 KB placed):
 
@@ -491,22 +551,24 @@ My recommendation first in each.
        like a dependency; the fork's CI gains the `web` build as an
        artifact for it.
 
-     The stories, to agree with Gabe. K1 to K5 are built off the unit and
-     wait only for the link. The rest are in his order, and `todo` until
-     built:
+     The stories, agreed with Gabe on 2026-10-28 from his answers above.
+     K2, K4 and K5 run on what is built and wait only for the link; the
+     rest are `todo` until their feature lands. Each row of the map
+     names the story that checks it:
 
      | Id | As Gabe I want to… | Status |
      |---|---|---|
-     | K1 | plug the keyboard in and see Hindsight take its screen: HINDSIGHT, and what the pads, PLAY and REC do | core, once the link lands |
-     | K2 | press PLAY on the keyboard to play and stop the tape, and see it on the tablet | core, once the link lands |
-     | K3 | press REC on the keyboard to keep the last of the jam as a take, and find it on the shelf | core, once the link lands |
-     | K4 | press HOME for the keyboard's own screen and synth, then hold HOME a second and let go to hand it back | core, once the link lands |
-     | K5 | with Play mode on, hold pads for its effects (pads 1–4 the tracks, 5–14 BREAK to CRUSH), with nothing in undo; pad 15 CATCHes, pad 16 GRABs; K1–K4 turn wow, flutter, drive and age (the SMK-37 profile) | core, once the link lands |
-     | K6 | scrub the tape on an encoder, with the counter on the keyboard's screen; loop in and out, back to the start, tap tempo | todo |
-     | K7 | turn DRIVE, AGE, FILTER, CRUSH and ECHO on five encoders, with their values on the screen | todo |
-     | K8 | set track levels on the faders, banked to 5–8; SHIFT and a pad to mute, solo or arm | todo |
-     | K9 | pick, cue, launch and move the tape's clips on the 16 pads, lit by the Pi | todo |
-     | K10 | play the keyboard's synth over the tape and record it as an input | rig |
+     | K1 | plug the keyboard in and see Hindsight take its screen: the counter, the transport, the knobs, the pad page and its map, and the levels | core for taking the screen, once the link lands; the widgets `todo` |
+     | K2 | press PLAY on the keyboard to play and stop the tape, and see the tablet follow | core, once the link lands |
+     | K3 | press REC to punch in on the armed track and again to punch out (from a stop, REC starts the tape), then find what I played on the tape | todo: REC KEEPs today |
+     | K4 | press HOME to pick one of the synth's voices, then hold HOME a second and let go to hand the screen back | core, once the link lands |
+     | K5 | on the FX page, hold pads for Play mode's effects, with nothing in undo, and turn the tape's FX on the encoders, with their values on the screen | core for the pads and the four mod knobs (the SMK-37 profile's today), once the link lands; the rest `todo` |
+     | K6 | hold SHIFT for the Mixer page: mute, select, solo and arm tracks 1–4 on the pads, each in its track's colour, and see the tablet follow | todo |
+     | K7 | scrub the tape on the master knob, with the counter on the keyboard's screen; SHIFT and the master knob for the synth's volume | todo |
+     | K8 | set the levels of tracks 1–4 on the faders | todo |
+     | K9 | play the keyboard's synth over the tape and record it as an input | rig |
+     | K10 | read what every control does, on the keyboard's help page and in the guide, and hide the overlay once I know it | todo |
+     | P1 | A/B the pads' quantum by ear, a 16th against `now`, and pick their timing | rig |
      | R2 | install ours over SMK-37+VA, back up, then m-bootloader (steps 3 to 5) | rig |
 
    - *Build order*, each step its own PR:
@@ -514,10 +576,11 @@ My recommendation first in each.
      2. Hindsight's virtual port and the keyboard on `/api/status`, with
         tests;
      3. the page's link;
-     4. the harness's `t.keyboard`, and K1 to K5, which go in
-        `docs/flows.md` then;
-     5. K6 onwards as `todo` flows. Each turns core as its feature lands:
-        on the virtual keyboard first, then at the keyboard.
+     4. the harness's `t.keyboard`, and K1 to K10 in `docs/flows.md`:
+        core where the table says so, `todo` for the rest;
+     5. each `todo` turns core as its feature lands: on the virtual
+        keyboard first, then at the keyboard. The map's spec comes before
+        K6, since the Mixer page is the first thing it describes.
 
    Decided: *m-bootloader's write into 0xFF000* is accepted (Gabe,
    2026-10-26, "use the recommended patterns regarding writes"). It fills
