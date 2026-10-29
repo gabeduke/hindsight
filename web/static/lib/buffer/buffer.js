@@ -391,11 +391,13 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
         st.lastDrop = { tape: tape.id, clip: r.clip && r.clip.id, created: b.created, seen: false };
         audition.stop();
         takeClip();
-        // The lanes unfold first; then the new block glows once, where it
-        // is -- on a phone, where its lane is brought into sight.
+        // The lanes unfold first; then the window flies from where the
+        // drawer was down to the new block, which glows once, where it is --
+        // on a phone, where its lane is brought into sight.
+        const from = el.win.getBoundingClientRect();
         requestAnimationFrame(() => requestAnimationFrame(() => {
           if (sheetMode()) doc.querySelectorAll('#lanes > .tape-track')[track - 1]?.scrollIntoView({ block: 'center' }); // clear of the docked bar
-          overlay.glow(boxesFor(doc, { track, count, at, frames, view: st.detail?.view }));
+          overlay.fly(from.width ? from : null, boxesFor(doc, { track, count, at, frames, view: st.detail?.view }), { reduced: reducedMotion() });
         }));
         const what = count > 1 ? `tracks ${track}–${track + count - 1}` : `track ${track}`;
         toast(`Dropped on ${what} · ${where}`, 'ok', { action: { label: 'Undo', run: undoDrop } });
@@ -821,6 +823,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   const sheetQuery = typeof matchMedia === 'function'
     ? matchMedia('(orientation: landscape) and (max-height: 440px), (max-width: 699.98px)') : null;
   const sheetMode = () => !!sheetQuery?.matches;
+  const reducedQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const reducedMotion = () => !!reducedQuery?.matches;
   function wireSheet() {
     const grip = el.sheetGrip;
     let drag = null, dragged = false;
@@ -973,8 +977,10 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
       else if (t.seen) backInHand();
     }
     // A GRAB made away from the Studio -- a take's, a note's, the bar's --
-    // opens its clip here, once, and says what it took the place of.
-    if (!st.noted && tape) {
+    // opens its clip here, once, and says what it took the place of: once
+    // the Studio is shown, as a view mounted out of sight closes its drawers
+    // when it goes quiet (lib/shell/view.js).
+    if (!st.noted && tape && (!ctx || ctx.active())) {
       st.noted = true;
       const n = recallNote(storage);
       if (n && clipOn(tape, n.by)) {

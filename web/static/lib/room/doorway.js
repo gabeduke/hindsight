@@ -126,7 +126,6 @@ export function mount(h) {
   // a take, and the sheet it opened is gone: a take is named on Open.
   const named = askedTake({ search: location.search });
   if (named) { location.replace(named); return { render() {} }; }
-  forgetNote(); // a take's GRAB left a note for the Studio: this page is not it
   // The room's class on <body> is mount.js's BODY, which the page puts on
   // while the room is shown: the room may be mounted out of sight while the
   // Studio is shown (lib/shell/router.js prewarm), and must not mark it.
@@ -688,7 +687,10 @@ export function mount(h) {
     render,
     renderPlaces,
     openSketchbook,
-    shown: followPref,
+    // Shown, not mounted: a take's GRAB left a note for the Studio, and this
+    // room is not it. Mounted out of sight (prewarm) while the Studio opens,
+    // it must leave the note for the Studio to read.
+    shown: () => { forgetNote(); followPref(); },
     hide() {
       flights.cancel();
       $('room-sketchbook')?.close?.();

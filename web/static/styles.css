@@ -3951,6 +3951,8 @@ body.buffer-fold .tape-lanes { gap: 3px; }
 .buffer-ghost, .buffer-glow { position: absolute; box-sizing: border-box; border-radius: 4px; }
 .buffer-ghost { border: 2px dashed var(--stripe-1); background: rgba(224, 102, 42, .16); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .buffer-ghost > span { font: 700 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stripe-1); white-space: nowrap; text-shadow: 0 1px 0 rgba(0, 0, 0, .5); }
+/* A DROP's flight from the drawer to the block it became (lanes.js fly). */
+.buffer-flight { position: absolute; box-sizing: border-box; border-radius: 4px; border: 2px solid var(--stripe-1); background: linear-gradient(180deg, var(--oxide), var(--oxide-lo)); transform-origin: 0 0; }
 .buffer-glow { box-shadow: 0 0 0 2px rgba(127, 230, 220, .95), 0 0 18px 4px rgba(127, 230, 220, .7); background: rgba(127, 230, 220, .18); animation: buffer-glow 1.4s ease-out forwards; }
 @keyframes buffer-glow { from { opacity: 1; } to { opacity: 0; } }
 .buffer-chip {
