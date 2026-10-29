@@ -52,6 +52,7 @@ func (a *API) SetKeyboard(kb *surface.Keyboard) {
 	a.keyboard = kb
 	kb.OnPresent(a.keyboardPresent)
 	kb.Follow(a.keyboardState)
+	kb.Landings(a.keyboardLandings)
 }
 
 // keyboardPort is the SMK-37 open as a controller: the first, as Hindsight
