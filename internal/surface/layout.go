@@ -11,6 +11,7 @@ package surface
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -289,15 +290,15 @@ func Layout(s State) []Item {
 	// The knobs, in the panel's two rows.
 	add(BoxItem(0, 172, 240, 1, Panel))
 	for k, kn := range s.Knobs {
-		x, y := (k%4)*60, 176+(k/4)*32
+		x, y := knobCell(k)
 		name, value, bar := Dim, Text, Dim
 		if s.LitKnob == k {
 			name, value, bar = White, kn.Lit, kn.Lit
 		}
-		add(TextItem(x+4, y, 1, name, Black, cut(kn.Name, 9)))
-		add(TextItem(x+4, y+10, 2, value, Black, cut(kn.Value, 4)))
+		add(TextItem(x, y, 1, name, Black, cut(kn.Name, 9)))
+		add(TextItem(x, y+knobValueY, 2, value, Black, cut(kn.Value, 4)))
 		if kn.Amount >= 0 {
-			add(BarItem(x+4, y+26, 52, 2, kn.Amount, bar, Panel))
+			add(BarItem(x, y+knobBarY, 52, 2, kn.Amount, bar, Panel))
 		}
 	}
 
@@ -309,6 +310,50 @@ func Layout(s State) []Item {
 		}
 		add(BoxItem(0, 0, 240, 28, b.Colour))
 		add(TextItem(TopX, nameY, BannerScale, fg, b.Colour, b.Words))
+	}
+	return out
+}
+
+// knobCell is where knob k's cell starts, its name's place: the panel's two
+// rows of four. Its value is knobValueY under it, its bar knobBarY.
+func knobCell(k int) (x, y int) { return (k%4)*60 + 4, 176 + (k/4)*32 }
+
+const (
+	knobValueY = 10
+	knobBarY   = 26
+)
+
+// Stands is where each encoder the State gives an amount should stand: a
+// KNOB for each, K1 to PRESET (the master knob is the keyboard's). With
+// echo (the keyboard's EchoKnobs), a knob whose value shows as its number
+// also says where, so a turn draws it there before the Pi can.
+func Stands(s State, echo bool) []Item {
+	var out []Item
+	for k, kn := range s.Knobs[:Knobs] {
+		if kn.Amount < 0 {
+			continue
+		}
+		it := Item{Kind: KindKnob, X: k, Value: min(127, kn.Amount)}
+		if x, y := knobCell(k); echo && kn.Value == strconv.Itoa(kn.Amount) {
+			it.Echo, it.At = true, [4]int{x, y + knobValueY, x, y + knobBarY}
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+// echoKnob is the screen's list as a keyboard that echoes knobs leaves it
+// when knob st is turned to value: its number in the TEXT at st's place, in
+// that TEXT's own style, and the value in the BAR at its bar's.
+func echoKnob(list []Item, st Item, value int) []Item {
+	out := slices.Clone(list)
+	for i, it := range out {
+		switch {
+		case it.Kind == KindText && it.X == st.At[0] && it.Y == st.At[1]:
+			out[i] = TextItem(it.X, it.Y, it.Scale, it.Colour, it.Back, strconv.Itoa(value))
+		case it.Kind == KindBar && it.X == st.At[2] && it.Y == st.At[3]:
+			out[i].Value = min(127, max(0, value))
+		}
 	}
 	return out
 }

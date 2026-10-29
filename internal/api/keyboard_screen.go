@@ -88,6 +88,22 @@ func (a *API) keyboardButton(port string, m midiMsg) {
 	a.keyboard.ShiftHeld(m.typ == "on")
 }
 
+// The pads on Hindsight's firmware: notes 36-51 on channel 10, in order.
+const (
+	padNote    = 36
+	padChannel = 10
+)
+
+// keyboardPad tells the keyboard a pad's note came, whatever it does:
+// a keyboard that echoes pads lit it already, and the Pi's answer, its
+// light now, ends the echo (surface.Keyboard.Pressed).
+func (a *API) keyboardPad(port string, m midiMsg) {
+	if a.keyboard == nil || m.typ != "on" || m.ch != padChannel || m.note < padNote || m.note >= padNote+surface.Pads || !isKeyboard(port) {
+		return
+	}
+	a.keyboard.Pressed(m.note - padNote)
+}
+
 // keyboardFinger is a pad pressed (down) or let go on the keyboard: its
 // light is half from the press until what it does is heard.
 func (a *API) keyboardFinger(port, id string, down bool) {
@@ -165,6 +181,7 @@ func (a *API) keyboardTurned(port string, m midiMsg) {
 	ks.mu.Lock()
 	ks.turn = &keyboardTurn{knob: m.cc - encoderCC, value: m.value, at: a.keyboard.Now()}
 	ks.mu.Unlock()
+	a.keyboard.Turned(m.cc-encoderCC, m.value) // echoed there already, maybe
 }
 
 // keyboardState is the screen now (Keyboard.Follow's source).

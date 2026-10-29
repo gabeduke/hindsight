@@ -202,7 +202,15 @@ export function apiFor(base, { dir = null } = {}) {
     // and its first bytes would no longer be drained, with press(bytes),
     // which writes MIDI as the keyboard sends it, and unplug(). Only on a
     // demo this run booted.
-    keyboard: async () => {
+    //
+    // With firmware, it stands in for Hindsight's firmware as far as the
+    // Pi's client can tell: every 100 ms it acks each seq (1-127) as OK,
+    // so whatever is in flight is acked, HELLO's as version 2 with every
+    // feature (02 60 07), and it answers home() and offer(), the keyboard's
+    // own RELEASE and OFFER. It cannot read what the Pi sent (the watcher
+    // reads this FIFO), so nothing is drawn or checked: the screen and the
+    // lights are internal/surface's tests' and the virtual keyboard's.
+    keyboard: async ({ firmware = false } = {}) => {
       if (!dir) throw new Error('the keyboard is a FIFO in the demo’s files: run the flow on its own demo, without HINDSIGHT_URL');
       const node = join(dir, 'snd', KEYBOARD_NODE);
       rmSync(node, { force: true });
@@ -223,16 +231,33 @@ export function apiFor(base, { dir = null } = {}) {
       // an OFFER. Nothing answers the HELLO, so Hindsight never takes a
       // screen here, and the presses are plain MIDI.
       await sleep(300); // past the watcher's drain window
+      const write = (bytes) => { writeSync(fd, Buffer.from(bytes)); };
+      // One ack a write, each well under PIPE_BUF, so the Pi's own frames
+      // written to this FIFO can't land inside one. An ack the full FIFO
+      // won't take is dropped, as the next burst acks again; a press never
+      // is: write throws.
+      const acks = firmware && setInterval(() => {
+        for (let seq = 1; seq < 128; seq++) {
+          try { write([0xf0, 0x7d, 0x48, 0x53, 0x01, seq, 0x7f, 0x00, 0x02, 0x60, 0x07, 0xf7]); } catch (e) { if (e.code !== 'EAGAIN') throw e; }
+        }
+      }, 100);
       return {
-        press: (bytes) => { writeSync(fd, Buffer.from(bytes)); },
-        unplug: () => { rmSync(node, { force: true }); closeSync(fd); },
+        press: write,
+        home: () => write([0xf0, 0x7d, 0x48, 0x53, 0x01, 0x00, 0x03, 0xf7]),
+        offer: () => write([0xf0, 0x7d, 0x48, 0x53, 0x01, 0x00, 0x05, 0xf7]),
+        status: async () => (await call('GET', '/api/status')).keyboard,
+        unplug: () => { if (acks) clearInterval(acks); rmSync(node, { force: true }); closeSync(fd); },
       };
     },
-    // tapeState is the loaded tape as the Pi has it.
-    tapeState: async () => {
+    // tapeState is the loaded tape as the Pi has it; tapeStateFull the
+    // whole answer (its undo and redo depths with it), tapeStateLive what
+    // the transport is doing (playing, the pads held as tricks).
+    tapeStateFull: async () => {
       const { loaded } = await call('GET', '/api/tapes');
-      return (await call('GET', `/api/tapes/state?id=${encodeURIComponent(loaded)}`)).tape;
+      return call('GET', `/api/tapes/state?id=${encodeURIComponent(loaded)}`);
     },
+    tapeState: async () => (await api.tapeStateFull()).tape,
+    tapeStateLive: async () => (await api.tapeStateFull()).live,
     until: async (fn, what, timeout = 20_000) => {
       const end = Date.now() + timeout;
       for (;;) {
