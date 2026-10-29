@@ -1982,7 +1982,7 @@ async function main() {
       redraw();
     },
     patch: (body) => patch(body),
-    onRedraw: (fn) => openHooks.add(fn),
+    onRedraw: (fn) => { openHooks.add(fn); return () => openHooks.delete(fn); },
   })?.catch((e) => console.error('Open could not start:', e));
   // Leaving, the take and where the playhead is go to the next page's bar
   // (lib/bar/carry.js), so Room -> Open -> back carries what was done here.
