@@ -66,6 +66,18 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J4.4 | on a phone, the bar is a mini player above the tabs, with \|◀ beside ▶ ("I looked for \|◀ and didn't find it"), back to the loop's start or the take's, and Catch with its ▾ beside it, the window keeping its bar number; a tap pulls the player up, where Catch's ▾ opens its menu under the pair and Back closes that first, then Back puts the player away and stays in the Studio (Android's Back is a close request, which the flow sends as Escape; in a browser without CloseWatcher, the history's Back); a tapped clip's bar floats above the player; Insert asks before it moves the tape; the ruler's keys are one key, ⌗, the View menu, which sets the snap and holds Lock the loop, Fold the tracks and Ask before Insert and Delete time, ticked ("smooshed into the phone UI"); in the Listening Room a take keeps the same mini player, its window and ▶ where the tape's were, with Open › and ✎ in Catch's place; the header is one row, the tape's name a finger tall (its menu: no ⋯), ↶ and ☰, and the rooms are tabs along the bottom, the Listening Room's with its spines, not ☰'s lines | `j4.4-phone-bar` | core (phone) |
 | J5.1 | open Settings, Releases, help mode, the guide and the rig from the one menu (☰) in either room and on a take's page, on a tablet, a computer or a phone; it hangs under ☰, all of it on the screen; Escape (or the tablet's Back) shuts ☰ and leaves me in the room, and switching rooms shuts it too, never leaving it open over the other room; from a keyboard, ↓ on ☰ opens it on Settings, ↓ moves along it (in the Studio, without arming another track), and Tab shuts it. Every page has one frame: what I'm working on at the left (the tape's name, the search, the feed, ‹ and the take's name), Studio \| Listening Room in the middle, at the same place on the Studio, the Listening Room, Capture and Open (it was top left in the rooms and top centre on Open, so a tap there landed on the brand), and ☰ last at the right; each tab its own picture, never ☰'s; the brand only from 1280 px; on a phone, one row, with the rooms as tabs along the bottom | `j5.1-sheets` | core |
 | C1 | **jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
+| K1 | plug the keyboard in and see Hindsight take its screen (the-instrument.md, step 7, *The flows*): on Hindsight's firmware (the harness's stand-in) it answers HELLO and the Pi takes its screen, version 2 with local echo and the quiet clock, as `/api/status` says; what the screen shows (the counter, the transport, the knobs, the pad page and its map, the levels) waits for the virtual keyboard, which sees what was drawn | `k1-take-screen` | core for taking the screen (tablet); the widgets todo |
+| K2 | press PLAY on the keyboard to play and stop the tape, and see the tablet's ▶ follow; the MIDI Stop and Start the keyboard sends of its own (a screen take sent several, which stopped the tape on the rig, 2026-10-29) move nothing | `k2-play` | core |
+| K3 | press REC to punch in on the armed track and again to punch out (from a stop, REC starts the tape), then find what I played on the tape | `k3-rec-punch` | todo: REC KEEPs today |
+| K4 | press HOME to give the keyboard its own screen (to pick one of the synth's voices there), then hold HOME a second and let go to hand it back: the Pi stays off it between, even as the keyboard answers again | `k4-home` | core (tablet) |
+| K5 | on the FX page, hold pads for Play mode's effects (BREAK held, then let go), with nothing in undo, and turn the tape's FX on the encoders (DRIVE on encoder 3 lands on the tape); their values on the screen are the virtual keyboard's to see | `k5-fx-page` | core (tablet) for the pads and the mod knobs; the rest todo |
+| K6 | hold SHIFT for the Mixer page: mute, select, solo and arm tracks 1–4 on the pads, each in its track's colour, and see the tablet follow; let go, and the pads are the FX page's again | `k6-mixer-page` | todo, after the map's spec |
+| K7 | scrub the tape on the master knob, with the counter on the keyboard's screen; SHIFT and the master knob for the synth's volume | `k7-scrub` | todo |
+| K8 | set the levels of tracks 1–4 on the faders, with no bank | `k8-faders` | todo |
+| K9 | play the keyboard's synth over the tape and record it as an input | – | rig |
+| K10 | read what every control does, in the guide and over the panel, and hide the overlay once I know it (the keyboard's help page is the virtual keyboard's to see) | `k10-map` | todo, after the map's spec |
+| K11 | see on the tablet what the keyboard's 16 pads do now: a strip just above the bar, lit as the keyboard lights them, switching page with SHIFT, hidden by a switch on this device (the surface's build order, step 6) | `k11-pad-strip` | todo |
+| P1 | A/B the pads' quantum by ear, a 16th against `now`, and pick their timing | – | rig |
 
 ### Not written yet (add a flow before or with the change that touches them)
 
@@ -188,7 +200,14 @@ export default {
   (the demo boots with `TAPE_CONTROLLER=SMK` and an empty node directory,
   so there is no keyboard until a flow plugs one in). It answers
   `press(bytes)`, MIDI as the keyboard sends it, and `unplug()`: unplug it
-  in a `finally`, as J1.15 does.
+  in a `finally`, as J1.15 does. `t.api.keyboard({ firmware: true })` also
+  stands in for Hindsight's firmware as far as the Pi's client can tell:
+  it acks every seq every 100 ms (HELLO's as version 2 with every
+  feature), so the Pi takes the screen, and answers `home()` and
+  `offer()`, the keyboard's own RELEASE and OFFER; `status()` is
+  `/api/status`'s `keyboard`. It can't read what the Pi sent, so it checks
+  nothing that was drawn: that is `internal/surface`'s tests' (and its
+  link harness, `link_test.go`) and the virtual keyboard's.
 - `FLOWS_CPU=4 node scripts/flows.mjs` runs the pages four times slower,
   as a CI runner can: a flow that passes only on a fast machine is racing
   the app (and the app may be racing a person on an old tablet).
