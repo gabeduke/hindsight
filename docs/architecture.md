@@ -22,7 +22,7 @@ request. Why things are the way they are is in `docs/decisions/`.
   or invisible, one writer per take, any span of the ring, undo, the trash,
   the cached list, the peaks pyramid, phone recordings, the shares queue.
 - [tape.md](architecture/tape.md): the tape engine and its timing: the
-  model, store, renderer, transport, when a pad lands, catching, the
+  model, store, renderer, transport, when a pad lands, latency in use, catching, the
   output, alignment, recording, free loops, the crate and clipboard,
   editing, mixdown, export, the MIDI clock, the cue lane, the feed strip.
 - [push.md](architecture/push.md): the tape's revision, the

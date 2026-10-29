@@ -140,6 +140,30 @@ func TestTheFillReportIsTheDelay(t *testing.T) {
 	}
 }
 
+func TestTheFillReportSaysWhatThePhoneHearsAndWhen(t *testing.T) {
+	srv, eng, _ := newStreamServer(t)
+	putOutput(t, srv, "phone")
+	c := dialStream(t, srv)
+	readJSON(t, c)
+	msg := `{"type":"fill","ms":842,"frame":96000,"at":2000,"buf_ms":800,"out_ms":42,"underruns":3}`
+	if err := c.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if p := eng.Latency().Phone; p != nil {
+			if p.FillMS != 800 || p.OutputMS != 42 || *eng.Latency().Underflows.Phone != 3 {
+				t.Fatalf("%+v", p)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the phone's ear never reached the engine")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func TestASecondListenerTakesTheStream(t *testing.T) {
 	srv, eng, _ := newStreamServer(t)
 	putOutput(t, srv, "phone")

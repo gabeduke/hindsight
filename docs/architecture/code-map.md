@@ -11,7 +11,7 @@ internal/smf           Standard MIDI File writer and reader
 internal/bundle        writes a take's .mid and manifest from audio's window and midi's events
 internal/mono          the one monotonic clock audio and MIDI both stamp with
 internal/tempo         the tempo a take was played at, measured from its audio
-internal/tape          the tape: model and undo, store and pool, renderer, transport, player, catching, cue lane
+internal/tape          the tape: model and undo, store and pool, renderer, transport, player, catching, cue lane, latency in use
 internal/rig           the kit drawn as hardware: device profiles, sockets, cables
 internal/hub           the Pi's side of the hub
 internal/hubserver     the hub itself
@@ -24,7 +24,7 @@ web/static/lib/tape    the Studio's tape: lanes, parts, ranges, the cue lane
 web/static/lib/rooms   the Studio around the tape: feed, KEEP, bounce, words
 web/static/lib/buffer  the buffer: GRAB, trim, DROP
 web/static/lib/room    the Listening Room: the shelf, the deck, the Sketchbook
-web/static/lib/play    the instrument strip (Play mode)
+web/static/lib/play    the instrument strip (Play mode); the Pi's clock and the latency readouts
 web/static/lib/rig     the rig page
 web/static/lib/objects the physical things: reels, cassettes, VU meters, the shared ticker
 web/static/lib/scene   the scene contract the renderers follow

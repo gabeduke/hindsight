@@ -97,6 +97,8 @@ const SHELL = [
   '/lib/play/mods.js',
   '/lib/play/held.js',
   '/lib/play/fxwire.js',
+  '/lib/play/piclock.js',
+  '/lib/play/latency.js',
   '/lib/rooms/words.js',
   '/lib/rooms/takename.js',
   '/lib/rooms/mount.js',

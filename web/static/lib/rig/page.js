@@ -35,6 +35,7 @@ import { deskClick, release, dropSeed, remade } from './gesture.js';
 import { GESTURE } from '../ui/press.js';
 import { choose, letGo } from './picker.js';
 import * as G from './graph.js';
+import { mountLine as mountLatency } from '../play/latency.js';
 import {
   writeFor, unplugFor, replugFor, labelWrite, fixWrite, armWrite, keepWrite, outputWrite, offerWrite, role, recording,
 } from './patch.js';
@@ -996,6 +997,7 @@ export function start({ doc = document, nav = initNav, help = initHelp, win = gl
   win.addEventListener('pointerup', (e) => endDrag(e, false));
   win.addEventListener('pointercancel', (e) => endDrag(e, true));
   win.addEventListener('keydown', onKey);
+  mountLatency(doc.getElementById('rig-latency'), { doc });
   refresh();
   polling = setInterval(() => {
     if (doc.hidden || state.sending || (state.drag && state.drag.moved) || state.restarting) return;

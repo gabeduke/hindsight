@@ -1,7 +1,8 @@
 // The tape, played here: the stream's WebSocket into an AudioWorklet, with
 // reconnects, the fill reported to the Pi, the screen held on and the lock
 // screen's play and pause.
-import { parsePacket, StampLog, heardIndex, nextBackoff } from './stream-buffer.js';
+import { parsePacket, StampLog, heardIndex, nextBackoff, fillReport } from './stream-buffer.js';
+import { piClock } from '../play/piclock.js';
 import { holdScreen } from '../wakelock.js';
 import { rememberListener, rejoin } from './listener.js';
 
@@ -15,7 +16,7 @@ export class StreamPlayer {
     this.wasLost = false; this.lostAt = 0; this.lastPacket = 0; this.flowing = false; this.rejoin = null;
     this.joining = false; this.rejoined = false; this.mode = null; this.quiet = false; this.kept = false;
     this.log = new StampLog();
-    this.queued = 0; this.report = null; this.ws = null; this.ctx = null; this.node = null;
+    this.queued = 0; this.report = null; this.ws = null; this.ctx = null; this.node = null; this.underruns = 0;
     this._state = 'off'; this.backoff = 0; this.wake = null; this.stopped = true;
     this.onVisible = () => { if (!document.hidden && !this.stopped && this.ctx) this.ctx.resume().catch(() => {}); };
     // A page the browser keeps for Back (bfcache): the stream goes with it,
@@ -66,6 +67,7 @@ export class StreamPlayer {
       this.node.port.onmessage = (e) => {
         const d = e.data;
         if (d.underrun) {
+          this.underruns++;
           // Lost or locked says more than buffering does.
           if (this._state !== 'lost' && this._state !== 'locked') this.setState('buffering');
           return;
@@ -165,7 +167,13 @@ export class StreamPlayer {
   }
 
   sendFill() {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: 'fill', ms: this.delayMs() }));
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    const sr = this.ctx?.sampleRate || 48000;
+    const out = (this.ctx?.outputLatency || 0) + (this.ctx?.baseLatency || 0);
+    this.ws.send(JSON.stringify(fillReport({
+      delayMs: this.delayMs(), heard: this.heard(), nowMs: performance.now(), toPi: (t) => piClock.toPi(t),
+      bufMs: ((this.report?.fill) || 0) / sr * 1000, outMs: out * 1000, underruns: this.underruns,
+    })));
   }
 
   // What the speaker is playing now.

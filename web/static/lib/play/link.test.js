@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { connect, quantum, playURL } from './link.js';
 import { Surface, ARMED, ON } from './surface.js';
+import { PiClock } from './piclock.js';
 
 /** A socket the test plays the Pi through. */
 function fakeSockets() {
@@ -216,4 +217,54 @@ test('a pad another hand let go is cleared even while this page holds it, and he
   made[0].hear({ t: 'hello', pads: [], lead_ms: 0, held: [] });     // a reconnect: nothing held
   made[0].hear({ t: 'hello', pads: [], lead_ms: 0 });
   assert.deepEqual(helloes, [[], []]);
+});
+
+test('the socket learns the Pi\'s clock, and the pads then carry their touch and send on it', () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface({ division: 'off' });
+  const clock = new PiClock();
+  let t = 100;
+  const timers = [];
+  connect(s, {
+    WebSocketImpl: FakeWS, url: 'x', now: () => t, clock,
+    setTimer: (f, ms) => { timers.push({ f, ms }); return timers.length; }, clearTimer: () => {},
+  });
+  const ws = made[0];
+  s.press('stop', 90); // before the first trip is back: untimed
+  assert.deepEqual(ws.sent, [{ t: 'press', pad: 'stop', q: 'now' }]);
+  ws.onopen();
+  assert.deepEqual(ws.sent.at(-1), { t: 'clock', c: 100 });
+  assert.equal(timers.at(-1).ms, 250, 'quick at first');
+  t = 110;
+  ws.hear({ t: 'clock', c: 100, pi_in: 5005, pi_out: 5005 }); // the Pi is 4900 ms ahead
+  t = 200;
+  s.release('stop', 199, 195);
+  s.press('chop', 200, undefined, 197);
+  assert.deepEqual(ws.sent.slice(-2), [
+    { t: 'release', pad: 'stop', touch: 5095, sent: 5100 },
+    { t: 'press', pad: 'chop', q: 'now', touch: 5097, sent: 5100 },
+  ]);
+  const link = connect(s, { WebSocketImpl: FakeWS, url: 'x', now: () => t, clock });
+  link.set('filter', 0.4);
+  assert.deepEqual(made[1].sent.at(-1), { t: 'set', pad: 'filter', v: 0.4, sent: 5100 }, 'no touch said: only the send');
+  for (let i = 0; i < 3; i++) timers.at(-1).f();
+  assert.equal(timers.at(-1).ms, 2000, 'then every two seconds');
+});
+
+test('an old socket closing after a quick pause and resume leaves the new one alone', () => {
+  const { FakeWS, made } = fakeSockets();
+  const s = surface();
+  const live = new Set();
+  let n = 0;
+  const link = connect(s, {
+    WebSocketImpl: FakeWS, url: 'x', clock: new PiClock(),
+    setTimer: () => { n++; live.add(n); return n; }, clearTimer: (id) => live.delete(id),
+  });
+  link.pause();
+  link.resume();
+  made[1].onopen(); // the new socket's pings start
+  const pinging = [...live];
+  made[0].onclose?.(); // the old one's close arrives late
+  assert.deepEqual([...live], pinging, 'its pings go on, and no second socket is retried');
+  assert.equal(made.length, 2);
 });

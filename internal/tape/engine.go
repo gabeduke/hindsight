@@ -173,6 +173,8 @@ type Engine struct {
 	panicked atomic.Value // string: the last recovered panic
 
 	latencyMS   float64
+	outputMS    float64 // OUTPUT_LATENCY_MS, as the device was asked
+	lat         latency // control to ear, in use (latency.go)
 	saver       TakeSaver
 	takesDir    string
 	tailSeconds float64
@@ -274,6 +276,10 @@ func NewEngine(o Options) *Engine {
 	if p, ok := o.Sink.(audio.PullSize); ok {
 		pull = p.PullFrames()
 	}
+	e.outputMS = o.OutputLatencyMS
+	if e.outputMS <= 0 {
+		e.outputMS = 100 // aheadFor's, and the device's, default
+	}
 	blocks := aheadFor(o.OutputLatencyMS, pull, sr)
 	e.ahead = uint64(blocks) * BlockFrames
 	e.blocks, e.free = make(chan *block, blocks+3), make(chan *block, blocks+3)
@@ -328,6 +334,7 @@ func (e *Engine) Start() error {
 	go e.renderLoop()
 	e.startAligner()
 	e.startClock()
+	e.startLatency()
 	return err
 }
 
@@ -447,7 +454,7 @@ func (e *Engine) renderLoop() {
 			// Far enough ahead to wait -- but not to leave a load waiting
 			// on a device that isn't pulling.
 			e.safely(func() {
-				if e.drain(out, e.mix.Load()) {
+				if e.drain(out, e.mix.Load(), true) {
 					e.changes.Bump()
 				}
 			})
@@ -509,7 +516,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 	// moved: something the page shows changed in this block. It bumps the
 	// revision once the block's view is published, below, never before:
 	// a page polling at the tap must find what it was told of.
-	moved := e.drain(out, m)
+	moved := e.drain(out, m, dst != nil)
 	e.perf.targets(m)
 	off := 0
 	for n > 0 {
@@ -520,6 +527,9 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				// is held, and takes the head when the tape next plays.
 				if e.perf.apply(*a.trick, out, tr.pos, tr.playing && tr.onceEnd == 0, m) {
 					e.logTrick(a.trick.pad, a.trick.press, out, tr.pos)
+					if dst != nil { // not where the device played silence
+						e.timed(a.trick.st, a.trick.heard, a.trick.drain, out)
+					}
 				}
 			} else if a.cue != nil {
 				e.cueApply(*a.cue, out)
@@ -694,9 +704,11 @@ func d0(dst []float32, off int) []float32 {
 }
 
 // drain takes what's been asked of the transport, with the render head at
-// out: a reset at once, anything else queued for its frame. It says whether
-// it published a new view of the cue lane.
-func (e *Engine) drain(out uint64, m *Mix) bool {
+// out: a reset at once, anything else queued for its frame. played says
+// the device hears from out (not a late render's silence), so what it
+// applies there is timed (latency.go). It says whether it published a new
+// view of the cue lane.
+func (e *Engine) drain(out uint64, m *Mix, played bool) bool {
 	tr := e.tr
 	for {
 		select {
@@ -716,7 +728,7 @@ func (e *Engine) drain(out uint64, m *Mix) bool {
 		break
 	}
 	cued := e.publishCue()
-	e.drainTricks(out, m)
+	e.drainTricks(out, m, played)
 	return cued
 }
 

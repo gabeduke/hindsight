@@ -45,6 +45,21 @@ export function heardIndex({ rd, at }, now, rate, latencyS) {
   return rd + Math.round((now - at) * rate) - Math.round(latencyS * rate);
 }
 
+// fillReport is what the page tells the stream every 500 ms: its delay,
+// and, once the Play socket knows the Pi's clock (play/piclock.js; toPi
+// answers undefined until then), the output frame its speaker plays now and
+// when, its jitter buffer and its output's latency, and its underruns:
+// what times a control to this phone's ear (internal/tape/latency.go).
+export function fillReport({ delayMs, heard, nowMs, toPi, bufMs, outMs, underruns }) {
+  const m = { type: 'fill', ms: delayMs };
+  const at = toPi(nowMs);
+  const frame = Math.round(heard?.frame);
+  if (Number.isFinite(at) && Number.isFinite(frame) && frame >= 0) {
+    Object.assign(m, { frame, at, buf_ms: Math.round(bufMs), out_ms: Math.round(outMs), underruns });
+  }
+  return m;
+}
+
 export function nextBackoff(ms) { return Math.min(5000, ms ? ms * 2 : 500); }
 
 // step is the worklet's decision for one render quantum of n frames, from

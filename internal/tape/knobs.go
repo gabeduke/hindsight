@@ -23,6 +23,9 @@ type ModKnobs struct {
 	// previewed a mod before them can't clear theirs. "controller" unless
 	// set before the first turn.
 	Owner string
+	// Via is the way the knobs' turns come in, for timing them (latency.go):
+	// ViaMIDI for a controller's.
+	Via Via
 
 	mu     sync.Mutex
 	timers map[string]*time.Timer
@@ -40,7 +43,7 @@ func (k *ModKnobs) Turn(id, mod string, v float64) error {
 	if modIndex(mod) < 0 {
 		return ErrNoSuchPad
 	}
-	if err := k.e.PreviewMod(mod, v, k.Owner); err != nil {
+	if err := k.e.previewMod(mod, v, k.Owner, Stamp{Via: k.Via}); err != nil {
 		return err
 	}
 	v = math.Max(0, math.Min(1, v))

@@ -121,9 +121,11 @@ export class Surface {
 
   /**
    * A pad being pressed, with an amount `v` if the hand has one (a key's
-   * velocity). Idempotent: holding a key that repeats is one press.
+   * velocity), and the moment the hand touched it (`touch`, the event's
+   * timeStamp, for timing it to the ear: link.js), if it says. Idempotent:
+   * holding a key that repeats is one press.
    */
-  press(pad, at, v) {
+  press(pad, at, v, touch) {
     const cur = this.pads.get(pad);
     // Pressed again while the latch keeps it: the hand holds it now, so the
     // latch lifting must not let it go.
@@ -131,7 +133,9 @@ export class Surface {
     if (cur && cur.state !== IDLE) return;
     const fireAt = this.nextGrid(at + this.lead);
     this.pads.set(pad, { state: ARMED, fireAt, endAt: null });
-    this.emit('arm', Number.isFinite(v) ? { pad, at, fireAt, v } : { pad, at, fireAt });
+    const arm = Number.isFinite(v) ? { pad, at, fireAt, v } : { pad, at, fireAt };
+    if (Number.isFinite(touch)) arm.touch = touch;
+    this.emit('arm', arm);
     // With quantise off there is nothing to wait for, so it starts here and
     // the caller gets `fire` without having to tick first.
     if (fireAt <= at) this.start(pad, at);
@@ -147,7 +151,7 @@ export class Surface {
    * following line. That is what makes a quick stab usable rather than a
    * thing you have to hold carefully.
    */
-  release(pad, at) {
+  release(pad, at, touch) {
     const p = this.pads.get(pad);
     if (!p || p.state === RELEASING || p.state === IDLE) return;
     if (this.latching) { this.latched.add(pad); return; }
@@ -157,7 +161,7 @@ export class Surface {
     if (g && endAt <= startedAt) endAt = startedAt + g;
     p.endAt = endAt;
     p.state = RELEASING;
-    this.emit('let', { pad, at, endAt });
+    this.emit('let', Number.isFinite(touch) ? { pad, at, endAt, touch } : { pad, at, endAt });
     if (p.firedAt == null) {
       // Let go before it ever fired. It still fires: the press was real and
       // the player is already committed to hearing it.
