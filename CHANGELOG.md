@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.13 — 2026-10-29
+
+- A GRAB pressed as the Studio opens lands on the loaded tape's cue lane, and the cue pads' two layout findings leave the baseline (5db9dcf2)
+- Docs: step 11 of the studio space has landed; its choices are decision 0061, and the-studio-on-one-screen.md, all landed, is deleted (f75a8fd9)
+- Review fixes for the cue clip's drawer: ↵ drops again just after a DROP, ↵ after a mouse hold on a pad drops rather than launches, the bar's GRAB opens the drawer on a Studio already mounted, and the dial parks out of sight (eb25bb14)
+- GRAB and DROP on the keyboard use the cue lane, as the Studio's do: GRAB lands there, DROP lays its newest part on the armed track (5f36daac)
+- A DROP from a cue clip's drawer flies to the block it became, and a take's GRAB opens the Studio on its clip (ffde2cd2)
+- GRAB lands on the cue lane and opens the clip's drawer above the bar, so the tracks stay in sight while you trim, audition and DROP it (11d30990)
+
+
 ## v2026.10.29.12 — 2026-10-29
 
 - A GRAB onto the cue lane with no tape named goes to the loaded tape's (417485e)
