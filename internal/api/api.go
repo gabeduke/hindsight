@@ -81,6 +81,7 @@ type API struct {
 	// keyboard is the SMK-37 on Hindsight's firmware, when there could be
 	// one, and kbOut its port (keyboard.go).
 	keyboard *surface.Keyboard
+	kbScreen keyboardScreen // what its screen's feed keeps (keyboard_screen.go)
 	kbOut    keyboardOut
 	// presses are the keyboard's presses as the tablets hear them, on
 	// /api/tapes/changes (press.go).

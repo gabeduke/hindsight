@@ -21,7 +21,7 @@ const (
 	rolePlay    = "play"    // PLAY: green
 	roleStop    = "stop"    // STOP: the text colour
 	roleRec     = "rec"     // KEEP (the keyboard's REC), PUNCH IN: red
-	roleVerb    = "verb"    // CATCH, GRAB, DROP: the text colour
+	roleVerb    = "verb"    // CATCH, GRAB, DROP: white
 	roleRefused = "refused" // why not: amber
 	roleMixer   = "mixer"   // a Mixer pad: its track's colour
 )

@@ -98,8 +98,8 @@ func TestARefusedKeyboardPressIsToldAndAnotherControllersIsNot(t *testing.T) {
 // The role a press is told in is the colour it has on the keyboard.
 func TestAPressRoleIsItsBannerColour(t *testing.T) {
 	colours := map[string]surface.Colour{
-		rolePlay: surface.Green, roleStop: surface.Text, roleRec: surface.Accent,
-		roleVerb: surface.Text, roleRefused: surface.Amber,
+		rolePlay: surface.Green, roleStop: surface.Text, roleRec: surface.Red,
+		roleVerb: surface.White, roleRefused: surface.Amber,
 	}
 	all := []says{refused("grab", errNotArmed), refused("grab", errors.New("new"))}
 	for _, id := range []string{"transport", "keep", "catch", "grab", "drop"} {
