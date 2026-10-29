@@ -75,7 +75,8 @@ body.tape-page .np[data-size="full"][data-source="tape"] [data-for~="studio"],
 .np[data-size="mini"][data-source="tape"] [data-mini~="tape"],
 .np[data-size="mini"][data-source="take"] [data-mini~="take"],
 .np[data-size="mini"][data-source="feed"] [data-mini~="feed"],
-body.tape-page .np[data-size="mini"][data-source="tape"] [data-mini~="studio"] { display: inline-flex; }
+body.tape-page .np[data-size="mini"][data-source="tape"] [data-mini~="studio"],
+:is(body.shelf-page, body.main-page) .np[data-size="mini"][data-source="tape"] [data-mini~="away"] { display: inline-flex; }
 #np [hidden] { display: none; }
 
 /* ---------- the deck: the reel window ---------- */
@@ -346,6 +347,15 @@ button.np-lcd-key { cursor: pointer; }
 
 /* ---------- the source's menu (lib/bar/source-menu.js) ---------- */
 .np-source-menu { min-width: 240px; max-width: calc(100vw - 16px); }
+/* ---------- the phone's ▾: record from this phone (lib/bar/phone-key.js) ---------- */
+.np-phone-menu { min-width: 250px; max-width: calc(100vw - 16px); }
+/* While the phone records, its ▾ is red too (● is pressed: .tb-rec's). */
+.np .np-phone-more.recording { color: var(--rec); }
+
+/* ---------- the foot ---------- */
+/* Where it plays, at the foot of the phone's player pulled up (below):
+   nowhere else, where the display's OUT says it. */
+.np-foot { display: none; }
 
 /* ---------- the strip ---------- */
 /* The whole tape, or the take or the feed, to scrub: a well, like the
@@ -483,7 +493,7 @@ button.np-lcd-key { cursor: pointer; }
     width: calc(var(--np-progress, 0) * 100%); background: var(--accent); box-shadow: 0 0 6px var(--accent-glow);
   }
   .np[data-size="mini"] .np-row-2 { display: none; }
-  .np[data-size="mini"] .np-zones { gap: 8px; grid-template-columns: minmax(0, 1fr) auto 116px; }
+  .np[data-size="mini"] .np-zones { gap: 8px; grid-template-columns: minmax(0, 1fr) auto 100px; }
   .np[data-size="mini"][data-source="tape"] .np-zones { grid-template-areas: "deck transport verb"; }
   .np[data-size="mini"][data-source="take"] .np-zones { grid-template-areas: "deck transport end"; }
   .np[data-size="mini"][data-source="feed"] .np-zones { grid-template-areas: "deck transport verb"; }
@@ -492,7 +502,7 @@ button.np-lcd-key { cursor: pointer; }
   .np[data-size="mini"][data-source="take"] :is(.np-transport, .np-end),
   .np[data-size="mini"][data-source="feed"] :is(.np-transport, .np-verb) { display: flex; }
   .np[data-size="mini"] :is(.np-verb, .np-end) { justify-content: flex-end; }
-  .np[data-size="mini"] .np-transport { gap: 8px; }
+  .np[data-size="mini"] .np-transport { gap: 4px; }
   .np[data-size="mini"] .np-window { height: 50px; padding: 0 4px; gap: 4px; }
   .np[data-size="mini"] .np-window::after { left: 18px; right: 18px; }
   .np[data-size="mini"] .np-reel { width: 28px; height: 28px; }
@@ -515,20 +525,25 @@ button.np-lcd-key { cursor: pointer; }
   }
   .np[data-size="mini"] .np-pos { font-size: 17px; }
   .np[data-size="mini"] .icon-btn { height: 50px; min-height: 50px; width: 44px; }
-  .np[data-size="mini"] .np-start { width: 46px; }
-  .np[data-size="mini"] .tb-play { width: 54px; }
-  .np[data-size="mini"] .np-catch { min-width: 64px; padding: 0 6px; }
+  .np[data-size="mini"] .tb-play { width: 50px; }
+  /* The big red ●, and its ▾ (the phone's input) joined to it: the tape's
+     ● in the Studio, this phone's everywhere else (lib/bar/phone-key.js). */
+  .np[data-size="mini"] .tb-rec { width: 46px; }
+  .np[data-size="mini"] .tb-rec .i { width: 24px; height: 24px; }
+  .np[data-size="mini"] .np-phone-more { width: 26px; margin-left: -4px; padding: 0; }
+  .np[data-size="mini"] .np-catch { min-width: 64px; padding: 0 6px; flex: 1 1 auto; }
   .np[data-size="mini"] .np-catch-sub { display: none; }
   /* Catch's own short second line down here (.np-catch-mini, page.js): "→ 2",
      "in 1 pass" say what it catches and why it waits. */
   .np[data-size="mini"] .np-catch .np-catch-mini { display: block; font: 500 9px/1.1 var(--mono); opacity: .88; white-space: nowrap; }
-  .np[data-size="mini"] .np-catch-more { width: 44px; }
-  .np[data-size="mini"] .np-open { width: 66px; }
-  .np[data-size="mini"] .np-feed-grab { min-width: 0; width: 116px; }
+  .np[data-size="mini"] .np-catch-more { width: 28px; }
+  .np[data-size="mini"] .np-open { width: 50px; }
+  .np[data-size="mini"] .np-feed-grab { min-width: 0; width: 100px; }
   /* The window is the player's handle. */
   .np[data-size="mini"] .np-expand {
     display: block; position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; padding: 0;
     border: 0; border-radius: inherit; background: transparent; cursor: pointer;
+    touch-action: none; /* a drag up on it pulls the player up (lib/ui/sheet.js) */
   }
   .np-expand:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
@@ -561,6 +576,48 @@ button.np-lcd-key { cursor: pointer; }
 @media (max-width: 479.98px) {
   /* The player's display keeps its room for where it is. */
   body.player-open .np-levels { display: none; }
+  /* The mini player's display, with ● and its ▾ beside |◀ ▶: where it is,
+     without its reels. */
+  .np[data-size="mini"] :is(.np-reel, .np-status, .np-lcd-sub) { display: none; }
+  .np[data-size="mini"] .np-lcd-pos { padding: 0 3px; justify-content: center; }
+  .np[data-size="mini"] .np-pos { font-size: 15px; }
+}
+@media (max-width: 699.98px) {
+  /* The player pulled up on a phone held upright is a sheet you drag
+     (lib/bar/player.js, on lib/ui/sheet.js): the grabber at its top, the
+     reels and the display as its art, the strip, then the keys low, in the
+     thumb's reach, and where it plays at the foot. Its zones are laid out
+     on the bar itself, so the strip can sit between the art and the keys. */
+  body.player-open .np-dock, body.player-open > .np {
+    border-radius: 16px 16px 0 0; box-shadow: 0 -12px 32px -12px var(--sh-strong);
+  }
+  body.player-open .np {
+    flex: 1 0 auto; display: grid; gap: 14px; align-content: stretch;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto auto;
+    grid-template-areas:
+      "out out out out out out"
+      "deck deck deck deck deck deck"
+      "strip strip strip strip strip strip"
+      ". . . . . ."
+      "transport transport transport transport transport transport"
+      "verb verb verb verb verb verb"
+      "modes modes modes end end end"
+      "foot foot foot foot foot foot";
+  }
+  body.player-open .np :is(.np-row-1, .np-zones) { display: contents; }
+  body.player-open .np .out-strip { grid-area: out; }
+  body.player-open .np .np-row-2 { grid-area: strip; }
+  /* The art: the reels large either side of the display; a drag on it
+     moves the sheet. */
+  body.player-open .np .np-window { height: 132px; touch-action: none; }
+  body.player-open .np .np-reel { width: 76px; height: 76px; }
+  body.player-open .np .np-transport .icon-btn { height: 64px; min-height: 64px; }
+  body.player-open .np .np-output { display: none; }
+  body.player-open .np .np-foot { grid-area: foot; display: flex; }
+  body.player-open .np .np-out-foot { flex: 1 1 auto; flex-direction: row; height: 52px; justify-content: space-between; padding: 0 16px; gap: 10px; }
+  .np-out-leg { font: 600 11px var(--label-font); letter-spacing: .14em; color: var(--ink-dim); }
+  .np-out-val { flex: 1 1 auto; text-align: left; font: 600 15px var(--mono); letter-spacing: .06em; }
 }
 
 @media (prefers-reduced-motion: reduce) {

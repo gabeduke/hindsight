@@ -350,6 +350,26 @@ export async function runFlow(browser, flow, profileName, { base, api, shots, st
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await cdp.detach();
     },
+    // swipe is a finger dragged `dy` px up or down from the middle of the
+    // target (real touch events on a touch profile, a mouse drag otherwise),
+    // in `steps` moves: few is a flick, many a slow drag.
+    async swipe(locator, dy, { steps = 6, from = 0.5 } = {}) {
+      const b = await locator.boundingBox();
+      const x = b.x + b.width / 2, y = b.y + b.height * from;
+      if (profile.hasTouch) {
+        const cdp = await context.newCDPSession(page);
+        const pt = (yy) => [{ x, y: yy }];
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(y) });
+        for (let i = 1; i <= steps; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(y + (dy * i) / steps) });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await cdp.detach();
+      } else {
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x, y + dy, { steps });
+        await page.mouse.up();
+      }
+    },
     // tap is a finger's tap on a touch profile, a click otherwise.
     tap: (locator) => (profile.hasTouch ? locator.tap() : locator.click()),
     // poll re-evaluates fn in the page until it is truthy or the time runs out.

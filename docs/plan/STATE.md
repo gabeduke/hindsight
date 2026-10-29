@@ -83,9 +83,11 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
-- **`the-studio-space.md` is the build order**: steps 1–6 have landed; 7
-  (the phone), 8 (the Studio's heads and ruler), 9 (the notes drawer), 10
-  (Open), 11 (the buffer into the cue lane) and 12 (polish) are open. They
+- **`the-studio-space.md` is the build order**: steps 1–7 have landed; 8
+  (the Studio's heads and ruler), 9 (the notes drawer, on `lib/ui/sheet.js`),
+  10 (Open), 11 (the buffer into the cue lane) and 12 (polish) are open.
+  The phone's player as a sheet and its ● want a look on a real phone:
+  the mini player's display is narrow on a 360 px phone (`bar.md`). They
   take in the open steps of `listening-back.md` and
   `the-studio-on-one-screen.md`, which hold their details.
 - **`the-instrument.md`** (agreed 2026-10-26), in tracks of its own:

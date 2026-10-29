@@ -50,6 +50,7 @@ import { readResponse, failToast, editTape } from './refusal.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
 import { bindPress, ARM_PRESS, GESTURE } from '../ui/press.js';
+import { PHONE } from '../bar/player.js';
 import { recordsTape } from '../rig/warn.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
@@ -533,6 +534,11 @@ function askHeard(n) {
 function heardTracks() {
   const now = performance.now();
   return state.tape.tracks.map((tr) => ({ ...tr, ...pending.heard(tr.n, tr, now) }));
+}
+
+// playsOnThisPhone: the tape plays on this device, and it is a phone.
+function playsOnThisPhone() {
+  return !!(state.live && state.live.output_mode === 'phone' && output && output.streamingHere() && matchMedia(PHONE).matches);
 }
 
 // jamOnly explains, and refuses, what needs the jam room while the tape
@@ -4056,6 +4062,9 @@ function keptToast(k) {
 // rec arms the selected track, punches in, or ends the punch and keeps it.
 async function rec() {
   const r = state.live && state.live.record;
+  // On a phone, with the tape playing on this phone, ● records here: from
+  // this phone (lib/bar/phone-key.js), not the jam room, which it can't.
+  if (!r && playsOnThisPhone()) { document.dispatchEvent(new CustomEvent('hindsight:phone-record')); return; }
   if (!r && (jamOnly() || noArm())) return; // keeping a take already running stays possible
   try {
     if (!r) {
@@ -4744,7 +4753,16 @@ function wire() {
     if (!viewActive()) return;
     document.body.style.setProperty('--dock-h', `${Math.round($('np-dock').getBoundingClientRect().height)}px`);
   }).observe($('np-dock'));
-  $('rec').addEventListener('click', rec);
+  // ●: a tap records (rec, above); on a phone a hold offers to record from
+  // this phone instead, on the mini player's ▾ (lib/bar/phone-key.js).
+  bindPress($('rec'), {
+    ...ARM_PRESS,
+    onTap: rec,
+    onHold: () => {
+      if (matchMedia(PHONE).matches) document.dispatchEvent(new CustomEvent('hindsight:phone-offer'));
+      else rec();
+    },
+  });
   $('click').addEventListener('click', () => patch({ click: !state.tape.click }));
   $('tap').addEventListener('click', tap);
   for (const b of $('catch-mode').querySelectorAll('button')) {

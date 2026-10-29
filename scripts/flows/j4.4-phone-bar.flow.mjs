@@ -1,9 +1,12 @@
 // J4.4 The Studio on a phone: the bar is a mini player above the tabs (its
-// window, with the bar number, |◀, ▶, and Catch with its ▾ beside it); |◀
-// goes back to the loop's start; a tap on the
-// window pulls the player up with the transport, Rec and Catch, whose ▾
-// opens under the pair there; Back closes that menu, then puts the player
-// away and stays in the Studio. A tapped clip's bar floats just above the
+// window, with the bar number, |◀, ▶, a big red ● with the phone's ▾, and
+// Catch with its ▾ beside it); |◀ goes back to the loop's start; a tap on
+// the window pulls the player up, a sheet that slides up and settles: the
+// reels and the display at its top, the strip, then the transport, Rec
+// and Catch low, under the thumb, and where it plays at its foot; Catch's ▾
+// opens over the pair there; Back closes that menu, then puts the player
+// away and stays in the Studio. A drag up from the mini player pulls the
+// player up under the finger, and a swipe down on its reels puts it away. A tapped clip's bar floats just above the
 // player, and Insert asks before it moves the tape. The ruler's keys are one
 // key, ⌗. In the Listening Room a take's mini player keeps the window and
 // ▶ where the tape's are, |◀ beside it, and Open › and ✎ in Catch's place.
@@ -29,10 +32,13 @@ const look = () => {
   const pos = document.getElementById('position')?.getBoundingClientRect();
   return {
     window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
+    phoneRec: on('#np-phone-rec'), phoneMore: on('#np-phone-more'), foot: on('#np-out-foot'),
     more: on('#catch-more'), bar: !!pos && pos.width >= 10,
     openKey: on('#np-open'), note: on('#np-note'), beside,
     playX: Math.round(p?.left ?? -1),
     open: document.body.classList.contains('player-open'),
+    // The sheet at rest: no transform left on it.
+    still: getComputedStyle(document.getElementById('np-dock') || document.getElementById('np')).transform === 'none',
     aboveTabs: !tabs || !c || tabs.top < innerHeight / 2 || c.bottom <= tabs.top + 1,
     path: location.pathname,
   };
@@ -81,6 +87,7 @@ export default {
     t.expect('the Listening Room’s tab has its own picture, its spines', head.room === 'shelf', head);
     const mini = await page.evaluate(look);
     t.expect('the mini player shows its window, |◀, ▶ and Catch with its ▾, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && mini.more && !mini.loop, mini);
+    t.expect('and a big red ●, the tape’s in the Studio, with the phone’s ▾ beside it', mini.rec && mini.phoneMore && !mini.phoneRec, mini);
     t.expect('the window still shows the bar number', mini.bar, mini);
     t.expect('|◀ sits beside ▶, a thumb wide', mini.beside, mini);
     t.expect('the mini player sits above the tabs', mini.aboveTabs, mini);
@@ -100,21 +107,31 @@ export default {
 
     await t.step('tap the window', () => t.tap(page.locator('#np-expand')));
     const opened = await t.poll(() => document.body.classList.contains('player-open'));
+    // It slides up, and settles.
+    const settled = await t.poll(() => getComputedStyle(document.getElementById('np-dock')).transform === 'none');
     const big = await page.evaluate(look);
-    t.expect('the player comes up with ▶, Loop, Rec and Catch on screen', opened && big.play && big.loop && big.rec && big.catch, big);
+    t.expect('the player slides up and settles, with ▶, Loop, Rec and Catch on screen', opened && settled && big.play && big.loop && big.rec && big.catch, big);
+    // Its order: the art at the top, the strip, the keys low, where it plays at the foot.
+    const order = await page.evaluate(() => {
+      const top = (s) => Math.round(document.querySelector(s).getBoundingClientRect().top);
+      const foot = document.getElementById('np-out-foot').getBoundingClientRect();
+      return { deck: top('.np-window'), strip: top('.np-row-2'), play: top('#np-play'), catch: top('#catch-pass'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), out: getComputedStyle(document.getElementById('np-output')).display };
+    });
+    t.expect('the reels and display on top, the strip under them, the transport and Catch in the lower half, where it plays at the foot',
+      order.deck < order.strip && order.strip < order.play && order.play > 844 / 2 && order.play < order.catch && order.catch < order.foot && order.bottom <= 48 && order.out === 'none', order);
 
-    // Catch's ▾ in the player: its menu opens under the pair, where the
-    // player has room, and Back closes it before it puts the player away.
+    // Catch's ▾ in the player: the pair is in the thumb's half, so its menu
+    // opens over it, and Back closes it before it puts the player away.
     await t.step('tap Catch’s ▾ in the player', () => t.tap(page.locator('#catch-more')));
     const under = await t.poll(() => {
       const m = document.getElementById('catch-menu');
       if (!m || m.hidden) return null;
       const more = document.getElementById('catch-more').getBoundingClientRect();
       const r = m.getBoundingClientRect();
-      // Under the ▾, and across it (as wide as the screen lets it be here).
-      return { under: r.top >= more.bottom && r.top - more.bottom <= 12 && r.left <= more.left && r.right >= more.right - 1, on: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };
+      // Over the ▾, and across it (as wide as the screen lets it be here).
+      return { over: r.bottom <= more.top && more.top - r.bottom <= 12 && r.left <= more.left && r.right >= more.right - 1, on: r.top >= 0 && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };
     });
-    t.expect('its menu opens under the pair, on the screen', under?.under && under.on, under);
+    t.expect('its menu opens over the pair, on the screen', under?.over && under.on, under);
     await t.step('Back, with the menu over the player', () => page.keyboard.press('Escape'));
     t.expect('Back closes the menu and leaves the player up', await t.poll(() => document.getElementById('catch-menu').hidden
       && document.body.classList.contains('player-open')));
@@ -123,6 +140,26 @@ export default {
     const shut = await t.poll(() => !document.body.classList.contains('player-open'));
     const back = await page.evaluate(look);
     t.expect('Back puts the player away, on the same page', shut && back.window && back.path === '/tape.html', back);
+
+    // The sheet by the finger: a drag up from the mini player pulls the
+    // player up under it; a swipe down on its reels puts it away.
+    await t.step('drag the mini player up', () => t.swipe(page.locator('#np-expand'), -420, { steps: 12 }));
+    const dragged = await t.poll(() => document.body.classList.contains('player-open')
+      && getComputedStyle(document.getElementById('np-dock')).transform === 'none');
+    t.expect('the player comes up under the finger and settles', dragged, await page.evaluate(look));
+    await t.step('swipe the player down by its reels', () => t.swipe(page.locator('#np .np-window'), 420, { steps: 5 }));
+    const swiped = await t.poll(() => !document.body.classList.contains('player-open'));
+    const after = await page.evaluate(look);
+    t.expect('a swipe down puts it away, back to the mini player in the Studio', swiped && after.window && after.path === '/tape.html', after);
+    // A short drag lets it settle back up, and a tap on its keys still works.
+    await t.step('tap the window again', () => t.tap(page.locator('#np-expand')));
+    await t.poll(() => getComputedStyle(document.getElementById('np-dock')).transform === 'none' && document.body.classList.contains('player-open'));
+    await t.step('drag its reels down a little, slowly, and let go', () => t.swipe(page.locator('#np .np-window'), 60, { steps: 20 }));
+    const back2 = await t.poll(() => document.body.classList.contains('player-open')
+      && getComputedStyle(document.getElementById('np-dock')).transform === 'none');
+    t.expect('a short drag settles back up', back2);
+    await t.step('Back', () => page.keyboard.press('Escape'));
+    await t.poll(() => !document.body.classList.contains('player-open'));
 
     // The same in a browser without CloseWatcher (Safari): the player up
     // holds one history entry, so the browser's Back puts it away, and the
@@ -247,6 +284,7 @@ export default {
     const room = await page.evaluate(look);
     t.expect('the take plays in the mini player', heard, room);
     t.expect('|◀ sits beside ▶, a thumb wide', room.start && room.beside, room);
+    t.expect('● here is this phone’s, with its ▾', room.phoneRec && room.phoneMore && !room.rec, room);
     t.expect('▶ is where it was with the tape: the window keeps its width', room.window && Math.abs(room.playX - mini.playX) <= 2, { tape: mini.playX, take: room.playX });
     t.expect('Open › and ✎ are on the screen too', room.openKey && room.note, room);
     await t.wait(1500);
