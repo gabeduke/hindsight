@@ -118,9 +118,18 @@ The poll everything else hangs off. The UI reads it every two seconds.
     "error": "",
     "cert_not_after": "2027-01-07T20:10:44Z"
   },
-  "updates": true
+  "updates": true,
+  "keyboard": {"present": true, "screen": true, "homed": false, "version": 2,
+               "features": 7, "rtt_ms": 2.1, "confirm_ms": 3.4}
 }
 ```
+
+- `keyboard` is the SMK-37 on Hindsight's firmware as its client sees it
+  (`docs/architecture/keyboard.md`), `null` with no client: whether it
+  answered HELLO, has Hindsight's screen or was homed (HOME gave it back),
+  its protocol version and firmware features (1 pads echo, 2 knobs echo,
+  4 the quiet clock), the last ack's round trip and the last pad press's
+  answer, in milliseconds (0 until there is one).
 
 - `save_channels` is **1-indexed**, matching how the hardware labels its inputs
   and how `SAVE_CHANNELS` is written.

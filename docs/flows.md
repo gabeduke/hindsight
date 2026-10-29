@@ -64,9 +64,22 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J3.1 | GRAB 4 bars from an old take's page into the Studio, and DROP them | `j3.1-take-grab` | core |
 | J3.2 | bounce the tape to a take on the shelf, from the tape's name, which is its menu (no ⋯ beside it): the tapes, this one ticked, and New tape; Rename…, Duplicate; Share the mix, the bounces, Export stems and the last bounce; Record from this phone…; Delete this tape… last, red, after a line; then delete the tape from the same menu: a sheet asks, naming it and what's on it (never the browser's prompt), and the tape changed last opens in its place, the bounce staying on the shelf | `j3.2-bounce` | core |
 | J3.3 | on a phone, with the tape playing on it (as with the interface off), share the mix to send my brother: the tape's name → Share the mix (its menu: there is no ⋯), then the toast's Share hands the share sheet an MP3 named after the tape and the day; Bounce, which needs the jam room, offers it too | `j3.3-share-mix` | core (phone) |
-| J4.4 | on a phone, the bar is a mini player above the tabs, with \|◀ beside ▶ ("I looked for \|◀ and didn't find it"), back to the loop's start or the take's, and Catch with its ▾ beside it, the window keeping its bar number; a tap pulls the player up, where Catch's ▾ opens its menu under the pair and Back closes that first, then Back puts the player away and stays in the Studio (Android's Back is a close request, which the flow sends as Escape; in a browser without CloseWatcher, the history's Back); a tapped clip's bar floats above the player; Insert asks before it moves the tape; the ruler's keys are one key, ⌗, the View menu, which sets the snap and holds Lock the loop, Fold the tracks and Ask before Insert and Delete time, ticked ("smooshed into the phone UI"); in the Listening Room a take keeps the same mini player, its window and ▶ where the tape's were, with Open › and ✎ in Catch's place; the header is one row, the tape's name a finger tall (its menu: no ⋯), ↶ and ☰, and the rooms are tabs along the bottom, the Listening Room's with its spines, not ☰'s lines | `j4.4-phone-bar` | core (phone) |
+| J4.1 | record from this phone, from its mini player (*"recording from the phone is buried in a menu"*, the studio space's audit): away from the Studio the mini player's big red ● is this phone's, and a tap records at once (the flow's microphone is Chromium's fake one); ● is pressed and says the time while it records, a second tap stops it, and the take is on the shelf, labelled Phone; its ▾, over the mini player, says what ● does now, lists the inputs and opens the recorder with its meter; in the Studio ● is the tape's, with the same ▾ beside it, and a hold on it offers Record from this phone | `j4.1-phone-record` | core (phone) |
+| J4.4 | on a phone, the bar is a mini player above the tabs, with \|◀ beside ▶ ("I looked for \|◀ and didn't find it"), back to the loop's start or the take's, a big red ● with the phone's ▾ (J4.1), and Catch with its ▾ beside it, the window keeping its bar number; a tap pulls the player up, a sheet that slides up and settles, the reels and display at its top, the strip under them, then the transport and Catch in the lower half, under the thumb, and where it plays at its foot; Catch's ▾ opens its menu over the pair and Back closes that first, then Back puts the player away and stays in the Studio (Android's Back is a close request, which the flow sends as Escape; in a browser without CloseWatcher, the history's Back); a drag up from the mini player pulls the player up under the finger, a swipe down on its reels puts it away, and a short drag settles back up; a tapped clip's bar floats above the player; Insert asks before it moves the tape; the ruler's keys are one key, ⌗, the View menu, which sets the snap and holds Lock the loop, Fold the tracks and Ask before Insert and Delete time, ticked ("smooshed into the phone UI"); in the Listening Room a take keeps the same mini player, its window and ▶ where the tape's were, ● this phone's, with Open › and ✎ in Catch's place; the header is one row, the tape's name a finger tall (its menu: no ⋯), ↶ and ☰, and the rooms are tabs along the bottom, the Listening Room's with its spines, not ☰'s lines | `j4.4-phone-bar` | core (phone) |
 | J5.1 | open Settings, Releases, help mode, the guide and the rig from the one menu (☰) in either room and on a take's page, on a tablet, a computer or a phone; it hangs under ☰, all of it on the screen; Escape (or the tablet's Back) shuts ☰ and leaves me in the room, and switching rooms shuts it too, never leaving it open over the other room; from a keyboard, ↓ on ☰ opens it on Settings, ↓ moves along it (in the Studio, without arming another track), and Tab shuts it. Every page has one frame: what I'm working on at the left (the tape's name, the search, the feed, ‹ and the take's name), Studio \| Listening Room in the middle, at the same place on the Studio, the Listening Room, Capture and Open (it was top left in the rooms and top centre on Open, so a tap there landed on the brand), and ☰ last at the right; each tab its own picture, never ☰'s; the brand only from 1280 px; on a phone, one row, with the rooms as tabs along the bottom | `j5.1-sheets` | core |
 | C1 | **jam on the tablet**: GRAB, throw it to the cue lane, launch it on the next bar, drag it to tape | `c1-cue-jam` | core |
+| K1 | plug the keyboard in and see Hindsight take its screen (the-instrument.md, step 7, *The flows*): on Hindsight's firmware (the harness's stand-in) it answers HELLO and the Pi takes its screen, version 2 with local echo and the quiet clock, as `/api/status` says; what the screen shows (the counter, the transport, the knobs, the pad page and its map, the levels) waits for the virtual keyboard, which sees what was drawn | `k1-take-screen` | core for taking the screen (tablet); the widgets todo |
+| K2 | press PLAY on the keyboard to play and stop the tape, and see the tablet's ▶ follow; the MIDI Stop and Start the keyboard sends of its own (a screen take sent several, which stopped the tape on the rig, 2026-10-29) move nothing | `k2-play` | core |
+| K3 | press REC to punch in on the armed track and again to punch out (from a stop, REC starts the tape), then find what I played on the tape | `k3-rec-punch` | todo: REC KEEPs today |
+| K4 | press HOME to give the keyboard its own screen (to pick one of the synth's voices there), then hold HOME a second and let go to hand it back: the Pi stays off it between, even as the keyboard answers again | `k4-home` | core (tablet) |
+| K5 | on the FX page, hold pads for Play mode's effects (BREAK held, then let go), with nothing in undo, and turn the tape's FX on the encoders (DRIVE on encoder 3 lands on the tape); their values on the screen are the virtual keyboard's to see | `k5-fx-page` | core (tablet) for the pads and the mod knobs; the rest todo |
+| K6 | hold SHIFT for the Mixer page: mute, select, solo and arm tracks 1–4 on the pads, each in its track's colour, and see the tablet follow; let go, and the pads are the FX page's again | `k6-mixer-page` | todo, after the map's spec |
+| K7 | scrub the tape on the master knob, with the counter on the keyboard's screen; SHIFT and the master knob for the synth's volume | `k7-scrub` | todo |
+| K8 | set the levels of tracks 1–4 on the faders, with no bank | `k8-faders` | todo |
+| K9 | play the keyboard's synth over the tape and record it as an input | – | rig |
+| K10 | read what every control does, in the guide and over the panel, and hide the overlay once I know it (the keyboard's help page is the virtual keyboard's to see) | `k10-map` | todo, after the map's spec |
+| K11 | see on the tablet what the keyboard's 16 pads do now: a strip just above the bar, lit as the keyboard lights them, switching page with SHIFT, hidden by a switch on this device (the surface's build order, step 6) | `k11-pad-strip` | todo |
+| P1 | A/B the pads' quantum by ear, a 16th against `now`, and pick their timing | – | rig |
 
 ### Not written yet (add a flow before or with the change that touches them)
 
@@ -77,7 +90,6 @@ More to convert: the `[demo]` lines in `docs/checks.md` (the `[rig]` ones stay m
 | J1.8 | hold the instrument's pads (BREAK, REV, FX…) without touching undo | core (Play mode on) |
 | J2.8 | play all, stopped by picking one by hand | core |
 | J2.9 | write notes on a take as it plays: ✎, words, its pin on the waveform, a tap on its time goes there, ✕, and Undo brings it back (`listening-back.md`) | todo |
-| J4.1 | record from the phone (HTTPS); the take appears after Stop | core |
 | J4.3 | send the tape to the phone upstairs (output Jam room / Phone / Both) | core |
 | J5.4 | wire an input to a track on the Rig, and see Catch name the tracks | core |
 | U1 | the take page has the tape's edit controls (fades, gain, normalize, reverse) | todo |
@@ -113,7 +125,7 @@ at the end), with no LLM (`scripts/flows/layout.mjs`):
   saw each one open: J5.1 has ☰, J3.2 and J3.3 the tape's, J1.9 and J4.4
   ⌗'s, J1.4 the tempo's
   and Catch's, J1.5 the input chip's, J2.3 the bar's source, J2.5 the
-  take's. A step that opens a menu, then a
+  take's, J4.1 the phone's ▾. A step that opens a menu, then a
   step that uses it, is what puts an open menu in front of the checks.
 - **target-size:** axe-core's WCAG 2.2 rule, under 24 px with too little
   room around it.
@@ -192,7 +204,14 @@ export default {
   (the demo boots with `TAPE_CONTROLLER=SMK` and an empty node directory,
   so there is no keyboard until a flow plugs one in). It answers
   `press(bytes)`, MIDI as the keyboard sends it, and `unplug()`: unplug it
-  in a `finally`, as J1.15 does.
+  in a `finally`, as J1.15 does. `t.api.keyboard({ firmware: true })` also
+  stands in for Hindsight's firmware as far as the Pi's client can tell:
+  it acks every seq every 100 ms (HELLO's as version 2 with every
+  feature), so the Pi takes the screen, and answers `home()` and
+  `offer()`, the keyboard's own RELEASE and OFFER; `status()` is
+  `/api/status`'s `keyboard`. It can't read what the Pi sent, so it checks
+  nothing that was drawn: that is `internal/surface`'s tests' (and its
+  link harness, `link_test.go`) and the virtual keyboard's.
 - `FLOWS_CPU=4 node scripts/flows.mjs` runs the pages four times slower,
   as a CI runner can: a flow that passes only on a fast machine is racing
   the app (and the app may be racing a person on an old tablet).

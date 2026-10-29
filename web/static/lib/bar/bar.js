@@ -47,7 +47,8 @@ export class NowPlaying {
     this.scrubSize = null;
     this.colors = tokenCache(() => this.scrub);
     onSchemeChange(() => { this.colors.clear(); this.kick(); });
-    initPlayer();
+    // The phone's player, a sheet (player.js): null where the page has none.
+    this.player = initPlayer();
     initFold();
     // Its height, for the pages that keep clear of it.
     measureBar(this.root);
@@ -237,6 +238,8 @@ export class NowPlaying {
     setText($('np-source-short'), d.source.short);
     setText($('np-source-long'), d.source.long);
     setText($('np-output-val'), d.out);
+    const foot = $('np-out-foot');
+    if (foot) setText($('np-out-foot-val'), d.out);
     const tempo = $('np-tempo');
     const tempoMenu = s.kind === 'tape' && document.body.classList.contains('tape-page');
     if (tempo.disabled !== !tempoMenu) tempo.disabled = !tempoMenu;
@@ -246,6 +249,10 @@ export class NowPlaying {
     const sends = !!this.canOutput();
     if (out.disabled !== !sends) out.disabled = !sends;
     setAttr(out, 'aria-label', d.said.out);
+    if (foot) {
+      if (foot.disabled !== !sends) foot.disabled = !sends;
+      setAttr(foot, 'aria-label', d.said.out);
+    }
   }
 
   onChange(fn) {

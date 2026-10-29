@@ -43,9 +43,12 @@ func (r *rig) batches() []Item {
 	all := r.sentBatches()
 	var out []Item
 	for _, it := range all {
-		if it.Kind == KindLED {
+		switch it.Kind {
+		case KindLED:
 			r.leds = append(r.leds, it)
-		} else {
+		case KindKnob:
+			r.knobs = append(r.knobs, it)
+		default:
 			out = append(out, it)
 		}
 	}
@@ -90,6 +93,18 @@ func decodeBatch(t *testing.T, p []byte) []Item {
 	for len(p) > 0 {
 		cmd, size := Kind(p[0]), int(p[1])
 		b := p[2 : 2+size]
+		if cmd == KindKnob {
+			it := Item{Kind: KindKnob, X: int(b[0]), Value: int(b[1])}
+			if size == 10 {
+				it.Echo = true
+				for i := range it.At {
+					it.At[i] = n14(b[2:], i)
+				}
+			}
+			out = append(out, it)
+			p = p[2+size:]
+			continue
+		}
 		if cmd == KindLED {
 			it := Item{Kind: KindLED, X: int(b[0])}
 			for i := range min(3, size-1) {

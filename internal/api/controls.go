@@ -534,13 +534,21 @@ func msgKey(m midiMsg) string {
 // holder is a controller's name in playHolds' terms.
 func holder(port string) string { return "midi:" + port }
 
+// viaMIDI stamps what a controller plays, to be timed to the ear
+// (tape/latency.go). The engine stamps its arrival.
+var viaMIDI = tape.Stamp{Via: tape.ViaMIDI}
+
 // ControlMIDI is the watcher's ControlSink: one message from a controller.
 func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	m, ok := decodeMIDI(status, d1, d2)
 	if !ok {
 		return
 	}
+	if m.typ == "rt" && a.keyboardFirmware(port) {
+		return // its own sequencer's Start and Stop, not its PLAY: keyboard.go
+	}
 	a.keyboardButton(port, m) // SHIFT's light, whatever it's bound to
+	a.keyboardPad(port, m)    // a pad's echo answered, taken or refused
 	b := &a.controls
 	down := m.typ == "on" || m.typ == "rt" || (m.typ == "cc" && (m.value >= 64 || m.cc >= 120))
 	key := msgKey(m)
@@ -714,7 +722,7 @@ func (a *API) controllerAmount(port, id string, value int) {
 		return
 	}
 	if eng := a.playerOrNil(); eng != nil {
-		_ = eng.Set(id, v)
+		_ = eng.SetStamped(viaMIDI, id, v)
 	}
 }
 
@@ -736,7 +744,7 @@ func (a *API) controllerPressure(port, pad string, value int) {
 		return
 	}
 	for _, p := range moved {
-		_ = eng.Set(p, float64(value)/127)
+		_ = eng.SetStamped(viaMIDI, p, float64(value)/127)
 	}
 }
 
@@ -761,11 +769,11 @@ func (a *API) controllerBend(port string, raw int) {
 		delete(b.wait[port], "bend")
 		delete(b.keys[port], "bend")
 		b.mu.Unlock()
-		a.playHolds.release("bend", func() { _ = eng.Release("bend") })
+		a.playHolds.release("bend", func() { _ = eng.ReleaseStamped(viaMIDI, "bend") })
 	case math.Abs(v) > bendDead && !bending:
 		a.controllerPress(port, "bend", tape.QuantumNow, v)
 	case bending:
-		_ = eng.Set("bend", v)
+		_ = eng.SetStamped(viaMIDI, "bend", v)
 	}
 }
 
@@ -801,6 +809,7 @@ func (a *API) knobsFor(port string) *tape.ModKnobs {
 	if k == nil {
 		k = tape.NewModKnobs(a.tape)
 		k.Owner = holder(port)
+		k.Via = tape.ViaMIDI
 		if b.knobQuiet > 0 {
 			k.Quiet = b.knobQuiet
 		}
@@ -834,10 +843,7 @@ func (a *API) controllerPress(port, pad, q string, v float64) {
 		return
 	}
 	b.mu.Unlock()
-	press := func() error { return eng.Press(pad, q) }
-	if !math.IsNaN(v) {
-		press = func() error { return eng.PressAmount(pad, q, v) }
-	}
+	press := func() error { return eng.PressStamped(viaMIDI, pad, q, v) }
 	if err := a.playHolds.press(pad, press); err != nil {
 		b.mu.Lock()
 		said := b.refused[port][pad]
@@ -895,7 +901,7 @@ func (a *API) controllerRelease(port, pad string) {
 	b.mu.Unlock()
 	a.keyboardFinger(port, pad, false)
 	if eng := a.playerOrNil(); eng != nil {
-		a.playHolds.release(pad, func() { _ = eng.Release(pad) })
+		a.playHolds.release(pad, func() { _ = eng.ReleaseStamped(viaMIDI, pad) })
 	}
 }
 
@@ -931,7 +937,7 @@ func (a *API) controllerLatch(port string, down bool) {
 		still := b.held[port][p]
 		b.mu.Unlock()
 		if !still {
-			a.playHolds.release(p, func() { _ = eng.Release(p) })
+			a.playHolds.release(p, func() { _ = eng.ReleaseStamped(viaMIDI, p) })
 		}
 	}
 }
@@ -961,7 +967,7 @@ func (a *API) ControllerGone(port string) {
 		return
 	}
 	for _, p := range held {
-		a.playHolds.release(p, func() { _ = eng.Release(p) })
+		a.playHolds.release(p, func() { _ = eng.ReleaseStamped(tape.Stamp{}, p) }) // gone, not played: not timed
 	}
 }
 

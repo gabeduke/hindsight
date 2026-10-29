@@ -224,6 +224,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/listen", a.handleTapeListen).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/stream", a.handleTapeStream).Methods(http.MethodGet)
 	r.HandleFunc("/api/tapes/play", a.handleTapePlay).Methods(http.MethodGet)
+	r.HandleFunc("/api/latency", a.handleLatency).Methods(http.MethodGet)
 	r.HandleFunc("/api/tapes/changes", a.handleTapeChanges).Methods(http.MethodGet)
 	r.HandleFunc("/api/tapes/controls", a.handleControlsGet).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/controls", a.handleControlsPut).Methods(http.MethodPut)
@@ -287,6 +288,9 @@ type statusResponse struct {
 	// so a page reads this first and asks only where there is something to
 	// ask.
 	Updates bool `json:"updates"`
+	// Keyboard is the SMK-37 on Hindsight's firmware as its client sees
+	// it; null with no client (keyboard.go).
+	Keyboard *keyboardStatus `json:"keyboard"`
 }
 
 // HubStatus is the hub client, as the status and settings answers see it.
@@ -339,6 +343,7 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		MIDIDevices:     a.midiDevices(),
 		Hub:             a.hubStatus(),
 		Updates:         a.updater != nil,
+		Keyboard:        a.keyboardStatus(),
 	})
 }
 

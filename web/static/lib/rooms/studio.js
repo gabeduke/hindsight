@@ -329,8 +329,10 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
   });
 
   const onDoc = (type, fn, opts) => (ctx ? ctx.on(doc, type, fn, opts) : doc.addEventListener(type, fn, opts));
-  // ⋯'s Record from this phone (lib/tape/page.js asks).
+  // The tape's menu's Record from this phone… (lib/tape/page.js asks).
   onDoc('hindsight:phone', () => phone?.open());
+  // ● in the Studio, with the tape playing on this phone (lib/tape/page.js).
+  onDoc('hindsight:phone-record', () => phone?.quick());
   const every = (fn, ms) => (ctx ? ctx.every(fn, ms) : setInterval(fn, ms));
 
   paintKeep();

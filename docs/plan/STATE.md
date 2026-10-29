@@ -60,35 +60,43 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   100 ms or more. Then **Gabe decides the fallback poll**: the
   recommendation is the Studio's 200 ms slowed to 1 s, for when the socket
   is down (`docs/architecture/push.md`; [decision 0013](../decisions/0013-push-a-nudge-not-the-state.md)).
-- **The SMK-37 on Hindsight's own firmware.** On the rig (unreleased, #202
-  deployed): the designed screen, the press banner, the pads lit by family
-  with the half/full stage, PLAY/REC/SHIFT lights; the tablet's note over
-  the bar for every press (#198); the push socket (#196). Gabe, seeing it:
-  *"it works!"*
+- **The SMK-37 on Hindsight's own firmware.** Released (#202's 512-byte
+  frames first in v2026.10.29.6): the designed screen, the press banner,
+  the pads lit by family with the half/full stage, PLAY/REC/SHIFT lights;
+  the tablet's note over the bar for every press (#198); the push socket
+  (#196). Gabe, seeing it: *"it works!"*
   - The unit as it is, its firmware and how to probe it, and what was
     **learnt on the unit** (the 764-byte frame loss, the dead-keyboard
     retake, the Stops, the pads' colours): `docs/architecture/keyboard.md`,
     *On the unit* and *Learnt on the unit*.
-  - **Next**, a session of its own (Gabe, 2026-10-29: to dial in the link
-    and the signal flow): the pads, the Stops, local echo, the link itself,
-    then the build order's rest. The list is *Next* in
-    `the-instrument.md`, step 7, which also holds the plan and *The
-    surface, designed*.
+  - **Next** (Gabe, 2026-10-29: to dial in the link and the signal
+    flow): the pads, the Stops, local echo and the link's model are built
+    without the unit (the fork's PR #10, not flashed; the Pi's side in
+    hindsight). What needs Gabe at the keyboard is the checklist *At the
+    rig* under *Next* in `the-instrument.md`, step 7: install, flash,
+    look, listen, measure, about 1 h 45 min. Then the build order's rest
+    (K11's pad strip, K6 after the map's spec `the-map.md`, K7, K8, K3),
+    whose flows are written and `todo`.
 - The rig page with the real Sidekick (the eight steps in PR #107).
 - The device spike (iPad standalone audio when backgrounded; Android
   discarding the PWA mid-jam) needs the tablet and the iPad.
 
 ## Next
 
-- **`the-studio-space.md` is the build order**: steps 1–6 and 8 have
-  landed; 7 (the phone), 9 (the notes drawer), 10
-  (Open), 11 (the buffer into the cue lane) and 12 (polish) are open. They
+- **`the-studio-space.md` is the build order**: steps 1–8 have landed; 9
+  (the notes drawer, on `lib/ui/sheet.js`), 10 (Open), 11 (the buffer into
+  the cue lane) and 12 (polish) are open.
+  The phone's player as a sheet and its ● want a look on a real phone:
+  the mini player's display is narrow on a 360 px phone (`bar.md`). They
   take in the open steps of `listening-back.md` and
   `the-studio-on-one-screen.md`, which hold their details.
 - **`the-instrument.md`** (agreed 2026-10-26), in tracks of its own:
-  Hindsight as something you play. Its step 1 comes first: latency
+  Hindsight as something you play. Its step 1 is built: latency
   measured in use, every control timed to the ear, kept on the Pi
-  ([decision 0016](../decisions/0016-measure-latency-in-use.md)). Its step 7, the SMK-37, is above.
+  ([decision 0016](../decisions/0016-measure-latency-in-use.md);
+  `GET /api/latency`, the rig's line). Next, Gabe at the rig reads the
+  numbers on the Pi 5, which choose step 2's buffers. Its step 7, the
+  SMK-37, is above.
 - **An auto-install trigger** for releases ([decision 0012](../decisions/0012-agents-install-releases.md); `backlog.md`).
 
 Leftovers, to fold in as each is touched:

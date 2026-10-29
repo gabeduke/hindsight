@@ -23,7 +23,7 @@ It takes in the open steps of `the-studio-on-one-screen.md` and
 
 ## Landed
 
-Steps 1 to 6, each now in `docs/architecture/`:
+Steps 1 to 8, each now in `docs/architecture/`:
 
 - **Foundations**: one stylesheet reader for the tests, the computed-style
   snapshot (`scripts/css-snapshot.mjs`), the overwritten declarations gone
@@ -45,10 +45,16 @@ Steps 1 to 6, each now in `docs/architecture/`:
   the first switch.
 - **The library** (*The library*): the shelf wall, Sort, Shelf | List,
   search into the List, a phone's List, the room as entrance. J2.7.
+- **The phone** (`shell.md`, *Sheets* and *Recording from this phone*;
+  `bar.md`): `lib/ui/sheet.js`, the player as a sheet you drag (the art,
+  the strip, the keys under the thumb, where it plays at the foot), and a
+  big red ● with the phone's ▾ in the mini player. J4.4, J4.1.
+- **The Studio's heads and ruler** (`tape.md`, *The track heads*): on a
+  touch screen a head is its name, ● at 44 px, its input and ›, which opens
+  the inspector with M, S and the level; the ruler's keys are ⌗ alone; the
+  tablet's budget (`STUDIO_BUDGET`). J1.5, J1.16.
 
-What the audit found that is still open: the phone's pulled-up player puts
-every control in the top third and can't be swiped; recording from the
-phone is buried in a menu; GRAB's buffer pushes the cue lane and the tracks
+What the audit found that is still open: GRAB's buffer pushes the cue lane and the tracks
 under the bar, so DROP is pressed blind; Open is three generations stacked
 (Download the orange key, five ✎ controls, the waveform halving when the
 MIDI pane arrives); and most motion is still cuts.
@@ -65,16 +71,14 @@ toast, help mode, the scene contract and the shared ticker.
 |---|---|
 | The studio is a place | The drawn room becomes **where you are**, not what you look at. The Studio's desk and the library's shelf wall are two walls of one space, and switching rooms **turns a CSS-perspective camera** from one to the other (tab order: the Studio left, the library right) while the header and the bar, the desk in front of you, hold still. The room shows in full as you walk in, then falls back to ambient light behind the shelves. Opening a take **dollies in** to it; ‹ Takes dollies back out. No 3D engine: CSS 3D transforms and View Transitions on the compositor. "Flat first" stands; three.js stays the Rig's. |
 | Motion | One set of tokens and springs in `lib/objects/motion.js`, mirrored in CSS and kept in step by a test (as `choreo.test.js` does). A touch shows within one frame. **Nothing teleports**: a GRAB peels off the ribbon into the cue lane, a cue clip flies to its track, KEEP sends a spine to the Listening Room's tab, the mini player grows into the full one. Sheets and drawers follow the finger and settle on a spring, flicks included. Anything waiting for the bar line shows its countdown; lamps pulse in tempo. Only transform and opacity animate. Reduced motion turns travel into fades. Haptics where the device has them, never as the only answer. **No UI sounds**: the ring is always listening. |
-| The phone | The pulled-up player is a sheet you drag: grabber at the top, the reels and display as its art, the strip, then the transport in the thumb's reach and the output at the foot. A drag up from the mini player opens it; a swipe down or Back closes it. |
-| Recording from a phone | A big red **●** in the phone's mini player records from the phone, with its input on a ▾; *Record from this phone…* in the name's menu is the second way in. *Changes* `the-studio-on-one-screen.md`, where ● Phone moved into ⋯. |
 | Open | `listening-back.md`, step 3, as agreed, plus: the frame above; the selection gets the Studio's action bar; the page's grid is set from the first paint, so nothing jumps when MIDI arrives; − Fit + on the waveform, and a double tap zooms (notes come from ✎ alone); grips and pins 44 px on touch. |
 | Under the hood | The CSS splits into one file per place (tokens, base, kit, chrome, bar, studio, room, take, play, rig, guide…), each listed in `sw.js` and checked by ratchet tests. Shared modules in `lib/ui/`: `layers.js` (the one stack), `menu.js`, `sheet.js` (detents, swipe, flick), `press.js` (tap, double tap, hold: one table of thresholds), an SVG icon sprite in place of the unicode glyphs, and `dom.js`. Each lands with its first user, never as a sweep. |
 
 The studio as a place has landed but for the dolly into a take (step 10).
 Of *Under the hood*, `lib/ui/` has `layers.js`, `menu.js`, `press.js`,
-`keys.js` and `icons.js`, and `css/` has `chrome.css`, `bar.css` and
-`rooms-motion.css`; `sheet.js` comes with step 7, and the rest of the CSS
-files as their places are rebuilt.
+`keys.js`, `icons.js` and `sheet.js`, and `css/` has `chrome.css`,
+`bar.css` and `rooms-motion.css`; the rest of the CSS files come as their
+places are rebuilt.
 
 ### To settle while building
 
@@ -83,9 +87,6 @@ My recommendation first in each.
 - **One hold time, 400 ms** (Android's), in place of 300, 350, 400 and
   500. Until Gabe has tried it on the tablet, `lib/ui/press.js` keeps
   today's values by name.
-- **The phone's ●, with the tape in the jam room**: a tap records the jam
-  room as now; a hold offers *Record from this phone*. With the tape
-  playing on this phone, a tap records here.
 - **The tablet's track heads** keep step 3's inspector for M, S and level,
   plus a visible way in: built so, › at the head's end (step 8). GarageBand's
   reveal (drag the heads wider to show M, S and level for every track) is
@@ -100,9 +101,7 @@ in both schemes, and the layout baseline shrinking, never growing. **Each
 step is a checkpoint**: it merges alone, and `docs/plan/STATE.md` says
 what's next.
 
-1–6. Landed (above).
-7. **The phone.** `sheet.js`; the player as a sheet you drag; ● records
-   from the phone.
+1–7. Landed (above).
 8. ~~The Studio's heads and ruler~~ (`the-studio-on-one-screen.md`, steps 3
    and 4). Landed: `docs/architecture/tape.md`, *The track heads*; J1.5,
    J1.16.

@@ -33,22 +33,7 @@ export default {
       await page.evaluate(() => sessionStorage.getItem('hindsight.npFold')) !== null);
 
     // A drag up on the grabber unfolds it, and a drag down folds it again.
-    const drag = async (dy) => {
-      const b = await grabber.boundingBox();
-      const x = b.x + b.width / 2, y = b.y + b.height / 2;
-      if (t.profile === 'tablet') {
-        const cdp = await t.cdp();
-        const pt = (yy) => [{ x, y: yy }];
-        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(y) });
-        for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(y + (dy * i) / 6) });
-        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      } else {
-        await page.mouse.move(x, y);
-        await page.mouse.down();
-        await page.mouse.move(x, y + dy, { steps: 6 });
-        await page.mouse.up();
-      }
-    };
+    const drag = (dy) => t.swipe(grabber, dy);
     await t.step('drag the grabber up', () => drag(-60));
     t.expect('a drag up unfolds the bar', await t.poll(() => !document.body.classList.contains('np-fold')));
     await t.wait(600);

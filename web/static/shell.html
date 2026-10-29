@@ -312,6 +312,9 @@
 <!-- The display's source: the tape, the live feed, the last few takes, the
      shelf (lib/bar/source-menu.js). -->
 <div id="np-source-menu" class="menu np-source-menu" role="menu" aria-label="What plays" hidden></div>
+<!-- The mini player's ▾ beside ●: record from this phone, its input, its
+     level (lib/bar/phone-key.js). -->
+<div id="np-phone-menu" class="menu np-phone-menu" role="menu" aria-label="Record from this phone" hidden></div>
 
 <!-- The dock at the foot of the page: the clip editor while a clip is
      aligned, the action bar while something is selected, then the
@@ -430,7 +433,13 @@
         <div class="np-zone np-transport" data-slot="transport" role="group" aria-label="Transport">
           <button id="np-start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start" data-for="tape take feed" data-mini="tape take feed"><svg class="i i-prev" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#prev"/></svg></button>
           <button id="np-play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-tip="tape-play" data-for="tape take feed" data-mini="tape take feed"><svg class="i i-play" width="22" height="22" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#play"/></svg></button>
-          <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" aria-label="Record" aria-keyshortcuts="R" data-tip="tape-rec" data-for="studio"><svg class="i i-rec" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#rec"/></svg></button>
+          <button id="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" aria-label="Record" aria-keyshortcuts="R" data-tip="tape-rec" data-for="studio" data-mini="studio"><svg class="i i-rec" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#rec"/></svg></button>
+          <!-- The phone's own ●, in the mini player alone: it records from
+               this phone (lib/bar/phone-key.js); in the Studio, with the tape,
+               ● is the tape's (#rec) and a hold on it offers this. Its ▾ is
+               the phone's input, for both. -->
+          <button id="np-phone-rec" class="icon-btn tb-rec np-phone-rec" type="button" aria-pressed="false" aria-label="Record from this phone" data-tip="np-phone-rec" data-mini="take feed away"><svg class="i i-rec" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#rec"/></svg></button>
+          <button id="np-phone-more" class="icon-btn key-more np-phone-more" type="button" aria-label="Record from this phone: the input" data-tip="np-phone-more" data-mini="tape take feed"><svg class="i i-down" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#down"/></svg></button>
           <button id="np-back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5" data-for="take feed away"><svg class="i i-back5" width="20" height="20" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#back5"/></svg></button>
         </div>
         <!-- The verb: the tape's Catch, Record's after-the-fact twin, and its
@@ -462,6 +471,11 @@
     <div class="np-row np-row-2" data-slot="strip">
       <canvas id="tape-overview" class="tape-overview np-scrub" role="slider" tabindex="0" aria-label="The whole tape: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="tape-overview" data-for="studio"></canvas>
       <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub" data-for="take feed away"></canvas>
+    </div>
+    <!-- The foot: where it plays, at the foot of the phone's player pulled
+         up, under the thumb (the display's OUT, which the player hides). -->
+    <div class="np-row np-foot" data-slot="foot">
+      <button id="np-out-foot" class="icon-btn np-out-foot" type="button" aria-haspopup="dialog" aria-label="Where it plays" data-tip="np-output" data-for="tape take feed"><span class="np-out-leg">OUT</span><span id="np-out-foot-val" class="np-out-val">JAM ROOM</span><svg class="i i-down" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#down"/></svg></button>
     </div>
   </section>
 </div>

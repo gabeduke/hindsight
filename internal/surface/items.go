@@ -18,6 +18,9 @@ const (
 	KindText Kind = cmdText
 	KindBox  Kind = cmdBox
 	KindBar  Kind = cmdBar
+	// KindKnob is KNOB: where an encoder stands, not a screen item, kept
+	// apart from the list as the lights are (Stands, in layout.go).
+	KindKnob Kind = cmdKnob
 )
 
 // Item is one thing on the screen. A TEXT is S at (X, Y) at Scale in Colour
@@ -25,7 +28,9 @@ const (
 // Value/127 of its W by H in Colour and the rest in Back. An LED (lights.go)
 // is a light, not on the screen: X is its target, a pad 0-15 or 16 + a
 // button's id, and Lamp a pad's red, green and blue, 0-127, or a button's
-// Light first.
+// Light first. A KNOB is where encoder X stands, at Value; with Echo, At is
+// where its value is drawn, the TEXT's x and y then the BAR's, which a turn
+// on the keyboard writes into.
 type Item struct {
 	Kind         Kind
 	X, Y, W, H   int
@@ -34,6 +39,8 @@ type Item struct {
 	Value        int
 	S            string
 	Lamp         [3]int
+	At           [4]int
+	Echo         bool
 }
 
 // TextItem is a TEXT: s cleaned to what the keyboard draws (capitals,
@@ -109,7 +116,7 @@ func (it Item) removal() Item {
 // removes says whether the item is a removal. A light never is: it is set,
 // to off if need be.
 func (it Item) removes() bool {
-	if it.Kind == KindLED {
+	if it.Kind == KindLED || it.Kind == KindKnob {
 		return false
 	}
 	if it.Kind == KindText {
@@ -135,6 +142,12 @@ func (it Item) payload() []byte {
 		return append(put14(nil, it.X, it.Y, it.W, it.H), byte(it.Colour))
 	case KindLED:
 		return it.ledPayload()
+	case KindKnob:
+		b := []byte{byte(it.X), byte(it.Value)}
+		if it.Echo {
+			b = put14(b, it.At[:]...)
+		}
+		return b
 	default:
 		return append(put14(nil, it.X, it.Y, it.W, it.H), byte(it.Value), byte(it.Colour), byte(it.Back))
 	}
@@ -152,6 +165,9 @@ func (it Item) String() string {
 		return fmt.Sprintf("box %d %d %d %d %d", it.X, it.Y, it.W, it.H, it.Colour)
 	case KindLED:
 		return it.ledString()
+	case KindKnob:
+		// The simulator's "knob" turns an encoder; this is the Pi's KNOB.
+		return "sysex " + fmt.Sprintf("% X", append(append([]byte{0xF0, 0x7D, 'H', 'S', 2, 0, cmdKnob}, it.payload()...), 0xF7))
 	default:
 		return fmt.Sprintf("bar %d %d %d %d %d %d %d", it.X, it.Y, it.W, it.H, it.Value, it.Colour, it.Back)
 	}

@@ -206,6 +206,41 @@ display, the ruler's ⌗ (the View menu) and a track's input chip; on Open,
 the take's name. Open's More, Send to and lane menus are still their own,
 to move in Open's pass.
 
+**Sheets** (`lib/ui/sheet.js`). A sheet or a drawer that comes up from
+the foot and follows the finger is `createSheet(el, {layers, kind, modal,
+owner, detents, closed, closable, handles, when, onShow, onHide,
+onDetent})`, answering `{open({detent}), close(reason), snap(detent),
+isOpen, detent, y, destroy()}`. It moves `el` by a transform alone, on the
+shared ticker: a drag on one of its `handles` (never on `IGNORE`: a field,
+a canvas, what has a drag of its own; up and down only) follows the
+finger, past its top it gives (`give`), and let go it settles on the lid
+spring (`SPRINGS.lid`) at the detent nearest where the flick would have
+coasted to (`settleAt`, on `motion.js`'s `project`), or goes away. It
+opens on the page's stack, and its layer is the one way out: a swipe down,
+Back, Escape and the owner's `close()` all close the layer, and its
+`onClose` slides the sheet out, then calls the owner's `onHide`. A drag up
+on a handle while it is put away opens it under the finger; caught on its
+way out, it is open again. The click a drag's lift sends is swallowed.
+With less motion it doesn't travel: it is there at once and fades in and
+out (`T.touch`, `T.exit`). The owner lays it out (`onShow`) and puts it
+away (`onHide`); the sheet only moves it. Its first user is the phone's
+player (`lib/bar/player.js`, `bar.md`); the notes drawer is meant to be
+the second, with a half-way detent.
+
+**Recording from this phone** (`lib/phone/recorder.js`). One recorder per
+page, `phoneRecorder(doc)`, on the page's `#phone-sheet`: Capture's and the
+Studio's ● Phone (`initPhone` wires a room's key to it), the tape's menu's
+Record from this phone… (`hindsight:phone`, the sheet), the mini player's
+● and ▾ (`lib/bar/phone-key.js`) and the Studio's ● with the tape playing on
+this phone (`hindsight:phone-record`) all drive and show the same one. It
+answers `open()` (the sheet: the input, its meter, Record), `quick()`
+(record now from the input kept, or stop; what can't start opens the
+sheet, which says why), `stop()`, `inputs()`, `input()`, `setInput(id)`,
+`state()` (`{mode, seconds}`), `onChange(fn)`, `onSaved(fn)`. A key that
+shows a recording without starting one (the mini player's ●, the Studio's)
+takes it by `onPhoneRecorder(doc, fn)`: now, or as soon as a room makes
+it.
+
 **The engine** (`lib/bar/engine.js`), made once by the shell:
 
 | Part | What it is |

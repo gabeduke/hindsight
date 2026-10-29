@@ -62,7 +62,8 @@ if (!base) {
   base = demo.base;
 }
 const api = apiFor(base, { dir: demo?.dir });
-const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+// A fake microphone, allowed without asking: recording from a phone (J4.1).
+const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
 const results = [];
 try {
   for (const flow of flows) {

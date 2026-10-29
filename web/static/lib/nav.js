@@ -15,6 +15,7 @@ import './rooms/words.js';
 import { icon } from './ui/icons.js';
 import { layersOf } from './ui/layers.js';
 import { menu, menuItem } from './ui/menu.js';
+import { latencyOn } from './play/flag.js';
 
 const TABS = [
   // The Studio's href is the tape page's while the tape is on.
@@ -154,6 +155,8 @@ export function initNav(doc = document, env = {}) {
   mountHeaderTools(doc, { layers });
   // The rig, in the menu: its interface and lamp (lib/rig/chip.js).
   import('./rig/chip.js').then((m) => m.mountChip(doc, { pathname: loc.pathname, fetchFn: get })).catch(() => {});
+  // The latency overlay, on a device that asked for it (lib/device-prefs.js).
+  if (latencyOn()) import('./play/latency.js').then((m) => m.mountOverlay(doc, { fetchFn: get })).catch(() => {});
   const apply = (tapeOn) => {
     const tabs = navTabs(loc.pathname, tapeOn);
     for (const a of nav.querySelectorAll('a[data-tab]')) {

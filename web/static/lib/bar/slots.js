@@ -13,8 +13,11 @@
 // pages that keep clear of it -- never a number written into the CSS for each
 // state and device, as thirteen were.
 
-/** SLOTS are the bar's places, in order along it: the zones, then the strip. */
-export const SLOTS = Object.freeze(['deck', 'transport', 'verb', 'modes', 'end', 'strip']);
+/**
+ * SLOTS are the bar's places, in order along it: the zones, then the strip,
+ * then the foot (where it plays, shown in the phone's player alone).
+ */
+export const SLOTS = Object.freeze(['deck', 'transport', 'verb', 'modes', 'end', 'strip', 'foot']);
 
 /** SOURCES are what the bar can hold, as #np's data-source says them. */
 export const SOURCES = Object.freeze(['tape', 'take', 'feed']);
