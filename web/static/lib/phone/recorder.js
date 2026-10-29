@@ -1,5 +1,8 @@
-// The phone recorder: a sheet on the main page that records the phone's mic,
-// or an input plugged into the phone, straight into Hindsight.
+// The phone recorder: records the phone's mic, or an input plugged into the
+// phone, straight into Hindsight. One per page (phoneRecorder), on the
+// page's #phone-sheet: Capture's ● Phone, the Studio's, the tape's menu
+// (Record from this phone…) and the mini player's ● (lib/bar/phone-key.js)
+// all drive the same one, so they all show the one recording.
 //
 // Opening the sheet asks for the input and starts a meter, so the level can
 // be checked before anything is recorded. Record streams the audio to the Pi
@@ -55,7 +58,56 @@ export function canRecordHere(win = globalThis, secure = '') {
   return '';
 }
 
-export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' }) {
+const recorders = new WeakMap();
+const waiting = new WeakMap(); // doc → what onPhoneRecorder is waiting to hand it to
+
+/**
+ * phoneRecorder is the page's one recorder, on `sheet` (the page's
+ * #phone-sheet), made on the first call. Answers null on a page without the
+ * sheet. Its `toast` is the first caller's; a later `secureURL` is added to
+ * the ones it asks (status.hub.url: each room has the Pi's status).
+ */
+export function phoneRecorder(doc = globalThis.document, { sheet = doc?.getElementById?.('phone-sheet'), toast = () => {}, secureURL = null } = {}) {
+  if (!sheet) return null;
+  let r = recorders.get(sheet);
+  if (!r) {
+    r = makeRecorder(doc, sheet, toast);
+    recorders.set(sheet, r);
+    const fns = waiting.get(doc) || [];
+    waiting.delete(doc);
+    for (const fn of fns) fn(r);
+  }
+  if (secureURL) r.secureFrom(secureURL);
+  return r;
+}
+
+/**
+ * onPhoneRecorder hands `fn` the page's recorder: now, if a room has made
+ * it, or as soon as one does. For the keys that show a recording started
+ * from anywhere (the mini player's ●, the Studio's), without making it.
+ */
+export function onPhoneRecorder(doc, fn) {
+  const sheet = doc?.getElementById?.('phone-sheet');
+  const r = sheet && recorders.get(sheet);
+  if (r) { fn(r); return; }
+  if (!waiting.has(doc)) waiting.set(doc, []);
+  waiting.get(doc).push(fn);
+}
+
+/**
+ * initPhone wires a room's ● Phone `button` to the page's recorder: a tap
+ * opens the sheet, and the key shows the recording (● REC 0:12) wherever it
+ * was started. `onSaved(name)` hears each take it saves.
+ */
+export function initPhone({ button, sheet, toast, onSaved, secureURL }) {
+  const r = phoneRecorder(button?.ownerDocument || globalThis.document, { sheet, toast, secureURL });
+  if (!r) return null;
+  if (button) r.addButton(button);
+  if (onSaved) r.onSaved(onSaved);
+  return r;
+}
+
+function makeRecorder(document, sheet, toast) {
   const q = (id) => document.getElementById(id);
   const ui = {
     insecure: q('phone-insecure'),
@@ -69,7 +121,12 @@ export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' 
     close: q('phone-close'),
     rec: q('phone-rec'),
   };
-  const buttonLabel = button.innerHTML;
+  // The rooms' ● Phone keys, each with its own label to go back to.
+  const buttons = new Map();
+  const savedFns = new Set();
+  const changeFns = new Set();
+  const secures = [];
+  const secureURL = () => secures.map((f) => f()).find(Boolean) || '';
 
   // closed: no mic. monitor: the sheet is open, metering. recording. saving:
   // Stop was pressed (or the Pi ended it) and the take is being finished.
@@ -88,13 +145,9 @@ export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' 
   let flushed = null;    // resolves when the worklet has sent its last chunk
   let monitorToken = 0;  // so an older startMonitor can't install its audio over a newer one
 
-  button.addEventListener('click', open);
   ui.close.addEventListener('click', () => hide());
   ui.rec.addEventListener('click', () => (mode === 'recording' ? stop() : record()));
-  ui.input.addEventListener('change', () => {
-    try { localStorage.setItem(INPUT_KEY, ui.input.value); } catch { /* private mode */ }
-    if (mode === 'monitor') startMonitor(ui.input.value);
-  });
+  ui.input.addEventListener('change', () => setInput(ui.input.value));
   // Escape or the back gesture just hides the sheet. While recording that's
   // harmless -- the recording carries on -- and otherwise the mic is let go.
   sheet.addEventListener('close', () => {
@@ -127,18 +180,32 @@ export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' 
     if (sheet.open) sheet.close();
   }
 
+  const seconds = () => recordedFrames / (ctx?.sampleRate || 48000);
+
   function updateButton() {
-    button.classList.toggle('recording', mode === 'recording' || mode === 'saving');
     // lib/settings.js reads this before a reload: a reload would end the recording.
     document.documentElement.dataset.phoneBusy = mode === 'recording' || mode === 'saving' ? '1' : '0';
-    if (mode === 'recording') button.textContent = `● REC ${fmtClock(recordedFrames / (ctx?.sampleRate || 48000))}`;
-    else if (mode === 'saving') button.textContent = 'Saving…';
-    else button.innerHTML = buttonLabel;
+    const busy = mode === 'recording' || mode === 'saving';
+    for (const [button, label] of buttons) {
+      button.classList.toggle('recording', busy);
+      if (mode === 'recording') button.textContent = `● REC ${fmtClock(seconds())}`;
+      else if (mode === 'saving') button.textContent = 'Saving…';
+      else button.innerHTML = label;
+    }
+    const now = { mode, seconds: mode === 'recording' || mode === 'saving' ? seconds() : 0 };
+    for (const fn of changeFns) fn(now);
   }
 
   async function open() {
     if (mode === 'recording' || mode === 'saving') { showSheet(); return; }
     showSheet();
+    if (!explain()) return;
+    await monitor();
+  }
+
+  // explain says, on the sheet, why this page can't record, if it can't.
+  // Answers whether it can.
+  function explain() {
     const secure = window.isSecureContext ? '' : secureURL();
     const why = canRecordHere(window, secure);
     ui.insecure.hidden = !why;
@@ -151,16 +218,50 @@ export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' 
     }
     ui.controls.hidden = !!why;
     ui.rec.hidden = !!why;
-    if (why) return;
+    return !why;
+  }
+
+  // monitor opens the input and its meter: ready to record.
+  async function monitor() {
     mode = 'monitor';
     ui.time.textContent = '0:00';
     ui.rec.textContent = 'Record';
     ui.close.textContent = 'Close';
     ui.rec.disabled = true;
     ui.note.textContent = 'Keep this page open while recording: locking the phone or switching apps pauses it.';
-    let saved = '';
-    try { saved = localStorage.getItem(INPUT_KEY) || ''; } catch { /* fine */ }
-    await startMonitor(saved);
+    await startMonitor(savedInput());
+  }
+
+  function savedInput() {
+    try { return localStorage.getItem(INPUT_KEY) || ''; } catch { return ''; }
+  }
+
+  // setInput is the input to record from, kept for the next time on this
+  // phone; while metering, the meter moves to it.
+  function setInput(id) {
+    try { localStorage.setItem(INPUT_KEY, id); } catch { /* private mode */ }
+    if (ui.input.value !== id) ui.input.value = id;
+    if (mode === 'monitor') startMonitor(id);
+  }
+
+  // quick is the mini player's ●: record now from the input kept, with the
+  // sheet down (its meter is a tap away), or stop. What can't start -- a
+  // page that isn't secure, a refused or missing input -- opens the sheet,
+  // which says why.
+  async function quick() {
+    if (mode === 'recording') { stop(); return; }
+    if (mode === 'saving') { showSheet(); return; }
+    if (!explain()) { showSheet(); return; }
+    if (mode === 'closed') await monitor();
+    if (mode === 'monitor' && ctx) record();
+    else showSheet();
+  }
+
+  // inputs lists the phone's inputs, by name once the page may use the mic.
+  async function inputs() {
+    let devices = [];
+    try { devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput'); } catch { /* none */ }
+    return devices.map((d, i) => ({ id: d.deviceId, label: d.label || `Input ${i + 1}` }));
   }
 
   async function startMonitor(deviceId) {
@@ -361,7 +462,7 @@ export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' 
       const why = { disk: ' — the Pi’s disk is nearly full', limit: ' — three hours is the limit' }[result.reason] || '';
       toast(`Saved the phone take · ${fmtClock(result.seconds)}${result.partial ? ' (partial)' : ''}${why}`,
         result.reason === 'stop' && !result.partial ? 'ok' : 'warn', 7000);
-      onSaved?.(result.name);
+      for (const fn of savedFns) fn(result.name);
     } else if (result.reason === 'error') {
       toast('The Pi couldn’t finish the take. What reached it is recovered when it next restarts.', 'bad', 9000);
     } else {
@@ -400,6 +501,27 @@ export function initPhone({ button, sheet, toast, onSaved, secureURL = () => '' 
     updateButton();
   }
 
-  // The Studio's ⋯ opens it too, where the strip has no room for the key.
-  return { open };
+  return {
+    /** open shows the sheet: the input, its meter and Record. */
+    open,
+    /** quick records now, or stops (the mini player's ●). */
+    quick,
+    stop,
+    inputs,
+    /** input is the input kept for this phone ('' for the default). */
+    input: savedInput,
+    setInput,
+    /** state is { mode: 'closed' | 'monitor' | 'recording' | 'saving', seconds }. */
+    state: () => ({ mode, seconds: mode === 'recording' || mode === 'saving' ? seconds() : 0 }),
+    /** onChange(fn) hears each change of state, and the time while it records; answers its off. */
+    onChange(fn) { changeFns.add(fn); return () => changeFns.delete(fn); },
+    onSaved(fn) { savedFns.add(fn); },
+    secureFrom(fn) { secures.push(fn); },
+    addButton(button) {
+      if (buttons.has(button)) return;
+      buttons.set(button, button.innerHTML);
+      button.addEventListener('click', open);
+      updateButton();
+    },
+  };
 }

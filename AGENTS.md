@@ -246,6 +246,12 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   the bar's display (the source's menu, the tempo's, the output sheet); ▾
   only opens a menu; the bar folds by its grabber.
   ([0047](docs/decisions/0047-the-bars-keys-live-in-its-zones.md))
+- **A sheet or a drawer that follows the finger** is `createSheet`
+  (`lib/ui/sheet.js`; `docs/architecture/shell.md`, *Sheets*): detents, a
+  flick, the lid spring, and its layer on the stack the one way out; never
+  a drag of its own. The phone's player is the first; the notes drawer is
+  meant to be the second. Recording from a phone is the page's one
+  recorder (`phoneRecorder`), whatever key starts it.
 - **Moving between rooms** is the router's View Transition
   (`docs/architecture/shell.md`, *Moving between rooms*), drawn by
   `css/rooms-motion.css` (on every page, after `styles.css`), which gives the

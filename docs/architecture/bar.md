@@ -30,7 +30,25 @@ sideways scroll).
   960 the deck is 352 at 1024 and grows to 768, and from 1180 the display
   says everything in full. Under 600 (the phone's player pulled up) the
   zones stack. The phone's mini player is `data-size="mini"`: its window,
-  |◀ ▶, and a tail one width for every source.
+  |◀ ▶ ● ▾, and a tail one width for every source. Under 480 px its window
+  is the display alone, without its reels.
+- **A key of the mini player alone** says only `data-mini`: the phone's ●
+  (`#np-phone-rec`, for a take, the feed and the tape away from the Studio)
+  and its ▾ (`#np-phone-more`, for every source). In the Studio with the
+  tape, the mini player's ● is the tape's own (`#rec`, `data-mini="studio"`):
+  a tap records the jam room, a hold (`ARM_PRESS`, as a track's ●) offers
+  this phone on the ▾ (`hindsight:phone-offer`), and with the tape playing
+  on this phone a tap records here (`hindsight:phone-record`). While this
+  phone records, wherever it was started, that ● is pressed, says so, and
+  a tap stops it (`page.js` `paintRec`). The ▾'s menu
+  (`lib/bar/phone-key.js`, `#np-phone-menu`, over the mini player) says what
+  ● does now, lists the phone's inputs and opens the recorder's sheet with
+  its meter. Both are the page's one recorder's (`shell.md`, *Recording
+  from this phone*).
+- **The foot** (`data-slot="foot"`, `#np-out-foot`) is where it plays, at the
+  foot of the phone's player pulled up, under the thumb; the display's OUT
+  is hidden there. Both open the output sheet (`wireOutput`'s keys), and
+  `paintDisplay` writes both.
 - **Its height is measured** (`measureBar`: one `ResizeObserver` writing
   `--np-h` on the root), never written into the CSS; every reader has its
   `0px` fallback.
@@ -48,3 +66,14 @@ sideways scroll).
   Folded it is one row of 44 px keys, `body.np-fold`, kept for the visit. On
   a phone the grabber is the player's, and puts it away. ▾ only ever opens
   a menu.
+- **On a phone the player is a sheet you drag** (`lib/bar/player.js` on
+  `lib/ui/sheet.js`; `shell.md`, *Sheets*): a tap on the mini player's
+  window, or a drag up from it, pulls it up from where the mini player
+  stood, so the mini player grows into the full one; a swipe down on its
+  grabber or its art (the reels and the display), a tap on the grabber,
+  Back or Escape puts it away, back down to the mini player. Held upright
+  (under 700 px) it is laid out on the bar itself (`.np-row-1` and
+  `.np-zones` are `display: contents` there): the reels and the display as
+  its art at the top, the strip, a space, then the transport, the verb and
+  the modes in the thumb's reach, and the foot. On its side it keeps the
+  stacked zones.

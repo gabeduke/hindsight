@@ -468,8 +468,8 @@ test('bindPress with the ● key’s options never lets the browser’s menu ope
   assert.equal(fire('contextmenu').defaultPrevented, true);
 });
 
-// The cases above are a spine's and a ● key's only while their callers bind
-// them with exactly these options: each spreads its own and sets none of a
+// The cases above are a spine's and a ● key's (a track's, and the bar's in
+// the Studio) only while their callers bind them with exactly these options: each spreads its own and sets none of a
 // press's feel (hold, slop, holdBy, menu) over it.
 test('a spine and a ● key are bound with SPINE_PRESS and ARM_PRESS, and nothing over them', () => {
   for (const [file, name] of [['../room/doorway.js', 'SPINE_PRESS'], ['../tape/page.js', 'ARM_PRESS']]) {
@@ -479,8 +479,11 @@ test('a spine and a ● key are bound with SPINE_PRESS and ARM_PRESS, and nothin
       for (; i < src.length && depth; i++) depth += src[i] === '{' ? 1 : src[i] === '}' ? -1 : 0;
       return src.slice(m.index + m[0].length, i - 1);
     });
-    assert.equal(calls.length, 1, `${file} binds one key`);
-    assert.match(calls[0], new RegExp(`\\.\\.\\.${name}\\b`), `${file} spreads ${name}`);
-    assert.doesNotMatch(calls[0], /(?:^|[\s,{])(?:hold|slop|holdBy|menu)\s*:/, `${file} sets its own feel over ${name}`);
+    assert.ok(calls.length >= 1, `${file} binds its keys`);
+    // Each of them: a track's ● and the bar's ● are both ● keys.
+    for (const call of calls) {
+      assert.match(call, new RegExp(`\\.\\.\\.${name}\\b`), `${file} spreads ${name}`);
+      assert.doesNotMatch(call, /(?:^|[\s,{])(?:hold|slop|holdBy|menu)\s*:/, `${file} sets its own feel over ${name}`);
+    }
   }
 });

@@ -14,8 +14,11 @@ import { takeSource, playheadOf } from './take-source.js';
 import { feedSource } from './feed-source.js';
 import { noteHere } from './take-keys.js';
 import { sourceMenu } from './source-menu.js';
+import { phoneKey } from './phone-key.js';
+import { phoneRecorder } from '../phone/recorder.js';
 import { barPressNote } from './press-note.js';
 import { layersOf } from '../ui/layers.js';
+import { barTop } from '../ui/menu.js';
 import { pageCarry, isStudio } from './carry.js';
 import { createHandoff, takesFinder } from './handoff.js';
 import { named } from '../rooms/words.js';
@@ -131,7 +134,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
       name: () => tape.title,
       onOpen: () => tape.refresh(),
       choose: setMode,
-      keys: [$('np-output')],
+      keys: [$('np-output'), $('np-out-foot')].filter(Boolean),
     });
     bar.kick();
     // A press on the keyboard, over the display for its second (press-note.js).
@@ -290,6 +293,9 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
       pick: (id) => pickSource(id),
     });
   }
+  // The mini player's ● and its ▾: recording from this phone
+  // (phone-key.js), on the page's one recorder.
+  phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), playerUp: () => !!bar.player?.isOpen, recorder: () => phoneRecorder(document, { toast: (m, k, ms) => onToast?.(m, k, ms) }) });
   /** pickSource is a pick from the source menu: the tape, the feed, or a take, which plays. */
   async function pickSource(id) {
     touches++;

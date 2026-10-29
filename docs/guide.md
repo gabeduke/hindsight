@@ -585,11 +585,16 @@ clipboard, to drop onto a tape.
 
 1. Open Hindsight on its HTTPS address — the `tailscale serve` one. The mic
    only works over HTTPS; on the plain address, *Phone* tells you so.
-2. In the Studio, tap the tape's name, then **Record from this phone…**.
-3. Choose the mic, or an input plugged into the phone (the Orchid through a
-   USB-C adapter, say). The meter moves before you record, so you can check
-   the level first. A cable beats the mic for anything you mean to keep.
-4. Tap **Record**, play, then tap **Stop**.
+2. Tap the big red **●** on the mini player at the foot of the screen: it
+   records at once, from the input you used last. Tap it again to stop. In
+   the Studio, with the tape, **●** is the tape's own: it records the jam
+   room as on the tablet, and a **hold** on it offers this phone instead
+   (with the tape playing on this phone, a tap records here).
+3. The **▾** beside **●** picks the input: the mic, or one plugged into the
+   phone (the Orchid through a USB-C adapter, say). A cable beats the mic for
+   anything you mean to keep. **The level and input…** there, or the tape's
+   name → **Record from this phone…**, opens the recorder with its meter, so
+   you can check the level first; tap **Record**, play, then **Stop**.
 
 **What happens to it.** The take streams to the Pi as you play and appears in
 the list, labelled *Phone*, when you stop. It's a take like any other: open
@@ -781,15 +786,17 @@ From the top:
   would start.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
 - **On a phone,** upright or on its side, the bar is a **mini player**
-  above the tabs: the reel window with where the tape is, **|◂**, **▶** and
-  **Catch** with its **▾**, and a line along its top as far as the tape has
+  above the tabs: the reel window with where the tape is, **|◂**, **▶**, a
+  big red **●** with the phone's **▾** (§7), and **Catch** with its **▾**, and a line along its top as far as the tape has
   got. A catch never waits for a scroll. Playing on this phone, its strip
   (and *Tap to play here*) sits on top. Where it plays is on the player's
   window: pull the player up.
-- **Tap the mini player's window** to pull up **the player** over the page:
-  the whole bar, large (the window with its tempo, source and where it
-  plays; **|◂ ▶ ●**, **Catch**, **⟲ Loop**, the metronome and the overview).
-  Its **grabber** at the top, Back or **Esc** puts it away. A take or the
+- **Tap the mini player's window, or drag it up,** to pull up **the
+  player**, a sheet over the page that follows your finger: the reels and
+  the display large at the top, the overview under them, then **|◂ ▶ ●**,
+  **Catch**, **⟲ Loop** and the metronome low down, under your thumb, and
+  where it plays at the foot. **Swipe it down** by its grabber or its reels,
+  tap the grabber, or Back or **Esc**, to put it away. A take or the
   feed in the bar has the same mini player and player, **▶** in the same
   place: see *The bar, with a take in it* (§3.1).
 - **On a phone,** with the player down, the action bar floats above the
@@ -1664,7 +1671,9 @@ has no tip.
 | The bar’s strip | The whole tape or take: tap or drag to move the playhead. With it focused, ← → step and Space plays |
 | ✎ (bar) | A note at the spot you are hearing: the Listening Room’s Sketchbook opens, and the take keeps playing |
 | ⟲ Repeat (bar) | Repeat the take in the bar: its selection, or the whole take without one |
-| The mini player (phone) | On a phone: the player, pulled up over the page — the whole bar. Its grabber, Back or Esc puts it away |
+| The mini player (phone) | On a phone: a tap, or a drag up, pulls the player up over the page — the whole bar. A swipe down on its grabber or its reels, Back or Esc puts it away |
+| ● on the mini player (phone) | Record from this phone, straight into Hindsight: its take goes on the shelf. Tap again to stop. In the Studio, ● is the tape’s: hold it to record from this phone instead |
+| ▾ beside ● (phone) | Recording from this phone: start or stop it, pick its input, or see its level first |
 | The grabber (bar) | Fold the bar to one row, or unfold it: a tap, or drag it down to fold and up to unfold. Gives the tape lanes room. On a phone, it puts the player away |
 | The tempo (the bar’s display) | The tempo of what’s in the bar. In the Studio, with the tape, a tap opens its menu: call the loop more bars or fewer |
 | The source (the bar’s display) | What the bar plays: the tape, the take, or the live feed. A tap chooses another: the tape, the live feed, one of the last few takes, or the shelf |

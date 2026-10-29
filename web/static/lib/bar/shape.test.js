@@ -34,12 +34,15 @@ test('the bar is its zones, in the one order, on both pages that have it', () =>
     assert.deepEqual(zones, ['deck', 'transport', 'verb', 'modes', 'end'], name);
     assert.equal(doc.querySelector('#np .np-row-2').getAttribute('data-slot'), 'strip', name);
   }
-  assert.deepEqual([...SLOTS], ['deck', 'transport', 'verb', 'modes', 'end', 'strip']);
+  assert.deepEqual([...SLOTS], ['deck', 'transport', 'verb', 'modes', 'end', 'strip', 'foot']);
+  // The foot, where it plays at the foot of the phone's player, is the rooms' alone.
+  assert.equal(shell.querySelector('#np .np-foot').getAttribute('data-slot'), 'foot');
 });
 
-test('|◀ ▶ then ●, Record beside Play; ↺ 5 s in ●’s place; Catch the verb; ⟲ then the metronome; ⏏ Open › ✎ at the end', () => {
+test('|◀ ▶ then ●, Record beside Play, and the phone’s ● ▾; ↺ 5 s in ●’s place; Catch the verb; ⟲ then the metronome; ⏏ Open › ✎ at the end', () => {
   const ids = (slot) => slotOf(shell, slot).children.map((e) => e.id || e.className.split(' ')[1]);
-  assert.deepEqual(ids('transport'), ['np-start', 'np-play', 'rec', 'np-back5']);
+  assert.deepEqual(ids('transport'), ['np-start', 'np-play', 'rec', 'np-phone-rec', 'np-phone-more', 'np-back5']);
+  assert.deepEqual(ids('foot'), ['np-out-foot']);
   assert.deepEqual(ids('verb'), ['np-catch-split', 'np-feed-grab']);
   assert.deepEqual(ids('modes'), ['np-loop', 'click']);
   assert.deepEqual(ids('end'), ['np-eject', 'np-open', 'np-note']);
@@ -52,9 +55,10 @@ test('|◀ ▶ then ●, Record beside Play; ↺ 5 s in ●’s place; Catch the
 
 test('each key says which sources it shows for, in the full bar and the mini player, by names the stylesheet knows', () => {
   for (const [name, doc] of [['shell.html', shell], ['wave.html', wave]]) {
-    for (const slot of ['transport', 'verb', 'modes', 'end', 'strip']) {
-      for (const key of slotOf(doc, slot).children) {
-        const f = key.getAttribute('data-for');
+    for (const slot of ['transport', 'verb', 'modes', 'end', 'strip', 'foot']) {
+      for (const key of slotOf(doc, slot)?.children || []) {
+        // A key of the mini player alone (the phone's ● ▾) says data-mini only.
+        const f = key.getAttribute('data-for') || key.getAttribute('data-mini');
         assert.ok(f, `${name}: #${key.id || key.className} in ${slot} says nothing of where it shows`);
         for (const w of [...f.split(' '), ...(key.getAttribute('data-mini') || '').split(' ').filter(Boolean)]) {
           assert.ok(FOR.has(w), `${name}: #${key.id} is for "${w}"`);
@@ -71,6 +75,13 @@ test('each key says which sources it shows for, in the full bar and the mini pla
   assert.equal(mini('np-open'), 'take');
   assert.equal(mini('np-note'), 'take');
   assert.equal(mini('np-feed-grab'), 'feed');
+  // ● in the mini player for every source: the tape's own in the Studio,
+  // the phone's elsewhere, and the phone's ▾ beside either, so ▶ stands
+  // still. Neither of the phone's is in the full bar.
+  assert.equal(mini('rec'), 'studio');
+  assert.equal(mini('np-phone-rec'), 'take feed away');
+  assert.equal(mini('np-phone-more'), 'tape take feed');
+  for (const id of ['np-phone-rec', 'np-phone-more']) assert.equal(shell.getElementById(id).getAttribute('data-for'), null, id);
 });
 
 test('what shows is said positively: one rule shows each source’s keys, with no :not() list and no !important anywhere in the bar', () => {
@@ -86,6 +97,7 @@ test('what shows is said positively: one rule shows each source’s keys, with n
     assert.ok(show.sel.some((s) => s.includes(`[data-size="mini"][data-source="${src}"] [data-mini~="${src}"]`)), `mini, ${src}`);
   }
   assert.ok(show.sel.some((s) => s.startsWith('body.tape-page') && s.includes('[data-for~="studio"]')), 'the Studio’s keys, in the Studio');
+  assert.ok(show.sel.some((s) => s.includes('[data-size="mini"][data-source="tape"] [data-mini~="away"]')), 'the tape’s mini keys away from the Studio');
   // A key a script has hidden (⏏ with no tape) stays hidden: #np outranks them all.
   assert.ok(barRules.some((r) => r.sel.includes('#np [hidden]') && /display:\s*none/.test(r.body)));
 });
