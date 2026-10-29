@@ -165,12 +165,51 @@ func (e *Engine) grabSources(names []string) ([]Source, error) {
 // (GrabRequest says which). The clipboard it replaces, if it was a grab
 // never dropped or kept, goes to the crate first.
 func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
+	var keep *Clipboard // Again: the buffer whose window and shape carry on
+	if req.Again {
+		old, err := e.Clipboard()
+		if err != nil {
+			return Grabbed{}, err
+		}
+		keep = old
+	}
+	c, made, err := e.grabRing(req, keep)
+	if err != nil {
+		return Grabbed{}, err
+	}
+	forget := func() {
+		for _, rel := range made {
+			e.store.removePoolFile(rel)
+		}
+	}
+	e.boardMu.Lock()
+	defer e.boardMu.Unlock()
+	if keep != nil {
+		// Unless another grab got there first, this is the same buffer.
+		if cur, err := e.store.LoadClipboard(); err == nil && cur != nil && cur.Created.Equal(keep.Created) {
+			return Grabbed{Board: c, Crated: []CrateClip{}}, e.store.SaveClipboard(c)
+		}
+	}
+	crated, replaced, err := e.replaceBoardLocked(c, GrabOpts{NoCrate: req.NoCrate})
+	if err != nil {
+		forget()
+		return Grabbed{}, err
+	}
+	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
+}
+
+// grabRing copies the span a GrabRequest asks for off the ring, one pool
+// file per source with the handles either side, and answers the board that
+// plays it and the files it made, for whoever places it (the clipboard, or
+// the cue lane) to forget if that fails. With Again, keep is the grab taken
+// again: its span, window and shape carry on.
+func (e *Engine) grabRing(req GrabRequest, keep *Clipboard) (*Clipboard, []string, error) {
 	if e.capture == nil {
-		return Grabbed{}, ErrNoCapture
+		return nil, nil, ErrNoCapture
 	}
 	srcs, err := e.grabSources(req.Sources)
 	if err != nil {
-		return Grabbed{}, err
+		return nil, nil, err
 	}
 	sr := int64(e.store.SampleRate())
 	r := e.capture.Ring()
@@ -179,22 +218,16 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 	if t != nil && t.Grid != nil {
 		g.BarFrames, g.Tape = t.Grid.BarFrames(), t.ID
 	}
-	var keep *Clipboard // Again: the buffer whose window and shape carry on
-	var from, to int64  // ring frames
+	var from, to int64 // ring frames
 	switch {
 	case req.Again:
-		old, err := e.Clipboard()
-		if err != nil {
-			return Grabbed{}, err
+		if keep.Empty() || keep.Grab == nil {
+			return nil, nil, fmt.Errorf("%w: there's no grab to take again", ErrBadParameter)
 		}
-		if old.Empty() || old.Grab == nil {
-			return Grabbed{}, fmt.Errorf("%w: there's no grab in the buffer to take again", ErrBadParameter)
+		if keep.Grab.Take != "" {
+			return nil, nil, fmt.Errorf("%w: this is a take's own sound, from %s; its sources can't change", ErrBadParameter, keep.Grab.Take)
 		}
-		if old.Grab.Take != "" {
-			return Grabbed{}, fmt.Errorf("%w: this buffer is a take's own sound, from %s; its sources can't change", ErrBadParameter, old.Grab.Take)
-		}
-		keep = old
-		g = *old.Grab
+		g = *keep.Grab
 		g.Reversed = false // the new files read forwards; turned below if it was
 		from, to = g.RingFrom, g.RingFrom+g.Frames
 	case req.RingFrom != nil:
@@ -211,50 +244,50 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 		}
 	case req.Bars > 0:
 		if t == nil {
-			return Grabbed{}, ErrNoTape
+			return nil, nil, ErrNoTape
 		}
 		if t.Grid == nil {
-			return Grabbed{}, fmt.Errorf("%w: grab seconds until it has one", ErrNoGrid)
+			return nil, nil, fmt.Errorf("%w: grab seconds until it has one", ErrNoGrid)
 		}
 		g.Bars = req.Bars
 		from, to, g.Downbeat, g.Why = e.barsOnRing(t, req.Bars)
 		g.Wall = g.Why != ""
 	case req.Seconds > 0:
 		if req.Seconds > maxGrabSeconds {
-			return Grabbed{}, fmt.Errorf("%w: a grab of the last seconds is at most %d s; drag across the feed for more", ErrBadParameter, maxGrabSeconds)
+			return nil, nil, fmt.Errorf("%w: a grab of the last seconds is at most %d s; drag across the feed for more", ErrBadParameter, maxGrabSeconds)
 		}
 		g.Seconds = req.Seconds
 		_, total := r.Window()
 		to = int64(total)
 		from = to - int64(math.Round(req.Seconds*float64(sr)))
 	default:
-		return Grabbed{}, fmt.Errorf("%w: grab some bars, some seconds, or a span of the ring", ErrBadParameter)
+		return nil, nil, fmt.Errorf("%w: grab some bars, some seconds, or a span of the ring", ErrBadParameter)
 	}
 
 	// Again needs the very ring it was grabbed from: the ring's frames count
 	// from its start, and start over when Hindsight does.
 	if req.Again && g.Ring != r.ID() {
-		return Grabbed{}, fmt.Errorf("%w: the buffer was grabbed before Hindsight restarted, so the feed it came from is gone; grab it again from the feed", ErrGone)
+		return nil, nil, fmt.Errorf("%w: the buffer was grabbed before Hindsight restarted, so the feed it came from is gone; grab it again from the feed", ErrGone)
 	}
 	g.Ring = r.ID()
 	if to <= from {
-		return Grabbed{}, fmt.Errorf("%w: that span is empty", ErrBadParameter)
+		return nil, nil, fmt.Errorf("%w: that span is empty", ErrBadParameter)
 	}
 	if oldest, _ := r.Window(); oldest > 0 && to <= int64(oldest)+sr {
-		return Grabbed{}, fmt.Errorf("%w: that span has left the buffer", ErrGone)
+		return nil, nil, fmt.Errorf("%w: that span has left the buffer", ErrGone)
 	}
 	if err := e.tooLong(to - from); err != nil {
-		return Grabbed{}, err
+		return nil, nil, err
 	}
 	if err := e.diskOK(); err != nil {
-		return Grabbed{}, err
+		return nil, nil, err
 	}
 	// The end may not be heard quite yet (a catch's latency), so it's waited
 	// for, as a catch waits; then the handle after: what's played next is a
 	// bar away, so it's waited for too -- the panel opens meanwhile -- unless
 	// the ring stops coming.
 	if !e.waitForRing(to, 2*time.Second) {
-		return Grabbed{}, ErrNotYet
+		return nil, nil, ErrNotYet
 	}
 	h := e.grabHandle(sr, g.BarFrames)
 	e.waitForRing(to+h, time.Duration(float64(h)/float64(sr)*float64(time.Second))+time.Second)
@@ -271,13 +304,13 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 	}
 	if from < floor {
 		if req.Again {
-			return Grabbed{}, fmt.Errorf("%w: the buffer's audio has started to leave the ring; grab it again from the feed", ErrGone)
+			return nil, nil, fmt.Errorf("%w: the buffer's audio has started to leave the ring; grab it again from the feed", ErrGone)
 		}
 		if to <= floor && oldest == 0 {
-			return Grabbed{}, fmt.Errorf("%w: the ring has nothing there yet", ErrNotYet)
+			return nil, nil, fmt.Errorf("%w: the ring has nothing there yet", ErrNotYet)
 		}
 		if to <= floor {
-			return Grabbed{}, fmt.Errorf("%w: that span has left the buffer", ErrGone)
+			return nil, nil, fmt.Errorf("%w: that span has left the buffer", ErrGone)
 		}
 		if g.Downbeat != nil { // its first bar line, counted from the new start
 			db := firstLine(*g.Downbeat-(floor-from), g.BarFrames, 0)
@@ -321,13 +354,13 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 		rel, path, err := e.store.NewPoolFile("grab", time.Now())
 		if err != nil {
 			forget()
-			return Grabbed{}, err
+			return nil, nil, err
 		}
 		made = append(made, rel)
 		peak, err := audio.WriteSpanMeasured(r, uint64(lo), uint64(hi), s.Pair[:], path, int(sr), from-lo, to-lo)
 		if err != nil {
 			forget()
-			return Grabbed{}, err
+			return nil, nil, err
 		}
 		cl := Clip{File: rel, Source: s.Name, PeakDB: peakDB(peak)}
 		if keep != nil { // its level and fades carry on
@@ -344,24 +377,10 @@ func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
 		// Turned round as it was: its fades are already the reversed ones.
 		if err := e.turnBoard(c, false); err != nil {
 			forget()
-			return Grabbed{}, err
+			return nil, nil, err
 		}
 	}
-
-	e.boardMu.Lock()
-	defer e.boardMu.Unlock()
-	if keep != nil {
-		// Unless another grab got there first, this is the same buffer.
-		if cur, err := e.store.LoadClipboard(); err == nil && cur != nil && cur.Created.Equal(keep.Created) {
-			return Grabbed{Board: c, Crated: []CrateClip{}}, e.store.SaveClipboard(c)
-		}
-	}
-	crated, replaced, err := e.replaceBoardLocked(c, GrabOpts{NoCrate: req.NoCrate})
-	if err != nil {
-		forget()
-		return Grabbed{}, err
-	}
-	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
+	return c, made, nil
 }
 
 // GrabTake copies frames [from, to) of a take onto the clipboard as the
@@ -377,21 +396,39 @@ func (e *Engine) GrabTake(take, file, title string, from, to int64, pick []int) 
 
 // GrabTakeOpt is GrabTake with GrabOpts.
 func (e *Engine) GrabTakeOpt(take, file, title string, from, to int64, pick []int, opts GrabOpts) (Grabbed, error) {
-	info, err := audio.ReadWAVInfo(take)
+	c, rel, err := e.grabTake(take, file, title, from, to, pick)
 	if err != nil {
 		return Grabbed{}, err
 	}
+	e.boardMu.Lock()
+	defer e.boardMu.Unlock()
+	crated, replaced, err := e.replaceBoardLocked(c, opts)
+	if err != nil {
+		e.store.removePoolFile(rel)
+		return Grabbed{}, err
+	}
+	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
+}
+
+// grabTake copies a take's span into the pool as GrabTake describes, and
+// answers the board that plays it and its one pool file, for whoever places
+// it to forget if that fails.
+func (e *Engine) grabTake(take, file, title string, from, to int64, pick []int) (*Clipboard, string, error) {
+	info, err := audio.ReadWAVInfo(take)
+	if err != nil {
+		return nil, "", err
+	}
 	if info.SampleRate != e.store.SampleRate() {
-		return Grabbed{}, fmt.Errorf("%w: the take is at %d Hz, tapes at %d", ErrBadParameter, info.SampleRate, e.store.SampleRate())
+		return nil, "", fmt.Errorf("%w: the take is at %d Hz, tapes at %d", ErrBadParameter, info.SampleRate, e.store.SampleRate())
 	}
 	if from < 0 || to <= from || to > info.Frames() {
-		return Grabbed{}, fmt.Errorf("%w: that span isn't in the take", ErrBadParameter)
+		return nil, "", fmt.Errorf("%w: that span isn't in the take", ErrBadParameter)
 	}
 	if err := e.tooLong(to - from); err != nil {
-		return Grabbed{}, err
+		return nil, "", err
 	}
 	if err := e.diskOK(); err != nil {
-		return Grabbed{}, err
+		return nil, "", err
 	}
 	sr := int64(info.SampleRate)
 	m := audio.ReadMeta(take)
@@ -410,13 +447,13 @@ func (e *Engine) GrabTakeOpt(take, file, title string, from, to int64, pick []in
 	over := int64(OverhangSeconds * float64(sr))
 	rel, path, err := e.store.NewPoolFile("grab", time.Now())
 	if err != nil {
-		return Grabbed{}, err
+		return nil, "", err
 	}
 	peak, err := audio.CopyWAVSpanMeasured(take, fileFrom, fileTo, pick, path,
 		max64(0, from-over)-fileFrom, min64(info.Frames(), to+over)-fileFrom)
 	if err != nil {
 		e.store.removePoolFile(rel)
-		return Grabbed{}, err
+		return nil, "", err
 	}
 	cl := Clip{File: rel, Source: "take", PeakDB: peakDB(peak)}
 	g.window(&cl)
@@ -425,14 +462,7 @@ func (e *Engine) GrabTakeOpt(take, file, title string, from, to int64, pick []in
 	if m.BPM != nil {
 		c.BPM = *m.BPM
 	}
-	e.boardMu.Lock()
-	defer e.boardMu.Unlock()
-	crated, replaced, err := e.replaceBoardLocked(c, opts)
-	if err != nil {
-		e.store.removePoolFile(rel)
-		return Grabbed{}, err
-	}
-	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
+	return c, rel, nil
 }
 
 // firstClip is a board's first clip, or nil.
@@ -717,23 +747,32 @@ func (e *Engine) TrimClipboard(in, out int64) (*Clipboard, error) {
 	if err != nil {
 		return nil, err
 	}
-	over := int64(OverhangSeconds * float64(e.store.SampleRate()))
-	minLen := max64(1, over)
-	lo := min64(g.In, -g.Before+over)
-	hi := max64(g.Out, g.Frames+g.After-over)
-	if hi-lo < minLen {
-		return nil, fmt.Errorf("%w: there's no room to trim it", ErrBadParameter)
+	if err := g.trim(in, out, int64(OverhangSeconds*float64(e.store.SampleRate()))); err != nil {
+		return nil, err
 	}
-	in = min64(max64(in, lo), hi-minLen)
-	out = min64(max64(out, in+minLen), hi)
-	g.In, g.Out = in, out
 	for i := range c.Tracks {
 		for j := range c.Tracks[i] {
 			g.window(&c.Tracks[i][j])
 		}
 	}
-	c.Frames = out - in
+	c.Frames = g.Out - g.In
 	return e.markStale(c), e.store.SaveClipboard(c)
+}
+
+// trim moves the window to [in, out), inside the handles as TrimClipboard
+// describes: over is the crossfades' overhang, which each edge stops short
+// of its file's end by, and the least the window may be.
+func (g *Grab) trim(in, out, over int64) error {
+	minLen := max64(1, over)
+	lo := min64(g.In, -g.Before+over)
+	hi := max64(g.Out, g.Frames+g.After-over)
+	if hi-lo < minLen {
+		return fmt.Errorf("%w: there's no room to trim it", ErrBadParameter)
+	}
+	in = min64(max64(in, lo), hi-minLen)
+	out = min64(max64(out, in+minLen), hi)
+	g.In, g.Out = in, out
+	return nil
 }
 
 // markStale says, on a board as it's read, whether its grab came from
@@ -931,8 +970,18 @@ func (e *Engine) KeepClipboardTake(dir string, now time.Time) (KeptTake, error) 
 	if c.Empty() {
 		return KeptTake{}, ErrEmptyClipboard
 	}
+	k, err := e.keepTake(c, boardLabel(c), dir, now)
+	if err == nil {
+		e.markUsed(c)
+	}
+	return k, err
+}
+
+// keepTake saves a board as a take in dir, labelled label, as
+// KeepClipboardTake describes.
+func (e *Engine) keepTake(c *Clipboard, label, dir string, now time.Time) (KeptTake, error) {
 	sr := e.store.SampleRate()
-	m := audio.Meta{Label: boardLabel(c), Origin: audio.OriginBuffer}
+	m := audio.Meta{Label: label, Origin: audio.OriginBuffer}
 	if g := c.Grab; g != nil && g.BarFrames > 0 {
 		bpm := math.Round(float64(BeatsPerBar)*60*float64(sr)/g.BarFrames*100) / 100
 		m.BPM, m.TempoFrom = &bpm, audio.TempoFromYou
@@ -950,7 +999,6 @@ func (e *Engine) KeepClipboardTake(dir string, now time.Time) (KeptTake, error) 
 	if err != nil {
 		return KeptTake{}, err
 	}
-	e.markUsed(c)
 	return KeptTake{Name: name, Label: m.Label, Seconds: float64(c.Frames) / float64(sr)}, nil
 }
 

@@ -69,6 +69,13 @@ internet.
 | `POST /api/tapes/cleanup` | Delete pool audio that no tape, and no tape's history, uses |
 | `GET /api/tapes/peaks?file=` | A pool file's whole-file waveform, or with `from`, `to` and `buckets` just a range of it |
 | `GET /api/tapes/slice?file=&from=&to=` | A 16-bit WAV of a range of a pool file |
+| `POST /api/tapes/cue?id=` | Launch or stop a cue clip: `{clip, op: launch\|stop\|toggle, now}`, on the next bar line or at once |
+| `POST /api/tapes/cue/add?id=` | Put the buffer, or a take's `{take, from, to}`, on the cue lane |
+| `POST /api/tapes/cue/grab?id=` | GRAB onto the cue lane: `{bars}`, `{seconds}` or `{ring_from, ring_to}` from `sources`; `{clip, sources}` takes that clip again from other inputs; `{take, from, to}` a take's span. The tape's state, with `edit.cue_clip`, and `edit.cue_replaced` when it took the place of an untouched clip (the tape's Undo brings that back) |
+| `PATCH /api/tapes/cue/clip?id=` | A cue clip's drawer: `{clip, in, out}` its window inside its handles; `{clip, gain_db}`, fades and their curves, `normalize`, `reverse`. Each an Undo of the tape's |
+| `POST /api/tapes/cue/drop?id=` | A cue clip onto the tape, `{clip, track, at?, merge?}`: a lane a track, with its handles; answers as `/api/tapes/drop` |
+| `POST /api/tapes/cue/keep?id=` | KEEP a cue clip as a take, its lanes summed: `{name, label, seconds}` |
+| `GET /api/tapes/cue/audio?id=&clip=` | A cue clip's first minute, its lanes summed, as a WAV to audition |
 | `GET /api/clipboard` | What's on the clipboard |
 | `GET /api/clipboard/audio` | The clipboard, its tracks summed, as a WAV to audition |
 | `POST /api/clipboard` | Copy a take's span or a span of the ring onto it |
