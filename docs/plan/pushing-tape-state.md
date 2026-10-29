@@ -4,7 +4,8 @@ Asked for by Gabe on 2026-10-28, at the SMK-37 rig test: *"could we start
 pushing state to the UI … what would the latency be over webapp?"* With a
 keyboard on the Pi, the tablet has to keep up with a press that it didn't
 make: PLAY, an arm, a mute (`the-instrument.md`, step 7: *the tablet follows
-the keyboard*). Not built; decisions to agree, then the build order.
+the keyboard*). The decisions below were agreed with Gabe on 2026-10-28, as
+recommended; then the build order.
 
 ## Where the time goes now
 
