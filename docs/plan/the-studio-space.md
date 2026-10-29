@@ -23,7 +23,7 @@ It takes in the open steps of `the-studio-on-one-screen.md` and
 
 ## Landed
 
-Steps 1 to 7, each now in `docs/architecture/`:
+Steps 1 to 8, each now in `docs/architecture/`:
 
 - **Foundations**: one stylesheet reader for the tests, the computed-style
   snapshot (`scripts/css-snapshot.mjs`), the overwritten declarations gone
@@ -49,6 +49,10 @@ Steps 1 to 7, each now in `docs/architecture/`:
   `bar.md`): `lib/ui/sheet.js`, the player as a sheet you drag (the art,
   the strip, the keys under the thumb, where it plays at the foot), and a
   big red ● with the phone's ▾ in the mini player. J4.4, J4.1.
+- **The Studio's heads and ruler** (`tape.md`, *The track heads*): on a
+  touch screen a head is its name, ● at 44 px, its input and ›, which opens
+  the inspector with M, S and the level; the ruler's keys are ⌗ alone; the
+  tablet's budget (`STUDIO_BUDGET`). J1.5, J1.16.
 
 What the audit found that is still open: GRAB's buffer pushes the cue lane and the tracks
 under the bar, so DROP is pressed blind; Open is three generations stacked
@@ -84,9 +88,10 @@ My recommendation first in each.
   500. Until Gabe has tried it on the tablet, `lib/ui/press.js` keeps
   today's values by name.
 - **The tablet's track heads** keep step 3's inspector for M, S and level,
-  plus a visible way in (a › at the head's end). GarageBand's reveal (drag
-  the heads wider to show M, S and level for every track) is the
-  alternative if the inspector costs too many taps mid-jam.
+  plus a visible way in: built so, › at the head's end (step 8). GarageBand's
+  reveal (drag the heads wider to show M, S and level for every track) is
+  the alternative if the inspector costs too many taps mid-jam: for Gabe to
+  say, once he has tried it on the tablet.
 
 ## Build order
 
@@ -97,9 +102,9 @@ step is a checkpoint**: it merges alone, and `docs/plan/STATE.md` says
 what's next.
 
 1–7. Landed (above).
-8. **The Studio's heads and ruler** (`the-studio-on-one-screen.md`, steps 3
-   and 4): the heads on touch, ~~the ⌗ View menu everywhere~~ (landed
-   with the frame), the budget.
+8. ~~The Studio's heads and ruler~~ (`the-studio-on-one-screen.md`, steps 3
+   and 4). Landed: `docs/architecture/tape.md`, *The track heads*; J1.5,
+   J1.16.
 9. **The notes drawer** (`listening-back.md`, step 2), on `sheet.js`.
 10. **Open** (`listening-back.md`, step 3, with the decisions above), and
     the dolly into a take.

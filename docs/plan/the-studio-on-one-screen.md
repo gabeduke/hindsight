@@ -2,8 +2,8 @@
 
 Agreed with Gabe on 2026-10-22, from a usability review of every screen
 against the flows: *"moving unnecessary buttons into drawers or menus and
-focusing on the handful of main user flows."* Its open steps (3, 4 and 5)
-are steps 8 and 11 of `the-studio-space.md`, which changed two decisions
+focusing on the handful of main user flows."* Its open step (5) is
+step 11 of `the-studio-space.md` (3 and 4 were its step 8), which changed two decisions
 here: ⋯ went (its items into the tape's name menu and ⌗'s View menu), and
 ● on a phone records from the phone.
 
@@ -16,16 +16,21 @@ note, Open). What serves one of those stays on screen; the rest goes one
 tap further away, never out of reach.
 
 Landed: the header's one menu (step 1; `docs/architecture/shell.md`,
-*The frame*; J5.1), the feed as a strip (step 2; J1.1, J1.6), and on a phone
+*The frame*; J5.1), the feed as a strip (step 2; J1.1, J1.6), on a phone
 the ruler's keys as one ⌗ menu with bars numbered every 2nd, 4th or 8th
-when zoomed out (`barEvery`).
+when zoomed out (`barEvery`), and the track heads and the ruler on touch
+with the Studio's budget on a tablet (steps 3 and 4;
+`docs/architecture/tape.md`, *The track heads*; J1.5, J1.16): 43 controls
+on the tablet's screen (44 at 1280, with the brand), 1 under 32 px, ● at 44 px and all four tracks above
+the bar. The ruler's keys are ⌗ alone (and Fit while the view is moved) on
+every screen, the snap and the loop's lock in its View menu; the lock is
+not on the range's action bar, where it would come after the range it
+decides about.
 
 ## Decisions still to build
 
 | | |
 |---|---|
-| Track heads on a touch screen | Name, ● and the input chip, with ● at 44 px. M, S and the level move to the track's inspector, which already has the level, pan and bus. With a mouse they stay in the head. |
-| The ruler's keys on the tablet | ⌗ snap and the loop's lock move to the range's action bar and ⌗'s View menu, as on the phone. Tracks ▾ stays. |
 | The buffer merges into the cue lane | The buffer stops being a panel of its own. GRAB lands on the cue lane, and selecting a cue clip opens its edit drawer: IN and OUT, gain, Normalize, Reverse, the fades, Audition, then DROP on the armed track (↵), KEEP (K) and Toss (⌫). A tap still launches a clip. The clip editor does the cue lane's trims. |
 
 ### To settle when the merge is built
@@ -55,11 +60,8 @@ in both schemes, and with the layout baseline shrinking, never growing.
 
 1. ~~The header's menu.~~ Landed.
 2. ~~The feed strip.~~ Landed.
-3. **The track heads and the ruler on touch.** Updates J1.5, J1.9 and J1.11.
-   Static.
-4. **A budget in the layout checks** (`scripts/flows/layout.mjs`): on the
-   tablet, at most N controls on screen in the Studio, and its jam keys at
-   44 px or more. N is set from what step 3 leaves. This cuts no release.
+3. ~~The track heads and the ruler on touch.~~ Landed.
+4. ~~A budget in the layout checks.~~ Landed (`STUDIO_BUDGET`, J1.16).
 5. **The buffer into the cue lane.** The Pi's half goes first (a cue clip
    keeps its lanes and handles, GRAB to the lane, and dropping or keeping a
    cue clip), then the drawer, then the buffer panel goes. Updates C1, J1.3,

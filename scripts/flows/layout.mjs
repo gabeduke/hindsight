@@ -238,3 +238,41 @@ export const findingKey = (f) => {
   const bare = (n) => (n ?? '').replace(/\s+".*$/, '');
   return `${f.rule}|${bare(f.el)}|${bare(f.by)}`;
 };
+
+// The Studio's budget on a tablet (docs/plan/the-studio-on-one-screen.md,
+// step 4): at rest (a tape loaded, nothing open), at most `controls` on the
+// screen, at most `under32` of them under 32 px, each track's ● (the jam's
+// key) `jam` px or more, and all four tracks above the bar. The review of
+// 2026-10-22 counted 65 controls on the tablet, 30 under 32 px, and 1½
+// tracks above the bar; just before the heads on a touch screen it was 51
+// and 27. They left 43 at 1024×768 and upright at 800, and 44 at 1280×800,
+// where the header shows the brand; 1 under 32 px, the sections' strip (a
+// canvas you hold and drag on). Like layout-known.json these only go down: lower one
+// when a change leaves less, never raise it to make a flow pass.
+export const STUDIO_BUDGET = Object.freeze({ controls: 44, under32: 1, jam: 44 });
+
+// studioCount runs in the page: what the budget counts, as it is now.
+function studioCount() {
+  const CONTROL = 'button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=tab], [role=slider], [tabindex]:not([tabindex="-1"])';
+  const W = innerWidth, H = innerHeight;
+  const name = (el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${el.classList.length ? `.${[...el.classList].slice(0, 2).join('.')}` : ''}`;
+  const shown = [...document.querySelectorAll(CONTROL)].filter((el) => {
+    if (el.closest('[inert], [hidden], [aria-hidden="true"], dialog:not([open])')) return false;
+    const st = getComputedStyle(el);
+    if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) <= 0.05) return false;
+    const r = el.getBoundingClientRect();
+    return r.width >= 1 && r.height >= 1 && r.bottom > 0 && r.top < H && r.right > 0 && r.left < W;
+  });
+  const size = (el) => { const r = el.getBoundingClientRect(); return `${Math.round(r.width)}×${Math.round(r.height)}`; };
+  const small = shown.filter((el) => { const r = el.getBoundingClientRect(); return Math.min(r.width, r.height) < 32; });
+  const arms = [...document.querySelectorAll('#lanes .tt-arm')].map((el) => { const r = el.getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); });
+  const bar = document.getElementById('np')?.getBoundingClientRect();
+  const tracks = [...document.querySelectorAll('#lanes .tape-track')];
+  const above = tracks.filter((tr) => !bar?.height || tr.getBoundingClientRect().bottom <= bar.top + 1).length;
+  return {
+    controls: shown.length, under32: small.length, small: small.map((el) => `${name(el)} ${size(el)}`),
+    jam: arms.length ? Math.min(...arms) : 0, tracks: tracks.length, above,
+  };
+}
+
+export const studioBudget = (page) => page.evaluate(studioCount);

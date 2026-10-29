@@ -59,6 +59,7 @@ import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
 import { layersOf } from '../ui/layers.js';
 import { menu, splitKey, menuItem, barTop } from '../ui/menu.js';
+import { icon } from '../ui/icons.js';
 import { tapeRowSub, deleteWords, afterDelete } from './tape-menu.js';
 
 // A hidden Studio's dock nodes (#multi-bar, #clip-editor) are out of the
@@ -799,18 +800,20 @@ function render() {
   renderInputMenu();
 }
 
-// renderTrackRec fills the track inspector's recording: all of it on the
-// armed track; on another (none is armed), its input and a way to arm it.
+// renderTrackRec fills the track inspector's recording: all of it on an
+// armed track (Overdub on this device on the record track alone, the first
+// armed, which it goes onto); on another (opened by its ›, or none is
+// armed), its input and a way to arm it.
 // What needs the jam room goes, rows and all, keeping the note and Overdub
 // on this device.
 function renderTrackRec() {
   const phoneOut = !!(state.live && state.live.output_mode === 'phone');
-  const armed = !!state.recTrack && state.sheetTrack === state.recTrack;
+  const armed = state.recTracks.includes(state.sheetTrack);
   $('track-rec').classList.toggle('unarmed', !armed);
   setText($('track-rec-title'), armed ? 'Recording onto it' : 'Not armed');
   $('track-unarmed').hidden = armed;
   $('jam-only-note').hidden = !phoneOut || !armed;
-  const hide = { sources: phoneOut, mode: !armed, catch: !armed || phoneOut, passes: !armed || phoneOut, away: !armed };
+  const hide = { sources: phoneOut, mode: !armed, catch: !armed || phoneOut, passes: !armed || phoneOut, away: state.sheetTrack !== state.recTrack };
   for (const [row, h] of Object.entries(hide)) document.querySelector(`#track-rec .tb-row.${row}`).hidden = h;
 }
 
@@ -2902,6 +2905,7 @@ function wireView(el, rectOf) {
 function openTrack(n, { focus = false } = {}) {
   const tr = track(n);
   if (!tr) return;
+  sheetRec = state.recTrack; // opened on n: it stays there until the arm moves
   fillTrack(tr);
   // Its recording as it is, before it shows: not the last track's.
   renderTrackRec();
@@ -2909,7 +2913,10 @@ function openTrack(n, { focus = false } = {}) {
   showInspector('track-sheet', { focus });
 }
 
-// fillTrack puts track tr's name, level and pan in the inspector, leaving
+// sheetRec is the record track as the track inspector last followed it.
+let sheetRec = 0;
+
+// fillTrack puts track tr's name, mute, solo, level and pan in the inspector, leaving
 // alone a field or slider that's being used.
 function fillTrack(tr) {
   // Moving to another track: a name being typed is the old one's, and goes
@@ -2919,6 +2926,8 @@ function fillTrack(tr) {
   inspectorSig = trackSig(tr);
   $('track-title').textContent = `Track ${tr.n}${tr.name ? ` · ${tr.name}` : ''}`;
   for (const b of $('track-bus').children) setIf(b, 'aria-pressed', String(b.dataset.bus === tr.bus));
+  setIf($('track-mute'), 'aria-pressed', String(!!tr.mute));
+  setIf($('track-solo'), 'aria-pressed', String(!!tr.solo));
   if (document.activeElement !== $('track-name')) $('track-name').value = tr.name || '';
   if (!$('track-gain').dataset.held) {
     $('track-gain').value = String(tr.gain_db);
@@ -3073,6 +3082,7 @@ function buildLanes() {
           <button class="chip tt-solo" type="button" aria-pressed="false" data-tip="track-solo">S</button>
           <span class="tt-pend" hidden></span>
           <input class="tt-gain" type="range" min="-30" max="6" step="0.5" aria-label="Track level" data-tip="track-gain">
+          <button class="chip tt-more" type="button" data-tip="track-more">${icon('right', { size: 14 })}</button>
         </div>
         <canvas class="tt-lane" data-tip="tape-lane"></canvas>`;
       const n = tr.n;
@@ -3090,6 +3100,7 @@ function buildLanes() {
         solo: row.querySelector('.tt-solo'),
         pend: row.querySelector('.tt-pend'),
         gain: row.querySelector('.tt-gain'),
+        more: row.querySelector('.tt-more'),
         canvas: row.querySelector('.tt-lane'),
         warn: null,
         drawn: null,         // what the canvas holds, painted straight (lanesDraw)
@@ -3142,6 +3153,13 @@ function buildLanes() {
       lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
       lane.gain.addEventListener('input', () => { lane.gain.dataset.busy = '1'; });
       lane.gain.addEventListener('change', () => { delete lane.gain.dataset.busy; patch({ track: { n, gain_db: Number(lane.gain.value) } }); });
+      // › opens its inspector in one tap, armed or not, and moves no arm: on
+      // a touch screen M, S and the level are there, not in the head
+      // (styles.css, "the heads on a touch screen").
+      lane.more.addEventListener('click', (e) => {
+        if (state.track !== n) { state.track = n; render(); }
+        openTrack(n, { focus: e.detail === 0 });
+      });
       lane.warn = warn;
       wireLane(lane);
       box.appendChild(row);
@@ -3378,6 +3396,11 @@ function syncLaneRows(t) {
     }
     setIf(lane.mute, 'aria-pressed', String(!!tr.mute));
     setIf(lane.solo, 'aria-pressed', String(!!tr.solo));
+    // Where M and S are in the inspector, › is lit with them: muted or
+    // soloed shows on the head that has neither key.
+    const heard = tr.mute ? 'mute' : tr.solo ? 'solo' : '';
+    if ((lane.more.dataset.heard ?? '') !== heard) lane.more.dataset.heard = heard;
+    setIf(lane.more, 'aria-label', `Track ${tr.n}: mute, solo, level and pan${tr.mute ? ' (muted)' : tr.solo ? ' (soloed)' : ''}`);
     // The keys show the ask; the lane dims with the sound, until it is heard.
     const ht = heardTr.find((x) => x.n === tr.n);
     const isPending = pending.pending(tr.n, now);
@@ -4288,7 +4311,7 @@ const modalOpen = () => [...document.querySelectorAll('dialog[open]')].some((d) 
 // What the inspector shows, as last filled: a change to it refills it.
 let inspectorSig = '';
 const clipSig = (c) => JSON.stringify([c.id, c.at, c.frames, c.src, c.gain_db, c.nudge_ms, c.fade_in, c.fade_out, c.fade_in_shape, c.fade_out_shape, c.reversed, c.aligned, state.tape.loop]);
-const trackSig = (tr) => JSON.stringify([tr.n, tr.name, tr.gain_db, tr.pan, tr.bus]);
+const trackSig = (tr) => JSON.stringify([tr.n, tr.name, tr.gain_db, tr.pan, tr.bus, !!tr.mute, !!tr.solo]);
 const sectionSig = (sc) => JSON.stringify([sc.id, sc.name, sc.color, sc.at, sc.end]);
 const clipById = (id) => state.tape.tracks.flatMap((tr) => tr.clips).find((x) => x.id === id) || null;
 
@@ -4326,7 +4349,7 @@ function followSelection() {
 
 // refreshInspector, after each render: the inspector shows the tape as it is
 // now. A clip or section gone closes it; a changed one fills it again; the
-// track inspector follows the selected track.
+// track inspector follows the record track as the arm moves.
 function refreshInspector() {
   const id = inspecting();
   if (!id || !state.tape) return;
@@ -4336,10 +4359,14 @@ function refreshInspector() {
     if (clipSig(c) !== inspectorSig) fillClip(c);
     else { state.clip = c; fillTrims(c); }
   } else if (id === 'track-sheet') {
-    // It follows the record track, while one is armed, but not out from
-    // under a held slider.
+    // It follows the record track when the arm moves, but not out from
+    // under a held slider, and not off a track opened by its › since.
     const held = $('track-gain').dataset.held || $('track-pan').dataset.held;
-    if (state.recTrack && state.sheetTrack !== state.recTrack && !held) { const tr = track(state.recTrack); if (tr) fillTrack(tr); return; }
+    if (state.recTrack !== sheetRec && !held) {
+      sheetRec = state.recTrack;
+      const tr = state.recTrack && track(state.recTrack);
+      if (tr && state.sheetTrack !== tr.n) { fillTrack(tr); return; }
+    }
     const tr = track(state.sheetTrack);
     if (tr && trackSig(tr) !== inspectorSig) fillTrack(tr);
   } else {
@@ -4826,6 +4853,9 @@ function wire() {
   wireInspector();
   $('track-done').addEventListener('click', () => $('track-sheet').close());
   $('track-arm-it').addEventListener('click', () => armTrack(state.sheetTrack));
+  // M and S, as the head's (which a touch screen doesn't show).
+  $('track-mute').addEventListener('click', () => { const n = state.sheetTrack; askHeard(n); patch({ track: { n, mute: !track(n).mute } }); });
+  $('track-solo').addEventListener('click', () => { const n = state.sheetTrack; askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
   for (const b of $('track-bus').children) b.addEventListener('click', () => { if (track(state.sheetTrack).bus !== b.dataset.bus) patch({ track: { n: state.sheetTrack, bus: b.dataset.bus } }); });
   wireRuler();
   wireSections();

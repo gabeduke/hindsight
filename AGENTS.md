@@ -267,6 +267,13 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   back what hide put away, and what it runs outside `ctx` (Capture's ribbon
   timer) stops in hide and starts in show.
   ([0048](docs/decisions/0048-rooms-turn-and-prewarm.md))
+- **A track's head on a touch screen** is its name, ● (44 px), its input
+  and ›, which opens its inspector, where M, S and the level are; with a
+  mouse they stay in the head (`docs/architecture/tape.md`, *The track
+  heads*). A new control for a track goes in its inspector, not its head:
+  on a tablet the Studio holds `STUDIO_BUDGET` (`scripts/flows/layout.mjs`,
+  J1.16), which only goes down.
+  ([0059](docs/decisions/0059-the-studio-on-one-screen.md))
 - **A take is named by `takeTitle`** (`lib/rooms/takename.js`), wherever a
   person reads it: its name, or the time on its spine. Never a take's file
   or its date stamp on screen (Open's page is the one still to move, in

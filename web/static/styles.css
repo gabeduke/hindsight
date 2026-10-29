@@ -2236,10 +2236,12 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
    second (lib/bar/press-note.js lightFor; its colour is css/bar.css's). */
 .tt-head.kb-lit { outline: 2px solid var(--kb, var(--ink)); outline-offset: -2px; }
 .tt-name { appearance: none; background: none; border: 0; color: var(--ink); font: 600 13px var(--font); min-height: 28px; padding: 0 4px; cursor: pointer; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Square keys, lit when pressed: mute yellow, solo blue. */
+/* Square keys, lit when pressed: mute yellow, solo blue. The inspector's
+   M and S are lit the same, and so is a touch screen's ›, which stands for
+   them in the head. */
 .tt-head .chip { min-height: 30px; min-width: 26px; padding: 0 4px; border-radius: 8px; font: 700 14px var(--label-font); letter-spacing: .04em; }
-.tt-head .tt-mute[aria-pressed="true"] { color: var(--mute-ink); background: linear-gradient(180deg, var(--mute-hi), var(--mute-lo)); border-color: var(--mute-lo); }
-.tt-head .tt-solo[aria-pressed="true"] { color: var(--solo-ink); background: linear-gradient(180deg, var(--solo-hi), var(--solo-lo)); border-color: var(--solo-lo); }
+.tt-head .tt-mute[aria-pressed="true"], .tt-head .tt-more[data-heard="mute"], .track-ms #track-mute[aria-pressed="true"] { color: var(--mute-ink); background: linear-gradient(180deg, var(--mute-hi), var(--mute-lo)); border-color: var(--mute-lo); }
+.tt-head .tt-solo[aria-pressed="true"], .tt-head .tt-more[data-heard="solo"], .track-ms #track-solo[aria-pressed="true"] { color: var(--solo-ink); background: linear-gradient(180deg, var(--solo-hi), var(--solo-lo)); border-color: var(--solo-lo); }
 /* The arm key is a record button: a red dot in the middle of a plain key,
    dull until it's the record track, then lit like a lamp. The dot is drawn,
    not a ● character, which sat off centre in the label font. */
@@ -2281,7 +2283,8 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
   flex: none; align-items: center; justify-content: center; width: 24px; height: 24px; box-sizing: border-box;
   border-radius: 50%; border: 3px solid var(--tc, var(--t1)); font: 700 12px var(--label-font); color: var(--ink);
 }
-.tt-gain { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); }
+/* 24 px tall, the least a target may be (it was 18, on a phone). */
+.tt-gain { width: 100%; height: 24px; margin: 0; accent-color: var(--accent); }
 /* The lane stretches to its head's height (a narrow head is taller). Size
    containment keeps the canvas's own buffer, which drawLanes sizes from the
    lane, out of the row's height: without it the two feed each other. */
@@ -2362,6 +2365,9 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .passes-row .muted { font-size: 12px; color: var(--ink-faint); }
 .clip-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; font-size: 13px; color: var(--ink-dim); }
 .clip-field input[type=range] { accent-color: var(--accent); }
+/* The track inspector's level and pan, 24 px tall, the least a target may
+   be: the level is here alone on a touch screen. */
+#track-sheet .clip-field input[type=range] { height: 24px; }
 @media (max-width: 480px) {
   /* Narrow: the chips shrink so number, bus, M and S share a row, and the
      level slider stays under them. */
@@ -3001,6 +3007,40 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
   .tt-head { gap: 3px; padding: 3px 4px; }
   .tt-head .chip { min-height: 28px; }
   .tt-head .tt-name { min-height: 22px; font-size: 15px; padding-block: 0; }
+}
+
+/* The heads on a touch screen (docs/architecture/tape.md, *The track
+   heads*): the name, ● a finger wide, the input chip, and › at the head's
+   end, which opens the track's inspector, where M, S and the level are.
+   With a mouse they stay in the head and › isn't there (a second click on
+   the name opens it). › is lit as M or S is, so a muted track says so. */
+.tt-more { display: none; }
+@media (pointer: coarse) {
+  .tt-head {
+    display: grid; gap: 3px; padding: 3px;
+    grid-template-columns: 44px minmax(0, 1fr) 32px;
+    grid-template-rows: 32px 32px;
+    grid-template-areas: "arm name name" "arm in more";
+  }
+  .tt-head .tt-mute, .tt-head .tt-solo, .tt-head .tt-gain, .tt-head .tt-num { display: none; }
+  .tt-head .tt-name { grid-area: name; min-height: 32px; }
+  .tt-head .tt-name::before { content: attr(data-n) " "; }
+  .tt-head .tt-arm { grid-area: arm; min-width: 44px; min-height: 44px; }
+  .tt-head .tt-arm-dot { width: 16px; height: 16px; }
+  .tt-head .tt-in { grid-area: in; min-height: 32px; min-width: 0; }
+  .tt-head .tt-more { grid-area: more; display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; padding: 0; }
+  /* A mute or solo asked for and not heard yet: its wait, over the name's end. */
+  .tt-head .tt-pend { grid-area: name; justify-self: end; align-self: center; margin-right: 6px; pointer-events: none; }
+  /* The tracks a little closer, so on a tablet on its side all four are
+     above the bar; and the ruler's keys and the cue lane's Solo are no
+     key under 32 px either. */
+  .tape-lanes { gap: 4px; }
+  .ruler-chip, .view-fit, .cue-solo { min-height: 32px; }
+  /* A phone's narrow head: the name and › across the top, ● and the
+     input under them. */
+  @media (max-width: 480px) {
+    .tt-head { grid-template-rows: 32px 44px; grid-template-areas: "name name more" "arm in in"; }
+  }
 }
 
 /* ---------- the inspector ---------- */
@@ -4472,7 +4512,9 @@ body:not(.room-rack) .shelf-title,
   border: 0; border-radius: 6px; background: transparent; color: var(--room-ink); font: 600 13px var(--font); cursor: pointer;
   transition: translate var(--t-spring-snap) var(--spring-snap);
 }
-@media (pointer: coarse) { .room-all { min-height: 44px; margin: -7px 0; } }
+/* A finger's 44 px, which reaches past the ledge onto the next shelf's
+   row: over it, so a press on its foot is All's, not the row's. */
+@media (pointer: coarse) { .room-all { position: relative; z-index: 1; min-height: 44px; margin: -7px 0; } }
 @media (hover: hover) { .room-all:hover { color: var(--room-plate-hi); } }
 /* A filter left on, and an empty wall: a card propped in the case that says why. */
 .room-filtered, .room-empty {
@@ -5127,9 +5169,10 @@ dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap
    ● -- clipped to its strip, not four 92 px heads cut through on a 15 px
    pitch. The row under a drag (.buffer-target) opens to its whole head, and the
    unfolded instrument keeps the lanes as P3 laid them. On a phone the strip
-   is tall enough to press the ● on. */
+   is tall enough to press the ● on. A flex row even where a touch screen's
+   head is a grid. */
 body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head {
-  flex-wrap: nowrap; overflow: hidden; align-items: stretch; gap: 4px; padding: 1px 4px;
+  display: flex; flex-wrap: nowrap; overflow: hidden; align-items: stretch; gap: 4px; padding: 1px 4px;
 }
 body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head > :not(.tt-name):not(.tt-arm):not(.tt-warn) { display: none; }
 body.buffer-fold:not(.play-unfolded) .tape-track:not(.buffer-target) .tt-head .tt-name { flex: 1 1 auto; min-height: 0; padding: 0 8px; font-size: 12px; line-height: 1; transform: none; }

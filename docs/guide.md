@@ -701,6 +701,12 @@ From the top:
     room, otherwise printed on the tape), its name on masking tape, **●**,
     its **input**, **M** (mute, yellow when on), **S** (solo, blue when on)
     and its level.
+  - **On a touch screen** (the tablet, a phone) the header keeps what a jam
+    needs: the name, a **●** a finger wide, the input, and **›** at its end.
+    **›** opens the track's inspector in one tap, with **Mute**, **Solo**
+    and the **level** at its top, armed or not, and arms nothing. While a
+    track is muted its › is lit yellow, soloed blue. With a mouse M, S and
+    the level stay in the header, and there's no ›.
   - **●** arms it, making it the **record track**: where Catch, ● Rec, a
     free loop's tap and Overdub on this device go. Its ● is lit red, and its
     header is edged red. With none armed, Catch and ● Rec say *arm a track*,
@@ -749,11 +755,11 @@ From the top:
   and the bar stay); and on a touch screen **Ask before Insert and Delete
   time**.
 - **Recording onto a track** is in the track's inspector: tap its name
-  twice. It's the record track's (the inspector follows it while one is
-  armed), in red at the top: **Input**, **Layer / Replace**, **Catch the
+  twice, or its ›. Under Mute, Solo and the level, it's the record track's
+  (the inspector moves to the record track when the arm moves), in red: **Input**, **Layer / Replace**, **Catch the
   last 1, 2 or 4 bars**, the **passes**, and **Overdub on this device**.
-  With none armed it shows the track's input and **Arm it**. Its name,
-  level, pan and the bus it plays through (*bus A*, the Sidekick's channel
+  On a track that isn't armed it shows the track's input and **Arm it**.
+  Its name, pan and the bus it plays through (*bus A*, the Sidekick's channel
   1, or *bus B*, channel 2) are under it.
 - **Input** chooses what the track the inspector shows records from (the
   record track's, while one is armed): main, ch1, ch2 or aux, as the input
@@ -951,7 +957,8 @@ shows it between the feed and the tracks (§8.12).
   the loop.
 - **A clip's inspector** has *Repeat to the loop's end*: copies of the clip end
   to end, wherever its layer is free -- one bar through four.
-- **Tap a track's number again** for its inspector: its name, level and pan.
+- **Tap a track's number again** (or its ›) for its inspector: its mute, solo,
+  level, name and pan.
 
 ### 8.5 Editing like an OP-1
 
@@ -1730,11 +1737,12 @@ has no tip.
 | Remove (section) | Take the section away. The audio under it stays |
 | Duplicate section | Play this section twice in a row: a copy right after it, and the rest moves later |
 | A lane | Tap a clip to select it: the action bar acts on it, and a double-click opens the inspector beside the lanes. Drag its edges to trim it, the squares on its top edge to fade it in or out, or its ⟳ corner (bottom right) to repeat it. Shift, ⌘ or Ctrl with a click, or Select more, selects several. Hold a clip, then drag, to slide it along its track or onto another. Hold an empty part, then drag across bars and lanes: a range, for the action bar's Cut, Copy, Paste, Insert and Delete time; the loop follows it unless it's locked. Tap elsewhere to move the playhead there. Drag sideways to pan, pinch to zoom (⌘ or Ctrl with a scroll on a computer). A punch shows in red as it records |
-| A track header | Its number and name: tap to select it (and make it the record track, if one is armed), again for its inspector. Keys 1–4, or ↑ ↓, arm it |
+| A track header | Its number and name: tap to select it (and make it the record track, if one is armed), again for its inspector; on a touch screen › opens it in one tap. Keys 1–4, or ↑ ↓, arm it |
 | ● (track) | Arm it, making it the record track: Catch, ● Rec, a free loop's tap and Overdub on this device go onto it, on every device. Lit red on the one that is. A tap moves the arm here, and holding it with a finger, or Shift-click, arms it as well, or takes it off |
-| Arm it | In the inspector of a track, while none is armed: arm this one, making it the record track |
+| Arm it | In the inspector of a track that isn’t armed: arm it, making it the record track. The arm moves here, as a tap on its ● does |
 | Input (track) | What this track records from, lit green while there's signal on it. Tap to choose another from a menu, with each one's meter: it doesn't arm the track |
-| M, S | Mute this track, or solo it: only soloed tracks play |
+| M, S | Mute this track, or solo it: only soloed tracks play. On a touch screen they are in its inspector (›) |
+| › (track) | On a touch screen: this track’s inspector, with its mute, solo, level and pan, in one tap. It arms nothing. Lit yellow while the track is muted, blue while it is soloed |
 | Track level | The track's level into its bus, -30 to +6 dB. Tracks start at -6 |
 | ▶ (tape) | Play or stop the tape. Key: Space |
 | To the loop’s start (tape) | Back to the loop’s start; with Loop off, to the top of the tape |

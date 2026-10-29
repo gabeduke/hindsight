@@ -1,7 +1,9 @@
 // J1.5 Multi-arm by cables: a tap on ● arms that track alone, a hold adds
 // it (or takes it off), Catch names where it lands, and a track's input chip
 // or its inspector picks what it records from. The chip's menu opens by it
-// (lib/ui/menu.js), and from a keyboard on the input chosen.
+// (lib/ui/menu.js), and from a keyboard on the input chosen. Another
+// track's mute: on a touch screen in its inspector, which › opens; with a
+// mouse M in its head.
 // docs/flows.md#j15
 // Ported from the retired scripts/smoke-tape.mjs ("Recording on the track"). The flow
 // makes its own tape, so the arms and inputs it changes are that tape's.
@@ -35,6 +37,26 @@ export default {
     t.expect('a hold arms track 1 as well, on the Pi', both, armed(await api.tapeState()));
     t.expect('both ● are lit', await t.poll(() => [...document.querySelectorAll('.tt-arm')].map((b) => b.getAttribute('aria-pressed')).join() === 'true,false,true,false'),
       (await lit()).join());
+
+    // The second armed track's inspector says it's armed: Catch and ● Rec
+    // go onto it too. (It once said "Not armed", offering Arm it, which
+    // would have taken the arm off track 1.) Its › on a touch screen; its
+    // name twice with a mouse.
+    await t.step('open track 3’s inspector', async () => {
+      if (t.profile === 'desktop') {
+        await t.tap(page.locator('.tt-name').nth(2));
+        await t.wait(300);
+        await t.tap(page.locator('.tt-name').nth(2));
+      } else await t.tap(page.locator('#lanes .tt-more').nth(2));
+    });
+    t.expect('it is track 3’s, recording onto it, with no Arm it', await t.poll(() => document.getElementById('track-sheet').open
+      && /^Track 3\b/.test(document.getElementById('track-title').textContent)
+      && document.getElementById('track-rec-title').textContent === 'Recording onto it'
+      && document.getElementById('track-unarmed').hidden),
+    await page.evaluate(() => [document.getElementById('track-title').textContent, document.getElementById('track-rec-title').textContent].join(' / ')));
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('the inspector closes, both still armed', await t.poll(() => !document.getElementById('track-sheet').open)
+      && same(armed(await api.tapeState()), [1, 3]), armed(await api.tapeState()));
 
     // A waiting Catch says what it waits for ("press ▶"); it names the tracks
     // once a pass has gone round (4 bars at 96 BPM, about 10 s).
@@ -105,6 +127,49 @@ export default {
     await t.step(`choose ${pick3} in it`, () => t.tap(page.locator(`#sources button[data-name="${pick3}"]`)));
     const given3 = await api.until(async () => ((await api.tapeState()).inputs ?? [])[2] === pick3, 'track 3’s input', 5000).catch(() => false);
     t.expect('track 3 records from it, on the Pi', given3, (await api.tapeState()).inputs);
-    await page.keyboard.press('Escape');
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('the inspector closes', await t.poll(() => !document.getElementById('track-sheet').open));
+
+    // Another track's mute, with track 3 armed. On a touch screen M, S and
+    // the level are in the inspector, and › at the head's end opens it in
+    // one tap, on that track, moving no arm; with a mouse they're in the
+    // head, and there's no ›.
+    const muted = async () => !!(await api.tapeState()).tracks[1].mute;
+    if (t.profile === 'desktop') {
+      const head = await page.evaluate(() => {
+        const row = document.querySelectorAll('#lanes .tt-head')[1];
+        const on = (sel) => !!row.querySelector(sel)?.getClientRects().length;
+        return { mute: on('.tt-mute'), solo: on('.tt-solo'), gain: on('.tt-gain'), more: on('.tt-more') };
+      });
+      t.expect('with a mouse the head has M, S and the level, and no ›', head.mute && head.solo && head.gain && !head.more, head);
+      await t.step('click track 2’s M', () => page.locator('#lanes .tt-mute').nth(1).click());
+      t.expect('track 2 is muted, on the Pi', await api.until(muted, 'track 2 muted', 5000).catch(() => false));
+      await t.step('click it again', () => page.locator('#lanes .tt-mute').nth(1).click());
+      t.expect('track 2 is heard again, on the Pi', await api.until(async () => !(await muted()), 'track 2 heard', 5000).catch(() => false));
+      return;
+    }
+    const head = await page.evaluate(() => {
+      const row = document.querySelectorAll('#lanes .tt-head')[1];
+      const on = (sel) => !!row.querySelector(sel)?.getClientRects().length;
+      const arm = row.querySelector('.tt-arm').getBoundingClientRect();
+      return { mute: on('.tt-mute'), solo: on('.tt-solo'), gain: on('.tt-gain'), more: on('.tt-more'), arm: Math.round(Math.min(arm.width, arm.height)) };
+    });
+    t.expect('on a touch screen the head has ● a finger wide and ›, and no M, S or level', !head.mute && !head.solo && !head.gain && head.more && head.arm >= 44, head);
+    await t.step('tap track 2’s ›', () => t.tap(page.locator('#lanes .tt-more').nth(1)));
+    const onTwo = () => document.getElementById('track-sheet').open && /^Track 2\b/.test(document.getElementById('track-title').textContent);
+    const opened = await t.poll(onTwo);
+    await t.wait(600); // a poll or two: it once went back to the record track
+    t.expect('track 2’s inspector opens, and stays on it', opened && await page.evaluate(onTwo),
+      await page.evaluate(() => document.getElementById('track-title').textContent));
+    t.expect('and the record track stays track 3', same(armed(await api.tapeState()), [3]), armed(await api.tapeState()));
+    await t.step('tap Mute in it', () => t.tap(page.locator('#track-mute')));
+    t.expect('track 2 is muted, on the Pi', await api.until(muted, 'track 2 muted', 5000).catch(() => false));
+    t.expect('its Mute and its › are lit', await t.poll(() => document.getElementById('track-mute').getAttribute('aria-pressed') === 'true'
+      && document.querySelectorAll('#lanes .tt-more')[1].dataset.heard === 'mute'));
+    await t.step('tap Mute again', () => t.tap(page.locator('#track-mute')));
+    t.expect('track 2 is heard again, its › unlit', await api.until(async () => !(await muted()), 'track 2 heard', 5000).catch(() => false)
+      && await t.poll(() => !document.querySelectorAll('#lanes .tt-more')[1].dataset.heard));
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('the inspector closes', await t.poll(() => !document.getElementById('track-sheet').open));
   },
 };
