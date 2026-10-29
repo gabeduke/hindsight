@@ -49,7 +49,7 @@ export function world(search = '') {
 }
 
 /** A page with the Listening Room mounted on it. */
-export async function room({ takes = [take('a'), take('b'), take('c')], tapes = null, barTake = null, selecting = false, search = '', openSketchbook = null, narrow = false, stored = null, opts = {}, tags = null } = {}) {
+export async function room({ takes = [take('a'), take('b'), take('c')], tapes = null, barTake = null, selecting = false, search = '', narrow = false, stored = null, opts = {}, tags = null } = {}) {
   const w = world(search);
   w.narrow = narrow;
   if (stored) w.local.setItem('hindsight.library', stored);
@@ -110,7 +110,6 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
   const h = {
     takes: list, toast: (m) => toasts.push(m), tapes: Promise.resolve(tapes), ticker, flightTimers,
     get np() { return np; },
-    openSketchbook,
     opts: () => opts,
     layers: layers.stack,
     // The page's rack and its select bar, which the room wires.

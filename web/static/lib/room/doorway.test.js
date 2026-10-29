@@ -264,16 +264,15 @@ test('the wall is a shelf per month, newest first, then ★, then a shelf per ta
   (await import('../tags.js')).tagStore.set([]);
 });
 
-test('the deck and the Sketchbook have left the room: no deck, no place on its floor, and ✎ on the bar still opens the notes', async () => {
+test('the deck and the Sketchbook have left the room: no deck, no place on its floor, no notes of its own (the shell’s drawer has them)', async () => {
   const r = await room({ barTake: 'jam_a.wav' });
   assert.equal(r.q('.room-deck'), null);
   assert.equal(r.q('.room-place'), null);
   assert.equal(r.q('.room-book-place'), null);
   assert.ok(r.q('.room-backdrop'), 'the drawn room is behind the wall');
   assert.equal(r.q('.room-backdrop').getAttribute('aria-hidden'), 'true', 'a picture, hidden from a screen reader');
-  r.mounted.openSketchbook('jam_a.wav');
-  assert.ok(r.doc.getElementById('room-sketchbook'), 'the engine’s ✎ (setOnNote) reaches the Sketchbook’s notes');
-  assert.match(r.doc.getElementById('room-book-title').textContent, /^Sketchbook · a$/);
+  assert.equal(r.mounted.openSketchbook, undefined, 'the room opens no notes: ✎ is the shell’s (lib/room/drawer.js)');
+  assert.equal(r.doc.getElementById('room-sketchbook'), null);
 });
 
 test('the room adds no Open of its own to the bar: the bar’s Open › opens a take, or the tape in the Studio', async () => {

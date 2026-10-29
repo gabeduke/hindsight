@@ -66,6 +66,13 @@ sideways scroll).
   Folded it is one row of 44 px keys, `body.np-fold`, kept for the visit. On
   a phone the grabber is the player's, and puts it away. ▾ only ever opens
   a menu.
+- **✎ is the page's** (`lib/bar/take-keys.js`, `engine.setOnNote`): the
+  shell's notes drawer (`rooms.md`, *The notes drawer*) takes the frame
+  being heard (`frameNow`); a page without one opens the take on its own
+  page (`noteHere`). The drawer sends the bar to a note's time with the
+  engine's `seekTake(name, frame, {play})`, which loads the take if the bar
+  holds another and puts it back in the bar over the feed or the tape;
+  false when it can't be loaded (still saving).
 - **On a phone the player is a sheet you drag** (`lib/bar/player.js` on
   `lib/ui/sheet.js`; `shell.md`, *Sheets*): a tap on the mini player's
   window, or a drag up from it, pulls it up from where the mini player

@@ -76,9 +76,8 @@ they no longer ship in the binary.
 - [demo] With a take playing, the bar shows its strip, its name and **✎**,
   and **⟲** says **Repeat**. Tap the strip half way → it jumps there; drag it
   → it scrubs. Tap the name → the take opens on its page.
-  Go back, play part way and press **✎** → the Sketchbook opens over the
-  room at that spot, the address doesn't change, and the take keeps
-  playing.
+  Go back, play part way and press **✎** → the notes drawer comes up at
+  that spot, the address doesn't change, and the take keeps playing (J2.4).
 - [demo] On a phone, play a take → the mini player shows ▶, the name, **✎**
   and the strip, and there is no window to pull up.
 - [demo] On a take's page, **Edit tags** → add "Ideas" with a color, Save.

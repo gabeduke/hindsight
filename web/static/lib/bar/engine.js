@@ -68,7 +68,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
   const bar = new NowPlaying({
     onEject: () => backToTape({ byHand: true }),
     onTouch: () => { touches++; handoff.touch(); },
-    // ✎: open inline sketchbook if provided by the room, else stash frame and navigate.
+    // ✎: the page's notes drawer (setOnNote, the shell's boot.js), else stash the frame and open the take.
     onNote: () => {
       if (typeof onNote === 'function') {
         const f = frameNow();
@@ -336,6 +336,23 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     tapePlaying: () => !!(tape && tape.ready && tape.playing()),
     loadTake,
     loadTakeByName,
+    /**
+     * seekTake puts take `name` at `frame` in the bar, and plays it if
+     * `play` (a note's time, its ▶): loaded first if the bar holds another,
+     * and back in the bar if the feed or the tape took its place. Answers
+     * false when it can't be.
+     */
+    async seekTake(name, frame, { play = false } = {}) {
+      if (!take || take.name !== name) {
+        if (!(await loadTakeByName(name))) return false;
+      }
+      if (feed && feed.playing()) feed.pause();
+      if (bar.src !== take.src) { bar.load(take.src); eject(); }
+      take.src.seek(frame);
+      if (play && !take.src.playing()) take.src.play();
+      bar.kick();
+      return true;
+    },
     audioFor,
     setFind: (fn) => { find = fn; if (fn) findWait?.(); },
     setOnNote: (fn) => { onNote = fn; },

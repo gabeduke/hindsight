@@ -478,10 +478,10 @@ test('a phone’s shelf row leaves room for a selected spine’s ring, halo and 
   assert.match(m[0], /scroll-padding-left:\s*[2-9]px/, 'a snap to the first spine keeps that room');
 });
 
-test('the deck, the Sketchbook’s place, ☰ List and the month boxes have left the room: no rule for what is gone', () => {
-  // The library (docs/plan/the-studio-space.md): the bar is the deck, ✎ on it the notes, All › a shelf's List.
+test('the deck, the Sketchbook, ☰ List and the month boxes have left the room: no rule for what is gone', () => {
+  // The library (docs/plan/the-studio-space.md): the bar is the deck, ✎ on it the notes drawer (css/notes.css), All › a shelf's List.
   const body = section(css, '/* ---------- Rooms P5:');
-  assert.doesNotMatch(body, /\.room-deck|\.room-place\b|\.room-book-place|\.room-list-btn|\.room-box\b|\.room-stage\b|\.room-shelf-deco|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/);
+  assert.doesNotMatch(body, /\.room-deck|\.room-place\b|\.room-book-|\.room-list-btn|\.room-box\b|\.room-stage\b|\.room-shelf-deco|room-takecard|room-tapecard|\.room-put\b|\.room-reel\b/);
 });
 
 test('on a tablet the room is pinned to the window, so a page pushed sideways never drags the shelves with it', () => {

@@ -249,8 +249,8 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
 - **A sheet or a drawer that follows the finger** is `createSheet`
   (`lib/ui/sheet.js`; `docs/architecture/shell.md`, *Sheets*): detents, a
   flick, the lid spring, and its layer on the stack the one way out; never
-  a drag of its own. The phone's player is the first; the notes drawer is
-  meant to be the second. Recording from a phone is the page's one
+  a drag of its own. The phone's player is the first; the notes drawer
+  (`lib/room/drawer.js`) is the second. Recording from a phone is the page's one
   recorder (`phoneRecorder`), whatever key starts it.
 - **Moving between rooms** is the router's View Transition
   (`docs/architecture/shell.md`, *Moving between rooms*), drawn by

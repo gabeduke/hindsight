@@ -203,13 +203,9 @@
   --room-led:        #7dbb3c;
   --room-note-lo:    #d9a114;
   --room-note-edge:  #7a5c00;
-  /* The sketchbook: ruled paper, ink, the spine and its rings. */
+  /* Paper in the room: a record's label, and ink on a card. */
   --room-paper:      #f6eedb;
-  --room-paper-rule: #d9cdb0;
   --room-paper-ink:  #1c2430;
-  --room-paper-dim:  #5a5547;
-  --room-paper-spine: #cfc3a5;
-  --room-ring:       #5a5b60;
   --room-glass:      rgba(255,255,255,.18);
   --room-whisky:     rgba(214,140,40,.85);
   /* The room drawn (lib/room/space.js, lib/room/art/): its plaster, deep
@@ -236,11 +232,7 @@
   --room-throw-hi:   #eee6d0;
   --room-throw:      #d6c9ac;
   --room-throw-lo:   #a29274;
-  /* The table: the sketchbook, its band, the pencil, the glass. */
-  --room-book-cover-hi: #4a5a41;
-  --room-book-cover: #2e3a29;
-  --room-book-band:  #8e3022;
-  --room-pencil:     #e2b13b;
+  /* The table: the glass. */
   --room-whisky-hi:  #f0a64a;
   --room-whisky-lo:  rgba(150,80,20,.9);
   /* The hi-fi: a speaker's cloth, a print over it, records and books. */
@@ -254,11 +246,6 @@
   --room-lp-3:       #e2b23d;
   --room-lp-4:       #6a3d6e;
   --room-lp-5:       #3e6b45;
-  --room-book-1:     #7a2a22;
-  --room-book-2:     #20384f;
-  --room-book-3:     #b98a3a;
-  --room-book-4:     #3d4f3a;
-  --room-book-5:     #5b3a5c;
   --room-pot:        #a8552f;
   --room-pot-hi:     #c46a3d;
   --room-leaf-hi:    #5f8f4b;
