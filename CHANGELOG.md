@@ -5,6 +5,36 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.5 — 2026-10-29
+
+- J1.3 selects its spans on a feed with no flags left by J1.2 (289b7ae)
+- The bar's reel no longer counts as covering the Studio's last track level (afe4d4a)
+- The SMK-37's pad lights come on at their landing, stay half while a quantised press waits, and start again from the tape when the screen comes back; SHIFT's light goes out with the keyboard (0f59d93)
+- The SMK-37's pads light half when pressed and full when heard, on the beat Play mode lands them; CATCH and GRAB flash when done (68cca7f)
+- On version 2 firmware, the SMK-37's pads light by family and its PLAY, REC and SHIFT buttons follow the tape (e7bd803)
+- J1.15 checks GRAB and DROP on the keyboard light the dropped-on track's head, and the note over a take in the bar (b717c22)
+- A press on the keyboard shows on the bar in every room, over a take as well, and a screen reader hears it; on a phone it covers the player's whole window (6aeb9a7)
+- The SMK-37's screen says REC only while recording, heals after a refused draw, and keeps its knob names current (f3d77cc)
+- Record the tablet's half of the surface's first step in the plan (7be1d6f)
+- J1.15: a flow plugs a keyboard into the demo and checks its presses come and go on the bar (2a4319f)
+- The bar shows each press on the keyboard over its display for its second, marked as the keyboard's, and lights what it changed (b9dfeaf)
+- The SMK-37's screen follows the tape: where it is, what plays, the levels and the knobs (f5fb25f)
+- On version 2 firmware, the SMK-37's screen is laid out as designed (4ea2955)
+- The tape's changes socket tells the tablets each press on the keyboard: its words, its colour and what it changed (95f08d4)
+- Each track has a level meter, for the SMK-37's screen to show (0a83d13)
+- Capture keeps its live meters' socket as it was; J1.14 jitters its pauses again (65ba5b6)
+- The tape's changes socket says a revision again only on its beat (c7b0ef4)
+- J1.14 waits for the page to be listening, not for a fixed time; describe ctx.socket's place in the push (667f291)
+- The bar asks the Pi for the tape one poll at a time, as the Studio does (ea69d9d)
+- Opening the Studio, or going back to it, asks the Pi for the tape once, not twice (6edd258)
+- The Studio and Capture hold their sockets to the Pi only while they are shown (f7dcf2a)
+- A room holds its sockets to the Pi only while it is shown (d35e7b1)
+- Describe the tape's changes socket, and tick steps 2 and 3 of pushing the tape's state (00227b8)
+- The Studio and the bar show a press made at the Pi within tens of milliseconds (ab0b2f4)
+- Keep the page's sockets open in one place, for the meters and the tape alike (7ef75f4)
+- The Pi tells a page the moment the tape changes, over a socket of its own (49a4068)
+
+
 ## v2026.10.29.4 — 2026-10-29
 
 - Review fixes for the keyboard's banner: a HOME can't slip in before it, and tests for STILL BUSY and every verb's words (f91ac01)
