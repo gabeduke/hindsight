@@ -7,8 +7,8 @@
 // Flows are in scripts/flows/*.flow.mjs; the stories they check are in
 // docs/flows.md. Run them with scripts/flows.mjs.
 
-import { spawn } from 'node:child_process';
-import { linkSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { closeSync, constants, linkSync, mkdtempSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync, writeSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -37,13 +37,23 @@ const freePort = () => new Promise((resolve, reject) => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// The SMK-37 as /proc/asound/cards names it, on card 3: its node is
+// snd/midiC3D0 in the demo's directory, a FIFO while it is plugged in.
+const KEYBOARD_CARD = ' 3 [SMK37          ]: USB-Audio - SMK-37\n                      M-VAVE SMK-37\n';
+const KEYBOARD_NODE = 'midiC3D0';
+
 // bootDemo runs `go run ./cmd/hindsight --demo` on a free port with every
 // directory it writes under one temp dir, so a run starts empty and leaves
 // nothing behind (a demo without TAPE_DIR writes ~/hindsight).
+//
+// It has a place for the SMK-37 (docs/development.md, *A controller in the
+// demo*): a cards file naming it and an empty directory of rawmidi nodes,
+// so no keyboard is there until a flow plugs one in (api.keyboard()).
 export async function bootDemo({ ringSeconds = 60, log = () => {} } = {}) {
   const port = await freePort();
   const dir = mkdtempSync(join(tmpdir(), 'hindsight-flows-'));
-  for (const d of ['takes', 'tapes']) mkdirSync(join(dir, d));
+  for (const d of ['takes', 'tapes', 'snd']) mkdirSync(join(dir, d));
+  writeFileSync(join(dir, 'cards'), KEYBOARD_CARD);
   const env = {
     ...process.env,
     CGO_ENABLED: '0',
@@ -52,6 +62,9 @@ export async function bootDemo({ ringSeconds = 60, log = () => {} } = {}) {
     OUTPUT_DIR: join(dir, 'takes'),
     TAPE_DIR: join(dir, 'tapes'),
     SETTINGS_FILE: join(dir, 'settings.env'),
+    TAPE_CONTROLLER: 'SMK',
+    HINDSIGHT_DEMO_CARDS: join(dir, 'cards'),
+    HINDSIGHT_DEMO_SND_DIR: join(dir, 'snd'),
   };
   const bin = process.env.HINDSIGHT_BIN;
   const proc = bin
@@ -182,6 +195,32 @@ export function apiFor(base, { dir = null } = {}) {
       await call('POST', `/api/tapes/load?id=${encodeURIComponent(t.id)}`);
       await call('DELETE', '/api/clipboard').catch(() => {});
       return t;
+    },
+    // keyboard plugs the SMK-37 into the demo: a FIFO for its rawmidi node,
+    // which the demo's MIDI watcher finds on its next scan (every 2 s) and
+    // reads as the keyboard's. It resolves once the Pi lists it connected
+    // and its first bytes would no longer be drained, with press(bytes),
+    // which writes MIDI as the keyboard sends it, and unplug(). Only on a
+    // demo this run booted.
+    keyboard: async () => {
+      if (!dir) throw new Error('the keyboard is a FIFO in the demo’s files: run the flow on its own demo, without HINDSIGHT_URL');
+      const node = join(dir, 'snd', KEYBOARD_NODE);
+      rmSync(node, { force: true });
+      execFileSync('mkfifo', [node]);
+      // Opened without blocking: it fails until the watcher has opened the
+      // other end.
+      const fd = await api.until(() => {
+        try { return openSync(node, constants.O_WRONLY | constants.O_NONBLOCK); } catch { return null; }
+      }, 'the demo to open the keyboard', 10_000);
+      await api.until(async () => {
+        const c = await call('GET', '/api/tapes/controls');
+        return (c?.controllers ?? []).some((d) => /SMK/.test(d.name) && d.connected);
+      }, 'the keyboard to show as connected', 10_000);
+      await sleep(300); // past the watcher's drain window
+      return {
+        press: (bytes) => { writeSync(fd, Buffer.from(bytes)); },
+        unplug: () => { rmSync(node, { force: true }); closeSync(fd); },
+      };
     },
     // tapeState is the loaded tape as the Pi has it.
     tapeState: async () => {
