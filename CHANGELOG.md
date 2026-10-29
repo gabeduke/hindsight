@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.7 — 2026-10-29
+
+- A narrow cassette's band lets HINDSIGHT go, then the stamp's weekday, rather than print the two over each other (2d1925c)
+
+
 ## v2026.10.29.6 — 2026-10-29
 
 - Docs: AGENTS.md keeps the details the review found thinned, and four records say only what the repo supports (1c36ba6)
