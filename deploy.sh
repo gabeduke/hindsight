@@ -88,7 +88,9 @@ EXCLUDES=(
   # same folder as the checkout; --delete must never touch them. Nor the
   # hub's certificate, which the binary keeps in ~/hindsight/tls
   # (cmd/hindsight/main.go): deleting it takes the kit's HTTPS name down
-  # until the hub issues another.
+  # until the hub issues another. Nor settings.json, what the Settings sheet
+  # saves (config.SettingsPath).
+  --exclude '/settings.json'
   --exclude '/tls'
   --exclude '/tapes'
   --exclude '/releases'
