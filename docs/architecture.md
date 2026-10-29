@@ -277,7 +277,10 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
     line at that place, since TEXT works by place. A TEXT for the top line
     while the banner shows is kept and drawn when it goes.
   - Its time is the client's own clock (`Keyboard.Clock`, `Now`) and loop:
-    the 20 ms tick that resends puts the top line back. A new press
+    the 20 ms `Tick` that resends puts the top line back (a test with its
+    own clock calls `Tick` in place of `Start`). Each banner, TEXT and
+    CLEAR is checked and queued under one lock, so a HOME can't fall
+    between the two. A new press
     replaces the banner showing; a CLEAR, HOME or a forgotten keyboard
     ends it with nothing put back, and none is drawn without the screen.
   - The API stamps a press with `Keyboard.Now` (`verbJob.pressed`), and

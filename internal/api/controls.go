@@ -1079,7 +1079,7 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 		if err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{fmt.Sprintf("kept the last %d s as %s", keepSeconds, name), fmt.Sprintf("KEPT %d S", keepSeconds)}, nil
+		return verbDone{fmt.Sprintf("kept the last %d s as %s", keepSeconds, name), keptWords(keepSeconds)}, nil
 	}
 	if a.tape == nil {
 		return verbDone{}, errTapeOff
@@ -1115,15 +1115,15 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 		}
 		secs := float64(c.Frames) / float64(t.SampleRate)
 		return verbDone{fmt.Sprintf("caught %.1f s from %s onto track %d", secs, req.Source, req.Track),
-			fmt.Sprintf("CAUGHT %.0f S ON T%d", secs, req.Track)}, nil
+			caughtWords(secs)}, nil
 	case "grab":
 		req := tape.GrabRequest{Sources: []string{src}}
-		says := fmt.Sprintf("GRABBED %d BARS", grabBars)
+		says := grabbedWords(grabBars, "BARS")
 		if t.Grid != nil && t.Grid.Bars > 0 {
 			req.Bars = grabBars
 		} else {
 			req.Seconds = 2 * grabBars
-			says = fmt.Sprintf("GRABBED %d S", 2*grabBars)
+			says = grabbedWords(2*grabBars, "S")
 		}
 		if _, err := a.tape.Grab(req); err != nil {
 			return verbDone{}, err
@@ -1153,7 +1153,7 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 		if _, err := a.tape.DropClipboardAt(t.ID, track, false, &at); err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{fmt.Sprintf("dropped the buffer on track %d", track), fmt.Sprintf("DROPPED ON T%d", track)}, nil
+		return verbDone{fmt.Sprintf("dropped the buffer on track %d", track), droppedWords(track)}, nil
 	}
 	return verbDone{}, fmt.Errorf("%s isn't a verb the Pi runs", id)
 }

@@ -167,7 +167,7 @@ func (k *Keyboard) Start() {
 			case <-k.stop:
 				return
 			case <-t.C:
-				k.tick()
+				k.Tick()
 			}
 		}
 	}()
@@ -206,12 +206,13 @@ func (k *Keyboard) Clear(c Colour) bool {
 		return false
 	}
 	k.mu.Lock()
-	if k.status.Present {
-		// A CLEAR wipes the banner with everything else.
-		k.top, k.banner = nil, time.Time{}
+	defer k.mu.Unlock()
+	if !k.status.Present {
+		return false
 	}
-	k.mu.Unlock()
-	return k.enqueue(cmdClear, []byte{byte(c)})
+	k.top, k.banner = nil, time.Time{} // a CLEAR wipes the banner with everything else
+	k.queueLocked(cmdClear, []byte{byte(c)})
+	return true
 }
 
 // Text puts s at (x, y) at scale 1 to 4 in c, replacing what was there; an
@@ -223,23 +224,22 @@ func (k *Keyboard) Text(x, y, scale int, c Colour, s string) bool {
 	if !ok {
 		return false
 	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if !k.status.Present {
+		return false
+	}
 	if x == TopX && y == TopY {
-		k.mu.Lock()
-		if !k.status.Present {
-			k.mu.Unlock()
-			return false
-		}
 		k.top = payload
 		if s == "" {
 			k.top = nil
 		}
-		showing := !k.banner.IsZero()
-		k.mu.Unlock()
-		if showing {
-			return true
+		if !k.banner.IsZero() {
+			return true // drawn when the banner goes
 		}
 	}
-	return k.enqueue(cmdText, payload)
+	k.queueLocked(cmdText, payload)
+	return true
 }
 
 // textPayload is TEXT's payload: false when it can't be drawn.
@@ -269,8 +269,6 @@ func textPayload(x, y, scale int, c Colour, s string) ([]byte, bool) {
 // timed from the press (Banner).
 func (k *Keyboard) Now() time.Time { return k.Clock() }
 
-func (k *Keyboard) now() time.Time { return k.Clock() }
-
 // Banner puts s over the top line in c until BannerFor after pressed, then
 // puts back the line that was there; a banner already showing is replaced,
 // and its time starts again from pressed. Nothing is drawn unless Hindsight
@@ -283,19 +281,21 @@ func (k *Keyboard) Banner(pressed time.Time, c Colour, s string) bool {
 	}
 	until := pressed.Add(BannerFor)
 	k.mu.Lock()
-	if !k.status.Present || !k.status.Screen || !k.now().Before(until) {
-		k.mu.Unlock()
+	defer k.mu.Unlock()
+	if !k.status.Present || !k.status.Screen || !k.Now().Before(until) {
 		return false
 	}
+	// Queued under the same lock as the check: a HOME between the two
+	// would otherwise find nothing to drop, and the banner would follow it.
 	k.banner = until
-	k.mu.Unlock()
-	return k.enqueue(cmdText, payload)
+	k.queueLocked(cmdText, payload)
+	return true
 }
 
 // unbanner puts back the top line once the banner's time is up. Called with
 // mu held, from tick.
 func (k *Keyboard) unbanner() {
-	if k.banner.IsZero() || k.now().Before(k.banner) {
+	if k.banner.IsZero() || k.Now().Before(k.banner) {
 		return
 	}
 	k.banner = time.Time{}
@@ -372,15 +372,17 @@ func (k *Keyboard) next() {
 // frame stamps m as sent now and encodes it. Called with mu held.
 func (k *Keyboard) frame(m *message) []byte {
 	m.tries++
-	m.sent = k.now()
+	m.sent = k.Now()
 	out := append(append([]byte{}, header...), m.seq, m.cmd)
 	out = append(out, m.payload...)
 	return append(out, 0xF7)
 }
 
-// tick probes, sends again what had no ack, and forgets a keyboard that
-// stopped answering or was unplugged.
-func (k *Keyboard) tick() {
+// Tick probes, sends again what had no ack, puts back the top line once a
+// banner's time is up, and forgets a keyboard that stopped answering or was
+// unplugged. Start's loop calls it every 20 ms; a test with its own Clock
+// may call it instead of Start.
+func (k *Keyboard) Tick() {
 	connected := k.connected()
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -388,7 +390,7 @@ func (k *Keyboard) tick() {
 	switch {
 	case !connected:
 		k.forget()
-	case k.flight != nil && k.now().Sub(k.flight.sent) >= k.AckTimeout:
+	case k.flight != nil && k.Now().Sub(k.flight.sent) >= k.AckTimeout:
 		if k.flight.tries < k.Tries {
 			k.send(k.frame(k.flight))
 		} else if k.status.Present {
@@ -398,8 +400,8 @@ func (k *Keyboard) tick() {
 		} else {
 			k.flight = nil
 		}
-	case !k.status.Present && k.flight == nil && k.now().Sub(k.probed) >= k.Probe:
-		k.probed = k.now()
+	case !k.status.Present && k.flight == nil && k.Now().Sub(k.probed) >= k.Probe:
+		k.probed = k.Now()
 		k.queue = append([]*message{{cmd: cmdHello}}, k.queue...)
 		k.next()
 	}
@@ -482,7 +484,7 @@ func (k *Keyboard) Feed(msg []byte) {
 	}
 	done, status := k.flight, msg[7]
 	k.flight = nil
-	k.status.RTT = k.now().Sub(done.sent)
+	k.status.RTT = k.Now().Sub(done.sent)
 	var present func()
 	switch {
 	case done.cmd == cmdHello && status == statusOK && !k.status.Present:

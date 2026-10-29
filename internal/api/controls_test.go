@@ -757,11 +757,15 @@ func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
 // slowGrab holds GRAB for as long as the test says: the bar after it.
 type slowGrab struct {
 	fakeVerbs
-	gate chan struct{}
+	gate    chan struct{}
+	entered chan struct{} // optional: told as each GRAB starts waiting
 }
 
 func (v *slowGrab) Verb(id, rt string) (verbDone, error) {
 	if id == "grab" {
+		if v.entered != nil {
+			v.entered <- struct{}{}
+		}
 		<-v.gate
 	}
 	return v.fakeVerbs.Verb(id, rt)

@@ -12,6 +12,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -29,6 +30,15 @@ var (
 	errNoRoom        = errors.New("no room on track")
 	errBusy          = errors.New("the verbs before it haven't finished")
 )
+
+// The words of the verbs that went through (piVerbs), each well inside the
+// banner's 19 characters at its longest (TestTheVerbsWordsFitTheBanner).
+func keptWords(seconds int) string { return fmt.Sprintf("KEPT %d S", seconds) }
+func caughtWords(seconds float64) string {
+	return fmt.Sprintf("CAUGHT %.0f S", min(seconds, 99999))
+}
+func grabbedWords(n int, unit string) string { return fmt.Sprintf("GRABBED %d %s", n, unit) }
+func droppedWords(track int) string          { return fmt.Sprintf("DROPPED ON T%d", track) }
 
 // says is a banner: its words and its colour.
 type says struct {

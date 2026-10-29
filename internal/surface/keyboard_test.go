@@ -30,7 +30,7 @@ func newRig(t *testing.T) *rig {
 	return r
 }
 
-func (r *rig) advance(d time.Duration) { r.clock = r.clock.Add(d); r.k.tick() }
+func (r *rig) advance(d time.Duration) { r.clock = r.clock.Add(d); r.k.Tick() }
 
 // take returns what was sent since the last take.
 func (r *rig) take() [][]byte {
