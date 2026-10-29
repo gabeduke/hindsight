@@ -100,7 +100,16 @@ each say part of it, and only a test can keep them in step.
    press closes it; HOME alone keeps giving the screen back. SHIFT alone
    is the Mixer page, and the free buttons (SAVE, OCT, ARP, …) are MIDI
    LEARN's, so a combination keeps them free. **Gabe's call.**
-6. **The map shown on the keyboard's screen** (its 2×8 pad map, today
+6. **CATCH and GRAB on the FX pads** (Gabe at the rig, 2026-10-29: *"i'm
+   not sure if grab/catch really belong in the fx section but they're
+   fine for now"*). They stay pads 15 and 16 (settled on 2026-10-29) until
+   the map is agreed; the map is where they'd move. And GRAB takes the
+   armed track's input, so from the keyboard over a tape playing with no
+   one playing into the interface it caught a quiet pick-up of the room,
+   not the tape (on the rig, the same day): whether a GRAB from the
+   keyboard should be able to take the tape's own output is a question
+   for the map's rows. **Gabe's call**, both.
+7. **The map shown on the keyboard's screen** (its 2×8 pad map, today
    `FXPads`) stays where it is, read from the map: no change on the unit.
 
 ## Build order, once agreed
