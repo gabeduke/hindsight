@@ -361,6 +361,79 @@ My recommendation first in each.
      A press that is refused says why, the same way. The pad lights and
      the widgets come later and do this richer; the line of text comes
      first, before K3 changes what REC does.
+   - *The surface, designed* with Gabe on 2026-10-29, from a quiz and a
+     canvas he played and agreed (*"this looks good to me"*): the
+     prototype is <https://claude.ai/artifact/WrryAkACiz1AgNHGBMYAWV>,
+     built in `~/programming/hindsight-design/smk/`. It draws the screen
+     pixel for pixel in the firmware's 5×7 font from the commands the Pi
+     would send.
+     - *The screen, always there*, top to bottom at 240×240: the tape's
+       name and tempo; the counter in bars and beats (`012.3`, scale 4)
+       with the transport beside it (PLAY green, STOP, REC red) and the
+       armed track under it, with any solos and mutes; the pad page (FX,
+       or MIXER while SHIFT is held) and what its 16 pads do, as a 2×8
+       map lit as the pads are; the levels of tracks 1–4, a meter each in
+       its colour with its fader's place as a tick; and the knobs in the
+       panel's own two rows (K1–K4, then SELECT, PAGE, PRESET, MASTER),
+       each its name and value.
+     - *The flash*: a banner over the top line for about a second after
+       each press, in the press's colour (PLAY green, STOP white, PUNCH IN
+       and REC red, a Mixer press in its track's colour), then the screen
+       as it was. Refused is amber, with the reason (NO TRACK ARMED). A
+       knob turn or a fader move flashes nothing: its name and value are
+       lit in place for a second. A held FX pad lights its cell in the map.
+     - *The Mixer page's encoders*: K1–K4 pan tracks 1–4; SELECT, PAGE
+       and PRESET are the selected track's input gain, monitor and echo
+       send. A track has only a level and a pan today, so those three
+       show a dash until the tape has them. A knob or fader move is one
+       undo step, not one per value.
+     - *The pad lights*, set by the Pi. On the FX page, by family: T1–T4
+       in their tracks' colours, BREAK, REVERSE, CHOP and STOP orange,
+       HALF and DOUBLE violet, ROLL, FILTER, ECHO and CRUSH cyan, CATCH
+       and GRAB white (pads 15 and 16 stay those). On the Mixer page,
+       every pad in its track's colour, dim when off and full when on
+       (muted, selected, soloed, armed). A pad is dim at rest, half
+       bright the moment it is pressed, and full when what it does is
+       heard, after the snap; a command pad flashes full once, when done.
+     - *The button lights*: PLAY while the tape plays; REC while
+       recording, and blinking while the tape plays with a track armed;
+       SHIFT while held. The rest stay the keyboard's.
+     - *The tablet*: the banner's words over the bar's display for the
+       same second, marked as the keyboard's, and what changed lit (▶,
+       ●, a track's head). A strip just above the bar shows the 16 pads
+       as the keyboard lights them, switching page with SHIFT, hidden by
+       a per-device switch. It rides the push (`pushing-tape-state.md`),
+       as an event carrying the words and what changed, not a diff.
+     - *The firmware*: the Pi lays out every pixel and times every flash;
+       the firmware draws. Protocol version 2 adds BOX (x y w h colour),
+       BAR (x y w h value colour back), a background colour on TEXT, LED
+       (a pad's RGB, a button on, off or blinking) and BATCH (several
+       commands, one ack: a whole screen is about 70 commands), and grows
+       the palette to 16 colours (the four tracks, red, orange, violet,
+       white) and the items to 96. An item's change repaints only its
+       16-row bands, not the whole screen. Estimated at about 900 bytes
+       of the 2,877 free; the help page and the voice picker need the
+       room *Our firmware* frees.
+     - *Where it is built*: on the screen simulator and the virtual
+       keyboard first, then on the unit with Gabe at the keyboard.
+     - *Still to find*: an overlap Gabe saw on a couple of screens and
+       doesn't recall where. Look on the keyboard and the tablet while
+       building the first step.
+
+     The build order, each its own PR:
+     1. the banner as TEXT on today's protocol (PLAY, STOP, KEPT 30 S,
+        refusals) and the note on the tablet's bar: the Pi alone;
+     2. partial repaint, in the fork;
+     3. protocol version 2 (BOX, BAR, TEXT's background, the palette,
+        the items, BATCH), with simulator scripts in CI;
+     4. the layout in Go (`internal/surface`), the screen as a function
+        of the tape's state, tested by golden command lists and drawn in
+        the simulator;
+     5. LED: the pads by family with the two-stage light, and the
+        buttons. It needs Play mode's `at` for each pad;
+     6. the tablet's pad strip and the lit change, on the push;
+     7. then the Mixer page (K6, after the map's spec), scrub (K7), the
+        faders (K8) and REC punching in (K3).
    - *The map.* What each control does, on each page, is written once,
      per device, beside its profile: the control, what it sends, what it
      does on each page, the track colour of a Mixer pad, and the K flow
@@ -384,8 +457,9 @@ My recommendation first in each.
      and they are quantised to a 16th by default (`controls.json`'s
      quantum): 0–114 ms at 132 BPM. PLAY and REC are not quantised. He
      chose to A/B a 16th against `now` by ear at the rig, then decide.
-   - *Still open:* what the encoders do on the Mixer page; and whether
-     pads 15 and 16 on the FX page stay CATCH and GRAB.
+   - *Settled* on 2026-10-29 (*The surface, designed*, above): what the
+     encoders do on the Mixer page, and pads 15 and 16 stay CATCH and
+     GRAB.
    - *Where the room comes from.* The image's symbol table says what
      Open's app spends (about 80 of its 83 KB placed):
 
