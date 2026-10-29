@@ -78,7 +78,7 @@ export const CONTROLS = [
   { id: 'drop', kind: COMMAND, group: 'verbs', face: 'DROP', play: ['Enter', 'NumpadEnter'], edit: ['Enter', 'NumpadEnter'], midi: [note(52)], needs: 'rooms',
     buffer: { when: 'held', what: 'Drop it on the armed track, at the next free span' }, what: 'The open cue part onto the armed track' },
   { id: 'keep', kind: COMMAND, group: 'verbs', face: 'KEEP', play: ['KeyK'], edit: ['KeyK'], midi: [note(53)], needs: 'rooms',
-    buffer: { when: 'open', what: 'Keep it as a take' }, what: 'The feed, or the open buffer, as a take' },
+    buffer: { when: 'open', what: 'Keep it as a take' }, what: 'The feed, or the open cue part, as a take' },
   // The click's key with the rooms on: K is KEEP there.
   { id: 'click', kind: COMMAND, group: 'studio', face: '♩', play: [], edit: ['KeyM'], midi: [], needs: 'rooms', what: 'The click on or off' },
   // The buffer's edit keys (lib/buffer/keys.js), only while it's open.

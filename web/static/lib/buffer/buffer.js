@@ -195,7 +195,10 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   let layer = null;
   function onStack(on) {
     if (on && !layer?.open) {
-      layer = layers?.open({ el: drawer, kind: 'drawer', onClose: () => { layer = null; select(''); } }) || null;
+      // Closed from outside (Escape, Back, a switch of rooms): put it away.
+      // Closed by the drawer itself it is already away, and keeps what a
+      // drop left for ↵.
+      layer = layers?.open({ el: drawer, kind: 'drawer', onClose: () => { layer = null; if (st.open) select(''); } }) || null;
     } else if (!on && layer?.open) {
       const l = layer;
       layer = null;
@@ -976,22 +979,25 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
       if (there) t.seen = true;
       else if (t.seen) backInHand();
     }
-    // A GRAB made away from the Studio -- a take's, a note's, the bar's --
-    // opens its clip here, once, and says what it took the place of: once
-    // the Studio is shown, as a view mounted out of sight closes its drawers
-    // when it goes quiet (lib/shell/view.js).
-    if (!st.noted && tape && (!ctx || ctx.active())) {
-      st.noted = true;
-      const n = recallNote(storage);
-      if (n && clipOn(tape, n.by)) {
-        select(n.by);
-        if (n.line) raiseUndo(toast, n.line, 'ok', () => undoTape());
-        return;
-      }
-    }
+    if (openNoted()) return;
     takeClip();
     announceKeeps(); // again, for a pad that mounted later
   });
+  // A GRAB made away from the Studio -- a take's, a note's, the bar's --
+  // opens its clip here, once, and says what it took the place of: once
+  // the Studio is shown, as a view mounted out of sight closes its drawers
+  // when it goes quiet (lib/shell/view.js). The bar's GRAB comes back to a
+  // Studio already mounted, so every show looks again.
+  function openNoted() {
+    const tape = st.detail?.tape;
+    if (st.noted || !tape || (ctx && !ctx.active())) return false;
+    st.noted = true;
+    const n = recallNote(storage);
+    if (!n || !clipOn(tape, n.by)) return false;
+    select(n.by);
+    if (n.line) raiseUndo(toast, n.line, 'ok', () => undoTape());
+    return true;
+  }
   // A clip held on the lane opens here (lib/tape/cuelane.js).
   onDoc('hindsight:cue-select', (e) => select(e.detail?.id || ''));
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => draw()).observe(el.win);
@@ -1002,13 +1008,14 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     state: st,
     render,
     hide() {
+      st.noted = false; // the next show looks for a GRAB made meanwhile
       audition.stop();
       lift?.end(false);
       setOpen(body, false);
       setFold(body, false);
     },
     show() {
-      render();
+      if (!openNoted()) render();
     },
   };
 }

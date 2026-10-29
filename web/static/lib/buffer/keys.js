@@ -42,13 +42,14 @@ export function typingInto(el) {
 
 // Where ↵ belongs to what has the focus, however it got there: a link, a
 // menu's item, anything in a sheet or a menu, and the buffer's own keys.
-// A cue clip's pad, focused, launches on ↵ (lib/tape/cuelane.js).
-const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab, .cue-pad';
+const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab';
 // And a button -- a toast's Undo, Loop -- but only one the keyboard brought
 // the focus to. Chrome focuses a button that's clicked: arm a track with its
 // ●, press ↵ for DROP, and the ↵ went to the ●, which disarmed it. ▶ never
-// keeps it: ↵ there would stop the tape mid-jam.
-const BUTTON = 'button:not(#np-play)';
+// keeps it: ↵ there would stop the tape mid-jam. A cue clip's pad is a key
+// too (lib/tape/cuelane.js): ↵ launches it only when the keyboard went to it;
+// held with a mouse to open its drawer, ↵ is the drawer's DROP.
+const BUTTON = 'button:not(#np-play), .cue-pad';
 
 /**
  * blocked says the page isn't the buffer's to answer: a key typed into a

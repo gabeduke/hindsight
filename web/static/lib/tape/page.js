@@ -194,6 +194,7 @@ export function mountTapePage(ctx) {
     getTape: () => state.tape,
     getLaneView: () => laneView(),
     getPos: () => heardNow(),
+    active: () => viewActive(),
     onEdit: (op, extra) => edit(op, extra),
     onLaunch: (clip, { now }) => launchCue(clip, now),
     onToast: toast,

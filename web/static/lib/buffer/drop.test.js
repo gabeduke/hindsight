@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { mountBuffer } from './buffer.js';
+import { keyState } from './state.js';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 
 const tapeHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
@@ -176,5 +177,15 @@ test('a loop near the tape’s end: the part is moved back to fit, the key and t
     await press();
     assert.deepEqual(drops()[0].body, { track: 2, at: 6 * BAR });
     assert.equal(toasts.at(-1).msg, 'Dropped on track 2 · bars 7–10 · moved back to fit the tape');
+  });
+});
+
+// ↵ again, just after a drop, drops it again further on: the drawer shut by
+// the drop keeps the clip for it. Its layer's close once let go of it.
+test('just after a DROP, ↵ drops the clip again', async () => {
+  await withBuffer({}, async ({ doc, press, buffer }) => {
+    await press();
+    assert.equal(doc.getElementById('buffer').hidden, true, 'the drawer shuts on a drop');
+    assert.deepEqual(keyState(buffer.state, performance.now()), { open: false, held: true });
   });
 });

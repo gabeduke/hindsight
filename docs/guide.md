@@ -806,11 +806,11 @@ From the top:
   feed in the bar has the same mini player and player, **▶** in the same
   place: see *The bar, with a take in it* (§3.1).
 - **On a phone,** with the player down, the action bar floats above the
-  player, and the buffer is a sheet (§8.12). The recording is in the track's
+  player, and a cue part's drawer is a sheet (§8.12). The recording is in the track's
   inspector: tap its name twice.
 - **On a tablet or a computer** the tracks take the whole width and share
   the height of the window between the header and the bar; the action bar,
-  the clip editor or the buffer opening makes them shorter, and they scroll
+  the clip editor or a cue part's drawer opening makes them shorter, and they scroll
   once they're as short as their heads. The header is one row on every
   screen, the page switch in its middle.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is

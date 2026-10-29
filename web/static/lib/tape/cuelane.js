@@ -49,7 +49,7 @@ export function formatClipLen(frames, sampleRate = 48000) {
  * line; a hold on a clip says `hindsight:cue-select`, and the drawer says
  * which is open with `hindsight:cue-selected`.
  */
-export function mountCueLane({ container, getTape, getLaneView, getPos = () => NaN, onEdit, onLaunch, onToast, signal }) {
+export function mountCueLane({ container, getTape, getLaneView, getPos = () => NaN, active = () => true, onEdit, onLaunch, onToast, signal }) {
   if (!container) return { update: () => {}, destroy: () => {} };
 
   container.innerHTML = `
@@ -89,6 +89,7 @@ export function mountCueLane({ container, getTape, getLaneView, getPos = () => N
   const select = (clip) => document.dispatchEvent(new CustomEvent('hindsight:cue-select', { detail: { id: clip.id } }));
 
   function onPointerDown(e, clip, machine) {
+    if (e.button > 0) return; // a right button is the drawer's (contextmenu), never a drag
     e.preventDefault();
     dragged = false;
     press = { clip, chip: e.currentTarget, x: e.clientX, y: e.clientY, machine };
@@ -212,13 +213,14 @@ export function mountCueLane({ container, getTape, getLaneView, getPos = () => N
   }
 
   // The ring: while a pad waits for its bar line, its hand goes round the
-  // bar, on the shared ticker, and parks when nothing waits.
+  // bar, on the shared ticker, and parks when nothing waits or the Studio
+  // is out of sight (the next poll that shows one waiting starts it again).
   const ring = new Loop(() => {
     const f = ringOf(getPos(), getTape?.()?.grid);
     for (const hand of listEl.querySelectorAll('.cue-pad.queued .cue-dial-hand')) {
       hand.style.transform = `rotate(${f == null ? 0 : (f * 360).toFixed(1)}deg)`;
     }
-    return waiting;
+    return waiting && active();
   });
 
   // live is the Pi's live.cue: {playing: [ids], queued: [ids]}, or null.
