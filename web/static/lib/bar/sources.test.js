@@ -252,7 +252,7 @@ test('the tape: ▶ then ■ before a poll says so stops it, and the Pi has the 
   assert.equal(s.playing(), true);
 });
 
-// docs/plan/pushing-tape-state.md: the Pi's word that the tape changed
+// docs/architecture/push.md: the Pi's word that the tape changed
 // polls the bar's tape at once, while the bar polls it itself.
 function fakeWatch() {
   const w = { open: 0, nudge: null, press: null };

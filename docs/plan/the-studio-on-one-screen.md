@@ -15,8 +15,8 @@ The flows come down to four jobs: **catch it** (KEEP, GRAB), **build it**
 note, Open). What serves one of those stays on screen; the rest goes one
 tap further away, never out of reach.
 
-Landed: the header's one menu (step 1; `docs/architecture.md`, *The
-frame*; J5.1), the feed as a strip (step 2; J1.1, J1.6), and on a phone
+Landed: the header's one menu (step 1; `docs/architecture/shell.md`,
+*The frame*; J5.1), the feed as a strip (step 2; J1.1, J1.6), and on a phone
 the ruler's keys as one ⌗ menu with bars numbered every 2nd, 4th or 8th
 when zoomed out (`barEvery`).
 

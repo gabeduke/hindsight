@@ -2,7 +2,7 @@
 // Pi (through the API, as a controller presses them) and a rename show on
 // the page within 100 ms, told by /api/tapes/changes rather than found by
 // the next 200 ms poll; and the bar in the Listening Room, after the Studio,
-// follows ▶ too. docs/flows.md#j114, docs/plan/pushing-tape-state.md.
+// follows ▶ too. docs/flows.md#j114, docs/architecture/push.md.
 //
 // One sample under the 200 ms poll lands inside 100 ms about half the time,
 // so each change is made several times and the slowest is what is checked;

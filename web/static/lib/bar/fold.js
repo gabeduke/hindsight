@@ -1,6 +1,6 @@
 // web/static/lib/bar/fold.js
-// The bar folds by the grabber on its top edge (docs/plan/the-studio-
-// space.md, "▾ only opens a menu"): a tap folds it or unfolds it, a drag
+// The bar folds by the grabber on its top edge (docs/architecture/
+// bar.md, "It folds by its grabber"): a tap folds it or unfolds it, a drag
 // down folds it and a drag up unfolds it. Folded, it is one row of keys and
 // no strip, so the Studio's lanes have the room (css/bar.css). It stays
 // folded for the visit, through a reload (sessionStorage).

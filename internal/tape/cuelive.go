@@ -11,7 +11,7 @@ import (
 	"github.com/gabeduke/hindsight/internal/audio"
 )
 
-// Launching the cue lane's clips (shell-roadmap.md): a clip starts on the
+// Launching the cue lane's clips (docs/architecture/tape.md): a clip starts on the
 // next bar line and loops until it's tapped again; Shift starts it at once.
 // It plays on the transport's clock, summed with the tape on bus A, and the
 // Cue button (CueLane.Solo) leaves it alone in the output. What's playing is

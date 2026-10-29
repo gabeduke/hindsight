@@ -1,6 +1,6 @@
 // J3.2 Bounce: the tape becomes a take on the shelf, from the tape's name,
-// which is its menu (docs/plan/the-studio-space.md, "The name is the menu;
-// ⋯ goes"): the tapes and New tape; Rename…, Duplicate; the mix and the
+// which is its menu (docs/architecture/shell.md, "The frame"; a name is its
+// menu, ⋯ gone): the tapes and New tape; Rename…, Duplicate; the mix and the
 // bounces; Record from this phone…; Delete this tape… last, in red. Then
 // the tape goes, from the same menu: the confirm sheet names it and what's
 // on it (never the browser's prompt), and the most recent other tape opens

@@ -1,5 +1,5 @@
 // web/static/lib/buffer/replaced.js
-// GRAB's Undo (docs/architecture.md, Vocabulary, decision 9).
+// GRAB's Undo (docs/decisions/0009-the-crate-leaves-the-screen.md).
 // The crate is off the rooms' screens, so the safety net for a GRAB -- or a
 // range's Cut or Copy, or an Undo of a toss -- that lands on a buffer nobody
 // dropped or kept is a line that says so, with an Undo, and the Pi's one

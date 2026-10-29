@@ -1,6 +1,6 @@
 // web/static/lib/room/routes.test.js
-// The spine's sheet goes (docs/architecture.md, Vocabulary,
-// "What happens to today's surfaces"), and nothing may be left that is only
+// The spine's sheet goes (docs/architecture/rooms.md,
+// Vocabulary), and nothing may be left that is only
 // reachable through it. This lists every control the sheet has -- read from a
 // real TakeDetail, which the takes page still builds -- and says where each
 // lives now. A control added to the sheet

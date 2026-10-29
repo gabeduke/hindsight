@@ -40,7 +40,7 @@ short spec in this folder when it is next.
 - **VU calibration:** 0 VU at about −20 dBFS, in place of `REF_DBFS`'s −18
   (`lib/scene/vu.js`). Offered to Gabe; not decided.
 
-## Rendering (the scene contract, `docs/architecture.md`)
+## Rendering (the scene contract, `docs/architecture/css-and-motion.md`)
 
 - **R3** the room in 2.5D: layered planes, at most 12 px pointer parallax;
   the doorway-to-chair move as a cross-document View Transition.

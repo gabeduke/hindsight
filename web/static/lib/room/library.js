@@ -1,5 +1,5 @@
 // web/static/lib/room/library.js
-// How this device shows the Listening Room (docs/plan/the-studio-space.md,
+// How this device shows the Listening Room (docs/architecture/rooms.md,
 // "The library"): the shelf wall, or the List. A tablet's library is the
 // wall and a phone's the List, until the person picks the other on
 // Shelf | List; then that is remembered here, in this browser only, as a

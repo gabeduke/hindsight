@@ -1,5 +1,5 @@
 // web/static/lib/tape/changes.js
-// The Pi's word that the tape changed (docs/plan/pushing-tape-state.md).
+// The Pi's word that the tape changed (docs/architecture/push.md).
 //
 // /api/tapes/changes sends {rev, at_ms}: the tape's revision, when the
 // socket opens, the moment the tape changes, and once a second regardless.
@@ -14,7 +14,7 @@
 // dead one. A view opens it on show and closes it on hide, as Capture does
 // its meters' socket, so it is quiet in a room not shown.
 //
-// A press on the keyboard (docs/architecture.md, *The keyboard's press*)
+// A press on the keyboard (docs/architecture/push.md, *The keyboard's press*)
 // comes on it too, the moment it is made, under `press`: the banner's
 // words, its role, what it lit and when its second began, by the Pi's
 // clock. pressOf reads one; the bar shows it (lib/bar/press-note.js).

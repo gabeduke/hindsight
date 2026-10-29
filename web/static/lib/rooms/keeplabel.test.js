@@ -1,6 +1,6 @@
 // web/static/lib/rooms/keeplabel.test.js
-// Every KEEP names what it keeps (docs/architecture.md, Vocabulary,
-// "The Studio: one selection, two verbs"): KEEP 2m on the feed's key, KEEP 4
+// Every KEEP names what it keeps (docs/architecture/rooms.md,
+// Vocabulary): KEEP 2m on the feed's key, KEEP 4
 // BARS on the buffer's, KEEP 30s on the instrument's pad.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

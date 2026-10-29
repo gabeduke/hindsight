@@ -6,7 +6,7 @@
 // lights nothing; ▶ never moves. In the Studio (its socket hands the press
 // to the bar) and in the Listening Room (the bar's own socket), with a take
 // in the bar as well: the keyboard plays the tape whatever the bar holds.
-// docs/flows.md#j115, docs/architecture.md, *The keyboard's press*.
+// docs/flows.md#j115, docs/architecture/push.md, *The keyboard's press*.
 
 const PLAY = [0x9f, 16, 127, 0x8f, 16, 0]; // PLAY on its panel: note 16, channel 16
 const CATCH = [0x99, 50, 100, 0x89, 50, 0]; // CATCH's pad: note 50, channel 10

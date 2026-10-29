@@ -1,7 +1,7 @@
 // The engine (lib/bar/engine.js): the bar's audio and its sources -- the tape,
 // its player on this device, the feed, a take -- lifted out of the page so
 // the shell can make it once and hand it to each room
-// (docs/architecture.md, The shell, step 1). Run on the real
+// (docs/architecture/shell.md, The engine). Run on the real
 // NowPlaying and takes.html's markup (bar-harness.js), with the Pi a stub.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';

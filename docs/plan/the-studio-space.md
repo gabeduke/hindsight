@@ -23,7 +23,7 @@ It takes in the open steps of `the-studio-on-one-screen.md` and
 
 ## Landed
 
-Steps 1 to 6, each now in `docs/architecture.md`:
+Steps 1 to 6, each now in `docs/architecture/`:
 
 - **Foundations**: one stylesheet reader for the tests, the computed-style
   snapshot (`scripts/css-snapshot.mjs`), the overwritten declarations gone
@@ -116,6 +116,6 @@ what's next.
     lamps in tempo, the room listening with you (its lamp and VU follow
     the take), and the CSS's remaining files.
 
-When a step lands, fold what lasts into `docs/architecture.md` (*The UI*,
-*Vocabulary*) and `AGENTS.md` (*Where things live in the UI*), and strike it
+When a step lands, fold what lasts into `docs/architecture/` (`shell.md`,
+`rooms.md`) and `AGENTS.md` (*Where things live in the UI*), and strike it
 here. When the last one lands, delete this spec.

@@ -478,7 +478,7 @@ export function startStrip({
     ui.note(linkNote || (tape?.output === 'phone' ? 'Playing on a phone — the pads land about a second late' : ''));
   }
   doc.addEventListener('hindsight:tape-state', onState);
-  // KEEP names what it keeps (docs/architecture.md, Vocabulary):
+  // KEEP names what it keeps (docs/architecture/rooms.md, Vocabulary):
   // the Studio says what the feed's K keeps and the buffer what its own does,
   // while it is open; the pad shows the one K will.
   const keeps = { feed: '', buffer: '' };

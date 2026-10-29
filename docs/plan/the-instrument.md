@@ -297,7 +297,7 @@ My recommendation first in each.
      The tablet follows the keyboard: the armed track, the mutes and
      the pad page show there as the keyboard changes them, with a strip
      of what the 16 pads do now. It follows on the tape's changes socket
-     (*The revision* in `docs/architecture.md`), so it lags the keyboard by
+     (*The revision* in `docs/architecture/push.md`), so it lags the keyboard by
      the Wi-Fi hop; the sound never waits on it, since the keyboard's
      controls act on the Pi.
 
@@ -306,7 +306,7 @@ My recommendation first in each.
      intuitive feel by watching something and feeling out the notes"*):
      built as the surface's first step, a banner on the keyboard and a
      note on the tablet's bar (*The keyboard's press* in
-     `docs/architecture.md`; J1.15). A refused press says why.
+     `docs/architecture/push.md`; J1.15). A refused press says why.
 
    - *The surface, designed* with Gabe on 2026-10-29, from a quiz and a
      canvas he played and agreed (*"this looks good to me"*): the
@@ -367,14 +367,14 @@ My recommendation first in each.
        tempo, a four-digit bar into the sixteenths, NO TRACK ARMED into
        the solos and mutes) are fixed in the Go layout, which tests that
        no two text items overlap (`internal/surface/layout.go`;
-       `docs/architecture.md`, *The SMK-37's screen on protocol version
-       2*).
+       `docs/architecture/keyboard.md`, *The SMK-37's screen on protocol
+       version 2*).
 
      The build order, each its own PR (1–5 done, on the unit 2026-10-29):
      1. the banner as TEXT on today's protocol (PLAY, STOP, KEPT 30 S,
         refusals) and the note on the tablet's bar: the Pi alone
         (the banner #195; the note on the changes socket, J1.15: *The
-        keyboard's press* in `architecture.md`);
+        keyboard's press* in `docs/architecture/push.md`);
      2. partial repaint, in the fork;
      3. protocol version 2 (BOX, BAR, TEXT's background, the palette,
         the items, BATCH), with simulator scripts in CI;
@@ -383,12 +383,30 @@ My recommendation first in each.
         the simulator;
      5. LED: the pads by family with the two-stage light, and the
         buttons. It needs Play mode's `at` for each pad (built:
-        `internal/surface/lights.go`; `docs/architecture.md`, *The
-        SMK-37's lights*. The Mixer page's lights are there for K6 to
+        `internal/surface/lights.go`; `docs/architecture/keyboard.md`,
+        *The SMK-37's lights*. The Mixer page's lights are there for K6 to
         show, and SHIFT's light follows the hand already);
      6. the tablet's pad strip and the lit change, on the push;
      7. then the Mixer page (K6, after the map's spec), scrub (K7), the
         faders (K8) and REC punching in (K3).
+
+     *Next* (Gabe, 2026-10-29: a session of its own to dial in the link
+     and the signal flow). What it answers is *Learnt on the unit* in
+     `docs/architecture/keyboard.md`:
+     1. The pads: while the Pi holds the panel its LED colours win in the
+        firmware; and/or the Pi re-asserts lights on a timer.
+     2. The Stops: the SMK-37's realtime start/stop shouldn't move the tape
+        when its PLAY is a button to the Pi; and the firmware shouldn't send
+        them on a screen take.
+     3. Local echo in the firmware: a pad half-lit and a knob's value shown
+        the instant they're touched, the Pi confirming after.
+     4. The link itself: measure where frames are lost (the SDK's USB MIDI
+        assembly, Linux's `snd-usb-midi` packing), ack and retry behaviour,
+        latency from press to light and press to sound, and a probe in CI or
+        the harness that would have caught the 764-byte loss.
+     5. Then the build order's rest: the tablet's pad strip (step 6), the
+        Mixer page on SHIFT (K6), scrub (K7), the faders (K8), REC punching
+        in (K3).
    - *The map.* What each control does, on each page, is written once,
      per device, beside its profile: the control, what it sends, what it
      does on each page, the track colour of a Mixer pad, and the K flow
@@ -484,7 +502,7 @@ My recommendation first in each.
        MIDI message goes in each binary frame, both ways.
      - This changes interfaces: `internal/midi` gets a port that isn't a
        rawmidi node, and `midi.Out` a target that isn't one. It is a PR of
-       its own, written up in `docs/architecture.md`.
+       its own, written up in `docs/architecture/`.
      - It is on with `--demo` and off on every kit. It is never one of the
        Pi's settings, since nothing a kit does needs it.
      - The page, in the fork: `?link=<ws url>` opens the socket, sends
@@ -541,7 +559,7 @@ My recommendation first in each.
 
    To settle, my recommendation first:
    - *Room for code.* The image has 1,693 bytes free on protocol version 2
-     (`STATE.md`). The help page and the voice picker need more, from the
+     (`docs/architecture/keyboard.md`, *On the unit*). The help page and the voice picker need more, from the
      pages *Our firmware* drops (*Where the room comes from*). A smaller
      user partition would be one more source, but only a unit can say
      whether the SDK accepts one.

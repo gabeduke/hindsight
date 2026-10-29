@@ -7,7 +7,7 @@ import (
 
 // Changes is the engine's revision: a number that moves whenever what
 // /api/tapes/state shows moves, apart from the playhead and the device's
-// counts, which move all the time (docs/plan/pushing-tape-state.md). A
+// counts, which move all the time (docs/architecture/push.md). A
 // page that is told of a new revision polls at once, instead of waiting
 // for its next poll.
 //

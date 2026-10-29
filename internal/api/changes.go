@@ -10,7 +10,7 @@ import (
 
 // /api/tapes/changes tells a page the moment the tape changes, so that it
 // polls /api/tapes/state at once instead of at its next tick
-// (docs/plan/pushing-tape-state.md). It sends a nudge, not the state:
+// (docs/architecture/push.md). It sends a nudge, not the state:
 //
 //	{"rev":N,"at_ms":…}
 //
