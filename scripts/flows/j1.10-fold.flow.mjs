@@ -37,12 +37,11 @@ export default {
       const b = await grabber.boundingBox();
       const x = b.x + b.width / 2, y = b.y + b.height / 2;
       if (t.profile === 'tablet') {
-        const cdp = await page.context().newCDPSession(page);
+        const cdp = await t.cdp();
         const pt = (yy) => [{ x, y: yy }];
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(y) });
         for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(y + (dy * i) / 6) });
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-        await cdp.detach();
       } else {
         await page.mouse.move(x, y);
         await page.mouse.down();

@@ -46,7 +46,7 @@ export default {
       return { x: r.x + ((c0.at + bar / 2 - from) / (to - from)) * r.width, y: r.y + r.height / 2, perBar: (bar / (to - from)) * r.width };
     };
     // A finger on a touch profile (real touch events), the mouse otherwise.
-    const cdp = touch ? await page.context().newCDPSession(page) : null;
+    const cdp = touch ? await t.cdp() : null;
     const finger = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
     const tapAt = (x, y) => (touch ? page.touchscreen.tap(x, y) : page.mouse.click(x, y));
     const doubleTap = async (x, y) => {
@@ -226,6 +226,5 @@ export default {
       t.expect('↶ puts it back', await api.until(async () => (await clip())?.at === c0.at, 'the part back', 4000).catch(() => false),
         `${(await clip())?.at}`);
     }
-    if (cdp) await cdp.detach();
   },
 };

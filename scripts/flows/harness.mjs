@@ -249,7 +249,8 @@ export function apiFor(base, { dir = null } = {}) {
 // runFlow runs one flow on one profile and answers its result. `t`, the
 // flow's handle, is: page, api, base, profile, given(name, fn) for setup,
 // step(name, fn) for what the person does, expect(name, ok, detail) for
-// what should follow, and wait(ms). They read as Given/When/Then in the
+// what should follow, wait(ms), and cdp() for a finger's own touch events
+// (the page's one CDP session). They read as Given/When/Then in the
 // report (log), in the order they ran.
 //
 // Each screen the flow leaves (before every When, and at the end) gets the
@@ -292,6 +293,7 @@ export async function runFlow(browser, flow, profileName, { base, api, shots, st
     }
   });
   let stage = 'start';
+  let touchSession = null; // t.cdp's (it says why it stays open)
   const log = [];
   let frame = 0;
   const seenLayout = new Set();
@@ -344,12 +346,17 @@ export async function runFlow(browser, flow, profileName, { base, api, shots, st
       if (!profile.hasTouch) return locator.click({ modifiers: ['Shift'] });
       const box = await locator.boundingBox();
       const pt = [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }];
-      const cdp = await context.newCDPSession(page);
+      const cdp = await t.cdp();
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt });
       await page.waitForTimeout(ms);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      await cdp.detach();
     },
+    // cdp is the page's one CDP session, for a finger's own touch events
+    // (Input.dispatchTouchEvent): never detach it. Detaching a session that
+    // sent touches turns Chromium's touch emulation off, and the page went
+    // on as a mouse's ((pointer: coarse) no longer matched) for the rest of
+    // the flow.
+    cdp: async () => (touchSession ??= await context.newCDPSession(page)),
     // tap is a finger's tap on a touch profile, a click otherwise.
     tap: (locator) => (profile.hasTouch ? locator.tap() : locator.click()),
     // poll re-evaluates fn in the page until it is truthy or the time runs out.

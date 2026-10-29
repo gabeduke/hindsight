@@ -19,7 +19,7 @@ async function press(t, a, b, holdMs = 450) {
     await page.mouse.up();
     return;
   }
-  const cdp = await page.context().newCDPSession(page);
+  const cdp = await t.cdp();
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [a] });
   if (holdMs) await page.waitForTimeout(holdMs);
   for (let i = 1; i <= steps; i++) {
@@ -27,7 +27,6 @@ async function press(t, a, b, holdMs = 450) {
     await page.waitForTimeout(16);
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await cdp.detach();
 }
 
 export default {

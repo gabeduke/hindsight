@@ -12,13 +12,12 @@ async function holdDrag(t, locator, fromPct, toPct) {
   const x1 = box.x + box.width * toPct;
   const steps = 8;
   if (!t.profile.startsWith('desktop')) {
-    const cdp = await page.context().newCDPSession(page);
+    const cdp = await t.cdp();
     const touch = (type, x) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: x == null ? [] : [{ x, y }] });
     await touch('touchStart', x0);
     await page.waitForTimeout(600);
     for (let i = 1; i <= steps; i++) { await touch('touchMove', x0 + ((x1 - x0) * i) / steps); await page.waitForTimeout(16); }
     await touch('touchEnd');
-    await cdp.detach();
     return;
   }
   await page.mouse.move(x0, y);

@@ -138,7 +138,7 @@ export default {
       const spine = page.locator('.room-wall .room-shelf').first().locator('.room-cassette').first();
       const key = await spine.getAttribute('data-key');
       const box = await spine.boundingBox();
-      const cdp = await page.context().newCDPSession(page);
+      const cdp = await t.cdp();
       const finger = (type, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: box.x + box.width / 2, y }] });
       await t.step('drag the wall up from a spine', async () => {
         const y = box.y + box.height / 2;
@@ -150,7 +150,6 @@ export default {
       t.expect('the wall scrolls under the finger', scrolled, await wallNow());
       const played = await page.evaluate((k) => document.querySelector(`.room-cassette[data-key="${CSS.escape(k)}"]`)?.classList.contains('on-deck'), key);
       t.expect('the spine it started on doesn’t play', !played, key);
-      await cdp.detach();
     } finally {
       await lib.clear();
     }
