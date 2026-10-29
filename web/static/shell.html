@@ -621,6 +621,18 @@
   <div class="sheet-inner">
     <button class="insp-grip" type="button" aria-label="Pull it up or down" data-tip="insp-grip"></button>
     <h3 id="track-title">Track</h3>
+    <!-- First, M, S and the level, as in the head with a mouse: on a touch
+         screen they are only here, and the head's › opens this
+         (lib/tape/page.js, buildLanes). -->
+    <div class="clip-field">Heard
+      <div class="seg track-ms" role="group" aria-label="Mute or solo">
+        <button id="track-mute" type="button" aria-pressed="false" data-tip="track-mute">Mute</button>
+        <button id="track-solo" type="button" aria-pressed="false" data-tip="track-solo">Solo</button>
+      </div>
+    </div>
+    <label class="clip-field">Level <span id="track-gain-val" class="mono"></span>
+      <input id="track-gain" type="range" min="-30" max="6" step="0.5" data-tip="track-gain">
+    </label>
     <section id="track-rec" class="rec-section" aria-labelledby="track-rec-title">
       <h4 id="track-rec-title" class="rec-title">Recording onto it</h4>
       <p id="track-unarmed" class="unarmed-note" hidden>Catch, ● Rec and an overdub go onto the armed track. <button id="track-arm-it" class="chip" type="button" data-tip="track-arm-it"><span class="tt-arm-dot" aria-hidden="true"></span>Arm it</button></p>
@@ -655,9 +667,6 @@
     <h4 class="rec-title">The track</h4>
     <label class="clip-field">Name
       <input id="track-name" type="text" maxlength="40" placeholder="chords, bass…" data-tip="track-name">
-    </label>
-    <label class="clip-field">Level <span id="track-gain-val" class="mono"></span>
-      <input id="track-gain" type="range" min="-30" max="6" step="0.5" data-tip="track-gain">
     </label>
     <label class="clip-field">Pan <span id="track-pan-val" class="mono"></span>
       <input id="track-pan" type="range" min="-1" max="1" step="0.05" data-tip="track-pan">

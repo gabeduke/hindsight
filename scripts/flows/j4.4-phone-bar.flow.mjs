@@ -205,12 +205,14 @@ export default {
     t.expect('↶ takes the insert back', undone);
 
     // The ruler's keys are one key, ⌗, the View menu, so its row stays one
-    // line; Ask before Insert and Delete time is in its menu, ticked.
+    // line: no taller than ⌗ itself (32 px on a touch screen); Ask before
+    // Insert and Delete time is in its menu, ticked.
     const rk = await page.evaluate(() => ({
       row: Math.round(document.getElementById('tape-ruler').parentElement.getBoundingClientRect().height),
+      key: Math.round(document.getElementById('ruler-more').getBoundingClientRect().height),
       keys: [...document.querySelectorAll('.ruler-keys button')].filter((b) => b.offsetParent && !b.closest('.menu')).map((b) => b.id),
     }));
-    t.expect('the ruler’s keys are one key, ⌗, and its row one line', JSON.stringify(rk.keys) === '["ruler-more"]' && rk.row <= 30, rk);
+    t.expect('the ruler’s keys are one key, ⌗, and its row one line', JSON.stringify(rk.keys) === '["ruler-more"]' && rk.row <= rk.key + 4, rk);
     await page.locator('#ruler-more').scrollIntoViewIfNeeded();
     await t.step('tap ⌗ beside the ruler', () => t.tap(page.locator('#ruler-more')));
     const view = await t.poll(() => {

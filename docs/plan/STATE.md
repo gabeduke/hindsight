@@ -37,9 +37,6 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   0.6–0.9 s at 4× CPU in headless Chromium (later turns 0.25–0.5 s),
   measured before the shelf wall replaced the stage. Re-measure, on the
   tablet.
-- On a phone, the Studio's track level sliders are 18 px tall (axe's
-  target-size), met only by a partial run on the demo's own tape (J5.1,
-  J2.10 on a phone).
 - Red Go tests not seen since mid-October, and never fixed:
   `TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail` and the MIDI clock's
   tempo tests.
@@ -83,8 +80,8 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
-- **`the-studio-space.md` is the build order**: steps 1–6 have landed; 7
-  (the phone), 8 (the Studio's heads and ruler), 9 (the notes drawer), 10
+- **`the-studio-space.md` is the build order**: steps 1–6 and 8 have
+  landed; 7 (the phone), 9 (the notes drawer), 10
   (Open), 11 (the buffer into the cue lane) and 12 (polish) are open. They
   take in the open steps of `listening-back.md` and
   `the-studio-on-one-screen.md`, which hold their details.

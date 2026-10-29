@@ -87,9 +87,10 @@ My recommendation first in each.
   room as now; a hold offers *Record from this phone*. With the tape
   playing on this phone, a tap records here.
 - **The tablet's track heads** keep step 3's inspector for M, S and level,
-  plus a visible way in (a › at the head's end). GarageBand's reveal (drag
-  the heads wider to show M, S and level for every track) is the
-  alternative if the inspector costs too many taps mid-jam.
+  plus a visible way in: built so, › at the head's end (step 8). GarageBand's
+  reveal (drag the heads wider to show M, S and level for every track) is
+  the alternative if the inspector costs too many taps mid-jam: for Gabe to
+  say, once he has tried it on the tablet.
 
 ## Build order
 
@@ -102,9 +103,9 @@ what's next.
 1–6. Landed (above).
 7. **The phone.** `sheet.js`; the player as a sheet you drag; ● records
    from the phone.
-8. **The Studio's heads and ruler** (`the-studio-on-one-screen.md`, steps 3
-   and 4): the heads on touch, ~~the ⌗ View menu everywhere~~ (landed
-   with the frame), the budget.
+8. ~~The Studio's heads and ruler~~ (`the-studio-on-one-screen.md`, steps 3
+   and 4). Landed: `docs/architecture/tape.md`, *The track heads*; J1.5,
+   J1.16.
 9. **The notes drawer** (`listening-back.md`, step 2), on `sheet.js`.
 10. **Open** (`listening-back.md`, step 3, with the decisions above), and
     the dolly into a take.

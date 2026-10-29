@@ -299,6 +299,23 @@ are in a sheet behind the strip's lamp, which lights when something is
 wrong, with a link to the Rig. ● Phone shows on the strip only while it
 records.
 
+**The track heads** (`lib/tape/page.js` `buildLanes`; `styles.css`, *The
+heads on a touch screen*) are each track's name, ●, input chip, M, S and
+level. On a touch screen (`(pointer: coarse)`) the head keeps what a jam
+needs: the name, ● a finger wide (44 px), the input chip, and › at its end,
+which opens the track's inspector in one tap, on that track, armed or not,
+moving no arm. M, S and the level are at the top of the inspector
+(`#track-mute`, `#track-solo`, `#track-gain`), and › is lit yellow or blue
+while the track is muted or soloed (`data-heard`), so a head with neither
+key still says so. With a mouse M, S and the level stay in the head, and
+there's no ›. The inspector moves to the record track when the arm moves
+(`sheetRec`), not on every render: it once went back to the armed track
+under a finger that had opened another's. On a tablet the Studio holds a
+budget at rest, checked by J1.16 (`scripts/flows/layout.mjs`,
+`STUDIO_BUDGET`): at most 44 controls on the screen, 1 under 32 px (the
+sections' strip), every ● 44 px or more, and all four tracks above the
+bar; it had 65, 30 and 1½. The budget's numbers only go down.
+
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what
 you tap; the Pi holds all the state, so several devices stay in step.

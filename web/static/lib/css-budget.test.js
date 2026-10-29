@@ -25,7 +25,7 @@ const BUDGET = {
   zIndex: 22,
   important: 3,
   media: 51,
-  durations: 46,
+  durations: 44,
   weights: 3,
 };
 
