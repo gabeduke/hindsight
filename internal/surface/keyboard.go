@@ -132,10 +132,14 @@ type Keyboard struct {
 	connected func() bool
 
 	// AckTimeout is how long a message waits for its ack before it is sent
-	// again, Tries times in all; Probe is how often HELLO asks whether the
+	// again, Tries times in all, and AckPerByte how much longer a BATCH
+	// waits for each byte it carries: the keyboard acks one once drawn, and
+	// a whole screen took 250 ms on the unit (2026-10-29), where the
+	// simulator answers at once. Probe is how often HELLO asks whether the
 	// keyboard is there. Clock is the Keyboard's time, time.Now; a test
 	// stands in. Set them before Start.
 	AckTimeout time.Duration
+	AckPerByte time.Duration
 	Tries      int
 	Probe      time.Duration
 	Clock      func() time.Time
@@ -213,6 +217,7 @@ func New(send func([]byte), connected func() bool) *Keyboard {
 		connected:  connected,
 		Clock:      time.Now,
 		AckTimeout: 250 * time.Millisecond,
+		AckPerByte: time.Millisecond,
 		Tries:      3,
 		Probe:      2 * time.Second,
 		Refresh:    40 * time.Millisecond,
@@ -697,6 +702,15 @@ func (k *Keyboard) next() {
 	k.send(k.frame(k.flight))
 }
 
+// ackWait is how long m waits for its ack: a BATCH longer the more it
+// carries, since the keyboard draws it before it answers.
+func (k *Keyboard) ackWait(m *message) time.Duration {
+	if m.cmd != cmdBatch {
+		return k.AckTimeout
+	}
+	return k.AckTimeout + time.Duration(len(m.payload))*k.AckPerByte
+}
+
 // frame stamps m as sent now and encodes it. Called with mu held.
 func (k *Keyboard) frame(m *message) []byte {
 	m.tries++
@@ -726,7 +740,7 @@ func (k *Keyboard) Tick() {
 	switch {
 	case !connected:
 		k.forget()
-	case k.flight != nil && k.Now().Sub(k.flight.sent) >= k.AckTimeout:
+	case k.flight != nil && k.Now().Sub(k.flight.sent) >= k.ackWait(k.flight):
 		if k.flight.tries < k.Tries {
 			k.send(k.frame(k.flight))
 		} else if k.status.Present {
