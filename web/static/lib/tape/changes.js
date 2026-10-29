@@ -21,24 +21,31 @@ export const CHANGES_PATH = '/api/tapes/changes';
 /**
  * revisions answers, for each message, whether its revision is one not yet
  * heard. Any change is news, not only a higher number: a Pi that restarted
- * counts from nought again.
+ * counts from nought again. With `firstSeen`, the first revision is taken
+ * as known, not news.
  */
-export function revisions() {
+export function revisions({ firstSeen = false } = {}) {
   let last = null;
+  let primed = firstSeen;
   return (m) => {
-    if (!m || typeof m.rev !== 'number' || m.rev === last) return false;
+    if (!m || typeof m.rev !== 'number') return false;
+    if (primed) { primed = false; last = m.rev; return false; }
+    if (m.rev === last) return false;
     last = m.rev;
     return true;
   };
 }
 
 /**
- * watchChanges calls onNudge({rev, at_ms}) on each new revision: the first
- * the socket says (the tape may have changed since the page last polled),
- * then each change. Returns { close() }. The env is lib/socket.js's, for
- * tests.
+ * watchChanges calls onNudge({rev, at_ms}) on each new revision. The first
+ * the socket says is taken as seen: whoever opens it polls as they do (the
+ * Studio on show, the bar as it takes the tape back), and counting it as
+ * news would ask the Pi twice. A change in the moment between that poll
+ * and the socket's first word waits for the next poll, as it did before.
+ * After a reconnect, a revision that moved while the socket was down is
+ * news. Returns { close() }. The env is lib/socket.js's, for tests.
  */
 export function watchChanges(onNudge, env = {}) {
-  const fresh = revisions();
+  const fresh = revisions({ firstSeen: true });
   return connectSocket(CHANGES_PATH, { onMessage: (m) => { if (fresh(m)) onNudge(m); } }, env);
 }
