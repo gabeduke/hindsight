@@ -52,17 +52,110 @@ type keyboardScreen struct {
 	style tape.Style
 	beat  float64 // frames a beat, 0 with no grid
 	turn  *keyboardTurn
+	shift bool // SHIFT held on the keyboard
+
+	// The pads' landings read so far (Play mode's trick log, keyboardLandings);
+	// landed is false until the first read, which starts from now.
+	landed   bool
+	trickSeq uint64
 }
 
-// fxPadIndex is each Play mode pad's place in the FX page's map.
+// fxPadIndex is each pad's place in the FX page's map, on the keyboard's
+// pads: Play mode's fourteen, then CATCH and GRAB, the SMK-37 profile's
+// notes 36-51 in order.
 var fxPadIndex = func() map[string]int {
 	out := map[string]int{}
 	for i, id := range []string{"track1", "track2", "track3", "track4", "break", "reverse", "chop", "stop",
-		"half", "double", "roll", "filter", "echo", "crush"} {
+		"half", "double", "roll", "filter", "echo", "crush", "catch", "grab"} {
 		out[id] = i
 	}
 	return out
 }()
+
+// SHIFT on Hindsight's firmware: note 0 on the buttons' channel, 16.
+const (
+	shiftNote     = 0
+	buttonChannel = 16
+)
+
+// keyboardButton notes SHIFT held or let go on the keyboard, for its light.
+// What SHIFT does (the Mixer page) is K6's; until then the pads keep the FX
+// page, and only its light follows the hand.
+func (a *API) keyboardButton(port string, m midiMsg) {
+	if a.keyboard == nil || m.ch != buttonChannel || m.note != shiftNote || (m.typ != "on" && m.typ != "off") || !isKeyboard(port) {
+		return
+	}
+	ks := &a.kbScreen
+	ks.mu.Lock()
+	ks.shift = m.typ == "on"
+	ks.mu.Unlock()
+}
+
+// keyboardFinger is a pad pressed (down) or let go on the keyboard: its
+// light is half from the press until what it does is heard.
+func (a *API) keyboardFinger(port, id string, down bool) {
+	i, ok := fxPadIndex[id]
+	if a.keyboard == nil || !ok || !isKeyboard(port) {
+		return
+	}
+	if down {
+		a.keyboard.PadDown(i)
+	} else {
+		a.keyboard.PadUp(i)
+	}
+}
+
+// keyboardDone is a command pad's verb done (ok) or refused: it flashes full
+// once if it went through.
+func (a *API) keyboardDone(port, id string, ok bool) {
+	i, found := fxPadIndex[id]
+	if a.keyboard == nil || !found || !isKeyboard(port) {
+		return
+	}
+	a.keyboard.PadDone(i, ok)
+}
+
+// keyboardLandings tells the keyboard when each pad's press and release is
+// heard: Play mode's landing for it (the trick log's output frame, the
+// same at a page's "at" carries), mapped to the keyboard's clock through
+// the lead (HeardIn). A landing from any holder lights the pad, as it is
+// what is heard. With them goes what the tape holds, read first, so a pad
+// let go with no release logged (a tape loaded under it) goes dim: the
+// engine logs an event before it changes the pads held, so a release read
+// as not held is among the events read after. Called with ks.mu held,
+// from the screen's feed.
+func (a *API) keyboardLandings(ks *keyboardScreen) {
+	p, kb := a.playerOrNil(), a.keyboard
+	if p == nil || kb == nil {
+		return
+	}
+	if !ks.landed {
+		_, ks.trickSeq = p.TrickEventsSince(^uint64(0) >> 1) // what landed before is not news
+		ks.landed = true
+	}
+	var held [surface.Pads]bool
+	for _, id := range p.HeldPads() {
+		if i, ok := fxPadIndex[id]; ok {
+			held[i] = true
+		}
+	}
+	var ev []tape.TrickEvent
+	ev, ks.trickSeq = p.TrickEventsSince(ks.trickSeq)
+	now := kb.Now()
+	var landed []surface.Landing
+	for _, e := range ev {
+		i, ok := fxPadIndex[e.Pad]
+		if !ok || e.Move {
+			continue
+		}
+		at := now // no output to hear it: lit as it lands
+		if d, ok := p.HeardIn(e.Out); ok {
+			at = now.Add(d)
+		}
+		landed = append(landed, surface.Landing{Pad: i, On: e.On, At: at})
+	}
+	kb.PadsLanded(held, landed)
+}
 
 // keyboardTurned notes an encoder turned on the keyboard, to light it.
 func (a *API) keyboardTurned(port string, m midiMsg) {
@@ -114,6 +207,8 @@ func (a *API) keyboardState() surface.State {
 			s.Held[i] = true
 		}
 	}
+	s.Shift = ks.shift
+	a.keyboardLandings(ks)
 	levels := eng.TrackLevels()
 	for i := range s.Meter {
 		s.Meter[i] = meterOf(levels[i])

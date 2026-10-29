@@ -363,12 +363,67 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
   or the one it just sent while lit, for `BannerFor` after a turn; one
   bound to nothing is its panel name and a dash.
 - **Not built yet, so not shown**: the Mixer page under SHIFT (K6:
-  `State.Page` and the layout have it, the feed always says FX), the
-  faders (K8: a tick is the track's level as the tape has it), scrub
-  (K7: the master knob's cell is the synth's volume, a dash, since only
-  the keyboard knows it), and the lights (step 5: LED is version 2's
-  command 08, its levels 0–127, which the firmware scales to the pads'
-  own; `Keyboard` sends only CLEAR, TEXT, KNOB, RELEASE and BATCH).
+  `State.Page`, the layout and the lights have it, the feed always says
+  FX), the faders (K8: a tick is the track's level as the tape has it),
+  and scrub (K7: the master knob's cell is the synth's volume, a dash,
+  since only the keyboard knows it).
+
+**The SMK-37's lights** on protocol version 2 (`internal/surface`'s
+`lights.go`; the feed's `keyboardLandings` in `internal/api/
+keyboard_screen.go`). Version 1 answers LED unknown, so there nothing is
+sent.
+
+- **What is lit** is `surface.Lamps(State, stages)`: LED (command 08) for
+  the sixteen pads, then SHIFT, PLAY and REC. The rest of the buttons are
+  never sent, so they stay the keyboard's.
+  - The FX page by family, in the screen's palette (`Colour.RGB`, the
+    firmware's RGB565 table): T1–T4 the tracks', BREAK, REVERSE, CHOP and
+    STOP orange, HALF and DOUBLE violet, ROLL, FILTER, ECHO and CRUSH the
+    accent's cyan, CATCH and GRAB white (`FXPads`, as the map draws them).
+  - The Mixer page (`State.Page`, K6's to set): each pad its track's
+    colour, full when on (mute, select, solo, arm) and dim when off.
+  - A pad's colour at its stage, as the prototype draws it: 0.18 at rest,
+    0.55 half, full. A level is 0–127 of the colour; the firmware scales
+    127 to the pads' own brightest it allows (48).
+  - PLAY on while `State.Playing`; REC on while `Recording`, blinking
+    while playing with a track armed; SHIFT on while `State.Shift`, which
+    the feed sets from SHIFT's note (0 on channel 16) whatever it's bound
+    to (`keyboardButton`).
+- **A pad's stage over time** is `surface.PadLights`, which the
+  `Keyboard` keeps under its lock:
+  - half from the keyboard's press (`PadDown`, from `controllerPress`
+    once the press is taken; a refused one stays dim) until what it does
+    is heard; let go unheard (`PadUp`), dim again;
+  - full from its press's landing until its release's, from any holder: a
+    phone's BREAK lights the keyboard's too, since it is what is heard;
+  - a command pad (CATCH, GRAB) is half from its press (`queueVerb`) until
+    its verb is done, then flashes full once for `FlashFor` (150 ms) if
+    it went through (`PadDone`, from `runVerb`), or goes dim if refused.
+- **The landing time** is Play mode's, as a page's `at` gets it. The
+  screen's feed, every `Refresh`, reads the trick log
+  (`TrickEventsSince`, from where it was when the keyboard was first
+  asked) and maps each press's and release's output frame to the
+  keyboard's clock through the lead (`HeardIn`: the blocks rendered ahead
+  and the device's latency), then hands them to `Keyboard.PadsLanded`
+  with the pads the tape holds (`HeldPads`, read first). An event is
+  logged as it is rendered, up to the lead before it is heard, so the
+  40 ms feed finds it in time. With no output, it is lit as it lands. A
+  pad heard that the tape no longer holds, with no release landed, goes
+  dim (a tape loaded under it), so a light can't stick.
+- **Sent as they change**, in the screen's BATCH sender: every `Tick`
+  (20 ms) asks the stages at that moment, and the lights that differ from
+  what the keyboard has (`lit`, kept from the acks, by target) go after
+  the screen's changes in the next BATCH. So a light is up to a tick late,
+  plus a frame in flight. A CLEAR keeps the lights, as the firmware does,
+  so a screen drawn again whole sends none of them; HOME, a RELEASE or a
+  keyboard forgotten empties `lit`, as the lights go back to the
+  keyboard, and the screen taken again sends them all.
+- **Checked in the fork's simulator**: `go test ./internal/surface -run
+  TestWriteLightsScript -lights=<file>` writes the frames for rest, a
+  press, its landing and release, GRAB's flash, recording with SHIFT
+  held, and HOME, each with the simulator's `light` checks of what the
+  firmware set; `tools/screen/run.sh <file>` there runs them. The panel's
+  own LEDs are the board's code, which the simulator doesn't run.
 
 ### The clock bridge
 

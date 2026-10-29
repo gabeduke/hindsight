@@ -450,7 +450,10 @@ My recommendation first in each.
         of the tape's state, tested by golden command lists and drawn in
         the simulator;
      5. LED: the pads by family with the two-stage light, and the
-        buttons. It needs Play mode's `at` for each pad;
+        buttons. It needs Play mode's `at` for each pad (built:
+        `internal/surface/lights.go`; `docs/architecture.md`, *The
+        SMK-37's lights*. The Mixer page's lights are there for K6 to
+        show, and SHIFT's light follows the hand already);
      6. the tablet's pad strip and the lit change, on the push;
      7. then the Mixer page (K6, after the map's spec), scrub (K7), the
         faders (K8) and REC punching in (K3).
