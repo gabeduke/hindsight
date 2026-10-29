@@ -4,8 +4,8 @@
 // Chromium so); ● is pressed and says the time while it records, a second
 // tap stops it, and the take is on the shelf, labelled Phone. Its ▾ says
 // what ● does now, lists the inputs and opens the recorder with its meter.
-// In the Studio ● is the tape's: a hold on it offers this phone, on the
-// same ▾.
+// In the Studio ● is the tape's: it shows a phone recording started in the
+// other room, and stops it; a hold on it offers this phone, on the same ▾.
 // docs/flows.md#j41
 const keys = () => {
   const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight; };
@@ -55,17 +55,26 @@ export default {
     const timed = await page.evaluate(keys);
     t.expect('● says it is recording, and for how long', /^Stop recording from this phone, 0:0[2-9]/.test(timed.said ?? ''), timed);
 
-    await t.step('tap ● again', () => t.tap(page.locator('#np-phone-rec')));
-    const take = await api.until(async () => (await api.takes()).find((x) => !before.has(x.name)), 'the phone’s take on the shelf', 15_000).catch(() => null);
-    t.expect('the take is on the shelf, labelled Phone', !!take && /Phone/.test(JSON.stringify(take)), take);
-    const stopped = await t.poll(() => document.getElementById('np-phone-rec').getAttribute('aria-pressed') === 'false');
-    t.expect('● is up again', stopped, await page.evaluate(keys));
-
-    // In the Studio ● is the tape's: a hold offers this phone, on the ▾.
-    await t.step('go to the Studio', () => t.tap(page.locator('.appnav a[data-tab="studio"]')));
+    // Carried to the Studio, where ● is the tape's: it shows this phone
+    // recording, and a tap there stops it.
+    await t.step('go to the Studio, still recording', () => t.tap(page.locator('.appnav a[data-tab="studio"]')));
     await page.locator('#rec').waitFor({ state: 'visible' });
+    const there = await t.poll(() => {
+      const r = document.getElementById('rec');
+      return r.getAttribute('aria-pressed') === 'true' && /^Stop recording from this phone/.test(r.getAttribute('aria-label') ?? '') && r.getAttribute('aria-label');
+    });
     const studio = await page.evaluate(keys);
-    t.expect('in the Studio ● is the tape’s, with the phone’s ▾ beside it', studio.tapeRec && studio.more && !studio.rec, studio);
+    t.expect('there ● is the tape’s, with the phone’s ▾ beside it, and it shows this phone recording', !!there && studio.tapeRec && studio.more && !studio.rec, { there, studio });
+
+    await t.step('tap ● there', () => t.tap(page.locator('#rec')));
+    const take = await api.until(async () => (await api.takes()).find((x) => !before.has(x.name)), 'the phone’s take on the shelf', 15_000).catch(() => null);
+    t.expect('it stops: the take is on the shelf, labelled Phone', !!take && /Phone/.test(JSON.stringify(take)), take);
+    const stopped = await t.poll(() => document.getElementById('rec').getAttribute('aria-pressed') === 'false');
+    const { loaded } = await api.get('/api/tapes');
+    const record = (await api.get(`/api/tapes/state?id=${encodeURIComponent(loaded)}`)).live?.record ?? null;
+    t.expect('● is up again, and the tape recorded nothing', stopped && !record, { rec: await page.locator('#rec').getAttribute('aria-label'), record });
+
+    // A hold on the tape's ● offers this phone, on the ▾.
     await t.step('hold ●', () => t.hold(page.locator('#rec')));
     const offered = await t.poll(() => {
       const m = document.getElementById('np-phone-menu');

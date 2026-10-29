@@ -69,9 +69,10 @@ export function initPlayer({ layers = layersOf(document) } = {}) {
       if (!isOpen()) mini = np.getBoundingClientRect().top;
       return mini ?? innerHeight;
     },
-    // A drag starts on the mini player's window (up opens it), the grabber,
-    // or the art; the keys and the strip are pressed, not dragged.
-    handles: [btn, grabber, np.querySelector('.np-window')],
+    // A drag starts on the window (the mini player's, whose handle #np-expand
+    // is inside it: up opens it; or the player's art) or the grabber; the
+    // keys and the strip are pressed, not dragged.
+    handles: [grabber, np.querySelector('.np-window')],
     when: () => phone.matches && !np.hidden,
     onShow: () => {
       set(true);

@@ -236,7 +236,10 @@ this phone (`hindsight:phone-record`) all drive and show the same one. It
 answers `open()` (the sheet: the input, its meter, Record), `quick()`
 (record now from the input kept, or stop; what can't start opens the
 sheet, which says why), `stop()`, `inputs()`, `input()`, `setInput(id)`,
-`state()` (`{mode, seconds}`), `onChange(fn)`, `onSaved(fn)`.
+`state()` (`{mode, seconds}`), `onChange(fn)`, `onSaved(fn)`. A key that
+shows a recording without starting one (the mini player's ●, the Studio's)
+takes it by `onPhoneRecorder(doc, fn)`: now, or as soon as a room makes
+it.
 
 **The engine** (`lib/bar/engine.js`), made once by the shell:
 

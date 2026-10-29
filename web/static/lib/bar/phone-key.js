@@ -13,7 +13,7 @@
 // these all show the same one.
 
 import { menu, menuItem, menuRows } from '../ui/menu.js';
-import { fmtClock } from '../phone/recorder.js';
+import { fmtClock, onPhoneRecorder } from '../phone/recorder.js';
 
 const setAttr = (el, k, v) => { if (el && el.getAttribute(k) !== v) el.setAttribute(k, v); };
 
@@ -49,10 +49,13 @@ export function said(state) {
  * phoneKey wires the mini player's ● (#np-phone-rec) and its ▾
  * (#np-phone-more, opening #np-phone-menu). `recorder()` is the page's
  * recorder, asked for when a key is pressed (the rooms make it as they
- * mount). The Studio's ● asks for the ▾ on a hold (`hindsight:phone-offer`).
+ * mount); `whenRecorder(fn)` hands it over as soon as there is one, so the
+ * keys show a recording started anywhere. `playerUp()` is whether the
+ * phone's player is pulled up (its sheet's isOpen), where the ▾ isn't. The
+ * Studio's ● asks for the ▾ on a hold (`hindsight:phone-offer`).
  * Answers { menu, paint(state) }, or null on a page without the keys.
  */
-export function phoneKey({ doc = document, recorder, layers, floor }) {
+export function phoneKey({ doc = document, recorder, layers, floor, whenRecorder = (fn) => onPhoneRecorder(doc, fn), playerUp = () => false }) {
   const rec = doc.getElementById('np-phone-rec');
   const more = doc.getElementById('np-phone-more');
   const panel = doc.getElementById('np-phone-menu');
@@ -67,15 +70,15 @@ export function phoneKey({ doc = document, recorder, layers, floor }) {
     setAttr(rec, 'aria-label', said(state));
     setAttr(rec, 'title', said(state));
   };
-  // The recorder is made by a room; hear it once it is there.
-  const hear = () => {
-    const r = recorder();
+  // The recorder is made by a room: heard from when it is there.
+  const listen = (r) => {
     if (!r || listening === r) return r;
     listening = r;
     r.onChange((s) => { paint(s); if (m.isOpen()) m.refresh(); });
     paint(r.state());
     return r;
   };
+  const hear = () => listen(recorder());
 
   const render = (p) => {
     const r = hear();
@@ -113,10 +116,10 @@ export function phoneKey({ doc = document, recorder, layers, floor }) {
   doc.addEventListener('hindsight:phone-offer', () => {
     if (m.isOpen()) return;
     // The ▾ is the mini player's; with the player up, the sheet offers it.
-    if (!more.getClientRects?.().length) { hear()?.open(); return; }
+    if (playerUp()) { hear()?.open(); return; }
     m.open();
     hear()?.inputs().then((list) => { inputs = list; if (m.isOpen()) m.refresh(); }, () => {});
   });
-  hear();
+  whenRecorder(listen);
   return { menu: m, paint };
 }

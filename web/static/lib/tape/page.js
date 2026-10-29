@@ -51,6 +51,7 @@ import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer,
 import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
 import { bindPress, ARM_PRESS, GESTURE } from '../ui/press.js';
 import { PHONE } from '../bar/player.js';
+import { onPhoneRecorder, fmtClock } from '../phone/recorder.js';
 import { recordsTape } from '../rig/warn.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
 import { tipFor } from '../help/tips.js';
@@ -536,6 +537,32 @@ function heardTracks() {
   return state.tape.tracks.map((tr) => ({ ...tr, ...pending.heard(tr.n, tr, now) }));
 }
 
+// paintRec says on ● what it does: the tape's record (armed, counting in,
+// recording), or, while this phone records (lib/phone/recorder.js), that
+// recording, which a tap on it stops (rec, below).
+function paintRec(live = state.live, counting = !!(live && live.count_in > 0)) {
+  const rec = live && live.record;
+  const rb = $('rec');
+  const phone = phoneBusy();
+  rb.setAttribute('aria-pressed', String(phone || !!(rec && rec.state === 'on' && !counting)));
+  rb.classList.toggle('armed', !phone && !!(rec && rec.state === 'armed'));
+  rb.classList.toggle('counting', !phone && counting);
+  // ● is always red, and its key says, to a screen reader and a pointer,
+  // what it records and from where (the lamp on the display and the armed
+  // head say it to the eye).
+  const recWhat = !rec ? 'Record' : rec.state === 'armed' ? `Ready to record ${tracksWords(recTracksOf(rec))}` : `Recording ${tracksWords(recTracksOf(rec))}`;
+  const recSrc = rec ? recSources(rec) : state.recTrack ? state.recTracks.map(inputOf).join(' + ') : '';
+  const recSaid = phone ? `Stop recording from this phone, ${fmtClock(phoneRec.seconds)}`
+    : rec || state.recTrack ? `${recWhat} from ${recSrc}` : 'Record: arm a track first';
+  setIf(rb, 'aria-label', recSaid);
+  setIf(rb, 'title', recSaid);
+}
+
+// The page's phone recorder, as it records: ● shows it, wherever it was started.
+let phoneRec = { mode: 'closed', seconds: 0 };
+const phoneBusy = () => phoneRec.mode === 'recording' || phoneRec.mode === 'saving';
+onPhoneRecorder(document, (r) => r.onChange((st) => { phoneRec = st; if (state.tape) paintRec(); }));
+
 // playsOnThisPhone: the tape plays on this device, and it is a phone.
 function playsOnThisPhone() {
   return !!(state.live && state.live.output_mode === 'phone' && output && output.streamingHere() && matchMedia(PHONE).matches);
@@ -716,22 +743,11 @@ function render() {
   setIf(ov, 'aria-valuemax', String(t.length));
   setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
   setIf(ov, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
-  // Rec: armed (waiting for ▶), counting in, or recording.
+  paintRec(live, counting);
   const rec = live && live.record;
   const rb = $('rec');
-  rb.setAttribute('aria-pressed', String(!!(rec && rec.state === 'on' && !counting)));
-  rb.classList.toggle('armed', !!(rec && rec.state === 'armed'));
-  rb.classList.toggle('counting', counting);
-  // ● is always red, and its key says, to a screen reader and a pointer,
-  // what it records and from where (the lamp on the display and the armed
-  // head say it to the eye).
-  const recWhat = !rec ? 'Record' : rec.state === 'armed' ? `Ready to record ${tracksWords(recTracksOf(rec))}` : `Recording ${tracksWords(recTracksOf(rec))}`;
-  const recSrc = rec ? recSources(rec) : state.recTrack ? state.recTracks.map(inputOf).join(' + ') : '';
-  const recSaid = rec || state.recTrack ? `${recWhat} from ${recSrc}` : 'Record: arm a track first';
-  setIf(rb, 'aria-label', recSaid);
-  setIf(rb, 'title', recSaid);
-  // In phone mode it stays pressable whatever else is true, so the jam-room sheet can explain.
-  rb.disabled = !rec && !phoneOut && (!live || live.aligned === 'none' || !t.grid || mixing);
+  // In phone mode, or while this phone records, it stays pressable: the jam-room sheet explains, or it stops.
+  rb.disabled = !rec && !phoneOut && !phoneBusy() && (!live || live.aligned === 'none' || !t.grid || mixing);
   $('click').setAttribute('aria-pressed', String(!!t.click));
   $('click').disabled = !t.grid;
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
@@ -4064,7 +4080,8 @@ async function rec() {
   const r = state.live && state.live.record;
   // On a phone, with the tape playing on this phone, ● records here: from
   // this phone (lib/bar/phone-key.js), not the jam room, which it can't.
-  if (!r && playsOnThisPhone()) { document.dispatchEvent(new CustomEvent('hindsight:phone-record')); return; }
+  // And while this phone records, ● stops it.
+  if (!r && (phoneBusy() || playsOnThisPhone())) { document.dispatchEvent(new CustomEvent('hindsight:phone-record')); return; }
   if (!r && (jamOnly() || noArm())) return; // keeping a take already running stays possible
   try {
     if (!r) {

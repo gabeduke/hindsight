@@ -47,7 +47,8 @@ export class NowPlaying {
     this.scrubSize = null;
     this.colors = tokenCache(() => this.scrub);
     onSchemeChange(() => { this.colors.clear(); this.kick(); });
-    initPlayer();
+    // The phone's player, a sheet (player.js): null where the page has none.
+    this.player = initPlayer();
     initFold();
     // Its height, for the pages that keep clear of it.
     measureBar(this.root);

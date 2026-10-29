@@ -290,6 +290,44 @@ test('with less motion it doesn’t travel: it is there at once, and fades in an
   assert.equal(el.style.opacity, '');
 });
 
+test('an opening drag the browser cancels drops back: the player doesn’t pop open', () => {
+  const { sheet, ck, ev, log, layers } = setup();
+  ev('pointerdown', 780);
+  ev('pointermove', 760);
+  ev('pointermove', 600);
+  ev('pointercancel', 600);
+  ck.run();
+  assert.equal(layers.top(), null, 'off the stack');
+  assert.equal(log.at(-1), 'hide:program', 'and put away again');
+  assert.equal(sheet.isOpen, false);
+});
+
+test('with less motion, opened again while it fades out, it stays open', () => {
+  const { sheet, log, fades, layers, el } = setup({ reduced: true, animate: true });
+  sheet.open();
+  fades[0].finish();
+  sheet.close();
+  sheet.open(); // within the fade
+  fades[1].finish?.(); // the fade out, had it not been stopped, would hide it now
+  assert.equal(sheet.isOpen, true);
+  assert.equal(layers.top()?.kind, 'player');
+  assert.equal(log.includes('hide:program'), false);
+  assert.ok(fades[1].cancelled, 'the fade out is stopped');
+  assert.notEqual(el.style.opacity, '0');
+});
+
+test('a keyboard’s click after a drag that sent none is not swallowed', () => {
+  const { sheet, ck, ev, handle } = setup();
+  sheet.open(); ck.run();
+  ev('pointerdown', 100);
+  ev('pointermove', 130);
+  ev('pointerup', 130, { dt: STILL_MS + 50 });
+  ck.run();
+  const e = { type: 'click', detail: 0, stopped: false, preventDefault() {}, stopImmediatePropagation() { this.stopped = true; } };
+  for (const fn of handle.listeners.get('click') || []) fn(e);
+  assert.equal(e.stopped, false);
+});
+
 test('destroy lets go of its handles and puts it away', () => {
   const { sheet, ck, handle, log } = setup();
   sheet.open(); ck.run();

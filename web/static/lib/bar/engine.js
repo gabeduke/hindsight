@@ -295,7 +295,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
   }
   // The mini player's ● and its ▾: recording from this phone
   // (phone-key.js), on the page's one recorder.
-  phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), recorder: () => phoneRecorder(document, { toast: (m, k, ms) => onToast?.(m, k, ms) }) });
+  phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), playerUp: () => !!bar.player?.isOpen, recorder: () => phoneRecorder(document, { toast: (m, k, ms) => onToast?.(m, k, ms) }) });
   /** pickSource is a pick from the source menu: the tape, the feed, or a take, which plays. */
   async function pickSource(id) {
     touches++;

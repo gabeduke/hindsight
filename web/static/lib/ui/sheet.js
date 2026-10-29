@@ -167,6 +167,10 @@ export function createSheet(el, {
 
   function show(from) {
     closing = null;
+    // Opened again while it fades out: the fade stops, or it would hide it.
+    fade?.cancel?.();
+    fade = null;
+    el.style.opacity = '';
     if (!shown) {
       shown = true;
       onShow();
@@ -268,12 +272,15 @@ export function createSheet(el, {
     drag = null;
     if (!d.moved) return;
     v = 0;
-    if (d.opening && y !== null && !layer) { close(); return; }
+    // An opening drag cancelled goes back down; any other settles where it was.
+    if (d.opening) { close(); return; }
     go(Math.max(0, at), 0);
   }
   function onClick(e) {
     if (!swallow) return;
     swallow = false;
+    // A keyboard's click (no pointer) is never a drag's lift.
+    if (e.detail === 0) return;
     e.preventDefault();
     e.stopImmediatePropagation();
   }

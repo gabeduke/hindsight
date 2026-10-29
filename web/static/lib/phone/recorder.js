@@ -59,6 +59,7 @@ export function canRecordHere(win = globalThis, secure = '') {
 }
 
 const recorders = new WeakMap();
+const waiting = new WeakMap(); // doc → what onPhoneRecorder is waiting to hand it to
 
 /**
  * phoneRecorder is the page's one recorder, on `sheet` (the page's
@@ -69,9 +70,28 @@ const recorders = new WeakMap();
 export function phoneRecorder(doc = globalThis.document, { sheet = doc?.getElementById?.('phone-sheet'), toast = () => {}, secureURL = null } = {}) {
   if (!sheet) return null;
   let r = recorders.get(sheet);
-  if (!r) { r = makeRecorder(doc, sheet, toast); recorders.set(sheet, r); }
+  if (!r) {
+    r = makeRecorder(doc, sheet, toast);
+    recorders.set(sheet, r);
+    const fns = waiting.get(doc) || [];
+    waiting.delete(doc);
+    for (const fn of fns) fn(r);
+  }
   if (secureURL) r.secureFrom(secureURL);
   return r;
+}
+
+/**
+ * onPhoneRecorder hands `fn` the page's recorder: now, if a room has made
+ * it, or as soon as one does. For the keys that show a recording started
+ * from anywhere (the mini player's ●, the Studio's), without making it.
+ */
+export function onPhoneRecorder(doc, fn) {
+  const sheet = doc?.getElementById?.('phone-sheet');
+  const r = sheet && recorders.get(sheet);
+  if (r) { fn(r); return; }
+  if (!waiting.has(doc)) waiting.set(doc, []);
+  waiting.get(doc).push(fn);
 }
 
 /**
@@ -165,7 +185,7 @@ function makeRecorder(document, sheet, toast) {
   function updateButton() {
     // lib/settings.js reads this before a reload: a reload would end the recording.
     document.documentElement.dataset.phoneBusy = mode === 'recording' || mode === 'saving' ? '1' : '0';
-    const busy = document.documentElement.dataset.phoneBusy === '1';
+    const busy = mode === 'recording' || mode === 'saving';
     for (const [button, label] of buttons) {
       button.classList.toggle('recording', busy);
       if (mode === 'recording') button.textContent = `● REC ${fmtClock(seconds())}`;

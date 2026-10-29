@@ -38,7 +38,9 @@ sideways scroll).
   tape, the mini player's ● is the tape's own (`#rec`, `data-mini="studio"`):
   a tap records the jam room, a hold (`ARM_PRESS`, as a track's ●) offers
   this phone on the ▾ (`hindsight:phone-offer`), and with the tape playing
-  on this phone a tap records here (`hindsight:phone-record`). The ▾'s menu
+  on this phone a tap records here (`hindsight:phone-record`). While this
+  phone records, wherever it was started, that ● is pressed, says so, and
+  a tap stops it (`page.js` `paintRec`). The ▾'s menu
   (`lib/bar/phone-key.js`, `#np-phone-menu`, over the mini player) says what
   ● does now, lists the phone's inputs and opens the recorder's sheet with
   its meter. Both are the page's one recorder's (`shell.md`, *Recording
