@@ -7,8 +7,9 @@ package api
 // keyboard's own presses say anything there, and only while Hindsight has
 // its screen.
 //
-// Protocol version 1 has seven colours and no red, so KEEP, which the
-// design draws red, is the accent until version 2's palette.
+// The colours are the design's, version 2's palette: the keyboard's client
+// draws them in version 1's seven there (surface's v1Colour), where KEEP's
+// red is the accent and the commands' white the text's.
 
 import (
 	"errors"
@@ -50,10 +51,11 @@ type says struct {
 	track  int
 }
 
-// did is the banner for a verb that went through: PLAY green, STOP white,
-// KEEP the accent, and CATCH, GRAB and DROP white, as the design's command
-// pads are. On the tablet, PLAY and STOP light ▶, KEEP (the keyboard's REC)
-// lights ●, and CATCH and DROP the head of the track they put a clip on.
+// did is the banner for a verb that went through: PLAY green, STOP the
+// text's white, KEEP red, and CATCH, GRAB and DROP white, as the design's
+// command pads are. On the tablet, PLAY and STOP light ▶, KEEP (the
+// keyboard's REC) lights ●, and CATCH and DROP the head of the track they
+// put a clip on.
 func did(id string, d verbDone) says {
 	switch {
 	case id == "transport" && d.says == "PLAY":
@@ -61,11 +63,11 @@ func did(id string, d verbDone) says {
 	case id == "transport":
 		return says{words: d.says, colour: surface.Text, role: roleStop, lit: []string{litPlay}}
 	case id == "keep":
-		return says{words: d.says, colour: surface.Accent, role: roleRec, lit: []string{litRec}}
+		return says{words: d.says, colour: surface.Red, role: roleRec, lit: []string{litRec}}
 	case d.track > 0:
-		return says{words: d.says, colour: surface.Text, role: roleVerb, lit: []string{litTrack}, track: d.track}
+		return says{words: d.says, colour: surface.White, role: roleVerb, lit: []string{litTrack}, track: d.track}
 	}
-	return says{words: d.says, colour: surface.Text, role: roleVerb}
+	return says{words: d.says, colour: surface.White, role: roleVerb}
 }
 
 // refusals name why a press was refused, in the banner's 19 characters.

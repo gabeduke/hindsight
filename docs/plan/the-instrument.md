@@ -431,6 +431,12 @@ My recommendation first in each.
 
        Step 4 cuts the name to fit before the tempo, gives the counter
        its four digits' room, and tests that no two text items overlap.
+       Done there (`internal/surface/layout.go`; `docs/architecture.md`,
+       *The SMK-37's screen on protocol version 2*): past bar 999 the
+       sixteenth drops to scale 1 after the bars, and the solos and mutes
+       close up to `SOLO 1234  MUTE 1234`. The busiest screen is a little
+       over one frame's 1,024 bytes, so a whole screen goes in two
+       BATCHes, not the one the firmware's notes expect.
        Open's own pages, in the simulator, are tight (the step count
        against FOLLOW, a track's name against MUTE) but don't overlap.
 

@@ -406,8 +406,11 @@ type controlBus struct {
 	mu     sync.Mutex
 	loaded bool
 	file   controlsFile
-	held   map[string]map[string]bool // port → the pads it holds
-	keys   map[string]map[string]int  // port → how many of its keys hold each pad
+	// rev counts the changes to file, so the keyboard's screen knows to
+	// read its encoders' bindings again (keyboard_screen.go).
+	rev  uint64
+	held map[string]map[string]bool // port → the pads it holds
+	keys map[string]map[string]int  // port → how many of its keys hold each pad
 	// refused is the pads each port was refused and the log has said so:
 	// a pitch wheel in a mixdown asks again with every message, and the
 	// log says it once, until a press goes through.
@@ -482,6 +485,7 @@ func (a *API) controlsLocked() *controlsFile {
 
 // saveControlsLocked writes controls.json whole, by rename.
 func (a *API) saveControlsLocked() error {
+	a.controls.rev++ // changed, kept on disk or not
 	if a.cfg.TapeDir == "" {
 		return nil
 	}
@@ -588,6 +592,7 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	}
 	q := a.quantumLocked()
 	b.mu.Unlock()
+	a.keyboardTurned(port, m) // lit on the keyboard's screen, whatever it's bound to
 	switch {
 	case m.typ == "pressure":
 		a.controllerPressure(port, "", m.value)

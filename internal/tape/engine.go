@@ -152,6 +152,9 @@ type Engine struct {
 	// changes moves when what the page shows moves (changes.go).
 	changes Changes
 
+	// meters are the tracks' levels as they render (meters.go).
+	meters meters
+
 	// player
 	blocks    chan *block
 	free      chan *block
@@ -500,6 +503,7 @@ func (e *Engine) safely(f func()) {
 // which stays dry.
 func (e *Engine) advance(dst []float32, out uint64, n int) {
 	tr := e.tr
+	start := out
 	m := e.mix.Load()
 	length := m.length
 	// moved: something the page shows changed in this block. It bumps the
@@ -668,6 +672,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 	if e.publishCue() {
 		moved = true // a clip started, ended or left the lane
 	}
+	e.meters.settle(int(out-start), m.rate())
 	tr.mu.Lock()
 	was := tr.view
 	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out, Pending: len(tr.pend), CountIn: tr.countIn}
@@ -720,7 +725,8 @@ func (e *Engine) drain(out uint64, m *Mix) bool {
 func (e *Engine) idle(out uint64) {
 	tr := e.tr
 	m := e.mix.Load()
-	moved := false // as advance's: bumped once the view is published
+	e.meters.silence() // nothing is heard without an output
+	moved := false     // as advance's: bumped once the view is published
 	for {
 		select {
 		case a := <-e.actions:
@@ -930,6 +936,7 @@ func (e *Engine) rebuild() {
 	straight := st
 	straight.Loop = Loop{}
 	m.straight = NewMix(straight, e.pool, e.store.SampleRate())
+	m.meter, m.straight.meter = &e.meters, &e.meters
 	e.mix.Store(m)
 	e.pool.Keep(keep)
 }
