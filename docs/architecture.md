@@ -287,11 +287,83 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
     only the keyboard's own presses say anything there. The transport is
     timed from the press; KEEP, CATCH, GRAB and DROP from when they are
     done, as the design's command pads flash when done.
-  - The words are the verb's (`verbDone.says`): PLAY in green, STOP,
-    CATCH, GRAB and DROP in the text colour, KEPT 30 S in the accent
-    (version 1 has no red). A refused press, a verb's or a pad's, is
-    amber with its reason (`refusals`: NO TRACK ARMED, NO TAPE LOADED,
-    NOTHING TO KEEP, …), or its name and REFUSED.
+  - The words are the verb's (`verbDone.says`), in the design's colours,
+    version 2's palette: PLAY green, STOP the text's white, KEPT 30 S red,
+    CATCH, GRAB and DROP white. Version 1 has seven colours, so there the
+    client draws red as the accent and white as the text (`v1Colour`). A
+    refused press, a verb's or a pad's, is amber with its reason
+    (`refusals`: NO TRACK ARMED, NO TAPE LOADED, NOTHING TO KEEP, …), or
+    its name and REFUSED.
+
+**The SMK-37's screen on protocol version 2** (`internal/surface`'s
+`items.go`, `layout.go`, `diff.go`; `internal/api/keyboard_screen.go`):
+
+- **The version** is HELLO's ack's: `<version> <items>` after the status,
+  `02 60` on version 2. HELLO goes as version 1, which every version
+  reads; once the keyboard says 2, every frame is version 2's (TEXT with
+  its back), and `Feed` takes acks of either version, the keyboard's own
+  RELEASE and OFFER always saying 1. On version 1 nothing below happens:
+  the screen is the legend `keyboardPresent` draws with `Text`, and the
+  banner the TEXT above.
+- **The screen is a function of the tape's state**: `surface.Layout`
+  takes a `surface.State` (the name and tempo, where the tape is in beats,
+  the transport, the armed track, solos and mutes, the pad page and the
+  pads held, the meters and faders 0–127, the eight knobs' names, values
+  and amounts, which knob or fader is lit, the banner) and gives the
+  items, `TEXT`, `BOX` and `BAR`, in drawing order. It is the prototype's
+  layout (`~/programming/hindsight-design/smk`), pixel for pixel: its six
+  screens are the golden command lists in `internal/surface/testdata`,
+  written as the firmware simulator's script lines. Three overlaps the
+  prototype had are fixed there: a name is cut before the tempo (15
+  characters), the counter's sixteenth follows its bars and drops to
+  scale 1 past bar 999 (and the counter to scale 3 past 9999), and the
+  solos and mutes close up (`SOLO 1234  MUTE 1234`) when they'd run into
+  NO TRACK ARMED. `TestNoTwoTextsOverlap` holds that for long names, big
+  bars, everything soloed and muted, both pages and lit knobs.
+- **A change sends only what changed** (`plan`): the items the keyboard
+  has are kept as its acks say (`apply`), keyed by kind and place as the
+  firmware keys them. Removals go first, so the 96-item list has room,
+  then replacements, which keep their place in the order, then new items,
+  last. An item that would end up drawn under one it should cover (the
+  banner's box under a top line that came back) is taken away and sent
+  again after it.
+- **BATCH frames**, at most 1,024 bytes (`MaxFrame`), one in flight as
+  every message is. The next is planned only when nothing waits, from the
+  screen wanted then, so a screen changing faster than the keyboard
+  acks sends only what it is now. A whole screen is about 960 bytes of
+  commands: two frames. A BATCH the keyboard refuses keeps what it did
+  (its ack's done count) and stops the drawing until a CLEAR takes the
+  screen again, rather than be refused over and over.
+- **The banner** is the layout's on version 2: a box over the top line in
+  the press's colour, its words black on it (white on red), for
+  `BannerFor`; `Keyboard.Banner` puts it in the state and the 20 ms tick
+  takes it out.
+- **Refresh and traffic.** `Keyboard.Follow(a.keyboardState)` is asked
+  every `Refresh`, 40 ms, while the screen is Hindsight's: the counter's
+  sixteenths change every 114 ms at 132 BPM, so it is never more than a
+  frame behind. The meters are taken from it every `MeterEvery`, 100 ms,
+  and held between, in sixteen steps over 48 dB (`meterOf`), so their
+  flicker can't fill the link. Playing at 132 BPM with all four meters
+  moving, that measured 14 BATCH frames a second of about 41 bytes: about
+  600 bytes a second to the keyboard, and an 11-byte ack back for each.
+  Standing, nothing changes and nothing is sent.
+- **The feed** (`keyboardState`) reads the tape (`Engine.Loaded`, a copy)
+  only when `Engine.Changes` moves on: its name, the grid's tempo, the
+  armed track, the tracks' mutes, solos and levels (a fader's place,
+  `surface.FaderOf`), the mods. Every ask it reads `Engine.Heard`, the
+  recording, the pads held (`HeldPads`) and the meters
+  (`Engine.TrackLevels`, each track's peak after its fader with a 26 dB/s
+  release, measured as it renders). An encoder's cell is what its CC (21–
+  27 on channel 16) is bound to on the keyboard, its value the tape's,
+  or the one it just sent while lit, for `BannerFor` after a turn; one
+  bound to nothing is its panel name and a dash.
+- **Not built yet, so not shown**: the Mixer page under SHIFT (K6:
+  `State.Page` and the layout have it, the feed always says FX), the
+  faders (K8: a tick is the track's level as the tape has it), scrub
+  (K7: the master knob's cell is the synth's volume, a dash, since only
+  the keyboard knows it), and the lights (step 5: LED is version 2's
+  command 08, its levels 0–127, which the firmware scales to the pads'
+  own; `Keyboard` sends only CLEAR, TEXT, KNOB, RELEASE and BATCH).
 
 ### The clock bridge
 

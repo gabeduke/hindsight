@@ -303,8 +303,8 @@ func TestTheVerbsWordsFitTheBanner(t *testing.T) {
 		}
 	}
 	for _, id := range []string{"catch", "grab", "drop"} {
-		if c := did(id, "X").colour; c != surface.Text {
-			t.Errorf("%s's banner is colour %d, want the text colour", id, c)
+		if c := did(id, "X").colour; c != surface.White {
+			t.Errorf("%s's banner is colour %d, want white", id, c)
 		}
 	}
 }

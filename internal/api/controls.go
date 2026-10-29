@@ -586,6 +586,7 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	}
 	q := a.quantumLocked()
 	b.mu.Unlock()
+	a.keyboardTurned(port, m) // lit on the keyboard's screen, whatever it's bound to
 	switch {
 	case m.typ == "pressure":
 		a.controllerPressure(port, "", m.value)

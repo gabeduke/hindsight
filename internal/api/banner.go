@@ -7,8 +7,9 @@ package api
 // keyboard's own presses say anything there, and only while Hindsight has
 // its screen.
 //
-// Protocol version 1 has seven colours and no red, so KEEP, which the
-// design draws red, is the accent until version 2's palette.
+// The colours are the design's, version 2's palette: the keyboard's client
+// draws them in version 1's seven there (surface's v1Colour), where KEEP's
+// red is the accent and the commands' white the text's.
 
 import (
 	"errors"
@@ -46,17 +47,19 @@ type says struct {
 	colour surface.Colour
 }
 
-// did is the banner for a verb that went through: PLAY green, STOP white,
-// KEEP the accent, and CATCH, GRAB and DROP white, as the design's command
-// pads are.
+// did is the banner for a verb that went through: PLAY green, STOP the
+// text's white, KEEP red, and CATCH, GRAB and DROP white, as the design's
+// command pads are.
 func did(id, words string) says {
 	switch {
 	case id == "transport" && words == "PLAY":
 		return says{words, surface.Green}
+	case id == "transport":
+		return says{words, surface.Text}
 	case id == "keep":
-		return says{words, surface.Accent}
+		return says{words, surface.Red}
 	}
-	return says{words, surface.Text}
+	return says{words, surface.White}
 }
 
 // refusals name why a press was refused, in the banner's 19 characters.

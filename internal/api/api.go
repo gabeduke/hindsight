@@ -81,6 +81,7 @@ type API struct {
 	// keyboard is the SMK-37 on Hindsight's firmware, when there could be
 	// one, and kbOut its port (keyboard.go).
 	keyboard *surface.Keyboard
+	kbScreen keyboardScreen // what its screen's feed keeps (keyboard_screen.go)
 	kbOut    keyboardOut
 	// playConns names Play mode's connections, as the owners of the tape
 	// mods they preview.

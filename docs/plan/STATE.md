@@ -194,6 +194,11 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
     3. Step 4: `t.keyboard` in the flows harness, and K1–K5.
 
     Steps 1 and 3 (the fork's CI artifact and the page's link) are done.
+  - **The designed surface** (step 7, *The surface, designed*, and its own
+    build order): step 1, the banner, is #195. Step 4, the screen laid out
+    in Go on protocol version 2, is the PR stacked on it: it draws only on
+    version 2 firmware, which isn't on the keyboard yet (fork PR #8), and
+    leaves version 1's screen as it was. Next: step 5, the lights.
 - The rig page with the real Sidekick (the eight steps in PR #107).
 - The device spike (iPad standalone audio when backgrounded; Android
   discarding the PWA mid-jam) needs the tablet and the iPad.
