@@ -134,7 +134,7 @@ export function bindKeyboard(surface, {
     if (!pad) return;
     e.preventDefault();                // Space must not scroll, / must not find
     held.set(e.code, pad);
-    surface.press(pad, now());
+    surface.press(pad, now(), undefined, e.timeStamp);
   };
   const up = (e) => {
     // A pad this keyboard holds is let go whatever has the focus now: a key
@@ -142,7 +142,7 @@ export function bindKeyboard(surface, {
     const pad = held.get(e.code);
     if (pad) {
       held.delete(e.code);
-      surface.release(pad, now());
+      surface.release(pad, now(), e.timeStamp);
       if (owns() && !typingInto(e.target)) { e.preventDefault(); e.stopPropagation(); }
       return;
     }
@@ -197,14 +197,14 @@ export function bindTouch(surface, el, pad, { now = () => performance.now(), ins
     if (instead(e)) return;
     try { el.setPointerCapture?.(e.pointerId); } catch { /* not all pointers */ }
     pressed = true;
-    surface.press(pad, now());
+    surface.press(pad, now(), undefined, e.timeStamp);
   };
   const up = (e) => {
     e.preventDefault();
     try { el.releasePointerCapture?.(e.pointerId); } catch { /* already gone */ }
     if (!pressed) return;
     pressed = false;
-    surface.release(pad, now());
+    surface.release(pad, now(), e.timeStamp);
   };
   el.addEventListener('pointerdown', down);
   el.addEventListener('pointerup', up);

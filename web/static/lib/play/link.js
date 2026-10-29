@@ -26,11 +26,23 @@
 // hand, comes back as an `at` with `move`: it moves the amount drawn
 // (onAmount), and lights nothing -- only a press's or a release's `at` does.
 //
+// Each press, set and release is timed to the ear on the Pi
+// (internal/tape/latency.go, GET /api/latency): it carries when the hand
+// touched it and when it was sent, on the Pi's clock, which the socket's
+// round trips teach the page (piclock.js). Until the first trip is back,
+// they go untimed.
+//
 // Like the keyboard and touch adapters, this knows nothing of the DOM; the
 // socket is passed in, so it is tested against a fake one.
 
 import { control } from './controls.js';
+import { piClock } from './piclock.js';
 import { say } from '../rooms/words.js';
+
+/** How often the clock is asked: quickly at first, then every two seconds. */
+const PING_FIRST_MS = 250;
+const PING_MS = 2000;
+const PINGS_FIRST = 4;
 
 /** The Pi's name for each quantise setting. */
 const QUANTA = { off: 'now', '16th': '16th', '8th': '8th', beat: 'beat', bar: 'bar' };
@@ -81,25 +93,43 @@ export function connect(surface, {
   retryMs = 1000,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
+  clock = piClock,
 } = {}) {
   let ws = null;
   let closed = false;
   let paused = false;
   let retry = null;
+  let ping = null;
+  let pings = 0;
   let learning = null; // {action, resolve, reject}: one MIDI LEARN at a time
 
   const send = (m) => {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify(m));
   };
+  // timed adds the touch (page ms, if the hand said) and the send, on the
+  // Pi's clock, once the page knows it.
+  const timed = (m, touch) => {
+    if (clock.ready) {
+      if (Number.isFinite(touch)) m.touch = clock.toPi(touch);
+      m.sent = clock.toPi(now());
+    }
+    return m;
+  };
+  const askClock = () => {
+    if (closed || paused) return;
+    send({ t: 'clock', c: now() });
+    pings++;
+    ping = setTimer(askClock, pings < PINGS_FIRST ? PING_FIRST_MS : PING_MS);
+  };
 
-  const offArm = surface.on('arm', ({ pad, v }) => {
+  const offArm = surface.on('arm', ({ pad, v, at, touch }) => {
     const m = { t: 'press', pad, q: quantum(surface.division) };
     const x = Number.isFinite(v) ? v : amountOf(pad);
     if (Number.isFinite(x)) m.v = x;
-    send(m);
+    send(timed(m, touch ?? at));
   });
   // A pad's last amount, if one is waiting its turn, goes before its release.
-  const offLet = surface.on('let', ({ pad }) => { flush(pad); send({ t: 'release', pad }); });
+  const offLet = surface.on('let', ({ pad, at, touch }) => { flush(pad); send(timed({ t: 'release', pad }, touch ?? at)); });
 
   function handle(m) {
     switch (m.t) {
@@ -123,6 +153,9 @@ export function connect(surface, {
         if (!mine || !m.on) onRemote(m.pad, !!m.on, at);
         break;
       }
+      case 'clock':
+        clock.take(m, now());
+        break;
       case 'learned':
         if (learning && learning.action === m.action) { learning.resolve(m); learning = null; }
         break;
@@ -141,12 +174,20 @@ export function connect(surface, {
   function open() {
     if (closed || paused || !WebSocketImpl) return;
     ws = new WebSocketImpl(url);
-    ws.onopen = () => onOpen();
+    ws.onopen = () => {
+      // A new socket may be a Pi started again: learn its clock afresh.
+      clock.reset();
+      clearTimer(ping);
+      pings = 0;
+      askClock();
+      onOpen();
+    };
     ws.onmessage = (e) => {
       try { handle(JSON.parse(e.data)); } catch { /* not ours */ }
     };
     ws.onclose = () => {
       if (learning) { learning.reject(new Error('the Pi went out of reach')); learning = null; }
+      clearTimer(ping);
       if (closed || paused) return;
       // Out of reach: the pads still light, and say they aren't sounding.
       // Anything held is let go on the Pi by its own timeout.
@@ -158,11 +199,11 @@ export function connect(surface, {
 
   return {
     /** set moves an amount: a held FX's, the bend's, or a mod's preview. */
-    set(pad, v) { send({ t: 'set', pad, v }); },
+    set(pad, v) { send(timed({ t: 'set', pad, v })); },
     /** press holds a pad by hand, not through the surface: the bend, at once. */
-    press(pad, v) { send({ t: 'press', pad, q: 'now', v }); },
+    press(pad, v) { send(timed({ t: 'press', pad, q: 'now', v })); },
     /** release lets go of the bend, or a mod's preview: its last amount first. */
-    release(pad) { flush(pad); send({ t: 'release', pad }); },
+    release(pad) { flush(pad); send(timed({ t: 'release', pad })); },
     /**
      * learn asks the Pi to bind the next note or CC from one of its
      * controllers (`port`, or any) to `action`. It resolves with
@@ -186,6 +227,7 @@ export function connect(surface, {
       if (paused || closed) return;
       paused = true;
       clearTimer(retry);
+      clearTimer(ping);
       send({ t: 'release_all' });
       const cur = ws;
       ws = null;
@@ -199,6 +241,7 @@ export function connect(surface, {
     close() {
       closed = true;
       clearTimer(retry);
+      clearTimer(ping);
       send({ t: 'release_all' });
       offArm();
       offLet();

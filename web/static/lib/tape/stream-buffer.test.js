@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parsePacket, StampLog, heardIndex, nextBackoff, step } from './stream-buffer.js';
+import { parsePacket, StampLog, heardIndex, nextBackoff, step, fillReport } from './stream-buffer.js';
 
 function packet(frame, pos, playing, frames = 4) {
   const b = new ArrayBuffer(24 + frames * 4);
@@ -102,4 +102,12 @@ test('the worklet plays by the same step', () => {
   const a = body('stream-buffer.js');
   assert.ok(a.length > 100);
   assert.equal(body('stream-worklet.js'), a);
+});
+
+test('the fill report says what the speaker plays, and when, once the Pi\'s clock is known', () => {
+  const base = { delayMs: 842, heard: { frame: 96000.4, pos: 0, playing: true }, nowMs: 1000, bufMs: 800.2, outMs: 41.7, underruns: 2 };
+  assert.deepEqual(fillReport({ ...base, toPi: () => undefined }), { type: 'fill', ms: 842 });
+  assert.deepEqual(fillReport({ ...base, toPi: (t) => t + 5000 }),
+    { type: 'fill', ms: 842, frame: 96000, at: 6000, buf_ms: 800, out_ms: 42, underruns: 2 });
+  assert.deepEqual(fillReport({ ...base, heard: null, toPi: (t) => t }), { type: 'fill', ms: 842 }, 'nothing heard yet');
 });

@@ -11,7 +11,7 @@
 // A toggle here owns nothing: it points at the module that does. Adding one
 // is adding a line.
 
-import { on as playOn, setOn as playSetOn } from './play/flag.js';
+import { on as playOn, setOn as playSetOn, latencyOn, setLatencyOn } from './play/flag.js';
 import { listOn, setListOn } from './room/library.js';
 
 /**
@@ -39,6 +39,14 @@ export const DEVICE_PREFS = [
     reload: false,
     get: listOn,
     set: setListOn,
+  },
+  {
+    id: 'latency',
+    label: 'Latency overlay',
+    note: 'For tuning the instrument: what the Pi has measured from a touch or a controller to the ear, over every page.',
+    reload: true, // lib/nav.js mounts it as the page loads
+    get: latencyOn,
+    set: setLatencyOn,
   },
 ];
 
