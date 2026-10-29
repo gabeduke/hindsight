@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.11 — 2026-10-29
+
+- A chunked port waits its gap after a frame's last chunk too, so two frames never run together (bdf1a7a)
+- The keyboard's frames go to it in chunks, 240 bytes 2 ms apart, as its SysEx reader loses a whole 512-byte frame sent at once two times in three (afa4972)
+
+
 ## v2026.10.29.10 — 2026-10-29
 
 - Studio: a second armed track's inspector says it is recording, instead of "Not armed" with an Arm it that would move the arm off the first (0518bd8)
