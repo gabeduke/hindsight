@@ -5,6 +5,17 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.8 — 2026-10-29
+
+- Docs only: the rig checklist's image is 861 bytes short of full, from the fork's last build (9bc13c4)
+- Docs only: the rig checklist's flash in the order M-Flasher takes it, two backups and the diffs named; the map in a directory the profile loader doesn't read, its example as the settled Mixer page, and its bindings page-aware (647051d)
+- Docs only: the SMK-37's rig checklist under step 7's Next, the map's spec for Gabe to agree, and STATE.md says #202 shipped (v2026.10.29.6) (08e6c06)
+- Latency: what a late render played as silence isn't timed, the ring never reads a slot being written, and the overlay clears the bar (856af69)
+- Docs: latency in use in the tape's architecture, and the instrument's step 1 struck (3618a74)
+- The rig says how long a touch takes to be heard, and This device has a Latency overlay (f528be4)
+- The Pi times every pad, knob and release to the moment it is heard: GET /api/latency (0f0c5af)
+
+
 ## v2026.10.29.7 — 2026-10-29
 
 - A narrow cassette's band lets HINDSIGHT go, then the stamp's weekday, rather than print the two over each other (2d1925c)
