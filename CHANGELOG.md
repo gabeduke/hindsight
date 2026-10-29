@@ -5,6 +5,15 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.12 — 2026-10-29
+
+- A GRAB onto the cue lane with no tape named goes to the loaded tape's (417485e)
+- A GRAB replaces only an untouched GRAB on the cue lane, never a take's span, and a clip dragged to a track lands on that track (006fa7d)
+- A GRAB can land on the cue lane as a clip that keeps its inputs and a bar of handles, ready to trim, shape, drop or keep from the clip itself (a798033)
+- Docs only: the map's spec asks where CATCH and GRAB belong, and whether a GRAB from the keyboard can take the tape (5932500)
+- Docs only: the SMK-37's rig run, recorded: what was fixed and measured, the pads on now (decision 0060), and DRIVE heard nowhere in the jam room (9a6703d)
+
+
 ## v2026.10.29.11 — 2026-10-29
 
 - A chunked port waits its gap after a frame's last chunk too, so two frames never run together (bdf1a7a)
