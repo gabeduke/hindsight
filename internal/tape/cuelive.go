@@ -3,6 +3,7 @@ package tape
 import (
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -53,19 +54,36 @@ type cuePlayer struct {
 	view CueLive
 }
 
-// mixCue is a cue clip with its audio resolved.
+// mixCue is a cue clip with its audio resolved: each of its lanes, summed.
 type mixCue struct {
-	audio           *ClipAudio
-	src, frames     int64
+	lanes           []mixCueLane
+	frames          int64
 	gain            float32
 	fadeIn, fadeOut int64
+	inShape         string
+	outShape        string
 	loop            bool
 }
 
+// mixCueLane is one lane's audio, from file frame src.
+type mixCueLane struct {
+	audio *ClipAudio
+	src   int64
+}
+
 func newMixCue(c CueClip, lane float64, pool *Pool) *mixCue {
-	a, _ := pool.Audio(c.File)
-	return &mixCue{audio: a, src: c.Src, frames: c.Frames, gain: dbToGain(c.GainDB + lane),
-		fadeIn: c.FadeIn, fadeOut: c.FadeOut, loop: c.Loop}
+	m := &mixCue{frames: c.Frames, gain: dbToGain(c.GainDB + lane),
+		fadeIn: c.FadeIn, fadeOut: c.FadeOut, inShape: c.FadeInShape, outShape: c.FadeOutShape, loop: c.Loop}
+	if len(c.Lanes) == 0 {
+		a, _ := pool.Audio(c.File)
+		m.lanes = []mixCueLane{{audio: a, src: c.Src}}
+		return m
+	}
+	for _, l := range c.Lanes {
+		a, _ := pool.Audio(l.File)
+		m.lanes = append(m.lanes, mixCueLane{audio: a, src: l.Src})
+	}
+	return m
 }
 
 // CueLaunch asks for a cue clip to start (op "launch"), stop ("stop") or
@@ -79,6 +97,9 @@ func (e *Engine) CueLaunch(id, clip, op string, now bool) error {
 		for _, c := range t.State.Cue.Clips {
 			found = found || c.ID == clip
 		}
+	}
+	if found && (op == "launch" || op == "toggle") {
+		e.useCue(clip)
 	}
 	e.mu.Unlock()
 	if t == nil {
@@ -182,7 +203,7 @@ func (e *Engine) renderCue(dst []float32, out uint64, n int, m *Mix) {
 		if v.stop > 0 {
 			last = min(last, v.stop+uint64(d))
 		}
-		if dst != nil && c.audio != nil {
+		if dst != nil {
 			for o := max(out, v.start); o < last; o++ {
 				k := int64(o - v.start)
 				if c.loop {
@@ -191,14 +212,19 @@ func (e *Engine) renderCue(dst []float32, out uint64, n int, m *Mix) {
 				// Each pass declicks at its ends, as a looped clip
 				// joining itself would click there otherwise.
 				fin, fout := max64(c.fadeIn, d), max64(c.fadeOut, d)
-				g := c.gain * float32(fadeGain(k, c.frames, fin, fout, "", ""))
+				g := c.gain * float32(fadeGain(k, c.frames, fin, fout, c.inShape, c.outShape))
 				if v.stop > 0 && o >= v.stop {
 					g *= 1 - float32(o-v.stop)/float32(d)
 				}
-				l, r := c.audio.at(c.src + k)
 				i := int(o-out) * OutChannels
-				dst[i] += l * g
-				dst[i+1] += r * g
+				for _, ln := range c.lanes {
+					if ln.audio == nil {
+						continue
+					}
+					l, r := ln.audio.at(ln.src + k)
+					dst[i] += l * g
+					dst[i+1] += r * g
+				}
 			}
 		}
 		if last < end || (v.stop > 0 && v.stop+uint64(d) <= end) || (!c.loop && v.start+uint64(c.frames) <= end) {
@@ -247,8 +273,9 @@ func (e *Engine) CueLive() *CueLive {
 	return &v
 }
 
-// CueFromClipboard puts the buffer (or the clipboard) on the cue lane as
-// one clip, its lanes summed to stereo in a pool file of its own, looping.
+// CueFromClipboard puts the buffer (or the clipboard) on the cue lane,
+// looping. A grab keeps its lanes and handles (cuegrab.go), sharing their
+// pool files; anything else is summed to stereo in a pool file of its own.
 func (e *Engine) CueFromClipboard(id string) (CueClip, error) {
 	e.boardMu.Lock()
 	c, err := e.Clipboard()
@@ -258,6 +285,22 @@ func (e *Engine) CueFromClipboard(id string) (CueClip, error) {
 	if err != nil {
 		e.boardMu.Unlock()
 		return CueClip{}, err
+	}
+	if c.Grab != nil {
+		e.boardMu.Unlock()
+		var added CueClip
+		err := e.Edit(id, "cue:add", func(_ *Tape, s *State) error {
+			cl := CueClip{Name: boardLabel(c), Loop: true, Source: "buffer"}
+			cl.take(c)
+			var err error
+			added, err = s.cueAdd(cl)
+			return err
+		})
+		if err != nil {
+			return CueClip{}, err
+		}
+		e.markUsed(c)
+		return added, nil
 	}
 	if err := e.diskOK(); err != nil {
 		e.boardMu.Unlock()
@@ -301,17 +344,24 @@ func (e *Engine) CueFromClipboard(id string) (CueClip, error) {
 	return added, nil
 }
 
-// CueFromTake puts a span of a take on the cue lane, looping.
+// CueFromTake puts a span of a take on the cue lane, looping, as a grab of
+// it (GrabTake): with handles of the take's own audio, so its drawer trims
+// it as it does a GRAB. Always added, never in another clip's place.
 func (e *Engine) CueFromTake(id, take, title string, from, to int64, pick []int) (CueClip, error) {
-	cl, err := e.copyTake(take, from, to, pick, "cue")
+	b, rel, err := e.grabTake(take, filepath.Base(take), title, from, to, pick)
 	if err != nil {
 		return CueClip{}, err
 	}
 	var added CueClip
 	err = e.Edit(id, "cue:add", func(_ *Tape, s *State) error {
+		c := CueClip{Name: title, Loop: true, Source: "take"}
+		c.take(b)
 		var err error
-		added, err = s.cueAdd(CueClip{File: cl.File, Name: title, Src: cl.Src, Frames: cl.Frames, Loop: true, Source: "take"})
+		added, err = s.cueAdd(c)
 		return err
 	})
+	if err != nil {
+		e.store.removePoolFile(rel)
+	}
 	return added, err
 }

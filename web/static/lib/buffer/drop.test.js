@@ -1,24 +1,27 @@
 // web/static/lib/buffer/drop.test.js
-// DROP in the real buffer panel (F7 of the flow spec, decision 10), built from
-// tape.html's own templates on a stand-in document, with a Pi that answers
-// from a table and remembers what it was asked: the key says where DROP will
-// land and whether it replaces, a full loop is never refused, one Undo steps
-// the tape back once, and a part longer than the loop says it runs past it.
+// DROP in the real drawer (F7 of the flow spec, decision 10), built from
+// shell.html's own templates on a stand-in document and opened on a cue clip
+// as a held one opens it, with a Pi that answers from a table and remembers
+// what it was asked: the key says where DROP will land and whether it
+// replaces, a full loop is never refused, one Undo steps the tape back once,
+// and a part longer than the loop says it runs past it.
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { mountBuffer } from './buffer.js';
+import { keyState } from './state.js';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 
 const tapeHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
 const template = (id) => new RegExp(`<template id="${id}">[\\s\\S]*?</template>`).exec(tapeHtml)[0];
 
 const BAR = 96000; // 120 BPM at 48 kHz
-const board = (bars) => ({
-  created: 'b1', frames: bars * BAR,
-  tracks: [[{ file: 'p.wav', gain_db: 0, fade_in: 0, fade_out: 0 }]],
-  grab: { in: 0, out: bars * BAR, frames: bars * BAR, before: 0, after: 0, bars, bar_frames: BAR, sources: ['main'], used: false },
+// A cue clip GRAB put on the lane: one lane, its window the whole grab.
+const cueClip = (bars) => ({
+  id: 'b1', name: 'main', file: 'p.wav', src: 0, frames: bars * BAR, loop: true, source: 'grab',
+  lanes: [{ file: 'p.wav', src: 0, frames: bars * BAR, source: 'main' }],
+  grab: { in: 0, out: bars * BAR, frames: bars * BAR, before: 0, after: 0, bars, bar_frames: BAR, sources: ['main'] },
 });
 const tapeOf = (clips = [[], [], [], []], over = {}) => ({
   id: 't', sample_rate: 48000, length: 32 * BAR, grid: { frames: 8 * BAR, bars: 8 },
@@ -36,9 +39,9 @@ async function withBuffer({ bars = 4, tape = tapeOf(), armed = [2], pos = 0 }, f
     const method = o.method || 'GET';
     log.push({ url, method, body: o.body ? JSON.parse(o.body) : null });
     const ok = (b) => ({ ok: true, status: 200, json: async () => b });
-    if (url.startsWith('/api/tapes/drop')) return ok({ clip: { id: 'c9' }, tracks: 1, end: 0 });
+    if (url.startsWith('/api/tapes/cue/drop')) return ok({ clip: { id: 'c9' }, tracks: 1, end: 0 });
     if (url.startsWith('/api/tapes/undo')) return ok({});
-    return ok({ clipboard: board(bars) });
+    return ok({});
   };
   globalThis.requestAnimationFrame = () => 0; // the glow on the new block is a look, not a test
   globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
@@ -61,9 +64,10 @@ async function withBuffer({ bars = 4, tape = tapeOf(), armed = [2], pos = 0 }, f
     } });
     assert.ok(buffer, 'the buffer was built');
     const state = (t, o = {}) => doc.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
-      tape: t, rec_track: armed[0] || 0, rec_tracks: armed, rec_input: 'main', sources: [{ name: 'main' }], snap: 'bar', pos, view: {}, ...o,
+      tape: { cue: { clips: [cueClip(bars)] }, ...t }, rec_track: armed[0] || 0, rec_tracks: armed, rec_input: 'main', sources: [{ name: 'main' }], snap: 'bar', pos, view: {}, ...o,
     } }));
     state(tape);
+    doc.dispatchEvent(new CustomEvent('hindsight:cue-select', { detail: { id: 'b1' } }));
     await flush();
     const $ = (id) => doc.getElementById(id);
     await fn({
@@ -72,7 +76,12 @@ async function withBuffer({ bars = 4, tape = tapeOf(), armed = [2], pos = 0 }, f
       sub: () => $('buffer-drop-sub').textContent,
       key: () => $('buffer-drop'),
       press: async () => { $('buffer-drop').dispatchEvent(new CustomEvent('click')); await flush(); },
-      drops: () => log.filter((r) => r.url.startsWith('/api/tapes/drop')),
+      // What each DROP asked for, past the clip (every one names b1).
+      drops: () => log.filter((r) => r.url.startsWith('/api/tapes/cue/drop')).map((r) => {
+        assert.equal(r.body.clip, 'b1');
+        const { clip, ...rest } = r.body;
+        return { ...r, body: rest };
+      }),
     });
   } finally {
     mock.timers.reset();
@@ -168,5 +177,15 @@ test('a loop near the tape’s end: the part is moved back to fit, the key and t
     await press();
     assert.deepEqual(drops()[0].body, { track: 2, at: 6 * BAR });
     assert.equal(toasts.at(-1).msg, 'Dropped on track 2 · bars 7–10 · moved back to fit the tape');
+  });
+});
+
+// ↵ again, just after a drop, drops it again further on: the drawer shut by
+// the drop keeps the clip for it. Its layer's close once let go of it.
+test('just after a DROP, ↵ drops the clip again', async () => {
+  await withBuffer({}, async ({ doc, press, buffer }) => {
+    await press();
+    assert.equal(doc.getElementById('buffer').hidden, true, 'the drawer shuts on a drop');
+    assert.deepEqual(keyState(buffer.state, performance.now()), { open: false, held: true });
   });
 });

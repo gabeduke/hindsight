@@ -134,7 +134,7 @@ export function mount(h) {
       const play = el('button', 'icon-btn room-open-play', { type: 'button', 'aria-label': `Play from note ${n.n}, at ${n.at}` }, '▶');
       play.addEventListener('click', async () => { h.seek(n.frame); if (!h.playing()) await h.togglePlay(); });
       const span = noteSpan(ns, n.id, spanOpts());
-      const go = el('button', 'icon-btn room-open-grab-note', { type: 'button', 'aria-label': `GRAB from note ${n.n} into the Studio’s buffer`, 'data-tip': 'room-open-grab-note', disabled: !span }, 'GRAB');
+      const go = el('button', 'icon-btn room-open-grab-note', { type: 'button', 'aria-label': `GRAB from note ${n.n} onto the Studio’s cue lane`, 'data-tip': 'room-open-grab-note', disabled: !span }, 'GRAB');
       go.addEventListener('click', () => noteToStudio(n.id));
       const out = el('button', 'icon-btn room-open-out', { type: 'button', 'aria-label': `Take note ${n.n} out` }, '✕');
       out.addEventListener('click', () => h.removeNote(n.id));
@@ -224,7 +224,7 @@ export function mount(h) {
     grabSig = words;
     grabKey.textContent = words;
     const what = st.region ? 'the selection' : st.grid.bpm > 0 ? `the ${grabN} bar${grabN === 1 ? '' : 's'} before the playhead` : `the ${2 * grabN} seconds before the playhead`;
-    grabKey.setAttribute('aria-label', `${words}: ${what}, into the Studio’s buffer`);
+    grabKey.setAttribute('aria-label', `${words}: ${what}, onto the Studio’s cue lane`);
   }
   loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); renderGrab(); });
 

@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { replacedWords, replacedLine, remember, recall, forget, raiseUndo, editBody, undoWords, KEY } from './replaced.js';
+import { replacedWords, replacedLine, remember, recall, recallNote, forget, raiseUndo, editBody, undoWords, KEY } from './replaced.js';
 
 const BAR = 96000;
 const ring = (bars = 4) => ({ created: 'c1', frames: bars * BAR, grab: { bar_frames: BAR, sources: ['main'] } });
@@ -103,4 +103,15 @@ test('no storage, or a broken one, say nothing and throw nothing', () => {
   assert.equal(recall(broken, 'a'), '');
   assert.equal(recall(null, 'a'), '');
   assert.doesNotThrow(() => remember(null, { by: 'a', line: 'b' }));
+});
+
+test('a GRAB made away from the Studio leaves its clip for the Studio to open, once, while it is fresh', () => {
+  const s = store();
+  remember(s, { by: 'c1', line: '' }, 1000);
+  assert.deepEqual(recallNote(s, 1000 + 30_000), { by: 'c1', line: '' }, 'a note with nothing to say still says which clip');
+  assert.equal(recallNote(s, 1000 + 30_000), null, 'read once');
+  remember(s, { by: 'c2', line: 'x' }, 1000);
+  assert.equal(recallNote(s, 1000 + 61_000), null, 'a stale one opens nothing');
+  assert.ok(!s.m.has(KEY), 'and it is gone');
+  assert.equal(recallNote(null), null);
 });

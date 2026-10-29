@@ -310,6 +310,12 @@ func (e *Engine) DropClipboardAt(id string, track int, merge bool, at *int64) (D
 // dropBoard drops c as DropClipboard drops the clipboard: the crate's drop
 // is a one-clip board. pos, if not nil, is where, instead of the playhead.
 func (e *Engine) dropBoard(c *Clipboard, id string, track int, merge bool, pos *int64) (Dropped, error) {
+	return e.dropBoardWith(c, id, track, merge, pos, nil)
+}
+
+// dropBoardWith is dropBoard, with also run on the state in the same edit,
+// so one Undo takes back both: a cue clip's drop marks it touched.
+func (e *Engine) dropBoardWith(c *Clipboard, id string, track int, merge bool, pos *int64, also func(*State) error) (Dropped, error) {
 	t := e.Loaded()
 	if t == nil {
 		return Dropped{}, ErrNoTape
@@ -396,6 +402,9 @@ func (e *Engine) dropBoard(c *Clipboard, id string, track int, merge bool, pos *
 				}
 			}
 		}
+		if also != nil {
+			return also(s)
+		}
 		return nil
 	})
 	if err != nil {
@@ -430,6 +439,11 @@ func (e *Engine) ClipboardAudio() ([]float32, error) {
 	if c.Empty() {
 		return nil, ErrEmptyClipboard
 	}
+	return e.boardAudio(c)
+}
+
+// boardAudio is a board's first minute, as ClipboardAudio describes.
+func (e *Engine) boardAudio(c *Clipboard) ([]float32, error) {
 	n := min64(c.Frames, int64(auditionSeconds*e.store.SampleRate()))
 	out := make([]float32, 2*n)
 	for _, clips := range c.Tracks {

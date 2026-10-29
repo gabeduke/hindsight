@@ -327,17 +327,67 @@ On shutdown the engine waits for the scheduler, whose Stop goes out at once,
 ahead of anything queued.
 
 **The cue lane** stages clips beside the tape: they're in the tape's state
-(`State.Cue`, so undoable and seen by every device), each a pool file of its
-own (a GRAB's lanes summed, or a copied span of a take). Launching one is a
+(`State.Cue`, so undoable and seen by every device). A clip GRAB put there,
+or a take's span, keeps what the buffer kept (`cuegrab.go`): `Lanes`, one
+clip per input it was grabbed from, each over the window `Grab` says in a
+pool file with the grab's handles either side (a bar at the tempo, or
+`TAPE_HANDLE_S`), and the clip's own gain, fades and curves applied to every
+lane alike; `File` and `Src` are the first lane's. A clip from before then
+is one summed file, with no handles: it launches and drops, but its window
+and Reverse are a track's job. `GrabToCue` (`POST /api/tapes/cue/grab`)
+copies off the ring as `Grab` does, then takes the place of the lane's
+newest clip while that one is an untouched GRAB (`Source` "grab", never a
+take's or the buffer's; never trimmed, shaped,
+renamed or dropped, `Touched` in the state; never launched or kept,
+`Engine.cueUsed`, which isn't undone and starts empty), so a run of presses
+doesn't fill the lane, or else is added; the tape's Undo brings the one it
+replaced back, as a GRAB is one edit of its own. With `clip`, it takes that
+clip's span again from other inputs, its window and shape carrying on. The
+drawer's edits (`PATCH /api/tapes/cue/clip`: `CueTrim`, inside the handles
+as the buffer's trim is; `CueShape`: level, fades, Normalize, Reverse) are
+edits of the tape, a run of trims or of levels one Undo; Reverse and
+Normalize do their file work first, and they and a GRAB taken again are
+refused (409) if the clip moved meanwhile; a window and a shape go in one
+request each. `CueDrop` (`POST /api/tapes/cue/drop`) lays the clip as a drop lays the
+clipboard, a lane a track from the one given (`merge`: all on that one),
+handles and all, over what was there, and marks it touched in the same
+edit; a drag (`cue-to-track`) of a clip with lanes is a merged drop on the
+track it points at;
+`CueKeep` (`POST /api/tapes/cue/keep`) saves it as a take of its window
+summed; `CueAudio` (`GET /api/tapes/cue/audio`) is its Audition. All of
+them read the clip as a board (`CueClip.boardOf`), so they are the buffer's
+own code, and none of them touches the clipboard, which is left to a
+range's Cut, Copy and Paste, unseen (`/api/clipboard`'s GRAB still fills it
+for the buffer panel until that goes). Launching one is a
 performance, like Play mode's pads, so it stays out of the state and out of
 undo (`cuelive.go`): a launch or stop rides the transport's action queue
 with quantum `bar` (`now` for Shift), and the render goroutine keeps the
-voices, rendering each from the output frame it started at, looped, into bus
-A after the tape, the click and the FX. A voice stops with a 3 ms fade; the
+voices, rendering each from the output frame it started at, looped, its
+lanes summed, into bus A after the tape, the click and the FX. A voice stops with a 3 ms fade; the
 transport's Stop and a mixdown's pass stop them all, and the lane's Solo
 leaves the tracks out of the output. What plays is `live.cue`. The lane is
 not in the mix or its exports: a clip reaches them only once it is dragged
 onto a track.
+
+**On screen** the lane's clips are pads (`lib/tape/cuelane.js`, on
+`CUE_PRESS`, `lib/ui/press.js`): a tap launches, ⇧-tap at once, a hold (a
+mouse's too, or a right click) says `hindsight:cue-select`, and a drag puts
+the clip on a track; a pad has no keys on it. While a pad waits for its bar
+line the hand on its dial goes round the bar, turned on the shared ticker
+from the playhead (`heardNow`) and parked when nothing waits; a pad new to
+the lane comes in peeled off the feed above it (`cue-peel`, a fade with
+reduced motion). The drawer is the buffer's code (`lib/buffer/buffer.js`)
+reading the open clip as a board (`lib/buffer/cueclip.js` `boardOf`):
+mounted in the dock above the bar (`ctx.dockSlot`; a sheet over the lanes on
+a phone), opened by GRAB on the clip it made and by a held pad, on the
+page's stack as a drawer (Escape, Back and ✕ close it), and gone when its
+clip leaves the lane. It says which clip it is open on with
+`hindsight:cue-selected`, which lights the pad, and every change it sends
+(`lib/buffer/api.js`) answers the tape's state and asks the page to poll
+(`hindsight:tape-changed`). GRAB made away from the Studio (a take's page, a
+note, the bar's feed) leaves the clip's id in sessionStorage
+(`lib/buffer/replaced.js` `remember`), and the Studio opens on it once
+(`recallNote`), with its Undo when it took an untouched clip's place.
 
 **The feed strip** in the Studio is the ribbon with GRAB, KEEP and Flag in
 one row. A tap on GRAB or KEEP takes the last length and its ▾ picks

@@ -28,16 +28,10 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Known bugs
 
-- **Layout** (the flows' baseline, `scripts/flows/layout-known.json`;
-  `docs/flows.md`, *What a run says*): the cue clip's × (12×14 px) and loop
-  toggle (22 px) are under 24 px.
 - **The first turn to the Listening Room freezes the Studio** about
   0.6–0.9 s at 4× CPU in headless Chromium (later turns 0.25–0.5 s),
   measured before the shelf wall replaced the stage. Re-measure, on the
   tablet.
-- Red Go tests not seen since mid-October, and never fixed:
-  `TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail` and the MIDI clock's
-  tempo tests.
 - **Flow flakes not yet explained** (both 2026-10-19, neither seen
   locally): J1.9 on the tablet once tapped ↶ right after dragging a
   section's edge and the Pi kept the new edge (look at
@@ -84,14 +78,25 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
-- **`the-studio-space.md` is the build order**: steps 1–9 have landed (9,
-  the notes drawer: `docs/architecture/rooms.md`, *The notes drawer*); 10
-  (Open, which docks the drawer beside its waveform), 11 (the buffer into
-  the cue lane) and 12 (polish) are open.
+- **`the-studio-space.md` is the build order**: steps 1–9 and 11 have
+  landed (9, the notes drawer: `docs/architecture/rooms.md`, *The notes
+  drawer*; 11, GRAB onto the cue lane, a clip's drawer above the bar;
+  decision 0061); 10 (Open, which docks the drawer beside its waveform)
+  and 12 (polish) are open.
   The phone's player as a sheet and its ● want a look on a real phone:
   the mini player's display is narrow on a 360 px phone (`bar.md`). They
-  take in the open steps of `listening-back.md` and
-  `the-studio-on-one-screen.md`, which hold their details.
+  take in the open steps of `listening-back.md`, which holds their details.
+  Decision 0061's three choices were built as recommended; Gabe to try
+  them on the tablet and overrule any.
+- **The Pi's buffer routes are dead code** since step 11: `/api/clipboard`'s
+  GRAB (bars, seconds, again, a take's grab), its PATCH, keep, toss, toss's
+  restore and audio, `/api/tapes/cue/add`, and `Engine.Grab`,
+  `GrabTake(Opt)`, `TrimClipboard`, `ShapeClipboard`, `KeepClipboardTake`,
+  `TossClipboard`, `RestoreClipboard(Opt)`, `ClipboardAudio`,
+  `CueFromClipboard`, `CueFromTake`. Nothing in the UI or on a controller
+  calls them. Retire them, moving the tests that use them to the cue lane
+  (`grab_test.go`, `replaced*_test.go`, `internal/api/buffer_test.go`);
+  a range's Cut, Copy, Paste and their Undo (`RestoreReplaced`) stay.
 - **`the-instrument.md`** (agreed 2026-10-26), in tracks of its own:
   Hindsight as something you play. Its step 1 is built: latency
   measured in use, every control timed to the ear, kept on the Pi

@@ -148,6 +148,10 @@ type Engine struct {
 	owners   previewOwners // who previews each tape mod
 	heldPads atomic.Uint32 // perf's held pads, a bit each, for Live
 	cue      cuePlayer     // the cue lane's clips playing (cuelive.go)
+	// cueUsed is the cue clips launched or kept since Hindsight started,
+	// under mu: a GRAB never replaces one (cuegrab.go). Outside the tape's
+	// state, as neither is undone.
+	cueUsed map[string]bool
 
 	// changes moves when what the page shows moves (changes.go).
 	changes Changes

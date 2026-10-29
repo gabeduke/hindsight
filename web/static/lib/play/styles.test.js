@@ -128,7 +128,7 @@ test('a laptop: the unfolded strip folds the buffer to one line, and the buffer 
   const rules = rulesOf(p3Block());
   // The one-line bench: its body and foot go, nothing else of it does.
   const hidden = rules.filter((r) => r.decls.display === 'none' && /^body\.play-unfolded\.buffer-open \.buffer-/.test(r.sel)).map((r) => r.sel.replace(/^.* /, ''));
-  for (const part of ['.buffer-body', '.buffer-foot', '.buffer-notch']) assert.ok(hidden.includes(part), `${part} hides in the one-line bench`);
+  for (const part of ['.buffer-body', '.buffer-foot']) assert.ok(hidden.includes(part), `${part} hides in the one-line bench`);
   for (const keep of ['.buffer-head', '.buffer-close', '.buffer-audition', '.buffer-drop', '.buffer-keep', '.buffer-toss']) {
     assert.ok(!hidden.includes(keep), `${keep} is not what the peek hides (the close and audition stay in the head)`);
   }

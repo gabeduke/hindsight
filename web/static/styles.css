@@ -2130,26 +2130,32 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
   align-items: center;
   gap: 8px;
 }
+/* A clip is a pad: a tap launches it, a hold opens its drawer, a drag puts
+   it on a track. Its ring is a clock hand round the bar while it waits for
+   the bar line (lib/tape/cuelane.js turns it); the one the drawer is open
+   on wears the accent. */
 .cue-clip-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  background: var(--panel-2);
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 12px 4px 6px;
+  background: linear-gradient(180deg, var(--key-hi), var(--key-lo));
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 10px;
   font-size: 12px;
-  cursor: grab;
+  cursor: pointer;
   user-select: none;
   white-space: nowrap;
   touch-action: none;
   transition: translate var(--t-spring-snap) var(--spring-snap);
 }
-.cue-clip-chip:active {
-  cursor: grabbing;
-}
 .cue-clip-chip.dragging {
   opacity: 0.35;
+}
+.cue-clip-chip.open {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 /* Launched: lit while it plays; waiting for its bar line, it blinks. */
 .cue-clip-chip.playing {
@@ -2165,14 +2171,30 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 @keyframes cue-wait {
   to { border-color: var(--line); }
 }
+/* GRAB's clip comes in peeled off the feed above the lane. */
+.cue-clip-chip.arriving { animation: cue-peel var(--t-flight) var(--ease-flight) both; }
+@keyframes cue-peel {
+  from { opacity: 0; transform: translateY(-28px) rotate(-4deg) scale(.92); }
+}
 @media (prefers-reduced-motion: reduce) {
   .cue-clip-chip.queued { animation: none; }
+  .cue-clip-chip.arriving { animation-name: cue-fade; }
 }
-.cue-clip-grip {
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: -1px;
+@keyframes cue-fade { from { opacity: 0; } }
+.cue-dial {
+  position: relative; flex: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--line);
+  box-sizing: border-box;
 }
+.cue-clip-chip.playing .cue-dial { border-color: var(--solo-lo); background: var(--solo-lo); }
+.cue-clip-chip.queued .cue-dial { border-color: var(--solo-lo); }
+.cue-dial-hand {
+  position: absolute; left: 50%; top: 1px; width: 2px; height: 6px; margin-left: -1px;
+  background: var(--solo-lo); border-radius: 1px; transform-origin: 50% 6px;
+  opacity: 0;
+}
+.cue-clip-chip.queued .cue-dial-hand { opacity: 1; }
 .cue-clip-name {
   font-weight: 600;
   color: var(--ink);
@@ -2183,33 +2205,6 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .cue-clip-len {
   font: 11px var(--mono);
   color: var(--ink-dim);
-}
-.cue-clip-loop {
-  background: none;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 0 4px;
-  font-size: 11px;
-  cursor: pointer;
-  color: var(--ink-dim);
-}
-.cue-clip-loop[aria-pressed="true"] {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.cue-clip-remove {
-  background: none;
-  border: none;
-  color: var(--ink-dim);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
-}
-@media (hover: hover) {
-  .cue-clip-remove:hover {
-    color: var(--warn);
-  }
 }
 .cue-drag-ghost {
   position: fixed;
@@ -3849,8 +3844,6 @@ body.tape-page.tracks-fold #lanes { display: none; }
 .buffer-grab-line { display: inline-flex; align-items: baseline; gap: .35em; white-space: nowrap; }
 .buffer-grab-from { font: 500 11.5px var(--font); letter-spacing: 0; text-transform: none; color: var(--ink-dim); white-space: nowrap; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
 .buffer-grab-from:empty { display: none; }
-.icon-btn.buffer-reopen { min-height: 44px; font: 700 13px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
-.icon-btn.buffer-reopen[hidden] { display: none; }
 .buffer-kbd { font: 500 10.5px var(--mono); opacity: .65; margin-left: 4px; letter-spacing: 0; }
 .icon-btn.buffer-grab-sel { font-weight: 700; }
 
@@ -3867,18 +3860,15 @@ body.tape-page.tracks-fold #lanes { display: none; }
   font: 700 9.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
 }
 
-/* The bench: between the feed and the lanes, raised, its notch at its span. */
+/* A cue clip's drawer: docked above the bar like the clip editor (the dock,
+   above), so the lanes move up for it rather than under the bar. */
 .buffer-panel {
-  flex: none; position: relative; margin: 12px 0 10px; padding: 10px 14px 10px;
+  flex: none; position: relative; margin: 0 12px; padding: 10px 14px 10px;
   display: grid; gap: 8px;
-  box-shadow: inset 0 1px 0 var(--hl), 0 10px 22px -10px var(--sh-strong), 0 2px 0 var(--edge);
+  border-bottom: 0; border-radius: 12px 12px 0 0;
+  box-shadow: inset 0 1px 0 var(--hl), 0 -14px 28px -18px var(--sh-strong);
 }
 .buffer-panel[hidden] { display: none; }
-.buffer-notch {
-  position: absolute; top: -9px; width: 16px; height: 16px; transform: translateX(-50%) rotate(45deg);
-  background: var(--panel-hi); border-left: 1px solid var(--edge); border-top: 1px solid var(--edge);
-}
-.buffer-notch[hidden] { display: none; }
 .buffer-sheet-grip { display: none; }
 .buffer-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
 .buffer-panel .buffer-title { margin: 0; font: 700 15px var(--label-font); letter-spacing: .2em; text-transform: uppercase; color: var(--ink); }
@@ -3894,13 +3884,15 @@ body.tape-page.tracks-fold #lanes { display: none; }
 .buffer-note { font: 500 12px var(--font); color: var(--warn-ink); }
 .buffer-note[hidden] { display: none; }
 .buffer-spacer { flex: 1 1 0; }
-.icon-btn.buffer-audition, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .icon-btn.buffer-close { min-height: 34px; padding: 0 11px; font: 700 12px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+.icon-btn.buffer-audition, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .icon-btn.buffer-loop, .icon-btn.buffer-close { min-height: 34px; padding: 0 11px; font: 700 12px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
 .icon-btn.buffer-snap { font-family: var(--mono); letter-spacing: 0; text-transform: none; }
 /* Its ⌗ takes the room the glyph took: the drawn one's blank sides come off. */
 .icon-btn.buffer-snap .i { margin: 0 -1px; }
 .buffer-led { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); }
 .icon-btn.buffer-audition[aria-pressed="true"] .buffer-led { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
 .icon-btn.buffer-unfold[aria-pressed="true"] { border-color: var(--ink-dim); }
+/* Loop is the pad's ⟲ that was: lit while a launch goes round. */
+.icon-btn.buffer-loop[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 
 .buffer-body { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(220px, 260px); gap: 10px; align-items: stretch; min-width: 0; }
 .buffer-grip {
@@ -3961,6 +3953,8 @@ body.buffer-fold .tape-lanes { gap: 3px; }
 .buffer-ghost, .buffer-glow { position: absolute; box-sizing: border-box; border-radius: 4px; }
 .buffer-ghost { border: 2px dashed var(--stripe-1); background: rgba(224, 102, 42, .16); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .buffer-ghost > span { font: 700 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--stripe-1); white-space: nowrap; text-shadow: 0 1px 0 rgba(0, 0, 0, .5); }
+/* A DROP's flight from the drawer to the block it became (lanes.js fly). */
+.buffer-flight { position: absolute; box-sizing: border-box; border-radius: 4px; border: 2px solid var(--stripe-1); background: linear-gradient(180deg, var(--oxide), var(--oxide-lo)); transform-origin: 0 0; }
 .buffer-glow { box-shadow: 0 0 0 2px rgba(127, 230, 220, .95), 0 0 18px 4px rgba(127, 230, 220, .7); background: rgba(127, 230, 220, .18); animation: buffer-glow 1.4s ease-out forwards; }
 @keyframes buffer-glow { from { opacity: 1; } to { opacity: 0; } }
 .buffer-chip {
@@ -3974,6 +3968,13 @@ body.buffer-lifting, body.buffer-lifting * { cursor: grabbing !important; user-s
    room while the buffer is carried to one. */
 @media (min-width: 700px) and (min-height: 441px) {
   body.buffer-lifting .buffer-foot { display: none; }
+  /* Docked above the bar, the drawer keeps to a head row, the window and a
+     foot row, so the lanes over it keep a strip each: its note shortens
+     rather than wraps, and the hint, which says what GRAB does, goes. */
+  .buffer-head, .buffer-foot { flex-wrap: nowrap; }
+  .buffer-note { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .buffer-window { height: 96px; }
+  .buffer-hint { display: none; }
 }
 
 /* While it's open the feed gives the lanes room: a shorter ribbon, and no
@@ -3995,10 +3996,10 @@ body.buffer-fold .tape-sections-row { display: none; }
   }
   .buffer-panel[data-height="peek"] { height: 96px; }
   .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - 8px); }
-  .buffer-notch, .buffer-grip, .buffer-hint, .buffer-panel .buffer-kbd, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .buffer-meta-full { display: none; }
+  .buffer-grip, .buffer-hint, .buffer-panel .buffer-kbd, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .buffer-meta-full { display: none; }
   .buffer-meta-short { display: inline; }
   .buffer-panel .buffer-title { letter-spacing: .14em; }
-  .icon-btn.buffer-audition, .icon-btn.buffer-close { min-height: 38px; }
+  .icon-btn.buffer-audition, .icon-btn.buffer-loop, .icon-btn.buffer-close { min-height: 38px; }
   .buffer-sheet-grip {
     display: block; position: sticky; top: 0; z-index: 1; flex: 0 0 calc(100% + 24px); height: 26px; margin: 0 -12px -6px;
     padding: 0; border: 0; background: linear-gradient(180deg, var(--panel-hi), var(--panel-hi) 70%, transparent);
@@ -4029,10 +4030,6 @@ body.buffer-fold .tape-sections-row { display: none; }
   .buffer-grab > .key-split > .icon-btn.buffer-grab-key { flex: 1 1 auto; min-width: 0; padding: 4px 8px; overflow: hidden; letter-spacing: .06em; font-size: 14px; }
   .buffer-grab-key .buffer-kbd { display: none; }
   .buffer-grab-from { max-width: 100%; }
-  .icon-btn.buffer-reopen { flex: none; padding: 0 10px; font-size: 12px; }
-  /* With a grab in the buffer its Buffer key joins GRAB, and the two take
-     the row: KEEP and Flag go to the next (GRAB came down to a sliver). */
-  .studio-keys:has(.buffer-reopen:not([hidden])) > .buffer-grab { flex: 1 1 100%; }
 }
 @media (max-width: 699.98px) {
   body.buffer-fold .tape-track { height: 13px; overflow: hidden; }
@@ -4283,7 +4280,6 @@ body.buffer-fold .tape-sections-row { display: none; }
   body.play-unfolded.buffer-open .buffer-panel { margin: 6px 0; padding: 6px 12px; gap: 0; cursor: pointer; }
   body.play-unfolded.buffer-open .buffer-body,
   body.play-unfolded.buffer-open .buffer-foot,
-  body.play-unfolded.buffer-open .buffer-notch,
   body.play-unfolded.buffer-open .buffer-sources,
   body.play-unfolded.buffer-open .buffer-snap,
   body.play-unfolded.buffer-open .buffer-unfold { display: none; }
@@ -4296,12 +4292,10 @@ body.buffer-fold .tape-sections-row { display: none; }
   body.play-unfolded.buffer-fold .tt-head { overflow: visible; align-content: center; }
 }
 /* With the buffer the one open, a laptop's height has room for the lanes
-   only if the feed folds to its keys, as it does under the unfolded strip.
-   The notch pointed at the ribbon, which is gone. */
+   only if the feed folds to its keys, as it does under the unfolded strip. */
 @media (min-width: 700px) and (min-height: 441px) and (max-height: 1000px) {
   body:has(.play-strip).buffer-open .studio-feed > .viz-wrap,
   body:has(.play-strip).buffer-open .studio-feed-head > .vu-row { display: none; }
-  body:has(.play-strip).buffer-open .buffer-notch { display: none; }
   body:has(.play-strip).buffer-open .studio-feed { display: flex; flex-wrap: wrap; row-gap: 8px; }
   body:has(.play-strip).buffer-open .studio-feed > .studio-feed-head { flex: 1 1 320px; }
   body:has(.play-strip).buffer-open .studio-feed > .studio-keys { flex: 0 1 auto; }

@@ -7,24 +7,25 @@ confusing … we should just be able to listen to a file and if need then we
 can dive in to make notes."* So: **two nouns, takes and tapes.** A take is
 anything you kept; a tape is what you build on. Everything else on screen is
 a place (the Studio, the Listening Room, the Rig), a part of a screen (the
-feed, the buffer, the tracks, the bar, the instrument), or something inside a
+feed, the cue lane, the tracks, the bar, the instrument), or something inside a
 take or a tape (a note, a tag, a star; a part, a section, the loop).
 
 | Verb | Does | From |
 |---|---|---|
-| **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), the buffer, a take's selection |
+| **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), a cue part's drawer, a take's selection |
 | **BOUNCE** | makes a take from a tape, by playing it through the mixer | the tape's name's menu |
 | **Share the mix** | sends a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3` | the tape's name's menu; Bounce's refusal |
-| **GRAB** | fills the buffer | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
-| **DROP** | empties the buffer onto a track | the buffer, ↵, a range's bar |
+| **GRAB** | puts a part on the cue lane, with a lane per input and its handles | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
+| **DROP** | lays a cue part on a track (it stays on the lane) | a cue part's drawer, ↵, a drag; a range's Paste |
 | **CATCH** | puts the last pass on the armed track | the Studio |
-| **Cut · Copy** | a range of the tape into the buffer | a range's bar |
+| **Cut · Copy** | a range of the tape onto the clipboard, unseen, for Paste | a range's bar |
 | **●** (Record) | records onto the armed track | the bar, in the Studio, beside ▶ |
 
 Every key names its object: *KEEP 2m*, *GRAB 4 BARS*, *Drop on track 2 ·
 bars 1–4*, *CATCH LAST PASS*. Words that mean these things are retired:
-audio on a track is a **part** (not a clip); the clipboard is the
-**buffer**; the ring is the **feed** (*Feed length* in Settings); a flag is a
+audio on a track is a **part** (not a clip); the clipboard is
+unseen, a range's Cut, Copy and Paste's alone (what GRAB fills is the **cue
+lane**); the ring is the **feed** (*Feed length* in Settings); a flag is a
 **note**; a bounced *record* is just a take; Capture, Save as take and Cut
 are **KEEP**; Copy from the feed is **GRAB**; Paste is **DROP**; Mix down and
 Cut a record are **BOUNCE**; the bar's ⟲ is **Repeat**; the crate is not on
@@ -40,8 +41,8 @@ the time it was caught, which is what its spine prints (`takeTitle`,
 `lib/rooms/takename.js`). The bar, a search, Recently deleted, a toast and
 a screen reader all say that; where nothing around it says the day (a
 toast, Recently deleted) the day goes before the time (`{ day: true }`).
-Never the file (`jam_….wav`) or its date stamp. The buffer names a take's
-grab the same way (`grabTitle`, `lib/buffer/model.js`), from the grab's
+Never the file (`jam_….wav`) or its date stamp. A cue part's drawer names a
+take's grab the same way (`grabTitle`, `lib/buffer/model.js`), from the grab's
 `take` and `take_label` (the take's name when it was grabbed), not from its
 `sources`, which the Pi writes for its own lines. Open's own page still
 titles a take by its date stamp (`lib/wave/page.js` `stampOf`), until
@@ -113,7 +114,7 @@ note (`fieldEnter`: never over another note, a frame on if one is there)
 and the next goes where the take is by then; then the notes, each its
 number, its time (a tap goes there), its words (edited in place; Escape
 puts them back), ▶ (plays from it), GRAB (from it to the next note or
-eight bars, into the Studio's buffer: `noteSpan`) and ✕. With the tape in
+eight bars, onto the Studio's cue lane: `noteSpan`) and ✕. With the tape in
 the bar ✎ is hidden, as it was: notes on tapes are in `backlog.md`.
 
 - **`lib/room/drawer.js` `createNotesDrawer({doc, layers, toast, head})`**

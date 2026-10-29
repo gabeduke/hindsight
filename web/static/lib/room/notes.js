@@ -6,7 +6,8 @@
 // span to the Studio, and barNotes, the take in the bar as the notes
 // drawer's source.
 
-import { replacedLine, remember, forget } from '../buffer/replaced.js';
+import { remember, forget } from '../buffer/replaced.js';
+import { replacedNote } from '../buffer/cueclip.js';
 import { forTheTape } from '../bar/carry.js';
 import { flagRequest, asFlags } from '../flags.js';
 import { withClient } from '../client.js';
@@ -78,36 +79,31 @@ export function fieldEnter({ current = null, words = '', cursor = 0, notes = [],
   return frame == null ? { kind: 'none' } : { kind: 'new', frame, words: w };
 }
 
-/**
- * clipboardBody is POST /api/clipboard's body for a span of a take: a grab,
- * which the Studio's buffer opens on (P2). A server without the buffer
- * ignores `grab` and copies the span, as before.
- */
-export function clipboardBody(file, span) {
-  // crate: false -- the rooms show no crate: a buffer this replaces is held
-  // for GRAB's Undo only (lib/buffer/replaced.js).
-  return { take: file, from: span.from, to: span.to, grab: true, crate: false };
+/** grabBody is POST /api/tapes/cue/grab's body for a span of a take. */
+export function grabBody(file, span) {
+  return { take: file, from: span.from, to: span.to };
 }
 
 /**
- * sendToStudio puts a span of a take in the Studio's buffer (the clipboard,
- * which the buffer shows) and answers where to go next: the Studio. It
- * throws with the Pi's words when the copy is refused -- the tape off, a
+ * sendToStudio GRABs a span of a take onto the loaded tape's cue lane, and
+ * answers where to go next: the Studio, whose drawer opens on the clip. It
+ * throws with the Pi's words when the grab is refused -- the tape off, a
  * span too long -- so nothing navigates away from a note that didn't go.
  */
 export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, storage = pageStorage(), forTape = forTheTape } = {}) {
-  const res = await fetchImpl('/api/clipboard', {
+  const res = await fetchImpl('/api/tapes/cue/grab', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(clipboardBody(file, span)),
+    body: JSON.stringify(grabBody(file, span)),
   });
   const b = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(b.error || `HTTP ${res.status}`);
   }
-  // A GRAB over a buffer nobody dropped or kept says so, with Undo -- on the
-  // page this opens, where the buffer is: it is left there to say.
-  if (b.replaced && b.clipboard) remember(storage, { by: b.clipboard.created, line: replacedLine(b.replaced, b.replaced_seconds) });
+  // The Studio opens the clip's drawer, and says what it took the place of,
+  // with Undo: it is left there to say (lib/buffer/replaced.js).
+  const clip = b.edit?.cue_clip;
+  if (clip) remember(storage, { by: clip.id, line: replacedNote(b.edit) });
   // Going for the tape: the bar's take doesn't go along (lib/bar/carry.js).
   forTape();
   return '/tape.html';

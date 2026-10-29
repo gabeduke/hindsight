@@ -296,8 +296,8 @@ export function startStrip({
   doc.addEventListener('pointerdown', onDown, true);
 
   // --- the strip and the buffer take turns ----------------------------------------
-  // The buffer asks for the floor when it's brought forward (a GRAB from the
-  // feed, its Buffer ▴ key), and so does a tap on its peek. A GRAB played from
+  // A cue clip's drawer asks for the floor when it's brought forward (a GRAB
+  // from the feed, a hold on a clip), and so does a tap on its peek. A GRAB played from
   // the strip's own pad or key is the strip moving: it stays, and the buffer
   // comes up as its peek (`turns`).
   const bufferOpen = () => { const b = doc.getElementById('buffer'); return !!b && !b.hidden; };

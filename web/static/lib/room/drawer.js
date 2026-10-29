@@ -38,7 +38,7 @@ import { takeTitle } from '../rooms/takename.js';
  *                       a note, by the take's flags; each a promise
  *   patch(fields)       { label } { starred } { tag }: a promise
  *   seek(frame, {play}) the take to a frame, and playing, if asked: a promise
- *   grab(span)          { from, to } into the Studio's buffer: a promise
+ *   grab(span)          { from, to } onto the Studio's cue lane: a promise
  *   onChange(fn)        fn() whenever the take changes; answers a way off
  */
 
@@ -195,7 +195,7 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
     const play = keyWith('play', 'notes-play', { 'aria-label': `Play from note ${n.n}, at ${n.at}` });
     play.addEventListener('click', () => Promise.resolve(s.seek(n.frame, { play: true })).catch(fail('play it')));
     const span = noteSpan(ns, n.id, { sampleRate: s.sampleRate, bpm: s.bpm(), total: s.total });
-    const grab = mk('button', 'icon-btn notes-grab', { type: 'button', 'aria-label': `GRAB from note ${n.n} into the Studio’s buffer`, 'data-tip': 'notes-grab', disabled: !span, text: 'GRAB' });
+    const grab = mk('button', 'icon-btn notes-grab', { type: 'button', 'aria-label': `GRAB from note ${n.n} onto the Studio’s cue lane`, 'data-tip': 'notes-grab', disabled: !span, text: 'GRAB' });
     grab.addEventListener('click', () => { if (span) s.grab(span).catch(fail('GRAB it into the Studio')); });
     const out = keyWith('close', 'notes-out', { 'aria-label': `Take note ${n.n} out` });
     out.addEventListener('click', () => s.remove(n.id).catch(fail('take the note out')));

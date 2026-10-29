@@ -228,7 +228,7 @@ function pi(take) {
       return ok({ flags });
     }
     if (url.startsWith('/api/take?')) return ok(init.method === 'PATCH' ? { ...take, ...JSON.parse(init.body) } : take);
-    if (url === '/api/clipboard') return ok({});
+    if (url === '/api/tapes/cue/grab') return ok({});
     return { ok: false, status: 404, json: async () => ({}) };
   };
   return { sent, fetchImpl };
