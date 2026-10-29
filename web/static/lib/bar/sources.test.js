@@ -295,3 +295,31 @@ test('the tape: handed to the Studio, the bar stops watching; handed back, it wa
   s.setActive(false);
   assert.equal(w.open, 0, 'the bar holding a take: no socket');
 });
+
+test('the tape: a nudge while a poll is out asks once more after it, never two at once', async () => {
+  let out = 0, most = 0, polls = 0;
+  let answer = null;
+  const body = { tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } };
+  stubs(() => body);
+  // A Pi slow to answer: each poll waits for the test to let it go.
+  globalThis.fetch = () => {
+    polls++; out++; most = Math.max(most, out);
+    return new Promise((r) => { answer = () => { out--; r({ ok: true, json: async () => body }); }; });
+  };
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  assert.equal(polls, 1, 'the first poll is out');
+  w.nudge({ rev: 2 });
+  w.nudge({ rev: 3 });
+  await settle();
+  assert.equal(polls, 1, 'no second fetch beside it');
+  answer();
+  await settle();
+  assert.equal(polls, 2, 'once more when it is answered');
+  answer();
+  await settle();
+  assert.equal(polls, 2, 'and only once');
+  assert.equal(most, 1);
+  s.destroy();
+});

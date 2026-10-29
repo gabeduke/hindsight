@@ -12,9 +12,12 @@ import { tapeDisplay } from './display.js';
 import { paintTapeOverview } from '../tape/overview.js';
 import { refusal } from '../tape/refusal.js';
 import { watchChanges } from '../tape/changes.js';
+import { pollGate } from '../tape/poll-gate.js';
+import { timedFetch } from '../link.js';
 
 const POLL_MS = 500;
 const AHEAD_S = 0.5; // the furthest the playhead is run on past a poll
+const POLL_TIMEOUT_MS = 4000; // a poll lost in a sleep gives up, so the gate opens again
 const STALE_MS = 2000; // no answer for this long: shown stopped, not run on forever
 const HOLD_MS = 1000; // a locate is shown where it was asked, over polls already on their way
 const AWAY_EVERY = 10; // out of the bar, every 10th tick (5 s): the header's output button stays true
@@ -35,10 +38,18 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
 
-  async function poll() {
+  // One poll at a time, as the Studio's (lib/tape/poll-gate.js): a tick
+  // while one is out is skipped, a wake-up goes ahead of one that may be
+  // lost, and ask() -- a nudge, a press, the tape handed back -- polls now,
+  // or once more when the one out ends, never beside it.
+  const gate = pollGate();
+  const ask = () => (gate.nudge() ? poll() : undefined);
+  async function poll(force = false) {
+    const mine = gate.begin(force === true);
+    if (!mine) return;
     const g = ++gen;
     try {
-      const res = await fetch(`/api/tapes/state?id=${encodeURIComponent(id)}`, { cache: 'no-store' });
+      const res = await timedFetch(`/api/tapes/state?id=${encodeURIComponent(id)}`, { cache: 'no-store' }, POLL_TIMEOUT_MS);
       if (!res.ok || g !== gen || del) return;
       const s = await res.json();
       if (g !== gen || del) return;
@@ -48,12 +59,14 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
       // Just located: keep showing where it was asked until the Pi has it.
       if (performance.now() >= holdUntil) { live = s.live; at = performance.now(); agreed(); }
       fire();
-    } catch { /* the next tick asks again */ }
+    } catch { /* the next tick asks again */ } finally {
+      if (gate.end(mine)) poll();
+    }
   }
   async function follow() {
     try {
       const list = await (await fetch('/api/tapes', { cache: 'no-store' })).json();
-      if (list.loaded && list.loaded !== id) { id = list.loaded; live = null; poll(); }
+      if (list.loaded && list.loaded !== id) { id = list.loaded; live = null; ask(); }
     } catch { /* the next tick asks again */ }
   }
   const tick = () => {
@@ -64,7 +77,7 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
     if (!document.hidden && !del && (active || ticks % AWAY_EVERY === 0)) poll();
     timer = setTimeout(tick, POLL_MS);
   };
-  const onVisible = () => { if (active && !del && !document.hidden) poll(); };
+  const onVisible = () => { if (active && !del && !document.hidden) poll(true); };
   document.addEventListener('visibilitychange', onVisible);
   // The Pi's word that the tape changed (lib/tape/changes.js), heard while
   // the bar polls the tape itself: in the bar, and not handed to the
@@ -74,7 +87,7 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
   let changes = null;
   const syncChanges = () => {
     const on = !stopped && active && !del;
-    if (on && !changes) changes = watch(() => { if (active && !del && !document.hidden) poll(); });
+    if (on && !changes) changes = watch(() => { if (active && !del && !document.hidden) ask(); });
     else if (!on && changes) { changes.close(); changes = null; }
   };
   tick();
@@ -92,7 +105,7 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
     } catch (e) {
       onError?.(e.message);
     }
-    if (!del) setTimeout(poll, 150);
+    if (!del) setTimeout(ask, 150);
   }
 
   const sr = () => (t ? t.sample_rate : 48000);
@@ -199,7 +212,7 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
     },
     tick() {},
     // The bar holding a take instead: no polling until it's back.
-    setActive(on) { active = on; syncChanges(); if (on && !del) poll(); },
+    setActive(on) { active = on; syncChanges(); if (on && !del) ask(); },
     lcd: () => {
       const c = t ? tapeCounter(t, live ? { ...live, heard: pos() } : null, mixdown()) : { big: '', small: '', note: '', status: 'stop', unit: '' };
       const n = streamNote();
@@ -223,7 +236,7 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
       del = d;
       if (d) gen++;
       syncChanges();
-      if (was && !d && active && !document.hidden) poll();
+      if (was && !d && active && !document.hidden) ask();
     },
     // Where it plays, for the header's output button: null before the Pi
     // says, or from one that doesn't.
@@ -231,7 +244,7 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
     // How late a phone hears it, as the Pi measured it.
     streamDelayMs: () => (live && live.stream && live.stream.delay_ms) || 0,
     /** refresh asks the Pi now, after a change made elsewhere. */
-    refresh: () => (del?.poll ? del.poll() : poll()),
+    refresh: () => (del?.poll ? del.poll() : ask()),
     paint(ctx, W, H, col) {
       if (!t) { ctx.clearRect(0, 0, W, H); return; }
       paintTapeOverview(ctx, W, H, t, live ? pos() : null, { col });
