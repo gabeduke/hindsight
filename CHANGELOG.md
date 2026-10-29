@@ -5,6 +5,18 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.6 — 2026-10-29
+
+- Docs: AGENTS.md keeps the details the review found thinned, and four records say only what the repo supports (1c36ba6)
+- Docs only, no change to the app: decisions get a record each, the architecture a file per area, and STATE.md lists only what is open (80150e8)
+- Docs: the feed strip and the cue lane's place in the mix are in architecture.md, and Bluetooth MIDI is still to check on the SMK-37 (5e44f87)
+- Prune the handoff docs: STATE.md and the specs say only what is still open (871e472)
+- Say three frames to a screen where the comments and the architecture still said two, and why 512 (bf9b58d)
+- STATE: where the SMK-37 stands after protocol 2 reached the unit, and what the link taught us (bc67b16)
+- The SMK-37's screen draws from the Pi: frames stay under what the keyboard takes over Linux's USB MIDI (4b438fc)
+- The SMK-37's screen no longer blanks and re-takes itself every two seconds: the Pi waits for a whole screen to be drawn before it asks again (c9e6e6f)
+
+
 ## v2026.10.29.5 — 2026-10-29
 
 - J1.3 selects its spans on a feed with no flags left by J1.2 (289b7ae)
