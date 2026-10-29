@@ -3,7 +3,7 @@
 // everything sits in the window.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stripeOf, stripeFor, STRIPES, packRadii, stampOf, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
+import { stripeOf, stripeFor, STRIPES, packRadii, stampOf, bandLayout, windowLayout, playedX, fracAt, inOutLabels, greaseMark, roundRectPath } from './cassette-geom.js';
 
 const near = (a, b, e = 1e-6) => assert.ok(Math.abs(a - b) < e, `${a} != ${b}`);
 
@@ -129,4 +129,46 @@ test('roundRectPath never hands the canvas a negative radius', () => {
   const calls = [];
   roundRectPath({ moveTo: (...a) => calls.push(a), arcTo: (...a) => calls.push(a), closePath() {} }, 0, 0, 10, 2, -2);
   assert.ok(calls.every((c) => c.every((v) => v >= 0) && !Object.is(c[c.length - 1], -0)), 'the arcs too');
+});
+
+test('a cassette as wide as the design draws keeps all of its band', () => {
+  for (const [W, kind] of [[358, 'phone'], [288, 'phone'], [654, 'desk'], [786, 'desk'], [788, 'desk']]) {
+    const b = bandLayout('SUN 4 OCT · 20:15', windowLayout(W, kind));
+    assert.ok(b.brand, `${W} px: HINDSIGHT`);
+    assert.equal(b.stamp, 'SUN 4 OCT · 20:15', `${W} px: the whole stamp`);
+  }
+});
+
+test('the band never draws HINDSIGHT and the stamp over each other, at any width the bench gives', () => {
+  // #187: below about 300 px the phone's band ran the two together -- each
+  // is placed from its own end of the band, and neither gave way.
+  for (const stamp of ['SUN 4 OCT · 20:15', 'WED 14 OCT · 20:15', '']) {
+    for (let W = 160; W <= 1000; W += 2) {
+      const L = windowLayout(W, W < 600 ? 'phone' : 'desk');
+      const b = bandLayout(stamp, L);
+      const left = b.brand || b.side;
+      if (b.brand) assert.ok(b.brand[1] + 12 <= L.label.w, `${W} px: HINDSIGHT runs off the label`);
+      if (!b.stamp) continue;
+      assert.ok(b.stampBox[0] >= left[1] + 12, `${W} px: '${b.stamp}' starts at ${b.stampBox[0].toFixed(1)}, under what ends at ${left[1].toFixed(1)}`);
+      assert.ok(b.stampBox[1] <= L.label.w, `${W} px: the stamp runs off the label`);
+    }
+  }
+});
+
+test('a narrower band gives up the brand, then the weekday, then the time', () => {
+  const at = (W) => { const b = bandLayout('SUN 4 OCT · 20:15', windowLayout(W, 'phone')); return [!!b.brand, b.stamp]; };
+  assert.deepEqual(at(300), [true, 'SUN 4 OCT · 20:15']);
+  assert.deepEqual(at(220), [false, 'SUN 4 OCT · 20:15'], 'the bench cell #187 was found in');
+  assert.deepEqual(at(176), [false, '4 OCT · 20:15']);
+  assert.deepEqual(at(160), [false, '4 OCT'], 'the title says the time');
+  // Each narrower band holds no more than the one before.
+  let was = Infinity;
+  for (let W = 598; W >= 160; W -= 2) {
+    const [brand, stamp] = at(W);
+    const held = (brand ? 100 : 0) + stamp.length;
+    assert.ok(held <= was, `${W} px holds more than ${W + 2}`);
+    was = held;
+  }
+  // A take with no date in its name keeps its brand, however narrow.
+  assert.ok(bandLayout('', windowLayout(160, 'phone')).brand);
 });
