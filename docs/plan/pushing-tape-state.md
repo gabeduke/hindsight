@@ -81,11 +81,14 @@ The interfaces this touches, for the pull requests and
 
 Each step is a PR of its own:
 
-1. `Engine.Changes()` and the test that every change moves it (Go).
-2. `/api/tapes/changes`, with its heartbeat, and its tests.
-3. `lib/tape/changes.js`, the Studio's and the bar's nudge, and a flow:
+1. [x] `Engine.Changes()` and the test that every change moves it (Go).
+2. [x] `/api/tapes/changes`, with its heartbeat, and its tests.
+3. [x] `lib/tape/changes.js`, the Studio's and the bar's nudge, and a flow:
    with the Studio open, a change made through the API (as a controller
    would make it) shows on the page within 100 ms on the demo. Run
    `node scripts/flows.mjs`; look at it on a tablet and on a desktop.
+   (J1.14. Building it found that the bar in the other rooms never polled
+   the tape once the Studio had been visited: the Studio's hand-over,
+   `delegate`, was for good. The Studio now hands it back on hide.)
 4. At the rig: the SMK-37's PLAY, timed from its log line to the
    tablet's paint. Then Gabe decides the fallback poll.
