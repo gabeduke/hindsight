@@ -778,19 +778,20 @@ function render() {
   renderInputMenu();
 }
 
-// renderTrackRec fills the track inspector's recording: all of it on the
-// armed track; on another (opened by its ›, or none is armed), its input
-// and a way to arm it.
+// renderTrackRec fills the track inspector's recording: all of it on an
+// armed track (Overdub on this device on the record track alone, the first
+// armed, which it goes onto); on another (opened by its ›, or none is
+// armed), its input and a way to arm it.
 // What needs the jam room goes, rows and all, keeping the note and Overdub
 // on this device.
 function renderTrackRec() {
   const phoneOut = !!(state.live && state.live.output_mode === 'phone');
-  const armed = !!state.recTrack && state.sheetTrack === state.recTrack;
+  const armed = state.recTracks.includes(state.sheetTrack);
   $('track-rec').classList.toggle('unarmed', !armed);
   setText($('track-rec-title'), armed ? 'Recording onto it' : 'Not armed');
   $('track-unarmed').hidden = armed;
   $('jam-only-note').hidden = !phoneOut || !armed;
-  const hide = { sources: phoneOut, mode: !armed, catch: !armed || phoneOut, passes: !armed || phoneOut, away: !armed };
+  const hide = { sources: phoneOut, mode: !armed, catch: !armed || phoneOut, passes: !armed || phoneOut, away: state.sheetTrack !== state.recTrack };
   for (const [row, h] of Object.entries(hide)) document.querySelector(`#track-rec .tb-row.${row}`).hidden = h;
 }
 

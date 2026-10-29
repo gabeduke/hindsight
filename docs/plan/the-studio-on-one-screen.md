@@ -21,7 +21,7 @@ the ruler's keys as one ⌗ menu with bars numbered every 2nd, 4th or 8th
 when zoomed out (`barEvery`), and the track heads and the ruler on touch
 with the Studio's budget on a tablet (steps 3 and 4;
 `docs/architecture/tape.md`, *The track heads*; J1.5, J1.16): 43 controls
-on the tablet's screen, 1 under 32 px, ● at 44 px and all four tracks above
+on the tablet's screen (44 at 1280, with the brand), 1 under 32 px, ● at 44 px and all four tracks above
 the bar. The ruler's keys are ⌗ alone (and Fit while the view is moved) on
 every screen, the snap and the loop's lock in its View menu; the lock is
 not on the range's action bar, where it would come after the range it

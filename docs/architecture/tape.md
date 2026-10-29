@@ -312,9 +312,10 @@ there's no ›. The inspector moves to the record track when the arm moves
 (`sheetRec`), not on every render: it once went back to the armed track
 under a finger that had opened another's. On a tablet the Studio holds a
 budget at rest, checked by J1.16 (`scripts/flows/layout.mjs`,
-`STUDIO_BUDGET`): at most 44 controls on the screen, 1 under 32 px (the
-sections' strip), every ● 44 px or more, and all four tracks above the
-bar; it had 65, 30 and 1½. The budget's numbers only go down.
+`STUDIO_BUDGET`): at most 44 controls on the screen (43 at 1024×768, and
+the brand at 1280), 1 under 32 px (the sections' strip), every ● 44 px or
+more, and all four tracks above the bar. The review of 2026-10-22 counted
+65, 30 and 1½; just before the heads it was 51 and 27. The budget's numbers only go down.
 
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what

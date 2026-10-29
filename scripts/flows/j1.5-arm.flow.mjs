@@ -38,6 +38,26 @@ export default {
     t.expect('both ● are lit', await t.poll(() => [...document.querySelectorAll('.tt-arm')].map((b) => b.getAttribute('aria-pressed')).join() === 'true,false,true,false'),
       (await lit()).join());
 
+    // The second armed track's inspector says it's armed: Catch and ● Rec
+    // go onto it too. (It once said "Not armed", offering Arm it, which
+    // would have taken the arm off track 1.) Its › on a touch screen; its
+    // name twice with a mouse.
+    await t.step('open track 3’s inspector', async () => {
+      if (t.profile === 'desktop') {
+        await t.tap(page.locator('.tt-name').nth(2));
+        await t.wait(300);
+        await t.tap(page.locator('.tt-name').nth(2));
+      } else await t.tap(page.locator('#lanes .tt-more').nth(2));
+    });
+    t.expect('it is track 3’s, recording onto it, with no Arm it', await t.poll(() => document.getElementById('track-sheet').open
+      && /^Track 3\b/.test(document.getElementById('track-title').textContent)
+      && document.getElementById('track-rec-title').textContent === 'Recording onto it'
+      && document.getElementById('track-unarmed').hidden),
+    await page.evaluate(() => [document.getElementById('track-title').textContent, document.getElementById('track-rec-title').textContent].join(' / ')));
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('the inspector closes, both still armed', await t.poll(() => !document.getElementById('track-sheet').open)
+      && same(armed(await api.tapeState()), [1, 3]), armed(await api.tapeState()));
+
     // A waiting Catch says what it waits for ("press ▶"); it names the tracks
     // once a pass has gone round (4 bars at 96 BPM, about 10 s).
     await t.step('play a pass', () => t.tap(page.locator('#np-play')));

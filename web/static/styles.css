@@ -2364,8 +2364,10 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .passes-row .pass { min-height: var(--tap); min-width: 48px; }
 .passes-row .muted { font-size: 12px; color: var(--ink-faint); }
 .clip-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; font-size: 13px; color: var(--ink-dim); }
-/* 24 px tall, the least a target may be. */
-.clip-field input[type=range] { height: 24px; accent-color: var(--accent); }
+.clip-field input[type=range] { accent-color: var(--accent); }
+/* The track inspector's level and pan, 24 px tall, the least a target may
+   be: the level is here alone on a touch screen. */
+#track-sheet .clip-field input[type=range] { height: 24px; }
 @media (max-width: 480px) {
   /* Narrow: the chips shrink so number, bus, M and S share a row, and the
      level slider stays under them. */

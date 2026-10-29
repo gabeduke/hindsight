@@ -242,10 +242,12 @@ export const findingKey = (f) => {
 // The Studio's budget on a tablet (docs/plan/the-studio-on-one-screen.md,
 // step 4): at rest (a tape loaded, nothing open), at most `controls` on the
 // screen, at most `under32` of them under 32 px, each track's ● (the jam's
-// key) `jam` px or more, and all four tracks above the bar. The tablet had
-// 65 controls, 30 under 32 px, and 1½ of its tracks above the bar; the
-// heads on a touch screen left 44 and 1 (the sections' strip, a canvas you
-// hold and drag on). Like layout-known.json these only go down: lower one
+// key) `jam` px or more, and all four tracks above the bar. The review of
+// 2026-10-22 counted 65 controls on the tablet, 30 under 32 px, and 1½
+// tracks above the bar; just before the heads on a touch screen it was 51
+// and 27. They left 43 at 1024×768 and upright at 800, and 44 at 1280×800,
+// where the header shows the brand; 1 under 32 px, the sections' strip (a
+// canvas you hold and drag on). Like layout-known.json these only go down: lower one
 // when a change leaves less, never raise it to make a flow pass.
 export const STUDIO_BUDGET = Object.freeze({ controls: 44, under32: 1, jam: 44 });
 
