@@ -4,7 +4,9 @@ A spec for Gabe to agree before anything is built (AGENTS.md, *Specs
 before code*). It is step 7's *The map* in `the-instrument.md`: the
 SMK-37's controls, what each sends and what it does on each page, written
 once per device, read by everything that shows it, so none of them can
-drift from what the bindings do. The first thing it describes is the
+drift from what the bindings do (the firmware's own notes, in the fork,
+are outside it: the map's `sends` are checked against them only by the K
+flows). The first thing it describes is the
 Mixer page (K6), so it comes before K6.
 
 Gabe's words (2026-10-28): *"we should be able to hide the map/overlay as
@@ -30,21 +32,28 @@ each say part of it, and only a test can keep them in step.
 
 ## Decisions to agree, my recommendation first
 
-1. **Where the map lives.** `internal/rig/profiles/<id>.map.json`, beside
-   the device's profile and embedded with it: one file per controller
-   with a map. (Or: a `map` block inside the profile. The profile is
+1. **Where the map lives.** `internal/rig/maps/<id>.json`, embedded
+   beside the profiles: one file per controller with a map, named by its
+   profile's id. Not in `profiles/`, whose every `*.json` `loadProfiles`
+   reads as a profile (and panics on one that isn't). (Or: a `map` block inside the profile. The profile is
    mostly notes for people, and the map is code's, so a file of its own
    reads better and diffs cleanly.)
 2. **What a row says.** One row per control:
 
-   | Field | For the SMK-37's pad 5 |
+   | Field | For the SMK-37's pad 1 |
    |---|---|
-   | `control`: the panel's name | `PAD 5` |
-   | `sends`: the MIDI, as bindings write it | `{"note": 40, "ch": 10}` |
-   | `pages`: what it does on each page, an action id from `controlActions` or a surface verb | `{"fx": "break", "mixer": "mute.1"}` |
-   | `label`: the words on the screen, the strip and the guide, per page | `{"fx": "BREAK", "mixer": "MUTE 1"}` |
-   | `family` / `track`: its colour | `{"fx": "break-family", "mixer": 1}` |
+   | `control`: the panel's name | `PAD 1` |
+   | `sends`: the MIDI, as bindings write it | `{"note": 36, "ch": 10}` |
+   | `pages`: what it does on each page, an action id | `{"fx": "track1", "mixer": "mute.1"}` |
+   | `label`: the words on the screen, the strip and the guide, per page | `{"fx": "T1", "mixer": "MUTE 1"}` |
+   | `family` / `track`: its colour | `{"fx": 1, "mixer": 1}` |
    | `flow`: the K story that checks it | `K5`, `K6` |
+
+   An action id is one of `controlActions`. The Mixer page's sixteen
+   (`mute.1`–`4`, `select.1`–`4`, `solo.1`–`4`, `arm.1`–`4`, as the
+   settled layout puts them: mute and select on the top row, solo and arm
+   on the bottom) are new actions, K6's, so the check that every row's
+   action exists has them to find.
 
    Pages are the device's own (`fx`, and `mixer` while SHIFT is held, for
    the SMK-37). A control on no page (HOME, FADER BANK, the keys) is a
@@ -52,10 +61,18 @@ each say part of it, and only a test can keep them in step.
 3. **Who writes it.** People, by hand, in the pull request that changes
    what a control does. **Who reads it**, so none can drift:
    - *The bindings.* A controller with a map gets its starting bindings
-     from it (its `sends` for each page's action), and `smk37Bindings`
+     from it (its `sends` for the `fx` page's action), and `smk37Bindings`
      goes. A test fails on a map row whose action doesn't exist, and on a
      binding the profile starts with that no row names. MIDI LEARN still
      rebinds on top, per Pi, as now (`controls.json`).
+
+     **Bindings become page-aware**, which is a real change (today a
+     message resolves to one action, `Bindings.actionFor`): the same
+     note is `track1` on the FX page and `mute.1` on the Mixer. My
+     recommendation: the page is the API's (SHIFT's note, which
+     `keyboardButton` already hears, sets it), a page other than `fx` is
+     looked up in the map alone, and MIDI LEARN rebinds the `fx` page
+     only. Gabe's to agree, with K6.
    - *The keyboard's screen and lights.* `FXPads` and `fxPadIndex` are
      read from the map's `fx` page; the Mixer page's from `mixer`.
    - *The guide.* A section of `docs/guide.md` (which the binary embeds),

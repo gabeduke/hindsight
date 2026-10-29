@@ -419,25 +419,39 @@ My recommendation first in each.
         `docs/plan/the-map.md`), scrub (K7), the faders (K8), REC punching
         in (K3). Their flows are written, `todo` until each lands.
 
-     *At the rig, with Gabe at the keyboard*, in order (about 1 h 45 min).
+     *At the rig, with Gabe at the keyboard*, in order (about 1 h 55 min).
      Nothing here is done until he says go; each step says what it decides.
-     1. **Install the Pi's side** (5 min). Merging hindsight's PR cuts a
-        release; on the Pi, `POST /api/update` (or the kit's Update) once
-        it is idle. `/api/status`'s `keyboard`: `present`, `screen`,
-        `version` 2, `features` 0 (the unit's firmware is still 97159f3a).
+     Before the session, without him: hindsight's PR (the Pi's side) is
+     merged, which cuts a release, and the fork's PR #10 is merged or its
+     head's build is at hand.
+     1. **Install the Pi's side** (5 min). On the Pi, `POST /api/update`
+        (or the kit's Update) once it is idle. `/api/status`'s `keyboard`:
+        `present`, `screen`, `version` 2, `features` 0 (the unit's firmware
+        is still 97159f3a).
         *Press:* play the tape from the tablet, then HOME, then hold HOME a
         second and let go. *Listen:* the tape plays on through the retake.
         *Decides:* the Stops are fixed on today's firmware too.
-     2. **Flash the fork's PR #10** (20 min, and a power cycle by hand).
-        The package is CI's (`gh run download` from the PR's run, or
-        `~/smk37-builds/link-dial-in/wine-elite/generated/SMK37_ELITE_OPEN.fwsc`
-        on the Mac), copied to the Pi. Decision 0053's rules: on the Pi,
-        `systemctl --user stop hindsight.service`; `m-flasher backup` (in
-        `~/smk-flash`) and compare it with the first dump; `m-flasher
-        download-mode`; `m-flasher firmware SMK37_ELITE_OPEN.fwsc`; power
-        cycle; back up again and `tools/flash-diff.py first.bin after.bin
-        --expect 0x4000-0x7C000` (with `--accept-unit 0xFF000-0xFF23C`);
-        `systemctl --user start hindsight.service`. `features` then says 7.
+     2. **Flash the fork's PR #10** (30 min, and two power cycles by hand).
+        The package is CI's `wine-elite` artifact from the PR's run (`gh
+        run download <run> -R gabeduke/smk37-hindsight -n wine-elite`; the
+        Mac has head b108192's in
+        `~/smk37-builds/link-dial-in/wine-elite/generated/SMK37_ELITE_OPEN.fwsc`),
+        copied to the Pi. Decision 0053's rules, with `m-flasher` from
+        `~/smk-flash` on the Pi and every dump in `~/smk37-backups/`, out of
+        every repo:
+        1. `systemctl --user stop hindsight.service`;
+        2. `m-flasher download-mode` (a unit running refuses everything
+           else);
+        3. `m-flasher backup` twice; the two must match, and
+           `tools/flash-diff.py <the dump from before the 2026-10-29
+           write> <this one> --expect 0x4000-0x7C000` must pass (only that
+           write's firmware moved since);
+        4. `m-flasher firmware SMK37_ELITE_OPEN.fwsc`;
+        5. power cycle, `m-flasher download-mode` again, `m-flasher
+           backup`, and the same `flash-diff.py` of this dump against step
+           3's: nothing outside 0x4000–0x7C000 may differ;
+        6. power cycle, `systemctl --user start hindsight.service`.
+           `features` then says 7.
         *Decides:* the unit takes the image (957 bytes free).
      3. **Local echo** (10 min). *Press* each pad, and CATCH with nothing to
         catch; *turn* each of K1–K4 fast. *Look:* a pad goes half the
@@ -452,17 +466,22 @@ My recommendation first in each.
         means it was the chain; one means the next suspect is the
         firmware's own state, probed with `tools/probe/` (`led` frames by
         hand).
-     5. **The quiet clock** (5 min). With the tape playing, `aseqdump -p
-        <the SMK-37's port>` on the Pi, then HOME, then the retake. *Look:*
+     5. **The quiet clock** (5 min). With Open's own clock running (HOME,
+        then its sequencer's PLAY on the keyboard's own screen, so there is
+        a clock to hold back), `aseqdump -l` to find the SMK-37's port and
+        `aseqdump -p <it>` on the Pi; then hold HOME a second and let go, so
+        the Pi takes the screen. *Look:*
         no F8, FA or FC from the keyboard while the Pi has its screen, and
         Open's clock back after HOME. *Decides:* the firmware's half of
         the Stops fix holds.
      6. **Where the frames go** (20 min, Hindsight stopped). The fork's
-        `tools/probe/piprobe.py` with `sweep.txt` (64 to 764 bytes):
+        `python3 -I tools/probe/piprobe.py /dev/snd/midiC<card>D0
+        tools/probe/sweep.txt` (64 to 764 bytes; the card from `amidi -l`):
         the largest acked, the smallest lost, each ack's time. Then, to
         tell Linux from the SDK, the 764-byte frame again with `usbmon`
-        capturing the bus (`sudo modprobe usbmon`, `tcpdump -i
-        usbmon<bus> -w frame.pcap`): all of it on the wire, in USB-MIDI's
+        capturing the keyboard's bus (`lsusb` for the bus; `sudo modprobe
+        usbmon`, `sudo tcpdump -i usbmon<bus> -w frame.pcap`, tcpdump
+        installed first): all of it on the wire, in USB-MIDI's
         4-byte packets, means the keyboard's SDK lost it; less means
         `snd-usb-midi` did. *Decides:* `MaxFrame` stays 512 or moves up to
         a margin under the edge (a whole screen in two frames rather than
