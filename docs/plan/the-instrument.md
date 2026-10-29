@@ -392,21 +392,96 @@ My recommendation first in each.
 
      *Next* (Gabe, 2026-10-29: a session of its own to dial in the link
      and the signal flow). What it answers is *Learnt on the unit* in
-     `docs/architecture/keyboard.md`:
-     1. The pads: while the Pi holds the panel its LED colours win in the
-        firmware; and/or the Pi re-asserts lights on a timer.
-     2. The Stops: the SMK-37's realtime start/stop shouldn't move the tape
-        when its PLAY is a button to the Pi; and the firmware shouldn't send
-        them on a screen take.
-     3. Local echo in the firmware: a pad half-lit and a knob's value shown
-        the instant they're touched, the Pi confirming after.
-     4. The link itself: measure where frames are lost (the SDK's USB MIDI
-        assembly, Linux's `snd-usb-midi` packing), ack and retry behaviour,
-        latency from press to light and press to sound, and a probe in CI or
-        the harness that would have caught the 764-byte loss.
-     5. Then the build order's rest: the tablet's pad strip (step 6), the
-        Mixer page on SHIFT (K6), scrub (K7), the faders (K8), REC punching
-        in (K3).
+     `docs/architecture/keyboard.md`. Done without the unit on 2026-10-29
+     (the fork's PR #10, built and not flashed; hindsight's own PR, the K
+     flows and the map's spec):
+     1. The pads: the Pi's colours already won in the firmware; the chain
+        (which shares SPI1 with the LCD) is now sent again every 500 ms
+        while the Pi has the pads, and the Pi sends every light again every
+        2 s. *To confirm at the rig* that it was the chain.
+     2. The Stops: found in the sources (Open's clock out, and
+        `midi_router.c`'s `recover()` queuing a Stop on a busy port). The Pi
+        drops a firmware keyboard's realtime Start and Stop (K2), and the
+        firmware's quiet clock sends the Pi's port none while it has the
+        screen.
+     3. Local echo: a pad half-lit and a knob's value drawn the instant
+        they're touched, in the firmware; the Pi answers each press and
+        each turn after (`Keyboard.Pressed`, `Turned`), and KNOB now says
+        where each knob stands.
+     4. The link: a model of it in `internal/surface/link_test.go` that
+        fails with the 1,024-byte frames the unit lost; `/api/status`'s
+        `keyboard` (its round trip and a press's answer, `confirm_ms`).
+        Where in the path the frames go, and press to sound, are the rig's
+        (below); press to sound reads step 1's `GET /api/latency`, when it
+        lands, rather than a second mechanism.
+     5. Then the build order's rest: the tablet's pad strip (step 6, K11),
+        the Mixer page on SHIFT (K6, after the map's spec,
+        `docs/plan/the-map.md`), scrub (K7), the faders (K8), REC punching
+        in (K3). Their flows are written, `todo` until each lands.
+
+     *At the rig, with Gabe at the keyboard*, in order (about 1 h 45 min).
+     Nothing here is done until he says go; each step says what it decides.
+     1. **Install the Pi's side** (5 min). Merging hindsight's PR cuts a
+        release; on the Pi, `POST /api/update` (or the kit's Update) once
+        it is idle. `/api/status`'s `keyboard`: `present`, `screen`,
+        `version` 2, `features` 0 (the unit's firmware is still 97159f3a).
+        *Press:* play the tape from the tablet, then HOME, then hold HOME a
+        second and let go. *Listen:* the tape plays on through the retake.
+        *Decides:* the Stops are fixed on today's firmware too.
+     2. **Flash the fork's PR #10** (20 min, and a power cycle by hand).
+        The package is CI's (`gh run download` from the PR's run, or
+        `~/smk37-builds/link-dial-in/wine-elite/generated/SMK37_ELITE_OPEN.fwsc`
+        on the Mac), copied to the Pi. Decision 0053's rules: on the Pi,
+        `systemctl --user stop hindsight.service`; `m-flasher backup` (in
+        `~/smk-flash`) and compare it with the first dump; `m-flasher
+        download-mode`; `m-flasher firmware SMK37_ELITE_OPEN.fwsc`; power
+        cycle; back up again and `tools/flash-diff.py first.bin after.bin
+        --expect 0x4000-0x7C000` (with `--accept-unit 0xFF000-0xFF23C`);
+        `systemctl --user start hindsight.service`. `features` then says 7.
+        *Decides:* the unit takes the image (957 bytes free).
+     3. **Local echo** (10 min). *Press* each pad, and CATCH with nothing to
+        catch; *turn* each of K1–K4 fast. *Look:* a pad goes half the
+        instant it's pressed, and a refused one glows for a moment and goes
+        dim; a knob's number follows the hand with no lag and doesn't jump
+        back; `confirm_ms` (the Pi's answer) stays under about 10 ms.
+        *Decides:* the echo's 300 ms and its three times the rest's light
+        stay, or change in `hindsight.h`.
+     4. **The pads' colours** (10 min). Play a loud loop with all four
+        meters moving and play the pads for a few minutes. *Look:* any pad
+        in a wrong colour for longer than half a second. *Decides:* none
+        means it was the chain; one means the next suspect is the
+        firmware's own state, probed with `tools/probe/` (`led` frames by
+        hand).
+     5. **The quiet clock** (5 min). With the tape playing, `aseqdump -p
+        <the SMK-37's port>` on the Pi, then HOME, then the retake. *Look:*
+        no F8, FA or FC from the keyboard while the Pi has its screen, and
+        Open's clock back after HOME. *Decides:* the firmware's half of
+        the Stops fix holds.
+     6. **Where the frames go** (20 min, Hindsight stopped). The fork's
+        `tools/probe/piprobe.py` with `sweep.txt` (64 to 764 bytes):
+        the largest acked, the smallest lost, each ack's time. Then, to
+        tell Linux from the SDK, the 764-byte frame again with `usbmon`
+        capturing the bus (`sudo modprobe usbmon`, `tcpdump -i
+        usbmon<bus> -w frame.pcap`): all of it on the wire, in USB-MIDI's
+        4-byte packets, means the keyboard's SDK lost it; less means
+        `snd-usb-midi` did. *Decides:* `MaxFrame` stays 512 or moves up to
+        a margin under the edge (a whole screen in two frames rather than
+        three), and whether the fork or the Pi's side needs the fix.
+     7. **Press to light, press to sound** (10 min). With step 1's `GET
+        /api/latency` on the Pi (if it has landed), play the pads and PLAY
+        for a minute: its MIDI path's p50 and p95, beside `confirm_ms`
+        and `rtt_ms`. *Decides:* whether the pads' lag is the link, the
+        render's lead (about 200 ms today) or the quantum; the
+        performance mode (the engine's step 2) is judged by these.
+     8. **The pads' timing, by ear** (15 min; P1). Over a groove at about
+        120 BPM, play BREAK, ROLL and STOP for five minutes on a 16th, the
+        default, then five on `now` (`PUT /api/tapes/controls` with
+        `{"quantum": "now"}`; back with `"16th"`). *Listen:* which feels
+        played rather than scheduled, and whether `now` lands sloppily.
+        *Decides:* the Pi's quantum for controllers (`controls.json`).
+     9. **Gabe's calls on paper** (10 min): the map's spec
+        (`docs/plan/the-map.md`; the help page's opening, its question
+        5), and K6's go-ahead once it is agreed.
    - *The map.* What each control does, on each page, is written once,
      per device, beside its profile: the control, what it sends, what it
      does on each page, the track colour of a Mixer pad, and the K flow

@@ -63,20 +63,23 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   100 ms or more. Then **Gabe decides the fallback poll**: the
   recommendation is the Studio's 200 ms slowed to 1 s, for when the socket
   is down (`docs/architecture/push.md`; [decision 0013](../decisions/0013-push-a-nudge-not-the-state.md)).
-- **The SMK-37 on Hindsight's own firmware.** On the rig (unreleased, #202
-  deployed): the designed screen, the press banner, the pads lit by family
-  with the half/full stage, PLAY/REC/SHIFT lights; the tablet's note over
-  the bar for every press (#198); the push socket (#196). Gabe, seeing it:
-  *"it works!"*
+- **The SMK-37 on Hindsight's own firmware.** Released (#202's 512-byte
+  frames first in v2026.10.29.6): the designed screen, the press banner,
+  the pads lit by family with the half/full stage, PLAY/REC/SHIFT lights;
+  the tablet's note over the bar for every press (#198); the push socket
+  (#196). Gabe, seeing it: *"it works!"*
   - The unit as it is, its firmware and how to probe it, and what was
     **learnt on the unit** (the 764-byte frame loss, the dead-keyboard
     retake, the Stops, the pads' colours): `docs/architecture/keyboard.md`,
     *On the unit* and *Learnt on the unit*.
-  - **Next**, a session of its own (Gabe, 2026-10-29: to dial in the link
-    and the signal flow): the pads, the Stops, local echo, the link itself,
-    then the build order's rest. The list is *Next* in
-    `the-instrument.md`, step 7, which also holds the plan and *The
-    surface, designed*.
+  - **Next** (Gabe, 2026-10-29: to dial in the link and the signal
+    flow): the pads, the Stops, local echo and the link's model are built
+    without the unit (the fork's PR #10, not flashed; the Pi's side in
+    hindsight). What needs Gabe at the keyboard is the checklist *At the
+    rig* under *Next* in `the-instrument.md`, step 7: install, flash,
+    look, listen, measure, about 1 h 45 min. Then the build order's rest
+    (K11's pad strip, K6 after the map's spec `the-map.md`, K7, K8, K3),
+    whose flows are written and `todo`.
 - The rig page with the real Sidekick (the eight steps in PR #107).
 - The device spike (iPad standalone audio when backgrounded; Android
   discarding the PWA mid-jam) needs the tablet and the iPad.
