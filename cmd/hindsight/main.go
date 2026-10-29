@@ -20,6 +20,7 @@ import (
 	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/hub"
 	"github.com/gabeduke/hindsight/internal/midi"
+	"github.com/gabeduke/hindsight/internal/surface"
 	"github.com/gabeduke/hindsight/internal/tape"
 	"github.com/gorilla/mux"
 )
@@ -198,6 +199,13 @@ func main() {
 	// set, which isn't guarded. Until then the watcher drops them.
 	if controllers != nil {
 		srvAPI.SetControllers(controllers)
+		// The SMK-37 on Hindsight's firmware (internal/surface): asked only
+		// while it's open as a controller, so its answers come back. Stops
+		// run last first: the client, then its farewell and its port.
+		kb := surface.New(srvAPI.KeyboardSend, srvAPI.KeyboardConnected)
+		srvAPI.SetKeyboard(kb)
+		kb.Start()
+		stops = append(stops, srvAPI.StopKeyboard, kb.Stop)
 		controllers.SetControlSink(srvAPI)
 	}
 	// The hub: a public HTTPS name for this Pi's LAN address, and Caddy's
@@ -362,7 +370,7 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 	opts := tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources,
 		MinFreeGB: cfg.MinFreeGB, LatencyMS: cfg.TapeLatencyMS,
 		Saver: saver, TakesDir: cfg.OutputDir, MixdownTail: cfg.TapeMixdownTailS,
-		HandleSeconds: cfg.TapeHandleS}
+		HandleSeconds: cfg.TapeHandleS, OutputLatencyMS: float64(cfg.OutputLatencyMS)}
 	if out := clockOut(cfg, demo); out != nil {
 		opts.Clock = out
 	}

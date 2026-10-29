@@ -135,11 +135,11 @@ type fakeVerbs struct {
 	ran []string
 }
 
-func (v *fakeVerbs) Verb(id, rt string) (string, error) {
+func (v *fakeVerbs) Verb(id, rt string) (verbDone, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	v.ran = append(v.ran, strings.TrimSuffix(id+" "+rt, " "))
-	return id, nil
+	return verbDone{log: id, says: strings.ToUpper(id)}, nil
 }
 
 func (v *fakeVerbs) wait(t *testing.T, want ...string) {
@@ -199,6 +199,29 @@ func TestAKnownControllerShipsAProfile(t *testing.T) {
 	f.waitFor(t)
 	a.ControlMIDI("SMK-37", 0x99, 43, 100) // channel 10: its pads
 	f.waitFor(t, "press stop 16th")
+}
+
+// On Hindsight's firmware the SMK-37's buttons are notes on channel 16:
+// PLAY runs the transport and REC keeps, under either spelling of its name:
+// "SMK37 Open   " is what the Elite reported on Hindsight's firmware
+// (2026-10-27), trailing spaces and all. The same notes on another channel,
+// its keys', run nothing.
+func TestTheSMK37sSurfaceButtonsRunVerbs(t *testing.T) {
+	_, _, a, _ := controlsAPI(t, t.TempDir())
+	v := &fakeVerbs{}
+	a.controls.verbs = v
+	for _, port := range []string{"SMK-37", "SMK37 Open   "} {
+		a.ControlMIDI(port, 0x90, 16, 100) // channel 1: a key, low
+		a.ControlMIDI(port, 0x9F, 16, 127) // channel 16: PLAY
+		a.ControlMIDI(port, 0x8F, 16, 0)
+		v.wait(t, "transport")
+		a.ControlMIDI(port, 0x9F, 17, 127) // REC
+		a.ControlMIDI(port, 0x8F, 17, 0)
+		v.wait(t, "transport", "keep")
+		v.mu.Lock()
+		v.ran = nil
+		v.mu.Unlock()
+	}
 }
 
 // learn binds the next note or CC from that controller -- and nothing from
@@ -734,11 +757,15 @@ func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
 // slowGrab holds GRAB for as long as the test says: the bar after it.
 type slowGrab struct {
 	fakeVerbs
-	gate chan struct{}
+	gate    chan struct{}
+	entered chan struct{} // optional: told as each GRAB starts waiting
 }
 
-func (v *slowGrab) Verb(id, rt string) (string, error) {
+func (v *slowGrab) Verb(id, rt string) (verbDone, error) {
 	if id == "grab" {
+		if v.entered != nil {
+			v.entered <- struct{}{}
+		}
 		<-v.gate
 	}
 	return v.fakeVerbs.Verb(id, rt)

@@ -1,6 +1,6 @@
 // J2.7 Find last month's take: the search, Sort ▾ and a filter chip on the
 // List, a month's All › on the shelf wall, and Shelf | List remembered on
-// this device. docs/flows.md#j27, docs/plan/the-studio-space.md ("The
+// this device. docs/flows.md#j27, docs/architecture/rooms.md ("The
 // library").
 const state = () => {
   const b = document.body.classList;

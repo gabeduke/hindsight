@@ -38,6 +38,11 @@ type Store struct {
 	length     int64 // frames a track holds
 
 	mu sync.Mutex // one writer of tape.json files and pool names at a time
+
+	// changed is the engine's Changes.Bump, called once the clipboard or the
+	// crate is written; nil before an engine has the store. The tape's own
+	// writes bump in the engine, once the loaded tape is the new one.
+	changed func()
 }
 
 // OpenStore opens (and makes) a tape store.
@@ -51,6 +56,14 @@ func OpenStore(dir string, sampleRate, tracks int, lengthSeconds int) (*Store, e
 		}
 	}
 	return &Store{dir: dir, sampleRate: sampleRate, tracks: tracks, length: int64(lengthSeconds) * int64(sampleRate)}, nil
+}
+
+// bump tells the engine, if it has the store, that the clipboard or the
+// crate was written.
+func (s *Store) bump() {
+	if s.changed != nil {
+		s.changed()
+	}
 }
 
 // Dir is the store's folder.

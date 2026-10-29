@@ -15,3 +15,10 @@ type Sink interface {
 type KnownDelta interface {
 	Delta() (delta int64, ok bool)
 }
+
+// PullSize is the optional capability of a Sink that says the most frames
+// one pull asks for, so a player keeps at least that much ready: the
+// device's buffer, the demo's FRAMES_PER_BUFFER.
+type PullSize interface {
+	PullFrames() int
+}

@@ -5,7 +5,7 @@
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v172';
+const CACHE = 'hindsight-shell-v177';
 const SHELL = [
   '/',
   '/index.html',
@@ -20,6 +20,7 @@ const SHELL = [
   '/lib/flags.js',
   '/lib/update.js',
   '/lib/live.js',
+  '/lib/socket.js',
   '/lib/link.js',
   '/lib/meter.js',
   '/lib/text.js',
@@ -152,6 +153,7 @@ const SHELL = [
   '/lib/rig/gesture.js',
   '/lib/tape/page.js',
   '/lib/tape/poll-gate.js',
+  '/lib/tape/changes.js',
   '/lib/tape/catch.js',
   '/lib/tape/geometry.js',
   '/lib/tape/levels.js',
@@ -183,6 +185,7 @@ const SHELL = [
   '/lib/objects/spin.js',
   '/lib/bar/bar.js',
   '/lib/bar/engine.js',
+  '/lib/bar/press-note.js',
   '/lib/bar/tape-source.js',
   '/lib/bar/take-source.js',
   '/lib/bar/feed-source.js',
@@ -226,7 +229,7 @@ const SHELL = [
   '/fonts/caveat-500.woff2',
   '/fonts/caveat-700.woff2',
   '/manifest.json',
-  '/icons/ui.svg?v=5157df85',
+  '/icons/ui.svg?v=c8b28c4c',
   '/icons/icon-192.png?v=3',
   '/icons/icon-small.svg?v=3',
   '/icons/favicon-32.png?v=3',

@@ -83,6 +83,13 @@ type ControlSink interface {
 	ControllerGone(port string)
 }
 
+// ControlSysExSink is a ControlSink that also hears a controller's SysEx
+// messages (Parser.OnSysEx), on the reader's goroutine: the SMK-37 on
+// Hindsight's firmware answers in SysEx (internal/surface).
+type ControlSysExSink interface {
+	ControlSysEx(port string, msg []byte)
+}
+
 // ParseList splits a comma-separated environment value into trimmed,
 // non-empty substrings.
 func ParseList(s string) []string {
@@ -438,6 +445,11 @@ func (w *Watcher) open(p Port) {
 		r.onGone = func() {
 			if s := w.controlSink(); s != nil {
 				s.ControllerGone(name)
+			}
+		}
+		r.onSysEx = func(msg []byte) {
+			if s, ok := w.controlSink().(ControlSysExSink); ok {
+				s.ControlSysEx(name, msg)
 			}
 		}
 		log.Printf("[*] midi: %q on %s plays the tape (TAPE_CONTROLLER)", p.Name, p.Node)

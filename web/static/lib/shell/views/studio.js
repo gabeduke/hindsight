@@ -1,6 +1,6 @@
 // web/static/lib/shell/views/studio.js
-// The Studio as a shell view (docs/architecture.md, The shell,
-// step 6): mounts the tape page (lib/tape/page.js), the Studio ribbon and buffer
+// The Studio as a shell view (docs/architecture/shell.md,
+// The shell): mounts the tape page (lib/tape/page.js), the Studio ribbon and buffer
 // (lib/rooms/mount.js), and Play mode (lib/play/mount.js) inside the shell,
 // driving their polls, frame loops, and global listeners through ctx so they
 // go quiet while another room is shown.

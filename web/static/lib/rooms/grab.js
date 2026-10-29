@@ -1,6 +1,6 @@
 // web/static/lib/rooms/grab.js
-// GRAB starts at the loop's length (docs/architecture.md, Vocabulary,
-// "The Studio: one selection, two verbs" and decision 12): the feed's 1 / 2 /
+// GRAB starts at the loop's length (docs/architecture/rooms.md, Vocabulary;
+// docs/decisions/0014-a-takes-grab-is-the-feeds-grab.md): the feed's 1 / 2 /
 // 4 / 8 picker begins at the tape's loop in bars, so a grab fits the loop it
 // is for, and a take's GRAB -- the last N bars before its playhead -- uses
 // the same N. Pure, but for loadedLoopBars, which asks the Pi.

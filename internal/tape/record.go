@@ -145,6 +145,7 @@ func (e *Engine) RecordPairs(id string, pairs []Pair, replace bool) (Recording, 
 		r.State, r.From = "on", e.lateFrom()
 	}
 	e.rec = &r
+	e.changes.Bump()
 	return r, nil
 }
 
@@ -180,11 +181,15 @@ func (e *Engine) Transport(id string, a Action) (*Kept, error) {
 	switch a.Kind {
 	case "play":
 		e.recMu.Lock()
-		if e.rec != nil && e.rec.State == "armed" && e.rec.Tape == id {
+		on := e.rec != nil && e.rec.State == "armed" && e.rec.Tape == id
+		if on {
 			a.CountIn = true
 			e.rec.State, e.rec.From = "on", e.delivered.Load()
 		}
 		e.recMu.Unlock()
+		if on {
+			e.changes.Bump() // the armed ● Rec is on
+		}
 	case "stop":
 		if r := e.Recording(); r != nil && r.State == "on" {
 			// Stop first -- the position map remembers what played -- then
@@ -210,6 +215,7 @@ func (e *Engine) endRecordingAt(id string, cancel bool, end uint64) (*Kept, erro
 	r := e.rec
 	e.rec = nil
 	e.recMu.Unlock()
+	e.changes.Bump()
 	if r == nil {
 		return nil, ErrNotRecording
 	}

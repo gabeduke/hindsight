@@ -1,7 +1,7 @@
 // web/static/lib/rooms/takename.js
 // What a take is called, the one way it is called everywhere a person reads
 // it: on its spine, in the bar, in a search, in Recently deleted, in a toast
-// and in what a screen reader says (docs/architecture.md, Vocabulary). Its
+// and in what a screen reader says (docs/architecture/rooms.md, Vocabulary). Its
 // own name when it has one; else the time it was caught, which is what is
 // printed on its spine. Never the file (jam_….wav) or its date stamp
 // (2026-10-24_083527): those stay where a request needs them.

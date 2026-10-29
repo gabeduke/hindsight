@@ -91,11 +91,35 @@ go test -race ./...
 two shell scripts the release workflow depends on, which otherwise would only
 ever be exercised by a real release — plus the updater behind the Update
 button and `release.yml`'s release filter. It needs Linux (bash 4 and
-`flock`); `AGENTS.md` has the container command for running it on a Mac.
+`flock`); on a Mac, run it in a container (below).
 
 The JavaScript under `web/static/lib/` has tests under node's built-in
 runner — no package.json, no dependencies. The globs name each directory, so
 the full command is in `AGENTS.md`, kept in step with `ci.yml`.
+
+### On a Mac
+
+- `go test ./...` builds the capture path, which is cgo against PortAudio:
+  `brew install portaudio` once. Anything that doesn't touch the audio device
+  also builds with `CGO_ENABLED=0`. The `ld: warning: … malformed
+  LC_DYSYMTAB` lines are linker noise, not failures.
+- `test-release-scripts.sh` needs Linux, like the Pi whose updater it tests:
+  bash 4 for `mapfile`, and `flock`. Under macOS's bash 3.2 it reports
+  failures that aren't real, then stops before its release-filter checks.
+  Run it in a container instead:
+
+  ```sh
+  docker run --rm -v "$PWD":/w -w /w python:3.12-slim bash -c '
+    apt-get -qq update && apt-get -qq install -y git curl >/dev/null &&
+    git config --global --add safe.directory /w &&
+    ./scripts/test-release-scripts.sh'
+  ```
+
+### In a cloud sandbox
+
+Cloud agent sandboxes generally block the Go module proxy, so `go build` and
+`go test ./...` fail there on downloads — not on your code. The JS tests,
+`gofmt` and the shell tests all run.
 
 ### Checking the waveform page by hand
 
@@ -187,7 +211,10 @@ make deploy-static       # sync web/static only (./deploy.sh --static)
 A restart clears the ring, so check `make pi-status` and read `make deploy-dry`'s
 deletions first. The sync never sends, or deletes on the Pi, `.claude`,
 `.playwright-mcp` or `.superpowers`: tooling scratch that belongs to the
-checkout it's in.
+checkout it's in. Nor what the Pi keeps beside the checkout: `hindsight.env`,
+the Settings sheet's `settings.json`, the tape, the hub's certificate and
+the updater's releases. `test-release-scripts.sh` fails if one comes off
+deploy.sh's list.
 
 `--static` takes about a second: no rebuild, no restart. The UI is served with
 `http.FileServer` straight from disk on each request, so an HTML, CSS or JS
@@ -271,7 +298,7 @@ four tracks, plain and under each trick.
 
 The Studio and the Listening Room are views in one document, `shell.html`
 (how the shell, the router, the view contract and the engine work is in
-[architecture.md](architecture.md), *The shell*). They are the only layout.
+[architecture/shell.md](architecture/shell.md), *The shell*). They are the only layout.
 `/`, `/tape.html` and `/takes.html` all serve the shell; `/` shows the Studio
 when the tape is on (always, now) and Capture otherwise. The header's two
 tabs are links the router takes (`lib/nav.js`, `navTabs`). Settings, the rig,
@@ -318,7 +345,7 @@ class on the body (`fold.js`), which changes heights and nothing else.
 ## The Listening Room
 
 `web/static/lib/room/` is the Listening Room (its words: *Vocabulary* in
-[architecture.md](architecture.md)). The shelf is the room seen from the
+[architecture/rooms.md](architecture/rooms.md)). The shelf is the room seen from the
 doorway (`doorway.js`), mounted by `lib/shell/views/room.js`, and a take's
 page is Open (`open.js`, on `wave.html`).
 
@@ -494,7 +521,7 @@ into the right shape.
 `web/static/lib/scene/` is the shape every drawn thing has, so a new way of
 drawing one (a 3D deck, cables as ropes) can be built without learning the
 app. Three parts, three owners (the rules are *The scene contract* in
-[architecture.md](architecture.md)):
+[architecture/css-and-motion.md](architecture/css-and-motion.md)):
 
 - **State** is plain data the page writes, with `obj.set(patch)` on a
   `SceneObject` (`object.js`): a level, a poll of the tape, how far a take
@@ -560,6 +587,26 @@ binary built on the bare runner would not start on the Pi.
 Nothing about this can be rehearsed before it is on `main` — the first merge
 is also the workflow's first run.
 
+### Installing a release
+
+**A release:** `POST /api/update` on the Pi installs one — empty body means
+the latest, or `{"tag":"v2026.10.14.10"}` for a particular one
+([0012](decisions/0012-agents-install-releases.md)):
+
+```sh
+curl -X POST http://<pi-host>/api/update            # the latest
+curl -X POST http://<pi-host>/api/update -d '{"tag":"v2026.10.14.10"}'
+```
+
+It answers `202` with the tag it started, and refuses when it should:
+`409` while a take is saving or a phone is recording, `409` if an update is
+already under way, and `400` for a tag below `UpdateFloor`
+(`internal/api/releases.go`) — installing one older than the Update button
+would take the button away.
+
+`GET /api/update` is what the page polls for progress;
+`GET /api/update/releases` lists what can be installed.
+
 ## The Python probes
 
 Diagnostics, not part of the runtime. They are in `scripts/` in the repo and
@@ -616,6 +663,39 @@ capture so the library is not empty, waits for the waveform to actually mount,
 and then shoots three viewports at 2× scale. The demo signal is derived from a
 sample counter rather than the clock, so the waveform is identical run to run
 and a re-shoot produces a comparable image.
+
+## Gotchas
+
+- `gh pr edit` fails on this repo (the retired projects API). Use
+  `gh api -X PATCH repos/gabeduke/hindsight/pulls/<n> -F body=@file`.
+- On the Pi, the service's log is
+  `journalctl _SYSTEMD_USER_UNIT=hindsight.service`;
+  `journalctl --user -u` finds nothing.
+- A demo without `TAPE_DIR` and `SETTINGS_FILE` writes `~/hindsight`. The
+  flows runner sets both to a temp dir.
+- A red Go test is not a flake until its log says so (the known ones were
+  fixed on 2026-10-22).
+- The end-to-end sound check without ears: output `both`
+  (`PUT /api/tapes/output`), record `/api/tapes/stream` while a script holds
+  pads on `/api/tapes/play`, and read the level every 50 ms: BREAK reads 0,
+  STOP falls to 0 over a beat.
+- Node 22 for the JS tests (as CI): 20 has no glob support in `--test`
+  and no global `navigator`.
+- The layout checks settle each screen and look twice, which makes a whole
+  run of the flows about 9 minutes locally.
+- Not a bug: a take tapped while its preview encodes says "Still encoding"
+  and loads when ready, which is why `t.api.keep` waits.
+
+## Design canvases
+
+claude.ai artifacts, private to Gabe:
+
+- Room, Studio & Rig: `Ls32s93iBGoT7jUcHQb54Y`
+- One player, two rooms (the shell): `9oJSxmvQhTnrBvVr2Uiz5o`
+- Interaction model: `KwreNYVjPb8Kt3RMgrAbPr`
+- The wireframes (every view at tablet, phone and desktop size):
+  `9VDEexPH2bUo1vVzxZBSQx`
+- The SMK-37's surface: `WrryAkACiz1AgNHGBMYAWV`
 
 ## Conventions
 

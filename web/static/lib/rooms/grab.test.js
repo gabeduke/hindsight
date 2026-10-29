@@ -1,6 +1,6 @@
 // web/static/lib/rooms/grab.test.js
-// GRAB, from a take and from the feed (docs/architecture.md, Vocabulary,
-// decision 12): a take's GRAB is the feed's GRAB, with N starting at the
+// GRAB, from a take and from the feed (docs/architecture/rooms.md, Vocabulary;
+// docs/decisions/0014-a-takes-grab-is-the-feeds-grab.md): a take's GRAB is the feed's GRAB, with N starting at the
 // loop's length.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

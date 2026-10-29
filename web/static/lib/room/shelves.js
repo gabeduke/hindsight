@@ -1,6 +1,6 @@
 // web/static/lib/room/shelves.js
-// What stands on the Listening Room's shelf wall (docs/plan/the-studio-
-// space.md, "The library"): one shelf per month, newest first, then ★, then
+// What stands on the Listening Room's shelf wall (docs/architecture/
+// rooms.md, "The library"): one shelf per month, newest first, then ★, then
 // a shelf per tag. A take stands on its month's shelf, and on ★ and its
 // tag's as well, so each shelf is whole. Tapes are not on them: they live in
 // the Studio only, and a tape's bounces stand here as takes. Pure, so it is

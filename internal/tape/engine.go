@@ -26,8 +26,6 @@ import (
 const (
 	// BlockFrames is what the renderer renders at a time: 21 ms.
 	BlockFrames = 1024
-	// aheadBlocks is how far ahead of the device it keeps: 107 ms.
-	aheadBlocks = 5
 )
 
 var (
@@ -95,6 +93,26 @@ type Options struct {
 	// clock, Start, Stop and Song Position as the tape plays. The engine
 	// stops it when it stops, if it can be.
 	Clock ClockOut
+	// OutputLatencyMS is what the device is asked to buffer
+	// (OUTPUT_LATENCY_MS): the renderer keeps that far ahead of it too
+	// (aheadFor). 0 is the default's 100 ms.
+	OutputLatencyMS float64
+}
+
+// aheadFor is how many blocks the renderer keeps ahead of a device asked
+// to buffer ms, which pulls up to pull frames at a time (audio.PullSize; 0
+// when it doesn't say): as far as the device's own buffer, never less than
+// one pull nor one block, and never more than a second. Every block ahead
+// is heard that much later (the lead), so a small buffer is a quick
+// instrument; a large one rides out a device that, after a stall, asks for
+// several pulls back to back, which a renderer one pull ahead can't feed.
+func aheadFor(ms float64, pull, sampleRate int) int {
+	if ms <= 0 {
+		ms = 100
+	}
+	n := int(math.Ceil(ms * float64(sampleRate) / 1000 / BlockFrames))
+	n = max(n, (pull+BlockFrames-1)/BlockFrames, 1)
+	return min(n, (sampleRate+BlockFrames-1)/BlockFrames)
 }
 
 type block struct {
@@ -131,6 +149,12 @@ type Engine struct {
 	heldPads atomic.Uint32 // perf's held pads, a bit each, for Live
 	cue      cuePlayer     // the cue lane's clips playing (cuelive.go)
 
+	// changes moves when what the page shows moves (changes.go).
+	changes Changes
+
+	// meters are the tracks' levels as they render (meters.go).
+	meters meters
+
 	// player
 	blocks    chan *block
 	free      chan *block
@@ -138,6 +162,7 @@ type Engine struct {
 	cur       *block
 	off       int
 	delivered atomic.Uint64 // output frames handed to the device
+	ahead     uint64        // frames the renderer keeps ahead of the device (aheadFor)
 	late      atomic.Uint64 // blocks delivered as silence because none was ready
 	sinkBase  atomic.Int64  // engine output frame where the sink's own count began
 	sinkName  string
@@ -168,6 +193,7 @@ type Engine struct {
 	// an output with no clock bridge of its own (the demo's).
 	pullBridge *audio.ClockBridge
 	heardFn    func(o uint64) (int64, bool) // tests: when output frame o is heard
+	nowFn      func() int64                 // tests: the monotonic clock a press is stamped with
 	bridgeless bool                         // the output keeps no bridge: pullBridge stands in
 
 	crateMu sync.Mutex // one change of crate.json at a time
@@ -233,8 +259,6 @@ func NewEngine(o Options) *Engine {
 		clockOut:  o.Clock,
 		tr:        newTransport(),
 		actions:   make(chan Action, 32),
-		blocks:    make(chan *block, aheadBlocks+3),
-		free:      make(chan *block, aheadBlocks+3),
 		kick:      make(chan struct{}, 1),
 		stop:      make(chan struct{}),
 		done:      make(chan struct{}),
@@ -246,6 +270,13 @@ func NewEngine(o Options) *Engine {
 		e.pullBridge = audio.NewClockBridge(256, o.Store.SampleRate())
 		sr = o.Store.SampleRate()
 	}
+	pull := 0
+	if p, ok := o.Sink.(audio.PullSize); ok {
+		pull = p.PullFrames()
+	}
+	blocks := aheadFor(o.OutputLatencyMS, pull, sr)
+	e.ahead = uint64(blocks) * BlockFrames
+	e.blocks, e.free = make(chan *block, blocks+3), make(chan *block, blocks+3)
 	// ECHO's delay line, at its longest, made here so the render goroutine
 	// never waits on the allocator for it.
 	e.perf.bus.echo.line = make([]float32, 0, echoMaxFrames(float64(sr))*OutChannels)
@@ -254,8 +285,15 @@ func NewEngine(o Options) *Engine {
 		b.bind(e)
 	}
 	e.panicked.Store("")
+	if o.Store != nil {
+		o.Store.changed = e.changes.Bump // the clipboard and the crate
+	}
 	return e
 }
+
+// Changes is the revision of what the page shows, for a page to be told
+// when to poll (docs/architecture/push.md).
+func (e *Engine) Changes() *Changes { return &e.changes }
 
 // Start opens the output and starts rendering. Without a sink, nothing
 // plays and the transport stands still, but tapes can still be edited and
@@ -383,7 +421,7 @@ func (e *Engine) pull(out []int32) {
 	}
 }
 
-// renderLoop keeps aheadBlocks rendered ahead of the device.
+// renderLoop keeps e.ahead rendered ahead of the device.
 func (e *Engine) renderLoop() {
 	defer close(e.done)
 	// What the device played before the renderer was running isn't late.
@@ -405,12 +443,16 @@ func (e *Engine) renderLoop() {
 		}
 		if e.sink == nil {
 			e.safely(func() { e.idle(out) })
-		} else if out-d >= aheadBlocks*BlockFrames {
+		} else if out-d >= e.ahead {
 			// Far enough ahead to wait -- but not to leave a load waiting
 			// on a device that isn't pulling.
-			e.safely(func() { e.drain(out, e.mix.Load()) })
+			e.safely(func() {
+				if e.drain(out, e.mix.Load()) {
+					e.changes.Bump()
+				}
+			})
 		}
-		if out-d >= aheadBlocks*BlockFrames || e.sink == nil {
+		if out-d >= e.ahead || e.sink == nil {
 			select {
 			case <-e.stop:
 				return
@@ -461,9 +503,13 @@ func (e *Engine) safely(f func()) {
 // which stays dry.
 func (e *Engine) advance(dst []float32, out uint64, n int) {
 	tr := e.tr
+	start := out
 	m := e.mix.Load()
 	length := m.length
-	e.drain(out, m)
+	// moved: something the page shows changed in this block. It bumps the
+	// revision once the block's view is published, below, never before:
+	// a page polling at the tap must find what it was told of.
+	moved := e.drain(out, m)
 	e.perf.targets(m)
 	off := 0
 	for n > 0 {
@@ -493,6 +539,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				}
 			}
 			tr.pend = tr.pend[1:]
+			moved = true
 			if a.done != nil {
 				close(a.done)
 			}
@@ -601,6 +648,7 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 				// Out mid-pass) isn't one, and isn't logged.
 				if tr.cycleStart >= 0 && tr.cycleIn == m.loop.In && int64(at)-tr.cycleStart == m.loop.Len() {
 					tr.logCycle(Cycle{Out: uint64(tr.cycleStart), In: m.loop.In, Len: m.loop.Len()})
+					moved = true // a pass Catch can take
 				}
 				tr.pos = m.loop.In
 				tr.cycleStart, tr.cycleIn = int64(at), m.loop.In
@@ -621,10 +669,20 @@ func (e *Engine) advance(dst []float32, out uint64, n int) {
 		off += int(span)
 		n -= int(span)
 	}
-	e.publishCue()
+	if e.publishCue() {
+		moved = true // a clip started, ended or left the lane
+	}
+	e.meters.settle(int(out-start), m.rate())
 	tr.mu.Lock()
+	was := tr.view
 	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out, Pending: len(tr.pend), CountIn: tr.countIn}
+	now := tr.view
 	tr.mu.Unlock()
+	// The transport moves by itself too: a count-in ends, the tape runs off
+	// its end, a quantised action is queued or carried out.
+	if moved || now.Playing != was.Playing || now.Pending != was.Pending || (now.CountIn > 0) != (was.CountIn > 0) {
+		e.changes.Bump()
+	}
 }
 
 // d0 is dst from frame off on, or nil when advance only counts.
@@ -636,8 +694,9 @@ func d0(dst []float32, off int) []float32 {
 }
 
 // drain takes what's been asked of the transport, with the render head at
-// out: a reset at once, anything else queued for its frame.
-func (e *Engine) drain(out uint64, m *Mix) {
+// out: a reset at once, anything else queued for its frame. It says whether
+// it published a new view of the cue lane.
+func (e *Engine) drain(out uint64, m *Mix) bool {
 	tr := e.tr
 	for {
 		select {
@@ -656,8 +715,9 @@ func (e *Engine) drain(out uint64, m *Mix) {
 		}
 		break
 	}
-	e.publishCue()
+	cued := e.publishCue()
 	e.drainTricks(out, m)
+	return cued
 }
 
 // idle applies queued actions when nothing plays the tape: without an
@@ -665,6 +725,8 @@ func (e *Engine) drain(out uint64, m *Mix) {
 func (e *Engine) idle(out uint64) {
 	tr := e.tr
 	m := e.mix.Load()
+	e.meters.silence() // nothing is heard without an output
+	moved := false     // as advance's: bumped once the view is published
 	for {
 		select {
 		case a := <-e.actions:
@@ -677,6 +739,7 @@ func (e *Engine) idle(out uint64) {
 			default:
 				tr.apply(a, out, m, m.length)
 			}
+			moved = true
 			if a.done != nil && a.Kind != "reset" {
 				close(a.done)
 			}
@@ -693,6 +756,9 @@ func (e *Engine) idle(out uint64) {
 	tr.mu.Lock()
 	tr.view = Status{Playing: tr.playing, Pos: tr.pos, Out: out}
 	tr.mu.Unlock()
+	if moved {
+		e.changes.Bump()
+	}
 }
 
 // HasOutput reports whether anything plays the tape.
@@ -748,6 +814,7 @@ func (e *Engine) SetOutputMode(m OutputMode) error {
 		}
 	}
 	r.setMode(m)
+	e.changes.Bump()
 	return nil
 }
 
@@ -778,6 +845,7 @@ func (e *Engine) Load(id string) (*Tape, error) {
 	e.recMu.Lock()
 	e.rec, e.tap = nil, nil
 	e.recMu.Unlock()
+	e.changes.Bump()
 	if err := e.store.Remember(id); err != nil {
 		log.Printf("[!] tape: noting %s as loaded: %v", id, err)
 	}
@@ -868,6 +936,7 @@ func (e *Engine) rebuild() {
 	straight := st
 	straight.Loop = Loop{}
 	m.straight = NewMix(straight, e.pool, e.store.SampleRate())
+	m.meter, m.straight.meter = &e.meters, &e.meters
 	e.mix.Store(m)
 	e.pool.Keep(keep)
 }
@@ -891,6 +960,7 @@ func (e *Engine) Edit(id, kind string, fn func(t *Tape, s *State) error) error {
 	}
 	if err == nil {
 		e.tape = t
+		e.changes.Bump()
 	}
 	e.mu.Unlock()
 	if err != nil {
@@ -919,6 +989,7 @@ func (e *Engine) Undo(id string, redo bool) error {
 	}
 	if err == nil {
 		e.tape = t
+		e.changes.Bump()
 	}
 	e.mu.Unlock()
 	if err == nil {
@@ -1559,6 +1630,7 @@ func (e *Engine) SetMeta(id string, fn func(t *Tape) error) error {
 	}
 	if err == nil {
 		e.tape = t
+		e.changes.Bump()
 	}
 	e.mu.Unlock()
 	if err != nil {

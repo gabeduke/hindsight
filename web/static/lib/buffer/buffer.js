@@ -410,7 +410,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   // --- CUE ------------------------------------------------------------------------
 
   // The buffer onto the Studio's cue lane, as one looping clip: a tap there
-  // launches it on the next bar line (shell-roadmap.md). One undo.
+  // launches it on the next bar line (docs/architecture/tape.md, The cue lane). One undo.
   function cueIt() {
     const d = st.detail;
     if (!st.board || !d || !d.tape || st.grabbing) return;

@@ -11,7 +11,7 @@ import (
 	"github.com/gabeduke/hindsight/internal/audio"
 )
 
-// Launching the cue lane's clips (shell-roadmap.md): a clip starts on the
+// Launching the cue lane's clips (docs/architecture/tape.md): a clip starts on the
 // next bar line and loops until it's tapped again; Shift starts it at once.
 // It plays on the transport's clock, summed with the tape on bus A, and the
 // Cue button (CueLane.Solo) leaves it alone in the output. What's playing is
@@ -210,11 +210,12 @@ func (e *Engine) renderCue(dst []float32, out uint64, n int, m *Mix) {
 	p.voices = keep
 }
 
-// publishCue updates what Live reads, if anything changed.
-func (e *Engine) publishCue() {
+// publishCue updates what Live reads, if anything changed, and says
+// whether it did.
+func (e *Engine) publishCue() bool {
 	p := &e.cue
 	if !p.dirty {
-		return
+		return false
 	}
 	p.dirty = false
 	v := CueLive{Playing: []string{}, Queued: []string{}, Starts: map[string]int64{}}
@@ -231,6 +232,7 @@ func (e *Engine) publishCue() {
 	p.mu.Lock()
 	p.view = v
 	p.mu.Unlock()
+	return true
 }
 
 // CueLive is what's playing on the cue lane; nil when nothing is or waits.

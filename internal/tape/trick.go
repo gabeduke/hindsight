@@ -147,6 +147,14 @@ type trickMsg struct {
 	set     bool    // an amount moved, from the next block rendered
 	clear   bool    // a mod's preview let go: back to the tape's own
 	v       float64 // a press's amount, or a set's
+	// heard is when a press or release reached the Pi (mono): the moment
+	// whose sound the player was playing to (landing).
+	heard int64
+	// late and line, on a press queued to land: it lands late frames after
+	// the line it was played to, at tape frame line, which has already
+	// been rendered. A head starts as if it had left the tape there.
+	late uint64
+	line int64
 }
 
 // trickInbox is where Press, Release and ReleaseAll leave their messages for
@@ -213,7 +221,7 @@ func (e *Engine) press(pad, quantum string, v float64) error {
 		log.Printf("[!] tape: trick inbox full, a press of %s dropped", pad)
 		return nil
 	}
-	e.tricks.msgs = append(e.tricks.msgs, trickMsg{pad: i, press: true, quantum: q, v: v})
+	e.tricks.msgs = append(e.tricks.msgs, trickMsg{pad: i, press: true, quantum: q, v: v, heard: e.now()})
 	e.tricks.mu.Unlock()
 	e.wake()
 	return nil
@@ -330,7 +338,7 @@ func (e *Engine) Release(pad string) error {
 		}
 		return ErrNoSuchPad
 	}
-	e.post(trickMsg{pad: i})
+	e.post(trickMsg{pad: i, heard: e.now()})
 	return nil
 }
 
@@ -341,7 +349,7 @@ func (e *Engine) ReleaseAll(quantum string) {
 	if err != nil {
 		q = QuantumNow
 	}
-	e.post(trickMsg{pad: -1, all: true, quantum: q})
+	e.post(trickMsg{pad: -1, all: true, quantum: q, heard: e.now()})
 }
 
 // post queues a release. It is never dropped; one already waiting for the
@@ -411,7 +419,7 @@ func (e *Engine) drainTricks(out uint64, m *Mix) {
 		case msg.all:
 			for i := range pads {
 				if p.down[i] {
-					e.queueRelease(i, msg.quantum, out, m)
+					e.queueRelease(i, msg.quantum, msg.heard, out, m)
 				}
 			}
 		case msg.press:
@@ -427,12 +435,14 @@ func (e *Engine) drainTricks(out uint64, m *Mix) {
 				p.down[msg.pad] = true
 				continue
 			}
-			at := e.tr.target(Action{Quantum: msg.quantum}, out, m, m.grid)
+			at, late, line := e.landing(msg.quantum, msg.heard, out, m)
+			// pressAt is where it sounds, so a tap still sounds a whole unit
+			// (queueRelease), even one that lands late on its line.
 			p.down[msg.pad], p.quantum[msg.pad], p.pressAt[msg.pad] = true, msg.quantum, at
-			e.tr.queue(pending{at: at, action: Action{Kind: "trick", trick: &trickMsg{pad: msg.pad, press: true}}})
+			e.tr.queue(pending{at: at, action: Action{Kind: "trick", trick: &trickMsg{pad: msg.pad, press: true, late: late, line: line}}})
 		default:
 			if p.down[msg.pad] {
-				e.queueRelease(msg.pad, p.quantum[msg.pad], out, m)
+				e.queueRelease(msg.pad, p.quantum[msg.pad], msg.heard, out, m)
 			}
 		}
 	}
@@ -471,9 +481,9 @@ func (e *Engine) logMoves(out uint64, m *Mix) {
 // queueRelease queues pad i's release on quantum's next line, and no sooner
 // than one whole line after its press: a tap shorter than a sixteenth still
 // plays a sixteenth, as the page's surface promises (lib/play/surface.js).
-func (e *Engine) queueRelease(i int, quantum string, out uint64, m *Mix) {
+func (e *Engine) queueRelease(i int, quantum string, heard int64, out uint64, m *Mix) {
 	p := &e.perf
-	at := e.tr.target(Action{Quantum: quantum}, out, m, m.grid)
+	at, _, _ := e.landing(quantum, heard, out, m) // a release has nothing to anchor
 	if u := unitFrames(p.quantum[i], m); at < p.pressAt[i]+u {
 		at = p.pressAt[i] + u
 	}
@@ -491,6 +501,108 @@ func (e *Engine) cancelRelease(i int) bool {
 		}
 	}
 	return false
+}
+
+// lateGrace is the most a press may come after the line it was played to
+// and still land on it: half its quantum's unit, and never more than this.
+const lateGrace = 100 * time.Millisecond
+
+// landing is where a press or release that reached the Pi at heard (mono)
+// lands, quantised to the line the player was playing to: the line nearest
+// what they heard then, not the next one after the render head, which runs
+// the lead (the blocks rendered ahead and the device's latency) ahead of
+// the ear. A hit on the beat once landed a whole unit late.
+//
+// A line still to come lands on its frame, at. One already rendered, a hit
+// a little after it, lands at once (at is out) late frames after it, with
+// line its tape frame, so a head can start as if it had left there. With no
+// way to tell what was heard (no output, a phone's stream, the tape not
+// playing through), it lands as the transport's target says.
+func (e *Engine) landing(q string, heard int64, out uint64, m *Mix) (at, late uint64, line int64) {
+	at = e.tr.target(Action{Quantum: q}, out, m, m.grid)
+	per := perBar(q)
+	if per == 0 || m.grid == nil || !e.tr.playing || e.OutputMode() == ModePhone {
+		return at, 0, 0
+	}
+	oh, h, ok := e.heardFrame(heard, out, m)
+	if !ok {
+		return at, 0, 0
+	}
+	g, loop := *m.grid, m.loop
+	unit := int64(unitFrames(q, m))
+	grace := min64(unit/2, int64(lateGrace.Seconds()*m.sr))
+	var oLine uint64
+	if prev := g.DivisionAt(h, per); h-prev <= grace {
+		line, oLine = prev, oh-uint64(h-prev)
+	} else {
+		next := g.NextDivision(h, per)
+		if loop.On && h < loop.Out && next > loop.Out {
+			next = loop.Out // past the loop's end, the next line is its start
+		}
+		line, oLine = next, oh+uint64(next-h)
+		if loop.On && line == loop.Out {
+			line = loop.In
+		}
+	}
+	// The tape must have played straight on from what was heard (or from
+	// the line, if it came first) to the render head: a wrap allowed, never
+	// a stop or a jump, after which the heard frame says nothing.
+	if _, ok := e.tr.continuous(min(oh, oLine), out, loop); !ok {
+		return at, 0, 0
+	}
+	if oLine >= out {
+		return oLine, 0, line
+	}
+	// Rendered already: it lands now, if the line is what played there. A
+	// loop whose In is off the grid has no line just after the wrap, and
+	// the one before In belongs to the last pass.
+	if p, ok := e.tr.PosAt(oLine); !ok || p != line {
+		return at, 0, 0
+	}
+	return out, out - oLine, line
+}
+
+// heardFrame is the output frame the player was hearing at mono time heard,
+// with the render head at out, and the tape frame it played.
+func (e *Engine) heardFrame(heard int64, out uint64, m *Mix) (oh uint64, pos int64, ok bool) {
+	ns, ok := e.heardAt(out)
+	if !ok {
+		return 0, 0, false
+	}
+	ahead := float64(ns-heard) * m.sr / 1e9 // frames from the press to out's being heard
+	if ahead < 0 {
+		ahead = 0
+	}
+	if ahead > float64(out) {
+		return 0, 0, false
+	}
+	oh = out - uint64(math.Round(ahead))
+	pos, ok = e.tr.PosAt(oh)
+	return oh, pos, ok
+}
+
+// now is the monotonic clock a press is stamped with.
+func (e *Engine) now() int64 {
+	if e.nowFn != nil {
+		return e.nowFn()
+	}
+	return mono.Now()
+}
+
+// perBar is how many of a quantum's lines a bar has; 0 for one that isn't
+// on the grid.
+func perBar(q string) int {
+	switch q {
+	case QuantumSixteenth:
+		return 16
+	case QuantumEighth:
+		return 8
+	case QuantumBeat:
+		return BeatsPerBar
+	case QuantumBar:
+		return 1
+	}
+	return 0
 }
 
 // unitFrames is one line of a quantum, in frames; 0 for now, or a tape with
@@ -863,7 +975,12 @@ func (p *perf) apply(msg trickMsg, o uint64, pos int64, playing bool, m *Mix) bo
 			p.bendPress()
 		default:
 			p.order = append(p.order, i)
-			if playing {
+			switch {
+			case playing && msg.late > 0:
+				// Played to a line already rendered: it starts as if it had
+				// left the tape on that line, msg.late frames ago.
+				p.setSource(p.newHead(i, msg.line, o-msg.late, m), o)
+			case playing:
 				p.engage(i, pos, o, m)
 			}
 		}

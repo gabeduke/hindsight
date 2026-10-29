@@ -139,6 +139,7 @@ func (e *Engine) StartMixdownAs(id string, all bool, rec *audio.Record) (Mixdown
 	}
 	m := &Mixdown{ID: mixdownIDs.Add(1), Tape: t.ID, State: "playing", From: from, To: to, Tail: tail}
 	e.mixdown = m
+	e.changes.Bump()
 	snapshot := *m
 	e.mixMu.Unlock()
 	e.recMu.Unlock()
@@ -177,6 +178,7 @@ func (e *Engine) setMixdown(id uint64, fn func(m *Mixdown)) {
 	defer e.mixMu.Unlock()
 	if e.mixdown != nil && e.mixdown.ID == id {
 		fn(e.mixdown)
+		e.changes.Bump()
 	}
 }
 

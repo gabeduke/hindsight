@@ -1,6 +1,6 @@
 // web/static/lib/room/tap.js
-// A tap plays (docs/architecture.md, Vocabulary, "One way to
-// listen"): tapping a take anywhere in the Listening Room plays it in the
+// A tap plays (docs/decisions/0002-two-nouns-takes-and-tapes.md;
+// docs/architecture/rooms.md, Vocabulary): tapping a take anywhere in the Listening Room plays it in the
 // bar, where you are, and tapping it again pauses it. Nothing opens. This is
 // the one function every surface calls -- a spine on the shelf, a row of the
 // List (a month's box opens to it, a search narrows it, a family's takes

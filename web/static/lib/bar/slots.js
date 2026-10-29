@@ -1,5 +1,5 @@
 // web/static/lib/bar/slots.js
-// The bar's shape (css/bar.css; docs/architecture.md, "The bar"): five zones
+// The bar's shape (css/bar.css; docs/architecture/bar.md): five zones
 // in a row -- the deck, the transport, the verb, the modes and the end -- and
 // the strip under them, each a named slot in the page's markup
 // (data-slot="…"). The keys are the markup's, each in its slot, saying which

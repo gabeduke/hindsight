@@ -441,6 +441,10 @@ func (d *demoAligningSink) OutputBridge() *ClockBridge { return d.bridge }
 // Restarts: the demo's output never slips.
 func (d *demoAligningSink) Restarts() uint64 { return 0 }
 
+// PullFrames is the demo's buffer (PullSize): it pulls FRAMES_PER_BUFFER at
+// a time.
+func (d *demoSink) PullFrames() int { return d.src.cfg.FramesPerBuf }
+
 func (d *demoSink) Open(channels int, pull func([]int32)) (string, error) {
 	l := &d.src.loop
 	l.mu.Lock()

@@ -714,3 +714,70 @@ test('a room mounted out of sight leaves the room shown where it is: it restores
     assert.match(line, /&& ctx\.active\(\)/, `${p}: only for the room shown as it mounts`);
   }
 });
+
+// ---------- ctx.socket ----------
+
+function sockets() {
+  const log = { opened: 0, closed: 0, open: 0 };
+  log.open_ = () => { log.opened++; log.open++; return { close() { log.closed++; log.open--; } }; };
+  return log;
+}
+
+test('ctx.socket opens when the view is shown, closes when it is hidden, and opens again on the next visit', async () => {
+  const s = sockets();
+  const t = withCtx((ctx) => { ctx.socket(s.open_); });
+  assert.equal(s.opened, 0, 'not during the mount');
+  await t.v.show();
+  assert.equal(s.open, 1);
+  await t.v.hide();
+  assert.equal(s.open, 0, 'a hidden view holds no socket open');
+  await t.v.show();
+  assert.deepEqual([s.opened, s.open], [2, 1], 'a fresh one on the next visit');
+});
+
+test('ctx.socket opened while the view is shown opens at once; its off closes it for good', async () => {
+  const s = sockets();
+  const t = withCtx();
+  await t.v.show();
+  const off = t.box.ctx.socket(s.open_);
+  assert.equal(s.open, 1);
+  off();
+  assert.equal(s.open, 0);
+  await t.v.hide();
+  await t.v.show();
+  assert.equal(s.opened, 1, 'an off socket is not opened again');
+});
+
+test('ctx.socket started during a mount that waits opens once the view is up', async () => {
+  let release;
+  const later = new Promise((r) => { release = r; });
+  const s = sockets();
+  const t = withCtx(async (ctx) => { ctx.socket(s.open_); await later; });
+  const up = t.v.show();
+  await tick();
+  assert.equal(s.opened, 0, 'not into a half-built room');
+  release();
+  await up;
+  assert.equal(s.open, 1);
+});
+
+test('ctx.socket stays closed through a prewarm, and destroy closes it', async () => {
+  const s = sockets();
+  const t = withCtx((ctx) => { ctx.socket(s.open_); }, { prewarm: true });
+  await t.v.prewarm();
+  assert.equal(s.opened, 0, 'a room warmed out of sight opens nothing');
+  await t.v.show();
+  assert.equal(s.open, 1);
+  t.v.destroy();
+  assert.equal(s.open, 0);
+});
+
+test('a socket that fails to open is reported, and tried again on the next visit', async () => {
+  let n = 0;
+  const t = withCtx((ctx) => { ctx.socket(() => { n++; if (n === 1) throw new Error('no WebSocket'); return { close() {} }; }); });
+  await t.v.show();
+  assert.deepEqual(t.errors.map((e) => e.message), ['no WebSocket']);
+  await t.v.hide();
+  await t.v.show();
+  assert.equal(n, 2);
+});

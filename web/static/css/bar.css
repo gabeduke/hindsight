@@ -1,7 +1,7 @@
 /* web/static/css/bar.css
    The bar: the one transport, docked at the foot of both rooms and of Open,
-   the same object across a room switch (lib/bar/bar.js; docs/architecture.md,
-   "The bar"). Every rule that draws it is here, and nowhere else: it once had
+   the same object across a room switch (lib/bar/bar.js;
+   docs/architecture/bar.md). Every rule that draws it is here, and nowhere else: it once had
    232 selectors in 14 sections of styles.css, hid its keys with :not() lists
    and !important, and ran off a tablet's right edge.
 
@@ -97,7 +97,13 @@ body.tape-page .np[data-size="mini"][data-source="tape"] [data-mini~="studio"] {
 .np-reel { flex: none; width: clamp(48px, 15cqi, 88px); height: clamp(48px, 15cqi, 88px); position: relative; z-index: 1; }
 .np-well { fill: rgba(0,0,0,.06); }
 .np-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
-.np-turn { transform-box: view-box; }
+/* The flange is a picture, not a key: it takes no press. Its rendered
+   sheet is the whole film strip, laid out at full size and clipped to one
+   cell, so its box reaches far past the reel -- up to the Studio's last
+   track head at some angles -- and a box that takes presses there counted
+   as covering whatever it overlaps (axe's target-size failed track 4's
+   level, by the angle the reel stopped at). */
+.np-turn { transform-box: view-box; pointer-events: none; }
 .np-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
 .np-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
 /* The rendered flange (lib/objects/spin.js) once its sheet has loaded; the
@@ -192,6 +198,40 @@ button.np-lcd-key { cursor: pointer; }
 /* A value has a short form and a long one (96 / 96 BPM · 4 BARS): the
    long where the display has the room, at its widest. */
 .np-long { display: none; }
+
+/* ---------- the keyboard's press ---------- */
+/* A press on the keyboard (lib/bar/press-note.js): its words over the
+   display for the second the keyboard's own screen shows them, on the
+   display's black, in the press's colour (PLAY green, KEEP red, STOP and
+   the verbs the display's own ink), the keyboard's mark before them. A
+   refusal is an amber band with dark words, so it reads apart from the
+   display's own amber. It covers the display and nothing else, out of the
+   layout, and lets taps through to the display's keys. */
+.np-press {
+  position: absolute; inset: 0; pointer-events: none;
+  display: flex; align-items: center; gap: 8px; padding: 0 10px; min-width: 0;
+  background: var(--lcd); color: var(--kb, var(--lcd-ink));
+  font: 600 19px/20px var(--mono); letter-spacing: .04em; white-space: nowrap;
+  text-shadow: 0 0 7px color-mix(in srgb, currentColor 60%, transparent);
+}
+/* At rest it is there for a screen reader (a live region) and not to see;
+   a press shows it (data-kb, its role). */
+.np-press { opacity: 0; }
+.np-press[data-kb] { opacity: 1; }
+.np-press-mark { flex: none; }
+.np-press-words { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.np-press[data-kb="refused"] {
+  background: color-mix(in srgb, var(--warn) 88%, var(--lcd)); color: var(--lcd); text-shadow: none;
+}
+/* What the press changed, lit for its second in its colour: ▶ and ● here,
+   a track's head in the Studio (styles.css, .tt-head.kb-lit). */
+:is(.np-press, .kb-lit)[data-kb="play"] { --kb: var(--go); }
+:is(.np-press, .kb-lit)[data-kb="rec"] { --kb: var(--rec); }
+:is(.np-press, .kb-lit)[data-kb="mixer"][data-kb-track="1"] { --kb: var(--t1); }
+:is(.np-press, .kb-lit)[data-kb="mixer"][data-kb-track="2"] { --kb: var(--t2); }
+:is(.np-press, .kb-lit)[data-kb="mixer"][data-kb-track="3"] { --kb: var(--t3); }
+:is(.np-press, .kb-lit)[data-kb="mixer"][data-kb-track="4"] { --kb: var(--t4); }
+.np .icon-btn.kb-lit { outline: 2px solid var(--kb, var(--lcd-ink)); outline-offset: 2px; }
 
 /* ---------- the keys ---------- */
 /* Raised, an LED over the ones that latch, a picture from the sprite. The
@@ -459,6 +499,20 @@ button.np-lcd-key { cursor: pointer; }
   .np[data-size="mini"] .np-lcd { height: 40px; }
   .np[data-size="mini"] .np-lcd-pos { min-width: 0; min-height: 0; padding: 0 5px; }
   .np[data-size="mini"] :is(.np-lcd-key, .np-unit, .np-levels) { display: none; }
+  /* The keyboard's press in the mini player's small window: over the whole
+     window, reels and all, not the display alone (the display is too narrow
+     for its words, and it, not .np-lcd, is what the note is placed in
+     here), above the reels; its words wrap to two short lines rather than
+     cut to one letter. The display gives up its z-index too: a flex item
+     with one is a stacking context even unpositioned, and would keep the
+     note under the right reel. */
+  .np[data-size="mini"] .np-lcd { position: static; z-index: auto; }
+  .np[data-size="mini"] .np-press { z-index: 2; gap: 4px; padding: 0 8px; border-radius: inherit; }
+  .np[data-size="mini"] .np-press-mark { width: 12px; height: 12px; }
+  .np[data-size="mini"] .np-press-words {
+    white-space: normal; overflow-wrap: anywhere;
+    font-size: 11px; line-height: 12px; letter-spacing: 0;
+  }
   .np[data-size="mini"] .np-pos { font-size: 17px; }
   .np[data-size="mini"] .icon-btn { height: 50px; min-height: 50px; width: 44px; }
   .np[data-size="mini"] .np-start { width: 46px; }

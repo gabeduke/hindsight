@@ -1,5 +1,5 @@
 // web/static/lib/ui/layers.js
-// The one stack of open things (docs/plan/the-studio-space.md, "One way to
+// The one stack of open things (docs/architecture/shell.md, "One way to
 // close things"): menus, popovers, sheets, drawers, a selection and the
 // phone's player. Back and Escape close the top one first, and only once
 // nothing is open does Back leave the room. A press outside closes a menu.

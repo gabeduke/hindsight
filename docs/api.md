@@ -709,7 +709,7 @@ both land; before the lock, the second silently discarded the first.
 
 The tempo range is deliberately far wider than any interface will produce,
 because the stamped BPM is a device's guess rather than ground truth — see the
-MIDI section of [architecture.md](architecture.md). The field exists to be
+[MIDI architecture](architecture/midi.md), *The tempo map*. The field exists to be
 overridden, including for takes whose clock reading was confidently wrong.
 
 ## `GET /api/tags`, `PUT /api/tags`

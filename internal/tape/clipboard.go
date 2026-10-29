@@ -86,6 +86,7 @@ func (s *Store) LoadClipboard() (*Clipboard, error) {
 func (s *Store) SaveClipboard(c *Clipboard) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.bump()
 	if c == nil {
 		err := os.Remove(s.clipboardPath())
 		if errors.Is(err, fs.ErrNotExist) {

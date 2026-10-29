@@ -251,3 +251,109 @@ test('the tape: ▶ then ■ before a poll says so stops it, and the Pi has the 
   s.ingest({ live: { ...live, playing: true } });
   assert.equal(s.playing(), true);
 });
+
+// docs/architecture/push.md: the Pi's word that the tape changed
+// polls the bar's tape at once, while the bar polls it itself.
+function fakeWatch() {
+  const w = { open: 0, nudge: null, press: null };
+  w.watch = ({ onNudge, onPress }) => {
+    w.open++;
+    w.nudge = onNudge;
+    w.press = onPress;
+    return { close() { w.open--; w.nudge = null; w.press = null; } };
+  };
+  return w;
+}
+
+test('the tape: a nudge from the Pi polls at once, not at the next tick', async () => {
+  let polls = 0;
+  stubs(() => { polls++; return { tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }; });
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  const before = polls;
+  assert.equal(w.open, 1, 'the bar watches while it polls the tape itself');
+  w.nudge({ rev: 2 });
+  await settle();
+  assert.equal(polls, before + 1, 'polled on the nudge, well inside the 500 ms tick');
+  s.destroy();
+  assert.equal(w.open, 0, 'destroy lets the socket go');
+});
+
+test('the tape: handed to the Studio, the bar stops watching; handed back, it watches and polls; with a take in the bar, it hears only presses', async () => {
+  let polls = 0;
+  stubs(() => { polls++; return { tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }; });
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  s.delegate({ poll() {} });
+  assert.equal(w.open, 0, 'the Studio\'s own socket feeds it while it is shown');
+  const before = polls;
+  s.delegate(null);
+  assert.equal(w.open, 1, 'back in the bar\'s hands, it watches again');
+  await settle();
+  assert.equal(polls, before + 1, 'and asks the Pi at once, for what changed meanwhile');
+  s.setActive(false);
+  assert.equal(w.open, 1, 'the bar holding a take still hears the keyboard\'s presses');
+  const before2 = polls;
+  w.nudge({ rev: 9 });
+  await settle();
+  assert.equal(polls, before2, 'but a nudge polls nothing until the tape is back');
+});
+
+test('the tape: a nudge while a poll is out asks once more after it, never two at once', async () => {
+  let out = 0, most = 0, polls = 0;
+  let answer = null;
+  const body = { tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } };
+  stubs(() => body);
+  // A Pi slow to answer: each poll waits for the test to let it go.
+  globalThis.fetch = () => {
+    polls++; out++; most = Math.max(most, out);
+    return new Promise((r) => { answer = () => { out--; r({ ok: true, json: async () => body }); }; });
+  };
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  assert.equal(polls, 1, 'the first poll is out');
+  w.nudge({ rev: 2 });
+  w.nudge({ rev: 3 });
+  await settle();
+  assert.equal(polls, 1, 'no second fetch beside it');
+  answer();
+  await settle();
+  assert.equal(polls, 2, 'once more when it is answered');
+  answer();
+  await settle();
+  assert.equal(polls, 2, 'and only once');
+  assert.equal(most, 1);
+  s.destroy();
+});
+
+test('the tape: a press on the keyboard is heard on the bar\'s socket, or handed on from the Studio\'s', async () => {
+  stubs(() => ({ tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }));
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  const heard = [];
+  const off = s.onPress((p) => heard.push(p.words));
+  w.press({ words: 'PLAY', role: 'play', lit: ['play'], track: 0, ms: 1000 });
+  s.delegate({ poll() {} });
+  s.heardPress({ words: 'STOP', role: 'stop', lit: ['play'], track: 0, ms: 1000 });
+  off();
+  s.heardPress({ words: 'KEPT 30 S', role: 'rec', lit: ['rec'], track: 0, ms: 1000 });
+  assert.deepEqual(heard, ['PLAY', 'STOP']);
+  s.destroy();
+});
+
+test('the tape: with a take in the bar, a press on the keyboard is still heard', async () => {
+  stubs(() => ({ tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }));
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  const heard = [];
+  s.onPress((p) => heard.push(p.words));
+  s.setActive(false);
+  w.press({ words: 'PLAY', role: 'play', lit: ['play'], track: 0, ms: 1000 });
+  assert.deepEqual(heard, ['PLAY']);
+  s.destroy();
+});

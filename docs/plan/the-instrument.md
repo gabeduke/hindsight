@@ -29,7 +29,7 @@ From the code's constants, not yet measured (step 1 measures them):
 |---|---|---|
 | A touch, over Wi-Fi to the Pi (WebSocket `/api/tapes/play`) | 10–60 ms | 10–60 ms |
 | A MIDI controller over USB (`internal/midi`) | ~1 ms | – |
-| The render goroutine, ahead of the device (`aheadBlocks` 5 × `BlockFrames` 1024) | ~107 ms | ~107 ms |
+| The render goroutine, ahead of the device (`aheadFor`: as far as `OUTPUT_LATENCY_MS`, 5 × `BlockFrames` 1024 at its default) | ~107 ms | ~107 ms |
 | The device's buffer (`OUTPUT_LATENCY_MS` 100, 1024 frames, `HighLatencyParameters`) | ~100 ms | – |
 | The stream's packets, then the phone's jitter buffer (0.8 s, `stream-buffer.js`) | – | ~820 ms |
 | The phone's audio output (more on Bluetooth: 150–300 ms) | – | 40–100 ms |
@@ -122,84 +122,36 @@ My recommendation first in each.
 
 7. **The SMK-37 Elite's firmware.** Checked against the sources
    themselves on 2026-10-26, and read off Gabe's unit the same day.
-   - *Gabe's unit*, read on the Mac without writing anything:
-     - it runs Baud Girl's SMK-37+VA, after the stock firmware and
-       Felucca. Baud Girl's installer puts M-VAVE's bootloader back, so
-       that is probably the bootloader on it; the backup will say;
-     - its USB ids are `4C4A:C755`, the FM-1's, which SMK-37+VA keeps. It
-       runs at full speed (12 Mb/s);
-     - one MIDI port, `SMK-37+VA`. It is silent when idle and doesn't
-       answer a Universal Device Inquiry. Under the stock firmware its
-       ports were `SMK-37 Elite -Private`, `-Master` and `-MCP`, from the
-       Mac's MIDI cache;
-     - USB audio, two channels each way at 44.1 kHz. A note sent over MIDI
-       came back on its input, so the Elite's synth reaches a computer
-       over USB, at least under SMK-37+VA.
-   - *The hardware:*
-     - a JieLi AC791N (WL82) with 1 MiB of SPI flash and about 511 KiB of
-       internal RAM, no external RAM;
-     - a 240×240 ST7789V display on SPI1, a bus the pad LEDs share;
-     - 8 encoders, 16 pressure pads with RGB LEDs, 4 faders and 18 lit
-       buttons;
-     - class-compliant USB MIDI at full speed, BLE MIDI, and TRS MIDI out
-       only.
-
-     The Pro, the Elite and two rebadges are one hardware family; the
-     Elite is the least tested of them. The stock firmware is a DX7-style
-     FM synth with a sequencer and an arpeggiator.
-   - *Open firmware:* M-VAVE released SMK37 OPEN V01 on 2026-10-24
-     (`m-vave/smk37_open`). It is a whole instrument: eight tracks (DX7,
-     303, 808, PSG, pluck, sampler), a sequencer, and a browser workbench
-     that installs it over Web MIDI. Its app layer, the board layer
-     included, is GPLv3 with an SDK exception; the SDK (`libfm1_engine.a`)
-     is binary-only. Its SDK settles what the research left open:
-     - *SysEx in:* `fm1_app_sysex()` is handed whole frames, F0 to F7, of
-       at most 1024 bytes, on the routing task. It copies the frame and
-       calls `fm1_control_request()`; drawing happens on the control
-       task. Open's own transfers already use `F0 7D 'F' 'M' 2`.
-     - *The display:* the app's board layer drives SPI1
-       (`app/board/lcd.inc`), behind the SDK's `fm1_screen_fill`, `_blit`
-       and `_submit` (DMA in bands of 240×16 pixels). Its font has digits
-       and capitals only.
-     - *What the FM engine leaves of the RAM:* `Build.ps1`'s image report
-       gives it at the first build.
-
-     The GPL ports (genkigenki's board layer, Skiff) build with JieLi's
-     Linux toolchain. Baud Girl's SMK-37+VA is closed source, so we can't
-     build on it.
-   - *Recovery:*
-     - the ROM's download mode (`4C4A:8057`, a mass-storage disk) reads and
-       writes the whole flash. The stock firmware restarts into it on
-       `F0 22 24 35 7D F7`;
-     - M-Flasher (MIT, native on the Mac) replaces `jl-uboot-tool`. It
-       backs up, restores, and installs packages and m-bootloader. It
-       checks every read against the chip's CRC32 and refuses the factory
-       ranges;
-     - `m-bootloader` (MIT) adds a recovery menu (SEQ PLAY at power-on)
-       and download mode (SEQ REC);
-     - with no working bootloader, the USB_KEY dongle (a Raspberry Pi
-       Pico) still forces download mode;
-     - three regions are the unit's own and are never written: Bluetooth
-       pairing at 0xC0000, factory calibration at 0xC1000, and the chip
-       key and MAC at 0xFF000. The wheel calibration (around 0xC2060) and
-       the stock sounds (`[0xF4000, 0xFE000)`) are the unit's too: only a
-       backup brings them back.
-   - *Where that last rule is at risk:*
-     - SMK37 OPEN's user partition is `[0x7C000, 0xFF000)`
-       (`sdk/Package.cs`). Projects run to 0x8D000; after them, a sample
-       bank lies over 0xC0000, 0xC1000, the wheel calibration and the
-       stock sounds. Booting writes nothing there, but a sample transfer,
-       *Check / initialize samples* or a library save does. Open ignores
-       the factory calibration and keeps its own in VM.
-     - On its first start, m-bootloader's calibration guard copies 0xC1000
-       into `[0xFF000, 0xFF23C)`. It writes blank bytes only and never
-       erases. If 0xC1000's marker is ever invalid, the guard erases that
-       sector and restores its copy at every start: under Open's sample
-       bank, that would cut into samples. While 0xC1000 stays intact, the
-       guard never trips.
-     - M-VAVE's update loader, which Open's packages and the workbench
-       use, erased 0xC0000–0xC1FFF on a Skiff unit. And every official or
-       workbench install puts M-VAVE's bootloader back over m-bootloader.
+   - *The hardware:* a JieLi AC791N (WL82) with 1 MiB of SPI flash and
+     about 511 KiB of RAM; a 240×240 ST7789V display on SPI1, a bus the
+     pad LEDs share; 8 encoders, 16 pressure pads with RGB LEDs, 4 faders
+     and 18 lit buttons; class-compliant USB MIDI at full speed, BLE MIDI,
+     TRS MIDI out, and USB audio, two channels each way at 44.1 kHz.
+   - *Open firmware:* M-VAVE's SMK37 OPEN V01 (`m-vave/smk37_open`,
+     2026-10-24): its app layer is GPLv3 with an SDK exception, the SDK
+     (`libfm1_engine.a`) binary-only. Ours is the fork
+     `gabeduke/smk37-hindsight`; its `HINDSIGHT.md` has the builds, the
+     protocol and the flash tools.
+   - *Recovery:* the ROM's download mode (`4C4A:8057`) reads and writes the
+     whole flash; M-Flasher (MIT) backs up, restores and installs,
+     checking every read against the chip's CRC32 and refusing the factory
+     ranges; `m-bootloader` (MIT) gives a recovery menu (SEQ PLAY at
+     power-on) and download mode (SEQ REC); with no working bootloader,
+     the USB_KEY dongle (a Raspberry Pi Pico) still forces download mode.
+   - *The unit's own regions, never written:* Bluetooth pairing at
+     0xC0000, factory calibration at 0xC1000, and the chip key and MAC at
+     0xFF000. The wheel calibration (around 0xC2060) and the stock sounds
+     (`[0xF4000, 0xFE000)`) are the unit's too: only a backup brings them
+     back. What puts them at risk: SMK37 OPEN's sample bank lies over
+     0xC0000–0xC2060 and the stock sounds (a sample transfer, *Check /
+     initialize samples* or a library save writes there); M-VAVE's update
+     loader, which Open's packages and the workbench use, erased
+     0xC0000–0xC1FFF on a Skiff unit, and every official or workbench
+     install puts M-VAVE's bootloader back over m-bootloader.
+     m-bootloader's calibration guard copies 0xC1000 into
+     `[0xFF000, 0xFF23C)` on its first start, blank bytes only (accepted,
+     Gabe, 2026-10-26); if 0xC1000's marker ever went invalid it would
+     restore that copy at every start.
 
    Gabe's rules for it (2026-10-26):
    - never write the three regions above;
@@ -212,17 +164,23 @@ My recommendation first in each.
    - the firmware lives in its own repo, a fork of `m-vave/smk37_open`
      (GPLv3, with its linking exception and `THIRD_PARTY.md`), not here.
 
+   The one exception was the first install, over SMK-37+VA by M-VAVE's own
+   update with no backup first (Gabe, 2026-10-27: *"I'm really not worried
+   about one person's failed update"*, the dongle the way back). The rules
+   hold for every write after it.
+
    How:
-   - *Every write by M-Flasher*, from the Mac. It writes only the sectors
-     that change, verifies them and keeps m-bootloader. Never the
-     workbench, never M-UPGRADE.
+   - *Every write after the first by M-Flasher*, from the Mac. It writes
+     only the sectors that change, verifies them and keeps m-bootloader.
+     Never the workbench or M-UPGRADE again, which would put M-VAVE's
+     bootloader back.
    - *A guard before any feature.* New sample transfers stop at 0xC0000.
      Every area the app writes asserts at compile time that it keeps clear
      of `[0xC0000, 0xC2000)` and `[0xFF000, …)`, and a test fails on a
      Flash write anywhere else. A runtime guard like Skiff's `FL_GUARD`
      didn't fit (*Room for code*, under *To settle*). The guard can't
-     cover the SDK's own update path, which is one more reason never to
-     point the workbench at the unit.
+     cover the SDK's own update path, which is one more reason to keep
+     the workbench away from the unit after the first install.
    - *A proof after every write:* back up again and diff against the
      first dump. Nothing may differ outside what that write meant to
      change, and 0xC0000–0xC1FFF never may. A script in the fork does the
@@ -233,31 +191,40 @@ My recommendation first in each.
      acks each command with its sequence number, so step 1 can time Pi →
      screen. Send text, primitives and changed rectangles: a whole frame
      (115 KB) is too much for SysEx.
-   - *The toolchain on a Mac* (Apple silicon, with Docker):
-     - M-VAVE's Windows 2.5.3 toolchain (PI32v2 clang 4.0.1, `r3`) runs
-       under Wine in a linux/amd64 container (`tools/container/build.sh`
-       in the fork). It is unpacked from its installer, never run, and all
-       22 of its files match the SDK's manifest. Off Windows, `Build.ps1`
-       runs it through Wine.
-     - The toolchain is 32-bit. Rosetta for Linux can't run 32-bit code,
-       so on the Mac QEMU does: each tool takes about 45 s to start, and a
-       build takes 26 minutes. CI's Linux build takes about a minute.
-     - Proved: the fork's CI builds the Elite firmware on `windows-latest`
-       with Windows PowerShell, as `build.bat` does, and under Wine on
-       Linux. The two packages are the same bytes, for V01 and for the
-       fork, and the Mac's own build matched CI's too.
-     - Fallback: JieLi's Linux toolchain, a different compiler build not
-       proved against the binary SDK. Last resort: a Windows VM.
+   - *The toolchain:* M-VAVE's Windows toolchain, under Wine in a
+     linux/amd64 container (`tools/container/build.sh` in the fork); CI
+     builds it on Windows and under Wine to the same bytes in about a
+     minute, the Mac (through QEMU) in about 26. The fork's `HINDSIGHT.md`
+     has the detail.
+
+   *On the unit*, done 2026-10-26/27 with Gabe at the keyboard (the
+   detail is in this file's history and the fork's PRs #1–#3): ours went on over Baud Girl's SMK-37+VA once, by the workbench and
+   M-VAVE's loader, the dongle as the way back (Gabe accepted that one
+   write's risk); two whole-flash backups, across a power-cycle, match
+   (`a4e761ff…`), kept in `~/smk37-backups`, outside every repo, and still
+   to be copied to a second disk (whether 0xC0000 and 0xFF000, blank in
+   them, were blank before is unknown; Bluetooth MIDI is still to check); m-bootloader 1.2 went on by M-Flasher
+   (its `TRIMCOPY` and the boot area the only changes; 0xC0000–0xC1FFF
+   unchanged); then protocol version 1 (HELLO, CLEAR, TEXT, RELEASE) took
+   the screen from the Mac and from Hindsight (#183). The unit now calls
+   itself `SMK37 Open` (USB `3654:7756`). While the Pi has the screen the
+   panel sends pads as notes 36–51 on channel 10 with poly aftertouch,
+   encoders as CC 21–27 on channel 16 (absolute, set by the Pi), faders as
+   CC 28–35, and buttons as notes on channel 16. The Elite's USB audio is
+   shown under SMK-37+VA, not yet under ours or on Linux (K9). Protocol
+   version 2 is on the unit since 2026-10-29 (`STATE.md`).
 
    Our firmware (the direction agreed with Gabe on 2026-10-26; the details
    are to settle):
    - *The keyboard is the hands and a screen to glance at; the Pi is the
      brain.* The firmware never knows what a tape is. It shows what the Pi
      says, sends what is touched, and plays its own synth.
-     - Controls go out as plain MIDI. Encoders send relative turns, so a
-       value never jumps. Buttons send press and release, so Hindsight's
-       `GESTURE` decides tap, hold and double tap. Faders send values,
-       pads send pressure.
+     - Controls go out as plain MIDI. Buttons send press and release, so
+       Hindsight's `GESTURE` decides tap, hold and double tap. Faders send
+       values, and pads send pressure. Encoders send absolute values,
+       because Hindsight's knob bindings take absolute values; the Pi sets
+       where each knob stands, so a value never jumps. (The plan first
+       said relative turns.)
      - The screen: the Pi sends state, not pixels. The firmware draws a
        few widgets from it at 60 fps: the tape's counter, the transport,
        the FX as knobs, meters, track names, and text for menus.
@@ -271,22 +238,201 @@ My recommendation first in each.
        for the bank) and has four knobs for quick edits, plus Open's
        effects page for the synth's own reverb and delay. Which four
        knobs is a detail for the build; Open's are algorithm, feedback,
-       transpose and level. Deep editing (operators, envelopes, LFOs)
-       moves to the phone, if it is built. Unplugged from the Pi, the
-       keyboard plays its voices and nothing more: no step sequencer and
-       no projects on the unit.
-   - *What the Pi does with them*, in Gabe's order:
-     - transport: play, stop, record, scrub on an encoder, loop in and
-       out, back to the start, tap tempo. And a button only Hindsight
-       has: keep the last N seconds or bars of the ring as a take;
-     - FX: DRIVE, AGE, FILTER, CRUSH and ECHO on five encoders, with
-       their values on the screen. Pads play effects only while held,
-       and never go in undo;
-     - mixing: the four faders set track or input levels (the mixer
-       Gabe wants in the Rig), banked to 5–8. SHIFT and a pad mutes,
-       solos or arms, as Open does;
-     - clip arranging: the 16 pads are the tape's clips, to pick, cue,
-       launch and move. They are Play mode's pads too.
+       transpose and level. Unplugged from the Pi, the keyboard plays its
+       voices and nothing more: no step sequencer and no projects on the
+       unit.
+
+       Changed by Gabe on 2026-10-28, after playing it: *sound design on
+       the keyboard, playable.* He has better sequencers (the Bento, the
+       MPC Sample), so Open's sequencer grid goes, as above. What he wants
+       on the SMK instead is to shape a sound while playing it: *"playable
+       edits to sounds like filter, osc etc."* So the synth page's knobs
+       are for sound design you can play, on the encoders, not deep
+       editing on the phone. Which edits, mapped how onto an FM voice
+       (an FM engine has no filter of its own: brightness is the
+       modulators' levels, or the effects'), is the next decision, with
+       Gabe. He also found the patch select has only 16 patches in the
+       library on the unit, not the 128 voices this plan assumed: fine as
+       it is, with the edits made on them.
+   - *What the Pi does with them*, as Gabe answered a quiz on how he
+     plays (2026-10-28). He plays with his hands on the keyboard and an
+     eye on the tablet, into the keyboard's synth, other gear through the
+     interface, and the tape itself, in short noodles and hour-long
+     builds alike. When something good went by, he keeps playing and
+     sorts it out later on the tablet: the ring has it.
+     - transport: PLAY plays and stops. REC records onto the tape: with
+       the tape playing it punches in on the armed track and, pressed
+       again, out; from a stop it starts the tape and records. KEEP is
+       not on the keyboard any more, only on the tablet. Loop in and
+       out, back to the start and tap tempo stay on the tablet too;
+     - scrub: the master knob, while the Pi has the screen, with the
+       counter on the screen. SHIFT and the master knob set the synth's
+       volume, which the master knob alone sets on the keyboard's own
+       screen;
+     - the pads and the encoders have two pages. The FX page is theirs
+       normally: Play mode's effects on the pads, played only while held
+       and never in undo, and the tape's FX on the encoders (DRIVE, AGE,
+       FILTER, CRUSH, ECHO, wow and flutter), their values on the screen.
+       The Mixer page is theirs while SHIFT is held. Its pads, for the
+       tape's four tracks, track *n* in column *n* on both rows:
+
+       | Pads | 1–4 | 5–8 |
+       |---|---|---|
+       | top row | mute | select |
+       | bottom row (9–16) | solo | arm |
+
+       Each pad is lit in its track's colour, so a pad's track can be
+       seen at a glance;
+     - mixing: the four faders are the levels of tracks 1–4, always, with
+       no bank. FADER BANK stays the keyboard's;
+     - HOME is for picking one of the synth's voices;
+     - clip arranging is not on the keyboard for now (the earlier plan
+       had the pads as the tape's clips).
+
+     The keyboard's screen, while the Pi has it, shows the counter and
+     the transport (playing, recording, the armed track), what the knobs
+     are and their values, which pad page is up and what its pads do,
+     and the levels.
+
+     The tablet follows the keyboard: the armed track, the mutes and
+     the pad page show there as the keyboard changes them, with a strip
+     of what the 16 pads do now. It follows on the tape's changes socket
+     (*The revision* in `docs/architecture/push.md`), so it lags the keyboard by
+     the Wi-Fi hop; the sound never waits on it, since the keyboard's
+     controls act on the Pi.
+
+     *Every press answers, at once, where the player is looking* (Gabe,
+     2026-10-28: *"often when playing an instrument you develop an
+     intuitive feel by watching something and feeling out the notes"*):
+     built as the surface's first step, a banner on the keyboard and a
+     note on the tablet's bar (*The keyboard's press* in
+     `docs/architecture/push.md`; J1.15). A refused press says why.
+
+   - *The surface, designed* with Gabe on 2026-10-29, from a quiz and a
+     canvas he played and agreed (*"this looks good to me"*): the
+     prototype is <https://claude.ai/artifact/WrryAkACiz1AgNHGBMYAWV>,
+     built in `~/programming/hindsight-design/smk/`. It draws the screen
+     pixel for pixel in the firmware's 5×7 font from the commands the Pi
+     would send.
+     - *The screen, always there*, top to bottom at 240×240: the tape's
+       name and tempo; the counter in bars and beats (`012.3`, scale 4)
+       with the transport beside it (PLAY green, STOP, REC red) and the
+       armed track under it, with any solos and mutes; the pad page (FX,
+       or MIXER while SHIFT is held) and what its 16 pads do, as a 2×8
+       map lit as the pads are; the levels of tracks 1–4, a meter each in
+       its colour with its fader's place as a tick; and the knobs in the
+       panel's own two rows (K1–K4, then SELECT, PAGE, PRESET, MASTER),
+       each its name and value.
+     - *The flash*: a banner over the top line for about a second after
+       each press, in the press's colour (PLAY green, STOP white, PUNCH IN
+       and REC red, a Mixer press in its track's colour), then the screen
+       as it was. Refused is amber, with the reason (NO TRACK ARMED). A
+       knob turn or a fader move flashes nothing: its name and value are
+       lit in place for a second. A held FX pad lights its cell in the map.
+     - *The Mixer page's encoders*: K1–K4 pan tracks 1–4; SELECT, PAGE
+       and PRESET are the selected track's input gain, monitor and echo
+       send. A track has only a level and a pan today, so those three
+       show a dash until the tape has them. A knob or fader move is one
+       undo step, not one per value.
+     - *The pad lights*, set by the Pi. On the FX page, by family: T1–T4
+       in their tracks' colours, BREAK, REVERSE, CHOP and STOP orange,
+       HALF and DOUBLE violet, ROLL, FILTER, ECHO and CRUSH cyan, CATCH
+       and GRAB white (pads 15 and 16 stay those). On the Mixer page,
+       every pad in its track's colour, dim when off and full when on
+       (muted, selected, soloed, armed). A pad is dim at rest, half
+       bright the moment it is pressed, and full when what it does is
+       heard, after the snap; a command pad flashes full once, when done.
+     - *The button lights*: PLAY while the tape plays; REC while
+       recording, and blinking while the tape plays with a track armed;
+       SHIFT while held. The rest stay the keyboard's.
+     - *The tablet*: the banner's words over the bar's display for the
+       same second, marked as the keyboard's, and what changed lit (▶,
+       ●, a track's head). A strip just above the bar shows the 16 pads
+       as the keyboard lights them, switching page with SHIFT, hidden by
+       a per-device switch. It rides the changes socket,
+       as an event carrying the words and what changed, not a diff.
+     - *The firmware*: the Pi lays out every pixel and times every flash;
+       the firmware draws. Protocol version 2 adds BOX (x y w h colour),
+       BAR (x y w h value colour back), a background colour on TEXT, LED
+       (a pad's RGB, a button on, off or blinking) and BATCH (several
+       commands, one ack: a whole screen is about 70 commands), and grows
+       the palette to 16 colours (the four tracks, red, orange, violet,
+       white) and the items to 96. An item's change repaints only its
+       16-row bands, not the whole screen. 1,693 bytes of the image are
+       free with it in; the help page and the voice picker need the room
+       *Our firmware* frees.
+     - *Where it is built*: on the screen simulator and the virtual
+       keyboard first, then on the unit with Gabe at the keyboard.
+     - *The overlaps* Gabe saw on the prototype (a long tape name into the
+       tempo, a four-digit bar into the sixteenths, NO TRACK ARMED into
+       the solos and mutes) are fixed in the Go layout, which tests that
+       no two text items overlap (`internal/surface/layout.go`;
+       `docs/architecture/keyboard.md`, *The SMK-37's screen on protocol
+       version 2*).
+
+     The build order, each its own PR (1–5 done, on the unit 2026-10-29):
+     1. the banner as TEXT on today's protocol (PLAY, STOP, KEPT 30 S,
+        refusals) and the note on the tablet's bar: the Pi alone
+        (the banner #195; the note on the changes socket, J1.15: *The
+        keyboard's press* in `docs/architecture/push.md`);
+     2. partial repaint, in the fork;
+     3. protocol version 2 (BOX, BAR, TEXT's background, the palette,
+        the items, BATCH), with simulator scripts in CI;
+     4. the layout in Go (`internal/surface`), the screen as a function
+        of the tape's state, tested by golden command lists and drawn in
+        the simulator;
+     5. LED: the pads by family with the two-stage light, and the
+        buttons. It needs Play mode's `at` for each pad (built:
+        `internal/surface/lights.go`; `docs/architecture/keyboard.md`,
+        *The SMK-37's lights*. The Mixer page's lights are there for K6 to
+        show, and SHIFT's light follows the hand already);
+     6. the tablet's pad strip and the lit change, on the push;
+     7. then the Mixer page (K6, after the map's spec), scrub (K7), the
+        faders (K8) and REC punching in (K3).
+
+     *Next* (Gabe, 2026-10-29: a session of its own to dial in the link
+     and the signal flow). What it answers is *Learnt on the unit* in
+     `docs/architecture/keyboard.md`:
+     1. The pads: while the Pi holds the panel its LED colours win in the
+        firmware; and/or the Pi re-asserts lights on a timer.
+     2. The Stops: the SMK-37's realtime start/stop shouldn't move the tape
+        when its PLAY is a button to the Pi; and the firmware shouldn't send
+        them on a screen take.
+     3. Local echo in the firmware: a pad half-lit and a knob's value shown
+        the instant they're touched, the Pi confirming after.
+     4. The link itself: measure where frames are lost (the SDK's USB MIDI
+        assembly, Linux's `snd-usb-midi` packing), ack and retry behaviour,
+        latency from press to light and press to sound, and a probe in CI or
+        the harness that would have caught the 764-byte loss.
+     5. Then the build order's rest: the tablet's pad strip (step 6), the
+        Mixer page on SHIFT (K6), scrub (K7), the faders (K8), REC punching
+        in (K3).
+   - *The map.* What each control does, on each page, is written once,
+     per device, beside its profile: the control, what it sends, what it
+     does on each page, the track colour of a Mixer pad, and the K flow
+     that checks it. Three things read it, so none of them can drift
+     from the bindings:
+     - a section of the guide (`docs/guide.md`), with the panel drawn;
+     - a help page on the keyboard's own screen;
+     - the overlay: labels over the virtual keyboard's panel, and the
+       pad strip on the tablet. It can be hidden once the map is learned
+       (Gabe: *"we should be able to hide the map/overlay as well once we
+       have learned it"*).
+
+     The SMK-37 is the first device with a map, not the only one: *"the
+     midi functions should be mapable to other types of midi devices as
+     well so the overlay could be an object that is swapped out for
+     other supported devices"*. So the overlay is an object the
+     connected controller's profile picks, and another controller with a
+     map gets its own. The map is an interface (who writes it, who reads
+     it), so it gets a short spec of its own before it is built.
+   - *The pads' timing* is open. The lag Gabe feels most is the pads',
+     and they are quantised to a 16th by default (`controls.json`'s
+     quantum): 0–114 ms at 132 BPM. PLAY and REC are not quantised. He
+     chose to A/B a 16th against `now` by ear at the rig, then decide.
+   - *Settled* on 2026-10-29 (*The surface, designed*, above): what the
+     encoders do on the Mixer page, and pads 15 and 16 stay CATCH and
+     GRAB.
    - *Where the room comes from.* The image's symbol table says what
      Open's app spends (about 80 of its 83 KB placed):
 
@@ -313,88 +459,122 @@ My recommendation first in each.
      20 KB), the synth engines and FX (about 21 KB), and Bluetooth (about
      100 KB).
 
-   The steps, each a checkpoint. ⌨ marks one Gabe confirms at the
-   keyboard:
-   1. *Off the unit:* done 2026-10-26, in
-      [gabeduke/smk37-hindsight#1](https://github.com/gabeduke/smk37-hindsight/pull/1):
-      - the fork, `gabeduke/smk37-hindsight`;
-      - the Elite firmware built on Windows and under Wine, the same bytes;
-      - the write areas asserted, with a test, and `tools/flash-diff.py`;
-      - M-Flasher 0.6.1, built on the Mac from its tag;
-      - a MIDI monitor: `tools/midi.swift` in the fork on the Mac, and
-        `aseqdump` on the Pi.
-   2. ⌨ *Identify the unit, read-only:*
-      - on the Mac: done, above;
-      - on the Pi, by *Capturing an unknown device* in
-        `docs/hardware/README.md`: the CC map of the firmware on the
-        unit, into `smk-37-elite.json`, in a PR of its own.
-   3. ⌨ *Back up:*
-      - into download mode. SMK-37+VA documents no way in, so try the soft
-        key first (`m-flasher download-mode`); a firmware that doesn't
-        know it ignores it. Otherwise, the Pico dongle;
-      - `info`: the chip, the flash's JEDEC id, the model, the firmware
-        and the bootloader;
-      - `backup` to a directory outside every repo. Power-cycle, back up
-        again, and check the two SHA-256s match;
-      - check `trimdat` at 0xC1224, and what 0xFF000–0xFF23C hold;
-      - keep two copies, on two disks.
-   4. ⌨ *m-bootloader:* the boot area only (16 KiB), from a pinned
-      release. SEQ PLAY opens the menu, SEQ REC gives download mode, and
-      stock still starts. Back up and diff.
-   5. ⌨ *The fork as step 1 leaves it,* by M-Flasher, with neither
-      `--with-bootloader` nor `--wipe-settings`. Check that it boots and
-      that the keys and pads respond. Back up and diff.
-   6. ⌨ *The first proof: text over SysEx.* It needs room first (*Room
-      for code*, under *To settle*). First from the Mac
-      (`sendmidi`), then from the Pi (`amidi -S`), then from Hindsight.
-      Today `internal/midi` only skips SysEx when it reads, so it gains a
-      SysEx writer and a way to send text, with tests. It finds the port
-      by the profile's name. The keyboard stays class-compliant, so the
-      Pi needs no driver.
-   7. Make the room: take out what *Our firmware* drops, one build at a
-      time, keeping its keys and pads working. Then the controls as plain
-      MIDI, and the lights from the Pi.
-   8. The screen's widgets, then the features in Gabe's order:
-      transport, FX, clip arranging. Then the keyboard's synth over the
-      tape, recorded as an input. That is the Elite's USB audio, shown
-      under SMK-37+VA but not yet under our firmware or on Linux.
+   *The virtual keyboard, and the keyboard's flows.* Gabe, 2026-10-27: a
+   virtual keyboard *"would give us a chance to dial in the interface and
+   play around with how we want to interact with hindsight"*, and *"a
+   validation frame like we used for the mobile app with user flows"*. It
+   runs beside the unit, not instead of it. The interface is designed on
+   it, and every change is checked on it before it goes on the keyboard.
+   - *What it is.* Open's workbench draws the whole SMK-37 panel (the
+     screen, pads, encoders, faders, buttons and keys) and plays the
+     synth. It runs the firmware's own `app/`, compiled to WebAssembly,
+     on Open's simulator (`web/engine`, M-VAVE's C stand-in for the
+     binary SDK).
+     - The fork builds it from our `app/` with
+       `tools/container/build.sh elite web`, in about 40 s (done
+       2026-10-27).
+     - It is the code that goes on the unit, less the board layer. So the
+       screen it draws is the unit's, and the bytes it sends are the ones
+       Hindsight will get.
+     - The simulator already takes SysEx in (`sim_midi`) and captures
+       what the keyboard sends (`sim_midi_output`). The page uses neither
+       yet.
+   - *What it can't tell us.* Each of these stays a check at the
+     keyboard:
+     - the timing: USB at full speed, the one-message mailbox, Pi to
+       screen;
+     - how the encoders, pads and keys feel;
+     - what the binary SDK itself does;
+     - the image's size, which only the real build reports (1,693 bytes
+       left on protocol version 2).
+   - *The link to Hindsight.* Hindsight reads MIDI only from Linux rawmidi
+     nodes, so a keyboard in a browser can't reach it.
+     - Hindsight: a WebSocket, `/api/controllers/virtual`. `internal/midi`'s
+       Watcher opens it as a port like any rawmidi node, under the name
+       the page gives it: `SMK-37 Elite (virtual)`, which the SMK-37
+       profile matches.
+     - Its bytes go through the same reader. So `ControlSink`,
+       `ControlSysExSink`, `internal/surface` and Play mode's bus run the
+       same code as for the real keyboard, and `KeyboardSend`'s
+       `midi.Out` writes back to it. Since #183's review, that `Out` is
+       aimed at the controller's node rather than its name, so the virtual
+       port needs a node of its own that `Out` can match and write to. One
+       MIDI message goes in each binary frame, both ways.
+     - This changes interfaces: `internal/midi` gets a port that isn't a
+       rawmidi node, and `midi.Out` a target that isn't one. It is a PR of
+       its own, written up in `docs/architecture/`.
+     - It is on with `--demo` and off on every kit. It is never one of the
+       Pi's settings, since nothing a kit does needs it.
+     - The page, in the fork: `?link=<ws url>` opens the socket, sends
+       what the simulator captures, and hands what comes back to
+       `sim_midi`.
+     - Hindsight puts the keyboard's status on `/api/status` (connected,
+       has the screen, homed), so a flow can check it as the Pi sees it.
+   - *The flows* are a K series in `docs/flows.md`, run by
+     `scripts/flows.mjs` against the demo, like the J series.
+     - The harness gains `t.keyboard`: the virtual keyboard's page, opened
+       beside the app in the same browser and linked to the run's demo. Its
+       gestures are real pointer events on the panel: `press`, `hold`,
+       `pad`, `turn`, `fader` and `key`. `shot()` adds a picture to the
+       storyboard.
+     - It is checked as the Pi sees it. The tape and the takes come
+       through the API, and the keyboard's status through `/api/status`.
+       What the keyboard drew is what Hindsight sent and the keyboard
+       acked.
+     - The page is the fork's build. `SMK37_VIRTUAL` names a directory
+       that holds it. CI fetches the fork's own build, pinned to a commit
+       like a dependency; the fork's CI gains the `web` build as an
+       artifact for it.
+
+     The stories, agreed with Gabe on 2026-10-28 from his answers above.
+     K2, K4 and K5 run on what is built and wait only for the link; the
+     rest are `todo` until their feature lands. Each row of the map
+     names the story that checks it:
+
+     | Id | As Gabe I want to… | Status |
+     |---|---|---|
+     | K1 | plug the keyboard in and see Hindsight take its screen: the counter, the transport, the knobs, the pad page and its map, and the levels | core for taking the screen, once the link lands; the widgets `todo` |
+     | K2 | press PLAY on the keyboard to play and stop the tape, and see the tablet follow | core, once the link lands |
+     | K3 | press REC to punch in on the armed track and again to punch out (from a stop, REC starts the tape), then find what I played on the tape | todo: REC KEEPs today |
+     | K4 | press HOME to pick one of the synth's voices, then hold HOME a second and let go to hand the screen back | core, once the link lands |
+     | K5 | on the FX page, hold pads for Play mode's effects, with nothing in undo, and turn the tape's FX on the encoders, with their values on the screen | core for the pads and the four mod knobs (the SMK-37 profile's today), once the link lands; the rest `todo` |
+     | K6 | hold SHIFT for the Mixer page: mute, select, solo and arm tracks 1–4 on the pads, each in its track's colour, and see the tablet follow | todo |
+     | K7 | scrub the tape on the master knob, with the counter on the keyboard's screen; SHIFT and the master knob for the synth's volume | todo |
+     | K8 | set the levels of tracks 1–4 on the faders | todo |
+     | K9 | play the keyboard's synth over the tape and record it as an input | rig |
+     | K10 | read what every control does, on the keyboard's help page and in the guide, and hide the overlay once I know it | todo |
+     | P1 | A/B the pads' quantum by ear, a 16th against `now`, and pick their timing | rig |
+     | R2 | install ours over SMK-37+VA, back up, then m-bootloader | done, 2026-10-27 |
+
+   - *Build order*, each step its own PR:
+     1. the fork's CI builds and uploads the virtual keyboard;
+     2. Hindsight's virtual port and the keyboard on `/api/status`, with
+        tests;
+     3. the page's link;
+     4. the harness's `t.keyboard`, and K1 to K10 in `docs/flows.md`:
+        core where the table says so, `todo` for the rest;
+     5. each `todo` turns core as its feature lands: on the virtual
+        keyboard first, then at the keyboard. The map's spec comes before
+        K6, since the Mixer page is the first thing it describes.
 
    To settle, my recommendation first:
-   - *m-bootloader's write into 0xFF000*, which the first rule rules out.
-     Accept it: it fills blank bytes with a copy of the calibration and
-     never erases, and it is the build M-Flasher and m-bootloader were
-     tested with. The alternatives: build m-bootloader without the guard
-     (one function, but an untested bootloader), or skip m-bootloader
-     and rely on the soft key and a Pico dongle.
-   - *Room for code.* V01's Elite image is 453,892 bytes, and
-     `Package.cs` allows 453,921: 29 bytes to spare. *Our firmware* says
-     where the room comes from. For the first proof, reuse `screen.c`'s
-     own text drawing (capitals and digits), and take out the workbench's
-     transfer protocol (2.8 K), which the SysEx handler replaces. A
-     smaller user partition would be one more source, but only a unit can
-     say whether the SDK accepts one.
-   - *The factory DX7 voices* (10.2 K): keep all 128 while there is room,
-     since the synth over the tape is a goal. Cut to a bank of 32 if
-     space runs short.
+   - *Room for code.* The image has 1,693 bytes free on protocol version 2
+     (`docs/architecture/keyboard.md`, *On the unit*). The help page and the voice picker need more, from the
+     pages *Our firmware* drops (*Where the room comes from*). A smaller
+     user partition would be one more source, but only a unit can say
+     whether the SDK accepts one.
+   - *The factory DX7 voices* (10.2 K): keep them while there is room, since
+     the synth over the tape is a goal; cut to a bank if space runs short.
    - *The sampler:* capped before 0xC0000 in the fork, which leaves about
-     9 s instead of 19.5; that was the recommendation. Dropping it would
-     also free code space. The DX7 library and tuning sectors
-     (`[0xFA000, 0xFF000)`) sit over the stock sounds, which the backup
-     holds.
+     9 s instead of 19.5. Dropping it would also free code space. The DX7
+     library and tuning sectors (`[0xFA000, 0xFF000)`) sit over the stock
+     sounds, which the backup holds.
    - *Builds on the Mac:* let CI build (about a minute) and fetch its
      package with `gh run download`; the container stays for working
-     offline. Wine for macOS would be fast, since its Rosetta does run
-     32-bit code, but it is unsigned software installed on the Mac.
-   - *Rehearse on the FM-1 first.* Gabe has one. It has the same chip,
-     and M-VAVE's `fm1_open` is the same SDK. M-Flasher and m-bootloader
-     were tested on its hardware, and it has no factory calibration to
-     lose. Run steps 3 to 6 on it, then on the Elite.
-   - *Download mode from SMK-37+VA*, if the soft key is ignored: use a
-     Pico dongle. The alternative, reinstalling stock or Felucca through
-     their installers, would write before any backup.
-   - *The CC map in the profile* follows the firmware on the unit until
-     ours lands; SMK-37+VA's is in its manual. The alternative is to put
-     stock back to capture its map.
+     offline.
+   - *A developer switch on a Pi* for the virtual keyboard's link, to
+     play it against the real rig. Leave it out until a flow needs the
+     rig: the demo is where the flows run.
 
    Sources:
    - <https://github.com/m-vave/smk37_open> (V01, `b2d6bcb`): `sdk/include/fm1.h`, `sdk/Package.cs`,

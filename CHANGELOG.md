@@ -5,6 +5,99 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.6 — 2026-10-29
+
+- Docs: AGENTS.md keeps the details the review found thinned, and four records say only what the repo supports (1c36ba6)
+- Docs only, no change to the app: decisions get a record each, the architecture a file per area, and STATE.md lists only what is open (80150e8)
+- Docs: the feed strip and the cue lane's place in the mix are in architecture.md, and Bluetooth MIDI is still to check on the SMK-37 (5e44f87)
+- Prune the handoff docs: STATE.md and the specs say only what is still open (871e472)
+- Say three frames to a screen where the comments and the architecture still said two, and why 512 (bf9b58d)
+- STATE: where the SMK-37 stands after protocol 2 reached the unit, and what the link taught us (bc67b16)
+- The SMK-37's screen draws from the Pi: frames stay under what the keyboard takes over Linux's USB MIDI (4b438fc)
+- The SMK-37's screen no longer blanks and re-takes itself every two seconds: the Pi waits for a whole screen to be drawn before it asks again (c9e6e6f)
+
+
+## v2026.10.29.5 — 2026-10-29
+
+- J1.3 selects its spans on a feed with no flags left by J1.2 (289b7ae)
+- The bar's reel no longer counts as covering the Studio's last track level (afe4d4a)
+- The SMK-37's pad lights come on at their landing, stay half while a quantised press waits, and start again from the tape when the screen comes back; SHIFT's light goes out with the keyboard (0f59d93)
+- The SMK-37's pads light half when pressed and full when heard, on the beat Play mode lands them; CATCH and GRAB flash when done (68cca7f)
+- On version 2 firmware, the SMK-37's pads light by family and its PLAY, REC and SHIFT buttons follow the tape (e7bd803)
+- J1.15 checks GRAB and DROP on the keyboard light the dropped-on track's head, and the note over a take in the bar (b717c22)
+- A press on the keyboard shows on the bar in every room, over a take as well, and a screen reader hears it; on a phone it covers the player's whole window (6aeb9a7)
+- The SMK-37's screen says REC only while recording, heals after a refused draw, and keeps its knob names current (f3d77cc)
+- Record the tablet's half of the surface's first step in the plan (7be1d6f)
+- J1.15: a flow plugs a keyboard into the demo and checks its presses come and go on the bar (2a4319f)
+- The bar shows each press on the keyboard over its display for its second, marked as the keyboard's, and lights what it changed (b9dfeaf)
+- The SMK-37's screen follows the tape: where it is, what plays, the levels and the knobs (f5fb25f)
+- On version 2 firmware, the SMK-37's screen is laid out as designed (4ea2955)
+- The tape's changes socket tells the tablets each press on the keyboard: its words, its colour and what it changed (95f08d4)
+- Each track has a level meter, for the SMK-37's screen to show (0a83d13)
+- Capture keeps its live meters' socket as it was; J1.14 jitters its pauses again (65ba5b6)
+- The tape's changes socket says a revision again only on its beat (c7b0ef4)
+- J1.14 waits for the page to be listening, not for a fixed time; describe ctx.socket's place in the push (667f291)
+- The bar asks the Pi for the tape one poll at a time, as the Studio does (ea69d9d)
+- Opening the Studio, or going back to it, asks the Pi for the tape once, not twice (6edd258)
+- The Studio and Capture hold their sockets to the Pi only while they are shown (f7dcf2a)
+- A room holds its sockets to the Pi only while it is shown (d35e7b1)
+- Describe the tape's changes socket, and tick steps 2 and 3 of pushing the tape's state (00227b8)
+- The Studio and the bar show a press made at the Pi within tens of milliseconds (ab0b2f4)
+- Keep the page's sockets open in one place, for the meters and the tape alike (7ef75f4)
+- The Pi tells a page the moment the tape changes, over a socket of its own (49a4068)
+
+
+## v2026.10.29.4 — 2026-10-29
+
+- Review fixes for the keyboard's banner: a HOME can't slip in before it, and tests for STILL BUSY and every verb's words (f91ac01)
+- The SMK-37's screen says what each press did, or why it was refused, for a second (95cbcd8)
+- Design the SMK-37's surface with Gabe: its screen, its lights and the tablet following it (771a490)
+
+
+## v2026.10.29.3 — 2026-10-29
+
+- The tape answers a press sooner on a kit set to a low output latency: it renders only as far ahead as the device buffers (59c7bd3)
+- Spec: the instrument -- Gabe wants playable sound design on the keyboard (filter, oscillators) rather than editing on the phone; its library has 16 patches (b32a0ff)
+- Spec: the instrument -- every press on the keyboard answers at once, on its screen and on the tablet, starting with a line of text (dbe1238)
+- Spec: the instrument -- the K stories agreed with Gabe: REC punches in on the tape, an FX page and a Mixer page (SHIFT held), the master knob scrubs, the faders are tracks 1-4, and one map per device for the guide, the keyboard's help page and the overlay (7d3e378)
+- Spec: the virtual keyboard's port needs a node of its own, now that Hindsight writes to the keyboard's node (795c2dd)
+- Spec: the first proof from Hindsight is done (the Pi took the screen), and #183's profile does match "SMK37 Open" (bd5f1f5)
+- Spec: the instrument -- ours is on the SMK-37 Elite, by the workbench over SMK-37+VA; the soft key answered, two backups match, m-bootloader on, and only its own bytes changed (4c2210c)
+- Spec: the instrument -- ours goes on over SMK-37+VA by the workbench (Gabe), then the backups; a virtual keyboard and the K flows to check the keyboard with (4113b0e)
+- Spec: the instrument -- SMK-37+VA ignores the soft key, so the first backup takes Felucca or a Pico dongle (Gabe's choice, at the keyboard); HOME held a second gives the screen back to Hindsight (bc0f594)
+- Spec: the instrument -- the SMK-37's first proof and surface are built off the unit (fork #2, #3); m-bootloader's calibration copy accepted; encoders absolute, set by the Pi (06012fa)
+
+
+## v2026.10.29.2 — 2026-10-29
+
+- Play mode's pads land on the beat you heard: a hit on the line is no longer a whole sixteenth late (5bbf1f4)
+- Tests: the revision's test waits for the render goroutine, so a slow CI runner can't fail it (8b8487d)
+- The tape keeps a revision of what its page shows, so a page can soon be told to look again the moment something changes (8bec695)
+
+
+## v2026.10.29.1 — 2026-10-29
+
+- Spec: pushing the tape's state -- says it is agreed at the top too (7e65c04)
+- Spec: pushing the tape's state -- agreed with Gabe as recommended (7cbdc1e)
+- Docs: STATE.md points at the push spec (05fe469)
+- Spec: pushing the tape's state -- the Pi nudges the page when the tape changes, so the tablet follows a controller's press in about 30-50 ms instead of up to 235 (da9e843)
+- Docs: STATE.md hands the SMK-37 over: the keyboard, the PRs, what the Pi runs, and what's next at the rig (7b4eee4)
+- Tests: the MIDI tempo test checks the tempo it actually wrote, so a slow CI runner can't fail it (faac06b)
+- Hindsight writes to the SMK-37 at its own port, so a second keyboard of the same name hears nothing (bd62300)
+- The SMK-37's first HELLO now reaches it, rather than waiting out a timeout (28ec37c)
+- HOME on the SMK-37 now wins over a CLEAR still waiting for its ack (bd14597)
+- Hindsight no longer crashes when the keyboard's MIDI output is shut down mid-scan (4f6debf)
+- Docs: STATE.md says the SMK-37 runs Hindsight's firmware and the Pi took its screen on the first try (bb03e6e)
+- A deploy from a checkout no longer deletes the settings the Settings sheet saved (e657e04)
+- Tests: the SMK-37 is matched by the name it gives on Hindsight's firmware, "SMK37 Open", as read off the unit (7048d17)
+- Tests: an OFFER from a keyboard Hindsight had forgotten still forgets its HOME; comments and docs say HOME is let go (9b4e63f)
+- On an SMK-37 on Hindsight's firmware, HOME held for a second hands the screen back to Hindsight (fd08ab9)
+- Docs: controllers and the SMK-37's surface in architecture.md; its state and the HOME question in STATE.md (cbddfa1)
+- With an SMK-37 on Hindsight's own firmware, Hindsight takes its screen, and its PLAY and REC run the transport and KEEP (69edf67)
+- Hindsight can talk to an SMK-37 running Hindsight's own firmware: draw on its screen, set its knobs, time its answers (1e2f37b)
+- A controller's SysEx messages now reach Play mode's bus (nothing sends any yet) (b90ac14)
+
+
 ## v2026.10.27.3 — 2026-10-27
 
 - Dragging a take's buffer onto a lane names the take as the shelf does too (830b2cd)

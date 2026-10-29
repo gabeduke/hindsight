@@ -183,7 +183,11 @@ async function sample(page, touch) {
     };
     return r.violations.flatMap((v) => v.nodes.map((n) => ({
       rule: 'target-size', severity: 'fail', el: n.target.join(' '),
-      msg: (n.any[0]?.message || n.failureSummary || v.help).replace(/\s+/g, ' ').slice(0, 160),
+      // axe passes a small target that has room around it, so a fail is
+      // two checks failing: its size, and its offset from the neighbours
+      // named here. Without them the report can't say what came close.
+      msg: [(n.any[0]?.message || n.failureSummary || v.help).replace(/\s+/g, ' ').slice(0, 160),
+        ...n.any.flatMap((c) => c.relatedNodes ?? []).slice(0, 3).map((x) => `near ${x.target.join(' ')}`)].join('; '),
     })).filter((f) => !(/obscured/.test(f.msg) && (underLayer(f.el) || underPinned(f.el)))));
   }, [axe(), PIN]).catch((e) => [{ rule: 'axe', severity: 'warn', el: '', msg: `axe didn't run: ${e.message.split('\n')[0]}` }]);
   return [...found, ...axeFound];
