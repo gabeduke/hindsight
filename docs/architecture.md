@@ -647,6 +647,42 @@ pending tap, the clock's status and a failed pool file.
 clipboard, ▶ and ■ (and that the view already shows them at the tap), a
 pass and a count-in, and fails on one that doesn't move the revision.
 
+**`/api/tapes/changes`** (`internal/api/changes.go`) is a WebSocket of its
+own that tells a page of the revision: `{"rev":N,"at_ms":…}` when it opens,
+on each tap of `Changes().Subscribe()`, and once a second (`changesBeat`)
+whether anything changed or not, with `at_ms` the Pi's clock so a page can
+time the push. It sends a nudge, not the state: the page polls
+`/api/tapes/state` at once, through the poll it already has. The beat is
+what keeps a quiet socket from being taken for a dead one (`lib/socket.js`
+replaces one silent for 4 s), and a beat whose rev differs from the last
+one heard catches a nudge that was lost. The page never writes to it; with
+the tape off it is a 404, as the rest of `/api/tapes` is. Not on
+`/api/live`, which is the capture's levels.
+
+In the page, `lib/tape/changes.js` (`watchChanges(onNudge)`, and
+`revisions()`, which says whether a message's rev is one not yet heard) is
+the client, kept open by `lib/socket.js`'s `connectSocket`, the reconnect
+and dead-socket rules `lib/live.js` had, moved so both use them. A watch
+takes its socket's first rev as seen, not news: whoever opens one polls as
+they do, and counting it would ask the Pi twice; after a reconnect, a rev
+that moved while it was down is news. The Studio (`lib/tape/page.js`) holds
+it through `ctx.socket` (*The shell*), so it is open only while the Studio
+is shown, and with it the bar's hand-over: opening it delegates the bar's
+tape to the Studio, closing it hands it back (`delegate(null)`). A nudge
+asks `poll-gate.js`'s `nudge()`, which polls at once with no poll out, or
+has the poll that is out poll once more when it ends (`end()` says so),
+never two at once. The bar's tape source (`lib/bar/tape-source.js`) is not
+a view: its socket's life is tied to `del` and `active` instead. It
+watches while it polls the tape itself (in the bar, `active`, and not
+handed to the Studio, `!del`), and closes on `delegate(d)`, on
+`setActive(false)` and on `destroy()`. Its polls go through a gate of their
+own on the same rules (a tick skipped while one is out, a wake-up forced,
+a nudge, a press or the hand-back asked for once), with a 4 s timeout so a
+poll lost in a sleep frees the gate. The 200 ms and 500 ms polls stay, as
+the fallback for a socket that is down. J1.14 times ▶, ■ and a rename made
+at the Pi to the page's paint, in the Studio and in the Listening Room's
+bar: within 100 ms on the demo.
+
 **Catching.** What the tape played at output frame `o` is in the capture
 ring at `o + delta`. A catch looks up the output frames it wants -- a pass
 from the cycle log, or the last N bars from the position map, back from the
@@ -882,6 +918,11 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   ticker step that does nothing while the view is hidden. Every global
   listener, poll and frame loop goes through these, so a hidden view costs no
   CPU and no network.
+- `socket(open)`: a connection held only while the view is shown.
+  `open()` runs on each wake (after `show()`, with the polls) and answers
+  something with a `close()`, called when the view is hidden or destroyed.
+  A room's socket to the Pi (`lib/socket.js`'s `connectSocket` or what is
+  built on it) goes through it, so a room not shown holds none open.
 - `active()`: shown and the document visible.
 - `layers`: the view's scope of the shell's one stack of open things
   (below). A menu, sheet, drawer or selection the view opens goes on it with
@@ -1049,7 +1090,7 @@ to move in Open's pass.
 |---|---|
 | `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf), `backToTape`, `setSource`, `playing()`, `snapshot()`, `onChange` |
 | `engine.audio` | `adopt`, `owns`, `release`, `audioFor`: the take in the bar belongs to the engine, so a shelf row torn down never stops it, and two shelves never hold two elements for one take. Engine media is never in a view's subtree (a removed media element pauses) |
-| `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport), `setLevels` |
+| `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport; the Studio delegates while it is shown and hands it back, `delegate(null)`, on hide, so the bar polls the tape itself in the other rooms), `setLevels`. While it polls the tape itself it watches `/api/tapes/changes` (`lib/tape/changes.js`) and polls on each new revision |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
 | `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class. `lib/bar/player.js` sets `#np[data-size]` (`mini`, `full`) |
@@ -1059,7 +1100,8 @@ touches media or an AudioContext. Autoplay gates are per document with sticky
 activation, so after the first tap a later `play()` needs no new gesture. The
 AudioContext is made once, on a tap, with `audioSession.type = 'playback'`,
 and resumes on `visibilitychange`. Media Session has one owner, the engine.
-`connectLive` closes its socket on `pagehide` and reopens on `pageshow`, since
+`connectSocket` (`lib/socket.js`, under `connectLive` and `watchChanges`)
+closes its socket on `pagehide` and reopens on `pageshow`, since
 an open socket keeps the shell out of the back-forward cache, and a restored
 shell applies a carry record rather than dropping it.
 
@@ -1437,11 +1479,13 @@ therefore gives its reads a deadline and checks its link on waking
   forced on waking go ahead of one that may be lost, and drops the lost
   one's answer if it ever arrives.
 - **A dead socket is noticed.** Nothing tells a page that its socket died
-  in its sleep, so `/api/live`'s client (`lib/live.js`) treats 4 s without a
-  frame as dead (frames come ~100 times a second) and replaces it, waiting
-  0.5 s after a failure and up to 5 s after repeated ones. The server sends
-  no heartbeat of its own: its pings are answered by the browser below
-  JavaScript, where the page can't see them.
+  in its sleep, so `lib/socket.js` (`connectSocket`, which `/api/live`'s
+  client, `lib/live.js`, and `/api/tapes/changes`'s, `lib/tape/changes.js`,
+  both use) treats 4 s without a message as dead and replaces it, waiting
+  0.5 s after a failure and up to 5 s after repeated ones. `/api/live`'s
+  frames come ~100 times a second; `/api/tapes/changes` beats once a second
+  for this, since its pings are answered by the browser below JavaScript,
+  where the page can't see them.
 - **Waking is an event.** `onResume` fires when the page is visible again,
   shown again (`pageshow`, bfcache or not), online again, or when a one-second
   tick arrives more than 3.5 s late (the clock jumped; timers were frozen,
@@ -1484,7 +1528,7 @@ it shares with the Studio. The pure parts of each are node-tested.
 | `wave/page` | Owns the take's editable state and wires the rest together |
 | `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, first-run hints |
 | `help/markdown` | Renders the guide for `/guide.html`, from `/guide.md`, which the binary serves compiled in (`docs/embed.go`) |
-| `link`, `live`, `tape/poll-gate` | Reads that time out, the wake-up refetch, the *Reconnecting…* note, and the live meters' socket that replaces itself (see *Waking up*) |
+| `link`, `socket`, `live`, `tape/poll-gate`, `tape/changes` | Reads that time out, the wake-up refetch, the *Reconnecting…* note; a socket that replaces itself (`socket.js`'s `connectSocket`), for the live meters (`live.js`) and the tape's changes (`tape/changes.js`, see *The revision*); one poll at a time, and a nudge's poll after it (see *Waking up*) |
 | `toast` | Both pages' toasts, with an optional action ("Flag deleted · Undo"), and one carried to the next page |
 | `takes`, `trash` | The Listening Room's list, with select mode for several takes at once; *Recently deleted* |
 

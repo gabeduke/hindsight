@@ -70,7 +70,7 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *   hide()
  *       Every time the view is left, while it is still shown. Close its
  *       menus, inspectors and modal sheets; stop view-local previews (bounce,
- *       an audition); close its sockets (connectLive().close()). It cannot
+ *       an audition). Its sockets (ctx.socket) are closed for it. It cannot
  *       refuse: leaving the Studio during a recording shows a REC chip with a
  *       Stop in the header, never a refusal (Gabe, 2026-10-17). Its polls,
  *       loops and listeners go quiet right after its synchronous part runs.
@@ -126,6 +126,17 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *                that was running when the view was hidden, or was started
  *                while hidden or during mount, starts when the view is up.
  *                One that parked itself (returned false) stays parked.
+ *   socket(open) -> off
+ *                A connection held while the view is shown: open() is
+ *                called each time the view wakes (after its show(), with
+ *                its polls; at once if the view is shown already) and
+ *                answers something with a close(), which is called when the
+ *                view is hidden, destroyed, or off() is called. For a
+ *                socket to the Pi (lib/socket.js's connectSocket, or what
+ *                is built on it), so a room not shown holds none open. A
+ *                hidden document does not close it: the socket's own
+ *                rules (onResume) see to a page that slept. An open() that
+ *                throws is reported, and tried again on the next wake.
  *   signal       an AbortSignal, aborted by destroy() and by a mount that
  *                throws: for fetches, and for listeners on the view's own
  *                elements
@@ -260,6 +271,7 @@ export function createView(def, {
   const offs = new Set(); // ctx.on's
   const polls = new Set(); // ctx.every's: {fn, ms, id}
   const loops = new Set(); // ctx.loop's: {loop, wanted}
+  const sockets = new Set(); // ctx.socket's: {open, conn}
   const isShown = () => shown;
   // While it warms up, what it adds to the shell's slots waits in its own
   // hidden root: in the document, so its mount finds a part by its id, and
@@ -366,6 +378,27 @@ export function createView(def, {
     };
   }
 
+  const connect = (k) => {
+    if (k.conn) return;
+    try { k.conn = k.open() || null; } catch (e) { k.conn = null; onError(e); }
+  };
+  const disconnect = (k) => {
+    const c = k.conn;
+    k.conn = null;
+    try { c?.close?.(); } catch (e) { onError(e); }
+  };
+
+  function socket(open) {
+    if (typeof open !== 'function') {
+      throw new TypeError(`ctx.socket expects (open: Function), got ${typeof open}`);
+    }
+    const k = { open, conn: null };
+    sockets.add(k);
+    // Not while mount or show is still under way: it opens with the polls.
+    if (state === 'shown') connect(k);
+    return () => { disconnect(k); sockets.delete(k); };
+  }
+
   function setTitle(text) {
     title = text == null ? null : String(text);
     if (shown && title != null && doc) doc.title = title;
@@ -377,6 +410,7 @@ export function createView(def, {
     try { layers?.closeAll({ reason: 'navigate' }); } catch (e) { onError(e); }
     for (const p of polls) disarm(p);
     for (const l of loops) l.loop.stop();
+    for (const k of sockets) disconnect(k);
     slot.header.take(); slot.dock.take(); slot.bar.take();
     root.hidden = true;
   }
@@ -388,6 +422,7 @@ export function createView(def, {
     polls.clear();
     for (const l of loops) { l.wanted = false; l.loop.stop(); }
     loops.clear();
+    sockets.clear();
     slot.header.clear(); slot.dock.clear(); slot.bar.clear();
     doc?.removeEventListener?.('visibilitychange', onVisibility);
     controller.abort();
@@ -409,6 +444,7 @@ export function createView(def, {
       on,
       every,
       loop,
+      socket,
       signal: controller.signal,
       setTitle,
       ...(layers ? { layers } : {}),
@@ -475,6 +511,7 @@ export function createView(def, {
       if (title != null && doc) doc.title = title;
       for (const l of loops) if (l.wanted) l.loop.start();
       for (const p of [...polls]) { run(p); if (shown) arm(p); }
+      if (shown) for (const k of [...sockets]) connect(k);
     })();
     return showing;
   }
