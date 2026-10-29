@@ -269,6 +269,26 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
   - A TEXT waiting for the place a newer TEXT draws to is replaced, unless
     a CLEAR waits between them.
 - **Each ack's round trip** is kept (`Status.RTT`), for step 1's latency.
+- **Every press on the keyboard answers on its screen** (`Keyboard.Banner`;
+  `internal/api/banner.go`): its words over the top line for
+  `surface.BannerFor` (a second), then the line that was there.
+  - The banner is a TEXT at the top line's place (`surface.TopX`,
+    `TopY`) at `BannerScale` 2, so 19 characters; a layout puts its top
+    line at that place, since TEXT works by place. A TEXT for the top line
+    while the banner shows is kept and drawn when it goes.
+  - Its time is the client's own clock (`Keyboard.Clock`, `Now`) and loop:
+    the 20 ms tick that resends puts the top line back. A new press
+    replaces the banner showing; a CLEAR, HOME or a forgotten keyboard
+    ends it with nothing put back, and none is drawn without the screen.
+  - The API stamps a press with `Keyboard.Now` (`verbJob.pressed`), and
+    only the keyboard's own presses say anything there. The transport is
+    timed from the press; KEEP, CATCH, GRAB and DROP from when they are
+    done, as the design's command pads flash when done.
+  - The words are the verb's (`verbDone.says`): PLAY in green, STOP,
+    CATCH, GRAB and DROP in the text colour, KEPT 30 S in the accent
+    (version 1 has no red). A refused press, a verb's or a pad's, is
+    amber with its reason (`refusals`: NO TRACK ARMED, NO TAPE LOADED,
+    NOTHING TO KEEP, …), or its name and REFUSED.
 
 ### The clock bridge
 

@@ -417,8 +417,22 @@ My recommendation first in each.
      - *Where it is built*: on the screen simulator and the virtual
        keyboard first, then on the unit with Gabe at the keyboard.
      - *Still to find*: an overlap Gabe saw on a couple of screens and
-       doesn't recall where. Look on the keyboard and the tablet while
-       building the first step.
+       doesn't recall where. Looked for while building the first step's
+       banner (2026-10-29): the Pi's screen today has none (its four lines
+       are far apart, and the banner takes the top line's place, so the
+       two never draw together). The prototype's layout, which step 4
+       ports, has three, found by measuring every text item's box:
+       - a tape name longer than 15 characters runs into the tempo at
+         x 186;
+       - from bar 1000 the counter (`1000.1`, scale 4) runs into the
+         sixteenths beside it at x 124;
+       - NO TRACK ARMED runs into the solos and mutes when all four are
+         both (`SOLO 1 2 3 4  MUTE 1 2 3 4` starts at x 78).
+
+       Step 4 cuts the name to fit before the tempo, gives the counter
+       its four digits' room, and tests that no two text items overlap.
+       Open's own pages, in the simulator, are tight (the step count
+       against FOLLOW, a track's name against MUTE) but don't overlap.
 
      The build order, each its own PR:
      1. the banner as TEXT on today's protocol (PLAY, STOP, KEPT 30 S,

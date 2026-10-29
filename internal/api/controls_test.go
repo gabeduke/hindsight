@@ -135,11 +135,11 @@ type fakeVerbs struct {
 	ran []string
 }
 
-func (v *fakeVerbs) Verb(id, rt string) (string, error) {
+func (v *fakeVerbs) Verb(id, rt string) (verbDone, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	v.ran = append(v.ran, strings.TrimSuffix(id+" "+rt, " "))
-	return id, nil
+	return verbDone{id, strings.ToUpper(id)}, nil
 }
 
 func (v *fakeVerbs) wait(t *testing.T, want ...string) {
@@ -760,7 +760,7 @@ type slowGrab struct {
 	gate chan struct{}
 }
 
-func (v *slowGrab) Verb(id, rt string) (string, error) {
+func (v *slowGrab) Verb(id, rt string) (verbDone, error) {
 	if id == "grab" {
 		<-v.gate
 	}
