@@ -202,7 +202,8 @@ My recommendation first in each.
    M-VAVE's loader, the dongle as the way back (Gabe accepted that one
    write's risk); two whole-flash backups, across a power-cycle, match
    (`a4e761ff…`), kept in `~/smk37-backups`, outside every repo, and still
-   to be copied to a second disk; m-bootloader 1.2 went on by M-Flasher
+   to be copied to a second disk (whether 0xC0000 and 0xFF000, blank in
+   them, were blank before is unknown; Bluetooth MIDI is still to check); m-bootloader 1.2 went on by M-Flasher
    (its `TRIMCOPY` and the boot area the only changes; 0xC0000–0xC1FFF
    unchanged); then protocol version 1 (HELLO, CLEAR, TEXT, RELEASE) took
    the screen from the Mac and from Hindsight (#183). The unit now calls

@@ -1080,7 +1080,18 @@ with quantum `bar` (`now` for Shift), and the render goroutine keeps the
 voices, rendering each from the output frame it started at, looped, into bus
 A after the tape, the click and the FX. A voice stops with a 3 ms fade; the
 transport's Stop and a mixdown's pass stop them all, and the lane's Solo
-leaves the tracks out of the output. What plays is `live.cue`.
+leaves the tracks out of the output. What plays is `live.cue`. The lane is
+not in the mix or its exports: a clip reaches them only once it is dragged
+onto a track.
+
+**The feed strip** in the Studio is the ribbon with GRAB, KEEP and Flag in
+one row. A tap on GRAB or KEEP takes the last length and its ▾ picks
+another (1, 2, 4 or 8 bars for GRAB; 30 s, 2 m or the whole feed for KEEP);
+the input follows the armed track's, with an override in GRAB's ▾. The
+readouts (free disk, dropped buffers, the MIDI tempo, *Input channels*)
+are in a sheet behind the strip's lamp, which lights when something is
+wrong, with a link to the Rig. ● Phone shows on the strip only while it
+records.
 
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what
