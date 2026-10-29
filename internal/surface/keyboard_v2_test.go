@@ -187,6 +187,69 @@ func TestABatchStoppedShortKeepsWhatItDid(t *testing.T) {
 	}
 }
 
+// After a refusal the screen is drawn again whole from a CLEAR, so one
+// refusal doesn't freeze it for the session; again only after Heal, so a
+// screen the keyboard can't take isn't sent over and over.
+func TestARefusedScreenIsDrawnAgainWholeAtMostEveryHeal(t *testing.T) {
+	r := newRig(t)
+	r.presentV2()
+	r.k.Show(atRest())
+	refuse := func() {
+		t.Helper()
+		got := r.take()
+		if len(got) == 0 || got[0][6] != cmdBatch {
+			t.Fatalf("sent % x, want a BATCH to refuse", got)
+		}
+		r.k.Feed(ack2(got[0][5], 3, 0, 0))
+	}
+	refuse()
+	r.advance(20 * time.Millisecond)
+	got := r.take()
+	if len(got) != 1 || got[0][6] != cmdClear {
+		t.Fatalf("after a refusal sent % x, want a CLEAR", got)
+	}
+	r.k.Feed(ack2(got[0][5], statusOK))
+	if items := r.batches(); lines(items) != lines(Layout(atRest())) {
+		t.Fatalf("the screen again:\n%s", lineDiff(lines(Layout(atRest())), lines(items)))
+	}
+	s := screens[1].state()
+	r.advance(r.k.MeterEvery)
+	r.k.Show(s)
+	refuse()
+	r.advance(r.k.Heal / 2)
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("healed again within Heal: % x", got)
+	}
+	r.advance(r.k.Heal / 2)
+	if got := r.take(); len(got) != 1 || got[0][6] != cmdClear {
+		t.Fatalf("Heal after the last, sent % x, want a CLEAR", got)
+	}
+}
+
+// A BATCH whose ack is lost goes again, the same frame, and once acked the
+// screen is the one wanted, with nothing more to send.
+func TestALostBatchAckIsSentAgain(t *testing.T) {
+	r := newRig(t)
+	r.presentV2()
+	r.k.Show(atRest())
+	first := r.take()
+	if len(first) != 1 {
+		t.Fatalf("sent %d frames, want one BATCH in flight", len(first))
+	}
+	r.advance(r.k.AckTimeout) // its ack never came
+	again := r.take()
+	if len(again) != 1 || !bytes.Equal(again[0], first[0]) {
+		t.Fatalf("after the timeout sent % x, want the same BATCH again", again)
+	}
+	r.k.Feed(ack2(again[0][5], statusOK))
+	r.batches() // the rest of the screen
+	looksLike(t, r.k.shown, Layout(atRest()))
+	r.k.Show(atRest())
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("a screen acked whole sent % x again", got)
+	}
+}
+
 // HOME on version 2, its RELEASE in a version 1 frame as the keyboard always
 // sends it, drops the screen waiting, and draws nothing more.
 func TestHomeOnVersion2DropsTheScreen(t *testing.T) {

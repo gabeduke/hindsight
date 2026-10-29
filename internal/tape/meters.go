@@ -50,6 +50,15 @@ func (mt *meters) settle(frames int, sr float64) {
 	}
 }
 
+// silence puts every meter at nothing: with no output, nothing renders and
+// nothing is heard. Render goroutine.
+func (mt *meters) silence() {
+	for i := range mt.block {
+		mt.block[i] = 0
+		mt.level[i].Store(0)
+	}
+}
+
 // TrackLevels is each track's level now, 0 to 1 at full scale (more when it
 // clips), track 1 first, for the first MeteredTracks tracks.
 func (e *Engine) TrackLevels() [MeteredTracks]float64 {

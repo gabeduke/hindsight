@@ -332,8 +332,11 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
   screen wanted then, so a screen changing faster than the keyboard
   acks sends only what it is now. A whole screen is about 960 bytes of
   commands: two frames. A BATCH the keyboard refuses keeps what it did
-  (its ack's done count) and stops the drawing until a CLEAR takes the
-  screen again, rather than be refused over and over.
+  (its ack's done count) and stops the drawing; the client then draws the
+  screen again whole from a CLEAR, at most every `Heal` (2 s), and logs
+  it, so one refusal doesn't freeze the screen and a screen the keyboard
+  can't take isn't sent over and over. A BATCH whose ack is lost is sent
+  again as it was, as every message is: each command can be repeated.
 - **The banner** is the layout's on version 2: a box over the top line in
   the press's colour, its words black on it (white on red), for
   `BannerFor`; `Keyboard.Banner` puts it in the state and the 20 ms tick
@@ -348,12 +351,14 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
   600 bytes a second to the keyboard, and an 11-byte ack back for each.
   Standing, nothing changes and nothing is sent.
 - **The feed** (`keyboardState`) reads the tape (`Engine.Loaded`, a copy)
-  only when `Engine.Changes` moves on: its name, the grid's tempo, the
+  only when `Engine.Changes` moves on, and the encoders' bindings then or
+  when the controls change (`controlBus.rev`): its name, the grid's tempo, the
   armed track, the tracks' mutes, solos and levels (a fader's place,
   `surface.FaderOf`), the mods. Every ask it reads `Engine.Heard`, the
-  recording, the pads held (`HeldPads`) and the meters
+  recording (REC only once a punch is on, not while it is armed for the
+  next bar), the pads held (`HeldPads`) and the meters
   (`Engine.TrackLevels`, each track's peak after its fader with a 26 dB/s
-  release, measured as it renders). An encoder's cell is what its CC (21–
+  release, measured as it renders, and silent with no output). An encoder's cell is what its CC (21–
   27 on channel 16) is bound to on the keyboard, its value the tape's,
   or the one it just sent while lit, for `BannerFor` after a turn; one
   bound to nothing is its panel name and a dash.

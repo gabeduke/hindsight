@@ -141,6 +141,9 @@ type Keyboard struct {
 	// link (docs/architecture.md, *The SMK-37's screen*).
 	Refresh    time.Duration
 	MeterEvery time.Duration
+	// Heal is the least time between the CLEARs that draw the screen again
+	// whole after the keyboard refused part of it.
+	Heal time.Duration
 
 	mu        sync.Mutex
 	queue     []*message
@@ -169,8 +172,10 @@ type Keyboard struct {
 	pulled  time.Time
 	metered time.Time
 	// refused: the keyboard refused a screen's command, so nothing is drawn
-	// until a CLEAR takes the screen again.
+	// until a CLEAR takes the screen again: the Keyboard's own, at most
+	// every Heal after the last, or the API's. healed is the last.
 	refused bool
+	healed  time.Time
 
 	stop chan struct{}
 	done chan struct{}
@@ -189,6 +194,7 @@ func New(send func([]byte), connected func() bool) *Keyboard {
 		Probe:      2 * time.Second,
 		Refresh:    40 * time.Millisecond,
 		MeterEvery: 100 * time.Millisecond,
+		Heal:       2 * time.Second,
 		stop:       make(chan struct{}),
 		done:       make(chan struct{}),
 	}
@@ -384,6 +390,19 @@ func (k *Keyboard) unbanner() {
 	k.queueLocked(cmdText, payload)
 }
 
+// heal draws the screen again from a CLEAR after the keyboard refused part
+// of it, so one refusal doesn't freeze it, but not more often than Heal, so
+// a screen it can't take isn't sent over and over. Called with mu held.
+func (k *Keyboard) heal() {
+	if !k.refused || !k.status.Screen || k.Now().Sub(k.healed) < k.Heal {
+		return
+	}
+	k.healed = k.Now()
+	log.Printf("[*] SMK-37: drawing the screen again whole, after a refusal")
+	k.top, k.banner = nil, time.Time{}
+	k.queueLocked(cmdClear, []byte{byte(Black)})
+}
+
 // Show draws s on a version 2 keyboard, when Hindsight has its screen:
 // what changed since the last, as soon as nothing is in flight. Its meters
 // are taken at most every MeterEvery; between, they stay as they were.
@@ -545,6 +564,7 @@ func (k *Keyboard) Tick() {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 	k.unbanner()
+	k.heal()
 	switch {
 	case !connected:
 		k.forget()
@@ -677,7 +697,7 @@ func (k *Keyboard) Feed(msg []byte) {
 			k.shown = apply(k.shown, it)
 		}
 		log.Printf("[!] SMK-37: the keyboard refused a screen's command %d (status %d): %v", n, status, done.items[min(n, len(done.items)-1)])
-		k.refused = true
+		k.refused = true // until heal draws it again whole
 	case status == statusReleased:
 		// A TEXT the keyboard wouldn't draw. Once a CLEAR has taken the
 		// screen only HOME gives it back, so on Hindsight's screen this

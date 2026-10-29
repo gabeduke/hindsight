@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gabeduke/hindsight/internal/audio"
+	"github.com/gabeduke/hindsight/internal/config"
 	"github.com/gabeduke/hindsight/internal/surface"
 	"github.com/gabeduke/hindsight/internal/tape"
 )
@@ -162,3 +164,54 @@ func TestMeterOf(t *testing.T) {
 		}
 	}
 }
+
+// A punch armed with the tape standing waits for the bar: the transport
+// says STOP, not REC, until it records.
+func TestArmedWithTheTapeStoppedIsNotREC(t *testing.T) {
+	store, err := tape.OpenStore(t.TempDir(), 48000, 4, 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng := tape.NewEngine(tape.Options{Store: store, Capture: ringCapture{audio.NewRing(48000, 8)}})
+	if err := eng.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(eng.Stop)
+	tp, err := store.Create("t", 120, 4, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := eng.Load(tp.ID); err != nil {
+		t.Fatal(err)
+	}
+	a := New(&config.Config{OutputDir: t.TempDir(), SampleRate: 48000}, nil, nil, nil, nil)
+	a.SetTape(eng)
+	r, err := eng.Record(tp.ID, 1, eng.Sources()[0].Name, false)
+	if err != nil || r.State != "armed" {
+		t.Fatalf("Record standing = %+v, %v: want armed", r, err)
+	}
+	if s := a.keyboardState(); s.Recording || s.Playing {
+		t.Fatalf("armed and standing shows recording %v, playing %v", s.Recording, s.Playing)
+	}
+}
+
+// An encoder bound anew is named anew, with no change to the tape.
+func TestAnEncoderReboundIsNamedAnew(t *testing.T) {
+	a, _, _ := takenKeyboardV2(t)
+	if k := a.keyboardState().Knobs[4]; k.Name != "SELECT" {
+		t.Fatalf("K5 before = %+v", k)
+	}
+	a.controls.mu.Lock()
+	bs, _, _ := a.bindingsLocked("SMK-37")
+	bs = bs.bind("mod.wow", Binding{CC: ptr(25), Ch: 16, As: "amount"})
+	a.controlsLocked().Controllers["SMK-37"] = bs
+	if err := a.saveControlsLocked(); err != nil {
+		t.Fatal(err)
+	}
+	a.controls.mu.Unlock()
+	if k := a.keyboardState().Knobs[4]; k.Name != "WOW" {
+		t.Fatalf("K5 after binding CC 25 to WOW = %+v", k)
+	}
+}
+
+func ptr(n int) *int { return &n }

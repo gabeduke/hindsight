@@ -725,7 +725,8 @@ func (e *Engine) drain(out uint64, m *Mix) bool {
 func (e *Engine) idle(out uint64) {
 	tr := e.tr
 	m := e.mix.Load()
-	moved := false // as advance's: bumped once the view is published
+	e.meters.silence() // nothing is heard without an output
+	moved := false     // as advance's: bumped once the view is published
 	for {
 		select {
 		case a := <-e.actions:

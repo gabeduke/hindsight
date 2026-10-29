@@ -1,6 +1,10 @@
 package tape
 
-import "testing"
+import (
+	"math"
+	"testing"
+	"time"
+)
 
 // Each track's meter reads what it plays, after its fader, and falls once it
 // stops sounding; a track with nothing on it reads silence.
@@ -32,5 +36,23 @@ func TestTheTracksMetersReadWhatTheyPlay(t *testing.T) {
 	sink.play(t, 48000*2)
 	if l := e.TrackLevels(); l[0] > 0.25/10 {
 		t.Fatalf("track 1, muted two seconds, still reads %.3f", l[0])
+	}
+}
+
+// With no output nothing renders and nothing is heard: the meters read
+// silence, never the last level frozen.
+func TestWithNoOutputTheMetersAreSilent(t *testing.T) {
+	e := NewEngine(Options{Store: newTestStore(t)})
+	e.meters.level[0].Store(math.Float32bits(0.5)) // as if it had played
+	if err := e.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(e.Stop)
+	deadline := time.Now().Add(2 * time.Second)
+	for e.TrackLevels()[0] != 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("with no output, track 1 still reads %.2f", e.TrackLevels()[0])
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }

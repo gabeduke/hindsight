@@ -45,6 +45,7 @@ type keyboardTurn struct {
 type keyboardScreen struct {
 	mu    sync.Mutex
 	rev   uint64
+	ctl   uint64 // the controls' revision the mods were read at
 	read  bool
 	base  surface.State
 	mods  [7]string // each encoder's action, "" for none
@@ -95,12 +96,16 @@ func (a *API) keyboardState() surface.State {
 		if t != nil && t.Grid != nil && t.Grid.Bars > 0 {
 			ks.beat = t.Grid.BarFrames() / tape.BeatsPerBar
 		}
-		ks.mods = a.keyboardMods()
+		ks.mods, ks.ctl = a.keyboardMods()
+	} else if ctl := a.controlsRev(); ctl != ks.ctl {
+		ks.mods, ks.ctl = a.keyboardMods() // an encoder rebound
 	}
 	s := ks.base
 	pos, playing := eng.Heard()
 	s.Playing = playing
-	s.Recording = eng.Recording() != nil
+	// Recording, not armed to start at the next bar (a punch's "armed").
+	r := eng.Recording()
+	s.Recording = r != nil && r.State == "on"
 	if ks.beat > 0 {
 		s.Beats = float64(pos) / ks.beat
 	}
@@ -142,13 +147,23 @@ func tapeScreen(t *tape.Tape) surface.State {
 	return s
 }
 
+// controlsRev is the controls' revision.
+func (a *API) controlsRev() uint64 {
+	a.controls.mu.Lock()
+	defer a.controls.mu.Unlock()
+	return a.controls.rev
+}
+
 // keyboardMods is the action each encoder's CC is bound to on the
-// keyboard, "" for none.
-func (a *API) keyboardMods() [7]string {
+// keyboard, "" for none, and the controls' revision it read.
+func (a *API) keyboardMods() ([7]string, uint64) {
 	var out [7]string
+	a.controls.mu.Lock()
+	rev := a.controls.rev
+	a.controls.mu.Unlock()
 	d, ok := a.keyboardPort()
 	if !ok {
-		return out
+		return out, rev
 	}
 	a.controls.mu.Lock()
 	bs, _, _ := a.bindingsLocked(d.Name)
@@ -158,7 +173,7 @@ func (a *API) keyboardMods() [7]string {
 			out[k] = id
 		}
 	}
-	return out
+	return out, rev
 }
 
 // keyboardKnobs is the knob rows, each encoder's action and its amount,
