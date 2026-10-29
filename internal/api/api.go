@@ -81,7 +81,11 @@ type API struct {
 	// keyboard is the SMK-37 on Hindsight's firmware, when there could be
 	// one, and kbOut its port (keyboard.go).
 	keyboard *surface.Keyboard
+	kbScreen keyboardScreen // what its screen's feed keeps (keyboard_screen.go)
 	kbOut    keyboardOut
+	// presses are the keyboard's presses as the tablets hear them, on
+	// /api/tapes/changes (press.go).
+	presses pressFeed
 	// playConns names Play mode's connections, as the owners of the tape
 	// mods they preview.
 	playConns atomic.Uint64
@@ -220,6 +224,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/listen", a.handleTapeListen).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/stream", a.handleTapeStream).Methods(http.MethodGet)
 	r.HandleFunc("/api/tapes/play", a.handleTapePlay).Methods(http.MethodGet)
+	r.HandleFunc("/api/tapes/changes", a.handleTapeChanges).Methods(http.MethodGet)
 	r.HandleFunc("/api/tapes/controls", a.handleControlsGet).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/controls", a.handleControlsPut).Methods(http.MethodPut)
 	r.HandleFunc("/api/tapes/output", a.handleTapeOutput).Methods(http.MethodPut)

@@ -382,7 +382,15 @@ func (bs Bindings) check() error {
 
 // verbs are the commands a controller runs on the Pi; tests stand in.
 type verbs interface {
-	Verb(id, rt string) (string, error)
+	Verb(id, rt string) (verbDone, error)
+}
+
+// verbDone is what a verb did: a sentence for the log, and the words for
+// the keyboard's banner (banner.go), in capitals, at most 19 characters,
+// and the track it changed (1 up; 0 for none), lit on the tablet.
+type verbDone struct {
+	log, says string
+	track     int
 }
 
 // learnReq is MIDI LEARN waiting for a controller.
@@ -398,8 +406,11 @@ type controlBus struct {
 	mu     sync.Mutex
 	loaded bool
 	file   controlsFile
-	held   map[string]map[string]bool // port → the pads it holds
-	keys   map[string]map[string]int  // port → how many of its keys hold each pad
+	// rev counts the changes to file, so the keyboard's screen knows to
+	// read its encoders' bindings again (keyboard_screen.go).
+	rev  uint64
+	held map[string]map[string]bool // port → the pads it holds
+	keys map[string]map[string]int  // port → how many of its keys hold each pad
 	// refused is the pads each port was refused and the log has said so:
 	// a pitch wheel in a mixdown asks again with every message, and the
 	// log says it once, until a press goes through.
@@ -429,7 +440,12 @@ type controlBus struct {
 	knobQuiet time.Duration
 }
 
-type verbJob struct{ port, id, rt string }
+// verbJob is one command from a controller, stamped with the keyboard's
+// clock as it was pressed (zero from any other controller).
+type verbJob struct {
+	port, id, rt string
+	pressed      time.Time
+}
 
 // controlsPath is where the bindings live: beside the tapes.
 func (a *API) controlsPath() string { return filepath.Join(a.cfg.TapeDir, "controls.json") }
@@ -469,6 +485,7 @@ func (a *API) controlsLocked() *controlsFile {
 
 // saveControlsLocked writes controls.json whole, by rename.
 func (a *API) saveControlsLocked() error {
+	a.controls.rev++ // changed, kept on disk or not
 	if a.cfg.TapeDir == "" {
 		return nil
 	}
@@ -523,6 +540,7 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	if !ok {
 		return
 	}
+	a.keyboardButton(port, m) // SHIFT's light, whatever it's bound to
 	b := &a.controls
 	down := m.typ == "on" || m.typ == "rt" || (m.typ == "cc" && (m.value >= 64 || m.cc >= 120))
 	key := msgKey(m)
@@ -575,6 +593,7 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	}
 	q := a.quantumLocked()
 	b.mu.Unlock()
+	a.keyboardTurned(port, m) // lit on the keyboard's screen, whatever it's bound to
 	switch {
 	case m.typ == "pressure":
 		a.controllerPressure(port, "", m.value)
@@ -833,6 +852,7 @@ func (a *API) controllerPress(port, pad, q string, v float64) {
 		if !said {
 			log.Printf("[!] %s: %s refused: %v", holder(port), pad, err)
 		}
+		a.keyboardSays(port, a.keyboardPressed(port), refused(pad, err))
 		return
 	}
 	b.mu.Lock()
@@ -843,6 +863,7 @@ func (a *API) controllerPress(port, pad, q string, v float64) {
 	b.held[port][pad] = true
 	b.keys[port][pad]++
 	b.mu.Unlock()
+	a.keyboardFinger(port, pad, true)
 }
 
 // controllerRelease is one key on pad let go. The pad lets go with the last
@@ -867,10 +888,12 @@ func (a *API) controllerRelease(port, pad string) {
 		}
 		b.wait[port][pad] = true
 		b.mu.Unlock()
+		a.keyboardFinger(port, pad, false) // the hand is off it, though the latch holds it
 		return
 	}
 	delete(b.held[port], pad)
 	b.mu.Unlock()
+	a.keyboardFinger(port, pad, false)
 	if eng := a.playerOrNil(); eng != nil {
 		a.playHolds.release(pad, func() { _ = eng.Release(pad) })
 	}
@@ -1009,7 +1032,7 @@ func (a *API) queueVerb(port, id, rt string) {
 		for _, q := range []chan verbJob{b.slowQ, b.quickQ} {
 			go func(q chan verbJob) {
 				for j := range q {
-					a.runVerb(j.port, j.id, j.rt)
+					a.runVerb(j)
 				}
 			}(q)
 		}
@@ -1018,25 +1041,37 @@ func (a *API) queueVerb(port, id, rt string) {
 	if id == "grab" || id == "drop" {
 		q = b.slowQ
 	}
+	j := verbJob{port: port, id: id, rt: rt, pressed: a.keyboardPressed(port)}
+	a.keyboardFinger(port, id, true) // a command pad: half until it's done
 	select {
-	case q <- verbJob{port, id, rt}:
+	case q <- j:
 	default:
 		log.Printf("[!] %s: %s dropped: the verbs before it haven't finished", holder(port), id)
+		a.keyboardSays(port, j.pressed, refused(id, errBusy))
+		a.keyboardDone(port, id, false)
 	}
 }
 
-// runVerb runs a command from a controller, here on the Pi.
-func (a *API) runVerb(port, id, rt string) {
+// runVerb runs a command from a controller, here on the Pi, and says on
+// the keyboard's screen what it did, or why not.
+func (a *API) runVerb(j verbJob) {
 	v := a.controls.verbs
 	if v == nil {
 		v = piVerbs{a}
 	}
-	what, err := v.Verb(id, rt)
+	done, err := v.Verb(j.id, j.rt)
+	if !fromThePress(j.id) {
+		j.pressed = a.keyboardPressed(j.port) // when done, as a command pad flashes
+	}
 	if err != nil {
-		log.Printf("[!] %s: %s: %v", holder(port), id, err)
+		log.Printf("[!] %s: %s: %v", holder(j.port), j.id, err)
+		a.keyboardSays(j.port, j.pressed, refused(j.id, err))
+		a.keyboardDone(j.port, j.id, false)
 		return
 	}
-	log.Printf("[*] %s: %s", holder(port), what)
+	log.Printf("[*] %s: %s", holder(j.port), done.log)
+	a.keyboardSays(j.port, j.pressed, did(j.id, done))
+	a.keyboardDone(j.port, j.id, true) // a command pad flashes when done
 }
 
 // piVerbs are the verbs on this Pi's tape, capture and clipboard.
@@ -1049,24 +1084,24 @@ const keepSeconds = 30
 // twice as many seconds with no tempo.
 const grabBars = 4
 
-func (v piVerbs) Verb(id, rt string) (string, error) {
+func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 	a := v.a
 	if id == "keep" {
 		if a.saver == nil {
-			return "", errors.New("nothing to keep from")
+			return verbDone{}, errNothingToKeep
 		}
 		name, err := a.saver.Save(keepSeconds)
 		if err != nil {
-			return "", err
+			return verbDone{}, err
 		}
-		return fmt.Sprintf("kept the last %d s as %s", keepSeconds, name), nil
+		return verbDone{log: fmt.Sprintf("kept the last %d s as %s", keepSeconds, name), says: keptWords(keepSeconds)}, nil
 	}
 	if a.tape == nil {
-		return "", errors.New("the tape is off")
+		return verbDone{}, errTapeOff
 	}
 	t := a.tape.Loaded()
 	if t == nil {
-		return "", tape.ErrNoTape
+		return verbDone{}, tape.ErrNoTape
 	}
 	track, src, armed := a.armedOf(t)
 	switch id {
@@ -1076,45 +1111,49 @@ func (v piVerbs) Verb(id, rt string) (string, error) {
 			kind = "stop"
 		}
 		if kind == "play" && !a.tape.HasOutput() {
-			return "", errors.New("nothing plays the tape: this build has no audio output")
+			return verbDone{}, errNoAudioOut
 		}
 		if _, err := a.tape.Transport(t.ID, tape.Action{Kind: kind}); err != nil {
-			return "", err
+			return verbDone{}, err
 		}
-		return kind, nil
+		return verbDone{log: kind, says: strings.ToUpper(kind)}, nil
 	case "catch":
 		req, err := a.catchRequest(t)
 		if err != nil {
-			return "", err
+			return verbDone{}, err
 		}
 		// Engine.Catch is the page's path: it refuses while the tape plays
 		// on a phone (jamOnly), as the page's Catch does.
 		c, err := a.tape.Catch(t.ID, req)
 		if err != nil {
-			return "", err
+			return verbDone{}, err
 		}
-		return fmt.Sprintf("caught %.1f s from %s onto track %d", float64(c.Frames)/float64(t.SampleRate), req.Source, req.Track), nil
+		secs := float64(c.Frames) / float64(t.SampleRate)
+		return verbDone{log: fmt.Sprintf("caught %.1f s from %s onto track %d", secs, req.Source, req.Track),
+			says: caughtWords(secs), track: req.Track}, nil
 	case "grab":
 		req := tape.GrabRequest{Sources: []string{src}}
+		says := grabbedWords(grabBars, "BARS")
 		if t.Grid != nil && t.Grid.Bars > 0 {
 			req.Bars = grabBars
 		} else {
 			req.Seconds = 2 * grabBars
+			says = grabbedWords(2*grabBars, "S")
 		}
 		if _, err := a.tape.Grab(req); err != nil {
-			return "", err
+			return verbDone{}, err
 		}
-		return fmt.Sprintf("grabbed the last %d bars of %s into the buffer", grabBars, src), nil
+		return verbDone{log: fmt.Sprintf("grabbed the last %d bars of %s into the buffer", grabBars, src), says: says}, nil
 	case "drop":
 		if !armed {
-			return "", errors.New("arm a track first")
+			return verbDone{}, errNotArmed
 		}
 		c, err := a.tape.Clipboard()
 		if err != nil {
-			return "", err
+			return verbDone{}, err
 		}
 		if c.Empty() {
-			return "", tape.ErrEmptyClipboard
+			return verbDone{}, tape.ErrEmptyClipboard
 		}
 		// A buffer lays down its window, as the page's DROP measures it
 		// (lib/buffer/state.js, windowFrames).
@@ -1124,14 +1163,14 @@ func (v piVerbs) Verb(id, rt string) (string, error) {
 		}
 		at, ok := tape.NextFreeSpan(t.State, t.Length, track, len(c.Tracks), frames, a.tape.Live().Heard)
 		if !ok {
-			return "", fmt.Errorf("no room on track %d", track)
+			return verbDone{}, fmt.Errorf("%w %d", errNoRoom, track)
 		}
 		if _, err := a.tape.DropClipboardAt(t.ID, track, false, &at); err != nil {
-			return "", err
+			return verbDone{}, err
 		}
-		return fmt.Sprintf("dropped the buffer on track %d", track), nil
+		return verbDone{log: fmt.Sprintf("dropped the buffer on track %d", track), says: droppedWords(track), track: track}, nil
 	}
-	return "", fmt.Errorf("%s isn't a verb the Pi runs", id)
+	return verbDone{}, fmt.Errorf("%s isn't a verb the Pi runs", id)
 }
 
 // catchRequest is the controller's CATCH, as the page's Catch asks it: the
@@ -1140,7 +1179,7 @@ func (v piVerbs) Verb(id, rt string) (string, error) {
 func (a *API) catchRequest(t *tape.Tape) (tape.CatchRequest, error) {
 	track, src, armed := a.armedOf(t)
 	if !armed {
-		return tape.CatchRequest{}, errors.New("arm a track first")
+		return tape.CatchRequest{}, errNotArmed
 	}
 	a.controls.mu.Lock()
 	replace := a.controlsLocked().Catch == "replace"

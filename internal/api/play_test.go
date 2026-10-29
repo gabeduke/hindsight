@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -24,6 +25,7 @@ type fakeTricks struct {
 	moves  []tape.TrickEvent
 	seq    uint64
 	refuse map[string]error
+	held   []string // set: what the tape holds, whatever the events say
 }
 
 func (f *fakeTricks) Press(pad, q string) error {
@@ -104,6 +106,28 @@ func (f *fakeTricks) MovesSince(seq uint64) ([]tape.TrickEvent, uint64) {
 }
 
 func (f *fakeTricks) TrickLead() (time.Duration, bool) { return 212 * time.Millisecond, true }
+
+// HeldPads is what the events say the tape holds: a pad whose last event
+// was its press, as the engine's mask is stored with each event.
+func (f *fakeTricks) HeldPads() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.held != nil {
+		return f.held
+	}
+	on := map[string]bool{}
+	for _, e := range f.events {
+		on[e.Pad] = e.On
+	}
+	var out []string
+	for p, o := range on {
+		if o {
+			out = append(out, p)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
 
 // HeardIn says output frame o is heard in o ms, so a test picks the answer.
 func (f *fakeTricks) HeardIn(o uint64) (time.Duration, bool) {

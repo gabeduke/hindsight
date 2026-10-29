@@ -417,12 +417,34 @@ My recommendation first in each.
      - *Where it is built*: on the screen simulator and the virtual
        keyboard first, then on the unit with Gabe at the keyboard.
      - *Still to find*: an overlap Gabe saw on a couple of screens and
-       doesn't recall where. Look on the keyboard and the tablet while
-       building the first step.
+       doesn't recall where. Looked for while building the first step's
+       banner (2026-10-29): the Pi's screen today has none (its four lines
+       are far apart, and the banner takes the top line's place, so the
+       two never draw together). The prototype's layout, which step 4
+       ports, has three, found by measuring every text item's box:
+       - a tape name longer than 15 characters runs into the tempo at
+         x 186;
+       - from bar 1000 the counter (`1000.1`, scale 4) runs into the
+         sixteenths beside it at x 124;
+       - NO TRACK ARMED runs into the solos and mutes when all four are
+         both (`SOLO 1 2 3 4  MUTE 1 2 3 4` starts at x 78).
+
+       Step 4 cuts the name to fit before the tempo, gives the counter
+       its four digits' room, and tests that no two text items overlap.
+       Done there (`internal/surface/layout.go`; `docs/architecture.md`,
+       *The SMK-37's screen on protocol version 2*): past bar 999 the
+       sixteenth drops to scale 1 after the bars, and the solos and mutes
+       close up to `SOLO 1234  MUTE 1234`. The busiest screen is a little
+       over one frame's 1,024 bytes, so a whole screen goes in two
+       BATCHes, not the one the firmware's notes expect.
+       Open's own pages, in the simulator, are tight (the step count
+       against FOLLOW, a track's name against MUTE) but don't overlap.
 
      The build order, each its own PR:
      1. the banner as TEXT on today's protocol (PLAY, STOP, KEPT 30 S,
-        refusals) and the note on the tablet's bar: the Pi alone;
+        refusals) and the note on the tablet's bar: the Pi alone
+        (the banner #195; the note on the changes socket, J1.15: *The
+        keyboard's press* in `architecture.md`);
      2. partial repaint, in the fork;
      3. protocol version 2 (BOX, BAR, TEXT's background, the palette,
         the items, BATCH), with simulator scripts in CI;
@@ -430,7 +452,10 @@ My recommendation first in each.
         of the tape's state, tested by golden command lists and drawn in
         the simulator;
      5. LED: the pads by family with the two-stage light, and the
-        buttons. It needs Play mode's `at` for each pad;
+        buttons. It needs Play mode's `at` for each pad (built:
+        `internal/surface/lights.go`; `docs/architecture.md`, *The
+        SMK-37's lights*. The Mixer page's lights are there for K6 to
+        show, and SHIFT's light follows the hand already);
      6. the tablet's pad strip and the lit change, on the push;
      7. then the Mixer page (K6, after the map's spec), scrub (K7), the
         faders (K8) and REC punching in (K3).

@@ -1,0 +1,82 @@
+text 6 7 2 2 0 TAPE_3
+text 186 11 1 3 0 132_BPM
+text 4 34 4 2 0 012.1
+text 124 48 2 3 0 .1
+box 162 34 74 28 1
+text 175 41 2 2 1 STOP
+text 6 66 1 8 0 ARM_T2
+box 0 76 240 1 1
+text 6 80 1 4 0 FX_PADS
+text 132 80 1 3 0 SHIFT:_MIXER_PAGE
+box 1 90 28 14 1
+text 9 94 1 7 1 T1
+box 31 90 28 14 1
+text 39 94 1 8 1 T2
+box 61 90 28 14 1
+text 69 94 1 9 1 T3
+box 91 90 28 14 1
+text 99 94 1 10 1 T4
+box 121 90 28 14 1
+text 126 94 1 12 1 BRK
+box 151 90 28 14 1
+text 156 94 1 12 1 REV
+box 181 90 28 14 1
+text 186 94 1 12 1 CHP
+box 211 90 28 14 1
+text 216 94 1 12 1 STP
+box 1 106 28 14 1
+text 6 110 1 13 1 HLF
+box 31 106 28 14 1
+text 36 110 1 13 1 DBL
+box 61 106 28 14 1
+text 66 110 1 4 1 ROL
+box 91 106 28 14 1
+text 96 110 1 4 1 FLT
+box 121 106 28 14 1
+text 126 110 1 4 1 ECH
+box 151 106 28 14 1
+text 156 110 1 4 1 CRS
+box 181 106 28 14 1
+text 186 110 1 14 1 CAT
+box 211 106 28 14 1
+text 216 110 1 14 1 GRB
+text 6 136 1 7 0 1
+bar 16 137 180 5 0 7 1
+box 156 136 2 7 3
+text 210 136 1 3 0 __+0
+text 6 145 1 8 0 2
+bar 16 146 180 5 0 8 1
+box 142 145 2 7 3
+text 210 145 1 3 0 __-1
+text 6 154 1 9 0 3
+bar 16 155 180 5 0 9 1
+box 173 154 2 7 3
+text 210 154 1 3 0 __+1
+text 6 163 1 10 0 4
+bar 16 164 180 5 0 10 1
+box 123 163 2 7 3
+text 210 163 1 3 0 __-2
+box 0 172 240 1 1
+text 4 176 1 3 0 DRIVE
+text 4 186 2 2 0 40
+bar 4 202 52 2 40 3 1
+text 64 176 1 3 0 AGE
+text 64 186 2 2 0 12
+bar 64 202 52 2 12 3 1
+text 124 176 1 3 0 FILTER
+text 124 186 2 2 0 88
+bar 124 202 52 2 88 3 1
+text 184 176 1 3 0 CRUSH
+text 184 186 2 2 0 0
+bar 184 202 52 2 0 3 1
+text 4 208 1 3 0 ECHO
+text 4 218 2 2 0 30
+bar 4 234 52 2 30 3 1
+text 64 208 1 3 0 WOW
+text 64 218 2 2 0 6
+bar 64 234 52 2 6 3 1
+text 124 208 1 3 0 FLUTTER
+text 124 218 2 2 0 4
+bar 124 234 52 2 4 3 1
+text 184 208 1 3 0 SCRUB
+text 184 218 2 2 0 <_>

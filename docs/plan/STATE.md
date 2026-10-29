@@ -194,6 +194,15 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
     3. Step 4: `t.keyboard` in the flows harness, and K1–K5.
 
     Steps 1 and 3 (the fork's CI artifact and the page's link) are done.
+  - **The designed surface** (step 7, *The surface, designed*, and its own
+    build order): step 1, the banner, is #195. Step 4, the screen laid out
+    in Go on protocol version 2, is the PR stacked on it: it draws only on
+    version 2 firmware, which isn't on the keyboard yet (fork PR #8), and
+    leaves version 1's screen as it was. Step 5, the lights (pads by
+    family with the two-stage light, PLAY, REC and SHIFT), is the PR
+    stacked on that one, also version 2 only; checked in the fork's
+    simulator (its `light` checks), not on the unit. Next: step 6, the
+    tablet's pad strip.
 - The rig page with the real Sidekick (the eight steps in PR #107).
 - The device spike (iPad standalone audio when backgrounded; Android
   discarding the PWA mid-jam) needs the tablet and the iPad.
@@ -295,7 +304,15 @@ Beside it, in tracks of their own: `the-instrument.md` (agreed
 latency measured in use, every control timed to the ear, kept on the Pi.
 And `pushing-tape-state.md` (agreed 2026-10-28): the Pi nudges the page
 when the tape changes, so the tablet follows a controller's press in about
-30–50 ms instead of up to 235.
+30–50 ms instead of up to 235. Steps 1–3 are built (`/api/tapes/changes`,
+`lib/tape/changes.js`, J1.14); step 4 is at the rig, then Gabe decides
+the fallback poll.
+The surface's build-order step 1 (`the-instrument.md`, step 7) has both
+halves in PRs: the banner on the keyboard (#195) and its note on the
+tablet's bar (`claude/tablet-note`, after #195 and #196): each press's
+words over the bar's display for its second, ▶, ● or a track's head lit,
+on the changes socket (*The keyboard's press* in `architecture.md`, J1.15).
+Not yet looked at on the rig.
 4. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
    no check can see. The coverage map lists the controls no flow touches.

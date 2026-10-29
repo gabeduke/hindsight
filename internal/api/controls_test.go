@@ -135,11 +135,11 @@ type fakeVerbs struct {
 	ran []string
 }
 
-func (v *fakeVerbs) Verb(id, rt string) (string, error) {
+func (v *fakeVerbs) Verb(id, rt string) (verbDone, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	v.ran = append(v.ran, strings.TrimSuffix(id+" "+rt, " "))
-	return id, nil
+	return verbDone{log: id, says: strings.ToUpper(id)}, nil
 }
 
 func (v *fakeVerbs) wait(t *testing.T, want ...string) {
@@ -757,11 +757,15 @@ func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
 // slowGrab holds GRAB for as long as the test says: the bar after it.
 type slowGrab struct {
 	fakeVerbs
-	gate chan struct{}
+	gate    chan struct{}
+	entered chan struct{} // optional: told as each GRAB starts waiting
 }
 
-func (v *slowGrab) Verb(id, rt string) (string, error) {
+func (v *slowGrab) Verb(id, rt string) (verbDone, error) {
 	if id == "grab" {
+		if v.entered != nil {
+			v.entered <- struct{}{}
+		}
 		<-v.gate
 	}
 	return v.fakeVerbs.Verb(id, rt)

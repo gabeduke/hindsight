@@ -269,6 +269,179 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
   - A TEXT waiting for the place a newer TEXT draws to is replaced, unless
     a CLEAR waits between them.
 - **Each ack's round trip** is kept (`Status.RTT`), for step 1's latency.
+- **Every press on the keyboard answers on its screen** (`Keyboard.Banner`;
+  `internal/api/banner.go`): its words over the top line for
+  `surface.BannerFor` (a second), then the line that was there.
+  - The banner is a TEXT at the top line's place (`surface.TopX`,
+    `TopY`) at `BannerScale` 2, so 19 characters; a layout puts its top
+    line at that place, since TEXT works by place. A TEXT for the top line
+    while the banner shows is kept and drawn when it goes.
+  - Its time is the client's own clock (`Keyboard.Clock`, `Now`) and loop:
+    the 20 ms `Tick` that resends puts the top line back (a test with its
+    own clock calls `Tick` in place of `Start`). Each banner, TEXT and
+    CLEAR is checked and queued under one lock, so a HOME can't fall
+    between the two. A new press
+    replaces the banner showing; a CLEAR, HOME or a forgotten keyboard
+    ends it with nothing put back, and none is drawn without the screen.
+  - The API stamps a press with `Keyboard.Now` (`verbJob.pressed`), and
+    only the keyboard's own presses say anything there. The transport is
+    timed from the press; KEEP, CATCH, GRAB and DROP from when they are
+    done, as the design's command pads flash when done.
+  - The words are the verb's (`verbDone.says`), in the design's colours,
+    version 2's palette: PLAY green, STOP the text's white, KEPT 30 S red,
+    CATCH, GRAB and DROP white. Version 1 has seven colours, so there the
+    client draws red as the accent and white as the text (`v1Colour`). A
+    refused press, a verb's or a pad's, is amber with its reason
+    (`refusals`: NO TRACK ARMED, NO TAPE LOADED, NOTHING TO KEEP, …), or
+    its name and REFUSED.
+
+**The SMK-37's screen on protocol version 2** (`internal/surface`'s
+`items.go`, `layout.go`, `diff.go`; `internal/api/keyboard_screen.go`):
+
+- **The version** is HELLO's ack's: `<version> <items>` after the status,
+  `02 60` on version 2. HELLO goes as version 1, which every version
+  reads; once the keyboard says 2, every frame is version 2's (TEXT with
+  its back), and `Feed` takes acks of either version, the keyboard's own
+  RELEASE and OFFER always saying 1. On version 1 nothing below happens:
+  the screen is the legend `keyboardPresent` draws with `Text`, and the
+  banner the TEXT above.
+- **The screen is a function of the tape's state**: `surface.Layout`
+  takes a `surface.State` (the name and tempo, where the tape is in beats,
+  the transport, the armed track, solos and mutes, the pad page and the
+  pads held, the meters and faders 0–127, the eight knobs' names, values
+  and amounts, which knob or fader is lit, the banner) and gives the
+  items, `TEXT`, `BOX` and `BAR`, in drawing order. It is the prototype's
+  layout (`~/programming/hindsight-design/smk`), pixel for pixel: its six
+  screens are the golden command lists in `internal/surface/testdata`,
+  written as the firmware simulator's script lines. Three overlaps the
+  prototype had are fixed there: a name is cut before the tempo (15
+  characters), the counter's sixteenth follows its bars and drops to
+  scale 1 past bar 999 (and the counter to scale 3 past 9999), and the
+  solos and mutes close up (`SOLO 1234  MUTE 1234`) when they'd run into
+  NO TRACK ARMED. `TestNoTwoTextsOverlap` holds that for long names, big
+  bars, everything soloed and muted, both pages and lit knobs.
+- **A change sends only what changed** (`plan`): the items the keyboard
+  has are kept as its acks say (`apply`), keyed by kind and place as the
+  firmware keys them. Removals go first, so the 96-item list has room,
+  then replacements, which keep their place in the order, then new items,
+  last. An item that would end up drawn under one it should cover (the
+  banner's box under a top line that came back) is taken away and sent
+  again after it.
+- **BATCH frames**, at most 1,024 bytes (`MaxFrame`), one in flight as
+  every message is. The next is planned only when nothing waits, from the
+  screen wanted then, so a screen changing faster than the keyboard
+  acks sends only what it is now. A whole screen is about 960 bytes of
+  commands: two frames. A BATCH the keyboard refuses keeps what it did
+  (its ack's done count) and stops the drawing; the client then draws the
+  screen again whole from a CLEAR, at most every `Heal` (2 s), and logs
+  it, so one refusal doesn't freeze the screen and a screen the keyboard
+  can't take isn't sent over and over. A BATCH whose ack is lost is sent
+  again as it was, as every message is: each command can be repeated.
+- **The banner** is the layout's on version 2: a box over the top line in
+  the press's colour, its words black on it (white on red), for
+  `BannerFor`; `Keyboard.Banner` puts it in the state and the 20 ms tick
+  takes it out.
+- **Refresh and traffic.** `Keyboard.Follow(a.keyboardState)` is asked
+  every `Refresh`, 40 ms, while the screen is Hindsight's: the counter's
+  sixteenths change every 114 ms at 132 BPM, so it is never more than a
+  frame behind. The meters are taken from it every `MeterEvery`, 100 ms,
+  and held between, in sixteen steps over 48 dB (`meterOf`), so their
+  flicker can't fill the link. Playing at 132 BPM with all four meters
+  moving, that measured 14 BATCH frames a second of about 41 bytes: about
+  600 bytes a second to the keyboard, and an 11-byte ack back for each.
+  Standing, nothing changes and nothing is sent.
+- **The feed** (`keyboardState`) reads the tape (`Engine.Loaded`, a copy)
+  only when `Engine.Changes` moves on, and the encoders' bindings then or
+  when the controls change (`controlBus.rev`): its name, the grid's tempo, the
+  armed track, the tracks' mutes, solos and levels (a fader's place,
+  `surface.FaderOf`), the mods. Every ask it reads `Engine.Heard`, the
+  recording (REC only once a punch is on, not while it is armed for the
+  next bar), the pads held (`HeldPads`) and the meters
+  (`Engine.TrackLevels`, each track's peak after its fader with a 26 dB/s
+  release, measured as it renders, and silent with no output). An encoder's cell is what its CC (21–
+  27 on channel 16) is bound to on the keyboard, its value the tape's,
+  or the one it just sent while lit, for `BannerFor` after a turn; one
+  bound to nothing is its panel name and a dash.
+- **Not built yet, so not shown**: the Mixer page under SHIFT (K6:
+  `State.Page`, the layout and the lights have it, the feed always says
+  FX), the faders (K8: a tick is the track's level as the tape has it),
+  and scrub (K7: the master knob's cell is the synth's volume, a dash,
+  since only the keyboard knows it).
+
+**The SMK-37's lights** on protocol version 2 (`internal/surface`'s
+`lights.go`; `keyboardLandings`, Play mode asked on its loop, in `internal/api/
+keyboard_screen.go`). Version 1 answers LED unknown, so there nothing is
+sent.
+
+- **What is lit** is `surface.Lamps(State, stages)`: LED (command 08) for
+  the sixteen pads, then SHIFT, PLAY and REC. The rest of the buttons are
+  never sent, so they stay the keyboard's.
+  - The FX page by family, in the screen's palette (`Colour.RGB`, the
+    firmware's RGB565 table): T1–T4 the tracks', BREAK, REVERSE, CHOP and
+    STOP orange, HALF and DOUBLE violet, ROLL, FILTER, ECHO and CRUSH the
+    accent's cyan, CATCH and GRAB white (`FXPads`, as the map draws them).
+  - The Mixer page (`State.Page`, K6's to set): each pad its track's
+    colour, full when on (mute, select, solo, arm) and dim when off.
+  - A pad's colour at its stage, as the prototype draws it: 0.18 at rest,
+    0.55 half, full. A level is 0–127 of the colour; the firmware scales
+    127 to the pads' own brightest it allows (48).
+  - PLAY on while `State.Playing`; REC on while `Recording`, blinking
+    while playing with a track armed; SHIFT on while held
+    (`Keyboard.ShiftHeld`, from SHIFT's note, 0 on channel 16, whatever
+    it's bound to: `keyboardButton`). The Keyboard lets SHIFT go with the
+    screen (HOME, RELEASE) and with the keyboard (`Gone`, as
+    `ControllerGone` says, or forgotten), so a release lost then can't
+    leave it lit.
+- **A pad's stage over time** is `surface.PadLights`, which the
+  `Keyboard` keeps under its lock:
+  - half from the keyboard's press (`PadDown`, from `controllerPress`
+    once the press is taken; a refused one stays dim) until what it does
+    is heard, even when let go first (`PadUp`): a quantised press waits
+    for its line, and stays half for it, at most `AwaitFor` (4 s, a bar
+    at 60 BPM) if nothing of it is ever heard;
+  - full from its press's landing until its release's, from any holder: a
+    phone's BREAK lights the keyboard's too, since it is what is heard;
+  - a command pad (CATCH, GRAB) is half from its press (`queueVerb`) until
+    its verb is done, then flashes full once for `FlashFor` (150 ms) if
+    it went through (`PadDone`, from `runVerb`), or goes dim if refused.
+    Presses are counted, so a second CATCH queued is half again after the
+    first one's flash.
+- **The landing time** is Play mode's, as a page's `at` gets it. The
+  Keyboard's loop asks for it every `Tick`, as its own step before the
+  screen (`Keyboard.Landings(a.keyboardLandings)`; the screen's getter
+  has no side effects): the pads the tape holds (`HeldPads`, read
+  first), and each press's and release's output frame from the trick log
+  (`TrickEventsSince`), mapped to the keyboard's clock through the lead
+  (`HeardIn`: the blocks rendered ahead and the device's latency). What
+  it says is kept for that Tick's send, so the lights go in one frame
+  with the screen's change. With no output, a pad is lit as it lands. A
+  pad heard that the tape no longer holds, with no release landed, goes
+  dim (a tape loaded under it), so a light can't stick.
+- **On time.** The loop Ticks at least every 20 ms (`tickEvery`), and
+  sooner, at the next time a pad's stage changes (`Keyboard.Wait`,
+  `PadLights.Next`); a pad's change from another goroutine wakes it. An
+  event is logged as it renders, so with any lead over 20 ms (the Pi's
+  is about 100–200 ms; 40 ms is the least the tests rely on) it is read
+  before it is heard, and the light is sent at its landing, to the
+  timer's precision, when nothing is in flight. When a frame is in
+  flight it goes with that frame's ack, which works the stages out again
+  at that moment (`queueScreen`): late by at most the rest of one round
+  trip.
+- **Sent as they change**, in the screen's BATCH sender: the lights that
+  differ from what the keyboard has (`lit`, kept from the acks, by
+  target) go after the screen's changes. A CLEAR keeps the lights, as the
+  firmware does, so a screen drawn again whole sends none of them. HOME,
+  a RELEASE or a keyboard forgotten empties `lit` and starts the pads
+  again (`lostScreen`): the screen taken again asks Play mode afresh,
+  reading the trick log from then on (what landed while the screen was
+  the keyboard's is not replayed), lights a pad the tape still holds
+  full, and only then sends every light.
+- **Checked in the fork's simulator**: `go test ./internal/surface -run
+  TestWriteLightsScript -lights=<file>` writes the frames for rest, a
+  press, its landing and release, GRAB's flash, recording with SHIFT
+  held, and HOME, each with the simulator's `light` checks of what the
+  firmware set; `tools/screen/run.sh <file>` there runs them. The panel's
+  own LEDs are the board's code, which the simulator doesn't run.
 
 ### The clock bridge
 
@@ -624,6 +797,97 @@ pending tap, the clock's status and a failed pool file.
 clipboard, ▶ and ■ (and that the view already shows them at the tap), a
 pass and a count-in, and fails on one that doesn't move the revision.
 
+**`/api/tapes/changes`** (`internal/api/changes.go`) is a WebSocket of its
+own that tells a page of the revision: `{"rev":N,"at_ms":…}` when it opens,
+on each tap of `Changes().Subscribe()`, and once a second (`changesBeat`)
+whether anything changed or not, with `at_ms` the Pi's clock so a page can
+time the push. It sends a nudge, not the state: the page polls
+`/api/tapes/state` at once, through the poll it already has. The beat is
+what keeps a quiet socket from being taken for a dead one (`lib/socket.js`
+replaces one silent for 4 s), and a beat whose rev differs from the last
+one heard catches a nudge that was lost. The page never writes to it; with
+the tape off it is a 404, as the rest of `/api/tapes` is. Not on
+`/api/live`, which is the capture's levels.
+
+In the page, `lib/tape/changes.js` (`watchChanges(onNudge)`, and
+`revisions()`, which says whether a message's rev is one not yet heard) is
+the client, kept open by `lib/socket.js`'s `connectSocket`, the reconnect
+and dead-socket rules `lib/live.js` had, moved so both use them. A watch
+takes its socket's first rev as seen, not news: whoever opens one polls as
+they do, and counting it would ask the Pi twice; after a reconnect, a rev
+that moved while it was down is news. The Studio (`lib/tape/page.js`) holds
+it through `ctx.socket` (*The shell*), so it is open only while the Studio
+is shown, and with it the bar's hand-over: opening it delegates the bar's
+tape to the Studio, closing it hands it back (`delegate(null)`). A nudge
+asks `poll-gate.js`'s `nudge()`, which polls at once with no poll out, or
+has the poll that is out poll once more when it ends (`end()` says so),
+never two at once. The bar's tape source (`lib/bar/tape-source.js`) is not
+a view: its socket's life is tied to `del` instead. It watches while the
+tape is not handed to the Studio (`!del`), and closes on `delegate(d)` and
+on `destroy()`. With a take in the bar (`setActive(false)`) it stays open
+for the keyboard's presses (*The keyboard's press*), but its nudges poll
+nothing until the tape is back. Its polls go through a gate of their
+own on the same rules (a tick skipped while one is out, a wake-up forced,
+a nudge, a press or the hand-back asked for once), with a 4 s timeout so a
+poll lost in a sleep frees the gate. The 200 ms and 500 ms polls stay, as
+the fallback for a socket that is down. J1.14 times ▶, ■ and a rename made
+at the Pi to the page's paint, in the Studio and in the Listening Room's
+bar: within 100 ms on the demo.
+
+**The keyboard's press** (`internal/api/press.go`; `the-instrument.md`,
+step 7, *The tablet*) rides the same socket, as an event carrying the words
+and what changed, not a diff. Each press on the SMK-37 that says something
+on its own screen (`keyboardSays`, `banner.go`: the verbs, their refusals,
+a Play pad refused) is published on the API's `presses` feed, which never
+blocks the verb (a socket four presses behind misses one), and every open
+changes socket sends it at once, with the revision as it is then:
+
+    {"rev":N,"at_ms":…,"press":{"words":"DROPPED ON T2","role":"verb","lit":["track"],"track":2,"at_ms":…}}
+
+- `words` are the banner's, in capitals, at most 19 characters;
+- `role` is its colour, as on the keyboard: `play` (green), `stop` and
+  `verb` (CATCH, GRAB, DROP: the display's own ink), `rec` (KEEP, which
+  is the keyboard's REC: red), `refused` (amber), and `mixer`, a Mixer
+  page press in its `track`'s colour (K6: nothing says it yet);
+- `lit` is what it changed: `play` (▶, for PLAY and STOP), `rec` (●, for
+  KEEP), `track` (that track's head, for CATCH and DROP). A refusal lights
+  nothing;
+- `track` is the track lit, 1 up, and left out for none;
+- `at_ms` is when the banner's second began, by the Pi's clock: the press,
+  or for a verb timed from when it was done, then. The message's own
+  `at_ms` is when it left, so a page takes what is left of the second
+  from the two, whatever its own clock says.
+
+Only the keyboard's presses are sent (another controller's say nothing),
+whether or not Hindsight has its screen. In the page, `watchChanges({onNudge,
+onPress})` reads it with `pressOf` (`lib/tape/changes.js`), and a message
+whose rev moved is a nudge as well. The bar's tape source hands each press
+to `onPress` listeners, from its own socket or, while the Studio is shown,
+from the Studio's (`heardPress`); the engine's listener is the bar's note
+(`lib/bar/press-note.js`, `#np-press`), which puts the words over the
+display, after the keyboard's icon, for what is left of the second, and
+lights ▶ or ● (`.kb-lit`, `data-kb` the role). The Studio lights the
+track's head itself (`lightTrackHead`). The note is out of the layout,
+over the display alone (in the phone's mini player, over the whole window,
+reels and all, since the display there is too narrow), and lets taps
+through, so nothing on the bar moves. `#np-press` is a live region
+(`role="status"`, `aria-atomic`) that is always in the page: a press shows
+by its `data-kb` and its words, and goes by emptying them, never by
+`hidden`, which would take it out of the accessibility tree.
+
+**Every press answers, whatever the bar holds.** The keyboard plays the
+tape, not the bar's source, so the note shows over the display in every
+room with the shell's bar: over the tape, the live feed or a take alike,
+in the Studio (through its socket) and anywhere else (through the bar's,
+which stays open for presses while a take is in the bar). Open's page
+(`wave.html`) has no tape source and no note.
+
+J1.15 presses PLAY, STOP, a refused CATCH, GRAB and DROP on a keyboard in
+the demo (`api.keyboard()`, a FIFO for its rawmidi node), in the Studio
+and in the Listening Room, with a take in the bar there too, and checks
+each note comes and goes, what it lit (▶, the dropped-on track's head)
+and that ▶ never moved.
+
 **Catching.** What the tape played at output frame `o` is in the capture
 ring at `o + delta`. A catch looks up the output frames it wants -- a pass
 from the cycle log, or the last N bars from the position map, back from the
@@ -859,6 +1123,11 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   ticker step that does nothing while the view is hidden. Every global
   listener, poll and frame loop goes through these, so a hidden view costs no
   CPU and no network.
+- `socket(open)`: a connection held only while the view is shown.
+  `open()` runs on each wake (after `show()`, with the polls) and answers
+  something with a `close()`, called when the view is hidden or destroyed.
+  A room's socket to the Pi (`lib/socket.js`'s `connectSocket` or what is
+  built on it) goes through it, so a room not shown holds none open.
 - `active()`: shown and the document visible.
 - `layers`: the view's scope of the shell's one stack of open things
   (below). A menu, sheet, drawer or selection the view opens goes on it with
@@ -1026,7 +1295,7 @@ to move in Open's pass.
 |---|---|
 | `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf), `backToTape`, `setSource`, `playing()`, `snapshot()`, `onChange` |
 | `engine.audio` | `adopt`, `owns`, `release`, `audioFor`: the take in the bar belongs to the engine, so a shelf row torn down never stops it, and two shelves never hold two elements for one take. Engine media is never in a view's subtree (a removed media element pauses) |
-| `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport), `setLevels` |
+| `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport; the Studio delegates while it is shown and hands it back, `delegate(null)`, on hide, so the bar polls the tape itself in the other rooms), `setLevels`. While it polls the tape itself it watches `/api/tapes/changes` (`lib/tape/changes.js`) and polls on each new revision. `onPress(fn)` hears each press on the keyboard (see *The keyboard's press*), and `heardPress(p)` is the Studio's socket handing one on |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
 | `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class. `lib/bar/player.js` sets `#np[data-size]` (`mini`, `full`) |
@@ -1036,7 +1305,8 @@ touches media or an AudioContext. Autoplay gates are per document with sticky
 activation, so after the first tap a later `play()` needs no new gesture. The
 AudioContext is made once, on a tap, with `audioSession.type = 'playback'`,
 and resumes on `visibilitychange`. Media Session has one owner, the engine.
-`connectLive` closes its socket on `pagehide` and reopens on `pageshow`, since
+`connectSocket` (`lib/socket.js`, under `connectLive` and `watchChanges`)
+closes its socket on `pagehide` and reopens on `pageshow`, since
 an open socket keeps the shell out of the back-forward cache, and a restored
 shell applies a carry record rather than dropping it.
 
@@ -1414,11 +1684,13 @@ therefore gives its reads a deadline and checks its link on waking
   forced on waking go ahead of one that may be lost, and drops the lost
   one's answer if it ever arrives.
 - **A dead socket is noticed.** Nothing tells a page that its socket died
-  in its sleep, so `/api/live`'s client (`lib/live.js`) treats 4 s without a
-  frame as dead (frames come ~100 times a second) and replaces it, waiting
-  0.5 s after a failure and up to 5 s after repeated ones. The server sends
-  no heartbeat of its own: its pings are answered by the browser below
-  JavaScript, where the page can't see them.
+  in its sleep, so `lib/socket.js` (`connectSocket`, which `/api/live`'s
+  client, `lib/live.js`, and `/api/tapes/changes`'s, `lib/tape/changes.js`,
+  both use) treats 4 s without a message as dead and replaces it, waiting
+  0.5 s after a failure and up to 5 s after repeated ones. `/api/live`'s
+  frames come ~100 times a second; `/api/tapes/changes` beats once a second
+  for this, since its pings are answered by the browser below JavaScript,
+  where the page can't see them.
 - **Waking is an event.** `onResume` fires when the page is visible again,
   shown again (`pageshow`, bfcache or not), online again, or when a one-second
   tick arrives more than 3.5 s late (the clock jumped; timers were frozen,
@@ -1461,7 +1733,7 @@ it shares with the Studio. The pure parts of each are node-tested.
 | `wave/page` | Owns the take's editable state and wires the rest together |
 | `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, first-run hints |
 | `help/markdown` | Renders the guide for `/guide.html`, from `/guide.md`, which the binary serves compiled in (`docs/embed.go`) |
-| `link`, `live`, `tape/poll-gate` | Reads that time out, the wake-up refetch, the *Reconnecting…* note, and the live meters' socket that replaces itself (see *Waking up*) |
+| `link`, `socket`, `live`, `tape/poll-gate`, `tape/changes` | Reads that time out, the wake-up refetch, the *Reconnecting…* note; a socket that replaces itself (`socket.js`'s `connectSocket`), for the live meters (`live.js`) and the tape's changes (`tape/changes.js`, see *The revision*); one poll at a time, and a nudge's poll after it (see *Waking up*) |
 | `toast` | Both pages' toasts, with an optional action ("Flag deleted · Undo"), and one carried to the next page |
 | `takes`, `trash` | The Listening Room's list, with select mode for several takes at once; *Recently deleted* |
 

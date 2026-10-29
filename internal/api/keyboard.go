@@ -51,6 +51,8 @@ func (k *keyboardOut) to(node string) *midi.Out {
 func (a *API) SetKeyboard(kb *surface.Keyboard) {
 	a.keyboard = kb
 	kb.OnPresent(a.keyboardPresent)
+	kb.Follow(a.keyboardState)
+	kb.Landings(a.keyboardLandings)
 }
 
 // keyboardPort is the SMK-37 open as a controller: the first, as Hindsight
@@ -120,7 +122,13 @@ func (a *API) keyboardPresent() {
 		return
 	}
 	kb.Clear(surface.Black)
-	kb.Text(8, 8, 3, surface.Accent, "HINDSIGHT")
+	if kb.Status().Version >= 2 {
+		// The designed screen (keyboard_screen.go): Follow draws it as soon
+		// as the CLEAR is acked, and keeps it up to date.
+		log.Printf("[*] SMK-37: on Hindsight's firmware, protocol 2; took its screen and panel")
+		return
+	}
+	kb.Text(surface.TopX, surface.TopY, 3, surface.Accent, "HINDSIGHT") // the banner's place
 	kb.Text(8, 48, 1, surface.Text, "PADS PLAY THE TAPE")
 	kb.Text(8, 62, 1, surface.Text, "PLAY: TRANSPORT   REC: KEEP")
 	kb.Text(8, 220, 1, surface.Dim, "HOME: THE KEYBOARD'S OWN SCREEN")

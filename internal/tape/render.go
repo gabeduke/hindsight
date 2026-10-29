@@ -181,6 +181,9 @@ type Mix struct {
 	// tracks drop out of the output while it's on (cuelive.go).
 	cue     map[string]*mixCue
 	cueSolo bool
+	// meter takes each track's peak as it renders: the engine's, on the
+	// mix it plays; nil on one rendered for an export or a listen.
+	meter *meters
 }
 
 // rate is the mix's sample rate; 48 kHz for the empty mix nothing is loaded
@@ -346,6 +349,7 @@ func (m *Mix) renderTrack(dst []float32, ti int, pos int64, n int, afterWrap boo
 	}
 	t := &m.tracks[ti]
 	ch := t.bus * 2
+	var peak float32 // the track's, for its meter
 	for _, layer := range t.layers {
 		for _, c := range layer {
 			from, to := max64(pos, c.at), min64(end, c.end)
@@ -353,9 +357,11 @@ func (m *Mix) renderTrack(dst []float32, ti int, pos int64, n int, afterWrap boo
 			// even where c itself has already started.
 			for f := from; f < to; f++ {
 				l, r := m.sample(c, f, afterWrap)
+				l, r = l*t.gainL, r*t.gainR
 				i := int(f-pos) * OutChannels
-				dst[i+ch] += l * t.gainL
-				dst[i+ch+1] += r * t.gainR
+				dst[i+ch] += l
+				dst[i+ch+1] += r
+				peak = max(peak, l, -l, r, -r)
 			}
 			if c.crossOut {
 				// Past Out it carries on, fading out, under what's at In.
@@ -370,6 +376,9 @@ func (m *Mix) renderTrack(dst []float32, ti int, pos int64, n int, afterWrap boo
 				}
 			}
 		}
+	}
+	if m.meter != nil {
+		m.meter.note(ti, peak)
 	}
 }
 

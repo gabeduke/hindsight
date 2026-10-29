@@ -25,7 +25,7 @@
  * naming the new address, until it is here, in sw.js's SHELL and in every
  * <use> the pages write.
  */
-export const SPRITE = '/icons/ui.svg?v=5157df85';
+export const SPRITE = '/icons/ui.svg?v=c8b28c4c';
 
 /** ICONS is every icon in the sprite, by its id. */
 export const ICONS = Object.freeze([
@@ -41,6 +41,8 @@ export const ICONS = Object.freeze([
   'down', 'right', 'left', 'close', 'check',
   // the library
   'star', 'list',
+  // the keyboard's press, on the bar
+  'keyboard',
 ]);
 
 const known = new Set(ICONS);

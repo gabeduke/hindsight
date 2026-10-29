@@ -16,6 +16,8 @@ type rig struct {
 	connected bool
 	clock     time.Time
 	presents  chan struct{}
+	leds      []Item    // the lights batches has seen, for lamps
+	play      *landings // Play mode's landings, as lit gives them
 }
 
 func newRig(t *testing.T) *rig {
@@ -25,12 +27,12 @@ func newRig(t *testing.T) *rig {
 		defer r.mu.Unlock()
 		r.sent = append(r.sent, b)
 	}, func() bool { return r.connected })
-	r.k.now = func() time.Time { return r.clock }
+	r.k.Clock = func() time.Time { return r.clock }
 	r.k.OnPresent(func() { r.presents <- struct{}{} })
 	return r
 }
 
-func (r *rig) advance(d time.Duration) { r.clock = r.clock.Add(d); r.k.tick() }
+func (r *rig) advance(d time.Duration) { r.clock = r.clock.Add(d); r.k.Tick() }
 
 // take returns what was sent since the last take.
 func (r *rig) take() [][]byte {
@@ -437,4 +439,135 @@ func TestFarewell(t *testing.T) {
 	if r.k.Farewell() != nil {
 		t.Fatal("a second farewell")
 	}
+}
+
+// taken is the rig's keyboard with Hindsight's screen and its top line
+// drawn, everything acked; the next seq is 4.
+func (r *rig) taken() {
+	r.t.Helper()
+	r.present()
+	r.k.Clear(Black)
+	r.k.Feed(ack(2, statusOK))
+	r.k.Text(TopX, TopY, 3, Accent, "HINDSIGHT")
+	r.k.Feed(ack(3, statusOK))
+	r.take()
+}
+
+// sentNow is what went since the last take, acking each so the next goes.
+func (r *rig) sentNow() [][]byte {
+	r.t.Helper()
+	var out [][]byte
+	for {
+		got := r.take()
+		if len(got) == 0 {
+			return out
+		}
+		for _, f := range got {
+			r.k.Feed(ack(f[5], statusOK))
+		}
+		out = append(out, got...)
+	}
+}
+
+func text(seq byte, x, y, scale int, c Colour, s string) []byte {
+	return frame(seq, cmdText, append([]byte{byte(x & 127), byte(x >> 7), byte(y & 127), byte(y >> 7), byte(scale), byte(c)}, s...)...)
+}
+
+func expectSent(t *testing.T, step string, got [][]byte, want ...[]byte) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s: sent % x, want % x", step, got, want)
+	}
+	for i := range want {
+		if !bytes.Equal(got[i], want[i]) {
+			t.Fatalf("%s: message %d = % x, want % x", step, i, got[i], want[i])
+		}
+	}
+}
+
+// The banner: the top line's place, at once, then the line that was there
+// once BannerFor has passed since the press, on the Keyboard's own loop.
+func TestABannerShowsForASecondFromThePressThenTheTopLineComesBack(t *testing.T) {
+	r := newRig(t)
+	r.taken()
+	pressed := r.k.Now()
+	r.clock = r.clock.Add(40 * time.Millisecond) // the verb ran meanwhile
+	if !r.k.Banner(pressed, Green, "PLAY") {
+		t.Fatal("the banner was refused")
+	}
+	expectSent(t, "the press", r.sentNow(), text(4, TopX, TopY, BannerScale, Green, "PLAY"))
+	r.advance(BannerFor - 40*time.Millisecond - time.Millisecond)
+	expectSent(t, "just under a second", r.sentNow())
+	r.advance(time.Millisecond)
+	expectSent(t, "a second on", r.sentNow(), text(5, TopX, TopY, 3, Accent, "HINDSIGHT"))
+	r.advance(5 * time.Second)
+	expectSent(t, "after", r.sentNow())
+}
+
+// A new press replaces the banner showing, and its second starts again.
+func TestANewPressReplacesTheBanner(t *testing.T) {
+	r := newRig(t)
+	r.taken()
+	r.k.Banner(r.k.Now(), Green, "PLAY")
+	expectSent(t, "the first press", r.sentNow(), text(4, TopX, TopY, BannerScale, Green, "PLAY"))
+	r.advance(500 * time.Millisecond)
+	r.k.Banner(r.k.Now(), Text, "STOP")
+	expectSent(t, "the second", r.sentNow(), text(5, TopX, TopY, BannerScale, Text, "STOP"))
+	r.advance(500 * time.Millisecond)
+	expectSent(t, "the first's second", r.sentNow())
+	r.advance(500 * time.Millisecond)
+	expectSent(t, "the second's", r.sentNow(), text(6, TopX, TopY, 3, Accent, "HINDSIGHT"))
+}
+
+// A top line drawn while the banner shows waits for it to go, and is what
+// comes back.
+func TestTheTopLineDrawnUnderTheBannerComesBackWhenItGoes(t *testing.T) {
+	r := newRig(t)
+	r.taken()
+	r.k.Banner(r.k.Now(), Amber, "NO TRACK ARMED")
+	r.k.Text(TopX, TopY, 2, Text, "TAPE 3")
+	r.k.Text(8, 48, 1, Text, "ELSEWHERE")
+	expectSent(t, "under the banner", r.sentNow(),
+		text(4, TopX, TopY, BannerScale, Amber, "NO TRACK ARMED"), text(5, 8, 48, 1, Text, "ELSEWHERE"))
+	r.advance(BannerFor)
+	expectSent(t, "a second on", r.sentNow(), text(6, TopX, TopY, 2, Text, "TAPE 3"))
+}
+
+// With no top line, the banner goes with a TEXT of no text: removed.
+func TestABannerOverNoTopLineIsRemoved(t *testing.T) {
+	r := newRig(t)
+	r.present()
+	r.k.Clear(Black)
+	r.k.Feed(ack(2, statusOK))
+	r.take()
+	r.k.Banner(r.k.Now(), Accent, "KEPT 30 S")
+	expectSent(t, "the press", r.sentNow(), text(3, TopX, TopY, BannerScale, Accent, "KEPT 30 S"))
+	r.advance(BannerFor)
+	expectSent(t, "its end", r.sentNow(), text(4, TopX, TopY, BannerScale, Text, ""))
+}
+
+// HOME is the player's: a banner showing then is never put back, and none
+// is drawn on the keyboard's own screen, nor one whose second is over.
+func TestNoBannerFightsHome(t *testing.T) {
+	r := newRig(t)
+	r.taken()
+	r.k.Banner(r.k.Now(), Green, "PLAY")
+	expectSent(t, "the press", r.sentNow(), text(4, TopX, TopY, BannerScale, Green, "PLAY"))
+	r.k.Feed(frame(0, cmdRelease)) // HOME
+	r.advance(BannerFor)
+	expectSent(t, "after HOME", r.sentNow())
+	if r.k.Banner(r.k.Now(), Text, "STOP") {
+		t.Fatal("a banner was drawn on the keyboard's own screen")
+	}
+	r.advance(BannerFor)
+	expectSent(t, "a press after HOME", r.sentNow())
+
+	r = newRig(t)
+	r.taken()
+	late := r.k.Now()
+	r.clock = r.clock.Add(BannerFor)
+	if r.k.Banner(late, Green, "PLAY") {
+		t.Fatal("a banner whose second was over was drawn")
+	}
+	expectSent(t, "a late banner", r.sentNow())
 }
