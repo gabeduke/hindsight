@@ -5,6 +5,29 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.1 — 2026-10-29
+
+- Spec: pushing the tape's state -- says it is agreed at the top too (7e65c04)
+- Spec: pushing the tape's state -- agreed with Gabe as recommended (7cbdc1e)
+- Docs: STATE.md points at the push spec (05fe469)
+- Spec: pushing the tape's state -- the Pi nudges the page when the tape changes, so the tablet follows a controller's press in about 30-50 ms instead of up to 235 (da9e843)
+- Docs: STATE.md hands the SMK-37 over: the keyboard, the PRs, what the Pi runs, and what's next at the rig (7b4eee4)
+- Tests: the MIDI tempo test checks the tempo it actually wrote, so a slow CI runner can't fail it (faac06b)
+- Hindsight writes to the SMK-37 at its own port, so a second keyboard of the same name hears nothing (bd62300)
+- The SMK-37's first HELLO now reaches it, rather than waiting out a timeout (28ec37c)
+- HOME on the SMK-37 now wins over a CLEAR still waiting for its ack (bd14597)
+- Hindsight no longer crashes when the keyboard's MIDI output is shut down mid-scan (4f6debf)
+- Docs: STATE.md says the SMK-37 runs Hindsight's firmware and the Pi took its screen on the first try (bb03e6e)
+- A deploy from a checkout no longer deletes the settings the Settings sheet saved (e657e04)
+- Tests: the SMK-37 is matched by the name it gives on Hindsight's firmware, "SMK37 Open", as read off the unit (7048d17)
+- Tests: an OFFER from a keyboard Hindsight had forgotten still forgets its HOME; comments and docs say HOME is let go (9b4e63f)
+- On an SMK-37 on Hindsight's firmware, HOME held for a second hands the screen back to Hindsight (fd08ab9)
+- Docs: controllers and the SMK-37's surface in architecture.md; its state and the HOME question in STATE.md (cbddfa1)
+- With an SMK-37 on Hindsight's own firmware, Hindsight takes its screen, and its PLAY and REC run the transport and KEEP (69edf67)
+- Hindsight can talk to an SMK-37 running Hindsight's own firmware: draw on its screen, set its knobs, time its answers (1e2f37b)
+- A controller's SysEx messages now reach Play mode's bus (nothing sends any yet) (b90ac14)
+
+
 ## v2026.10.27.3 — 2026-10-27
 
 - Dragging a take's buffer onto a lane names the take as the shelf does too (830b2cd)
