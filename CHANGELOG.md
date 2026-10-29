@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.2 — 2026-10-29
+
+- Play mode's pads land on the beat you heard: a hit on the line is no longer a whole sixteenth late (5bbf1f4)
+- Tests: the revision's test waits for the render goroutine, so a slow CI runner can't fail it (8b8487d)
+- The tape keeps a revision of what its page shows, so a page can soon be told to look again the moment something changes (8bec695)
+
+
 ## v2026.10.29.1 — 2026-10-29
 
 - Spec: pushing the tape's state -- says it is agreed at the top too (7e65c04)
