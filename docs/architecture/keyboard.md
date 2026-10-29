@@ -281,8 +281,8 @@ rules for writing to the unit are decision 0053
 (`docs/decisions/0053-smk37-flashing-rules.md`).
 
 - **Built, not flashed:** the fork's PR #10 (local echo, the quiet clock,
-  the pads' chain sent again), 452,964 bytes, 957 free (the change cost
-  736), built by its CI on Windows and under Wine to the same bytes.
+  the pads' chain sent again), 453,060 bytes, 861 free (the change cost
+  832), built by its CI on Windows and under Wine to the same bytes.
 - **The keyboard** runs the fork's `main` at 97159f3a: protocol version 2
   (BOX, BAR, TEXT's background, LED, BATCH, 16 colours, 96 items) and
   partial repaint. Flashed from the Pi on 2026-10-29 with M-Flasher built
