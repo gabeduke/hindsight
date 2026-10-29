@@ -333,7 +333,22 @@ My recommendation first in each.
      the Wi-Fi hop, so it lags the keyboard; the sound never waits on
      it, since the keyboard's controls act on the Pi. Gabe has a Pi touch
      display, which would take the Wi-Fi hop out: parked, to weigh with
-     a push from the Pi in place of the poll.
+     a push from the Pi in place of the poll (`pushing-tape-state.md`,
+     agreed 2026-10-28).
+
+     *Every press answers, at once, where the player is looking* (Gabe,
+     2026-10-28, after a REC at the rig kept a take with nothing to say
+     so: *"often when playing an instrument you develop an intuitive feel
+     by watching something and feeling out the notes … it could be simple
+     to start with"*). To start, one line of text per press:
+     - on the keyboard's screen, a short flash of what it did (PLAY,
+       STOP, KEPT 30 S, PUNCH IN), beside the counter;
+     - on the tablet, the same words as a brief note, with what it
+       changed lit: ▶, the armed track, a new take on the shelf.
+
+     A press that is refused says why, the same way. The pad lights and
+     the widgets come later and do this richer; the line of text comes
+     first, before K3 changes what REC does.
    - *The map.* What each control does, on each page, is written once,
      per device, beside its profile: the control, what it sends, what it
      does on each page, the track colour of a Mixer pad, and the K flow
