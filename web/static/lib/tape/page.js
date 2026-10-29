@@ -39,6 +39,7 @@ import { heardAt, layer, blit, bandFor, still, paintMarks, paintHead, paintLaneG
 import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
+import { watchChanges } from './changes.js';
 import * as sel from './selection.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
 import { syncState } from '../bar/display.js';
@@ -176,6 +177,7 @@ let stack = null;
 // ctx is always given.
 export function mountTapePage(ctx) {
   viewCtx = ctx;
+  shown = true; // mounted shown (the Studio is never prewarmed); hide() says otherwise
   stack = ctx?.layers || layersOf(document);
   // The Studio's bar is the tape's and never takes a take: this page neither
   // reads the hand-off nor writes it, so the Listening Room, back, finds its
@@ -240,13 +242,9 @@ export function mountTapePage(ctx) {
     }
     engine = ctx.engine;
     engine.setTapes?.({ loaded: state.id });
-    engine.tape.delegate({
-      play: () => transport('play'),
-      stop: () => transport('stop'),
-      locate: (pos) => transport('locate', { pos }),
-      setLoop: (on) => patch({ loop: { on } }),
-      poll: () => poll(),
-    });
+    // The bar's tape is the Studio's to poll and play while it is shown;
+    // hide() hands it back, so the bar in another room follows the tape.
+    if (shown) engine.tape.delegate(barHands);
     output = initOutput({ engine, getTape: () => state.tape, getGhost: () => ghost });
     wire();
     await poll();
@@ -259,10 +257,15 @@ export function mountTapePage(ctx) {
     ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { poll(true); fetchClipboard(); } });
     ctx.every(() => { if (!document.hidden) poll(); }, POLL_MS);
     ctx.every(() => { if (!document.hidden) fetchClipboard(); }, 2000);
+    // The Pi's word that the tape changed: poll now, not at the next tick.
+    if (shown) openChanges();
   })();
   return {
     ready,
     show() {
+      shown = true;
+      if (state.id) engine?.tape.delegate(barHands);
+      openChanges();
       studioVisit(pageCarry());
       if (state.id) {
         poll(true);
@@ -276,6 +279,9 @@ export function mountTapePage(ctx) {
       }
     },
     hide() {
+      shown = false;
+      closeChanges();
+      engine?.tape.delegate(null);
       if (bar) bar.commit();
       closeSheets();
       renderAlign();
@@ -304,6 +310,35 @@ let gen = 0;
 // The page's link to the Pi (lib/link.js); a stand-in until boot makes it.
 let link = { ok() {}, fail() {} };
 const POLL_TIMEOUT_MS = 4000;
+
+// The changes socket (changes.js): while the Studio is shown, each new
+// revision polls at once, through the gate, so a nudge that lands while a
+// poll is out polls once more after it rather than beside it. The 200 ms
+// poll stays as the fallback, for a socket that is down.
+let changes = null;
+// Whether the Studio is shown (a hidden document aside): mount and show
+// say so, hide says not. What the mount starts late checks it.
+let shown = false;
+// What the bar's tape source hands the Studio while it is shown.
+const barHands = {
+  play: () => transport('play'),
+  stop: () => transport('stop'),
+  locate: (pos) => transport('locate', { pos }),
+  setLoop: (on) => patch({ loop: { on } }),
+  poll: () => poll(),
+};
+function nudged() {
+  if (document.hidden) return; // the poll on visibilitychange has it
+  if (gate.nudge()) poll();
+}
+function openChanges() {
+  if (!changes && state.id) changes = watchChanges(nudged);
+}
+function closeChanges() {
+  changes?.close();
+  changes = null;
+}
+
 async function poll(force = false) {
   if (!state.id) return;
   const mine = gate.begin(force === true);
@@ -358,7 +393,7 @@ async function poll(force = false) {
     else link.ok('tape');
     if (e.status === 404 && g === gen && gate.current(mine)) await follow();
   } finally {
-    gate.end(mine);
+    if (gate.end(mine)) poll();
   }
 }
 

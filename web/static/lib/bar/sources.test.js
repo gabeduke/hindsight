@@ -251,3 +251,47 @@ test('the tape: ▶ then ■ before a poll says so stops it, and the Pi has the 
   s.ingest({ live: { ...live, playing: true } });
   assert.equal(s.playing(), true);
 });
+
+// docs/plan/pushing-tape-state.md: the Pi's word that the tape changed
+// polls the bar's tape at once, while the bar polls it itself.
+function fakeWatch() {
+  const w = { open: 0, nudge: null };
+  w.watch = (fn) => {
+    w.open++;
+    w.nudge = fn;
+    return { close() { w.open--; w.nudge = null; } };
+  };
+  return w;
+}
+
+test('the tape: a nudge from the Pi polls at once, not at the next tick', async () => {
+  let polls = 0;
+  stubs(() => { polls++; return { tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }; });
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  const before = polls;
+  assert.equal(w.open, 1, 'the bar watches while it polls the tape itself');
+  w.nudge({ rev: 2 });
+  await settle();
+  assert.equal(polls, before + 1, 'polled on the nudge, well inside the 500 ms tick');
+  s.destroy();
+  assert.equal(w.open, 0, 'destroy lets the socket go');
+});
+
+test('the tape: handed to the Studio, the bar stops watching; handed back, it watches and polls', async () => {
+  let polls = 0;
+  stubs(() => { polls++; return { tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }; });
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  s.delegate({ poll() {} });
+  assert.equal(w.open, 0, 'the Studio\'s own socket feeds it while it is shown');
+  const before = polls;
+  s.delegate(null);
+  assert.equal(w.open, 1, 'back in the bar\'s hands, it watches again');
+  await settle();
+  assert.equal(polls, before + 1, 'and asks the Pi at once, for what changed meanwhile');
+  s.setActive(false);
+  assert.equal(w.open, 0, 'the bar holding a take: no socket');
+});

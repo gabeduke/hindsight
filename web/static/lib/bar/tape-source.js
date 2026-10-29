@@ -11,6 +11,7 @@ import { tapeCounter } from '../objects/lcd.js';
 import { tapeDisplay } from './display.js';
 import { paintTapeOverview } from '../tape/overview.js';
 import { refusal } from '../tape/refusal.js';
+import { watchChanges } from '../tape/changes.js';
 
 const POLL_MS = 500;
 const AHEAD_S = 0.5; // the furthest the playhead is run on past a poll
@@ -21,9 +22,10 @@ const AWAY_EVERY = 10; // out of the bar, every 10th tick (5 s): the header's ou
 /**
  * tapeSource is the bar's source for the tape loaded on the Pi (`id`).
  * onError(message) hears of a press the Pi refused; stream() is the tape's
- * player on this phone, if there is one.
+ * player on this phone, if there is one; watch is changes.js's
+ * watchChanges, for tests.
  */
-export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
+export function tapeSource(loadedId, { onError, stream = () => null, watch = watchChanges } = {}) {
   let id = loadedId;
   let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true, holdUntil = 0, ticks = 0;
   let want = null; // a press not yet in a poll: {playing, until}
@@ -64,7 +66,19 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
   };
   const onVisible = () => { if (active && !del && !document.hidden) poll(); };
   document.addEventListener('visibilitychange', onVisible);
+  // The Pi's word that the tape changed (lib/tape/changes.js), heard while
+  // the bar polls the tape itself: in the bar, and not handed to the
+  // Studio, whose own socket feeds it then. A new revision polls now, not
+  // at the next tick, so a press made at the Pi shows in tens of
+  // milliseconds; the tick stays as the fallback.
+  let changes = null;
+  const syncChanges = () => {
+    const on = !stopped && active && !del;
+    if (on && !changes) changes = watch(() => { if (active && !del && !document.hidden) poll(); });
+    else if (!on && changes) { changes.close(); changes = null; }
+  };
   tick();
+  syncChanges();
 
   async function send(path, method, body) {
     try {
@@ -185,7 +199,7 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     },
     tick() {},
     // The bar holding a take instead: no polling until it's back.
-    setActive(on) { active = on; if (on && !del) poll(); },
+    setActive(on) { active = on; syncChanges(); if (on && !del) poll(); },
     lcd: () => {
       const c = t ? tapeCounter(t, live ? { ...live, heard: pos() } : null, mixdown()) : { big: '', small: '', note: '', status: 'stop', unit: '' };
       const n = streamNote();
@@ -202,9 +216,14 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
       if (nextLive !== undefined) { live = nextLive; at = performance.now(); agreed(); }
       fire();
     },
+    // The Studio, while it is shown, polls and plays the tape for the bar;
+    // null hands both back to the bar.
     delegate(d = null) {
+      const was = del;
       del = d;
       if (d) gen++;
+      syncChanges();
+      if (was && !d && active && !document.hidden) poll();
     },
     // Where it plays, for the header's output button: null before the Pi
     // says, or from one that doesn't.
@@ -223,6 +242,7 @@ export function tapeSource(loadedId, { onError, stream = () => null } = {}) {
     changed: fire,
     destroy() {
       stopped = true;
+      syncChanges();
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
       listeners.clear();
