@@ -29,7 +29,7 @@ From the code's constants, not yet measured (step 1 measures them):
 |---|---|---|
 | A touch, over Wi-Fi to the Pi (WebSocket `/api/tapes/play`) | 10–60 ms | 10–60 ms |
 | A MIDI controller over USB (`internal/midi`) | ~1 ms | – |
-| The render goroutine, ahead of the device (`aheadBlocks` 5 × `BlockFrames` 1024) | ~107 ms | ~107 ms |
+| The render goroutine, ahead of the device (`aheadFor`: as far as `OUTPUT_LATENCY_MS`, 5 × `BlockFrames` 1024 at its default) | ~107 ms | ~107 ms |
 | The device's buffer (`OUTPUT_LATENCY_MS` 100, 1024 frames, `HighLatencyParameters`) | ~100 ms | – |
 | The stream's packets, then the phone's jitter buffer (0.8 s, `stream-buffer.js`) | – | ~820 ms |
 | The phone's audio output (more on Bluetooth: 150–300 ms) | – | 40–100 ms |

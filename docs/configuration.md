@@ -326,7 +326,7 @@ card the capture uses (see [architecture](architecture.md#the-tape)):
 
 | Variable | Default | What it does |
 |---|---|---|
-| `OUTPUT_LATENCY_MS` | `100` | Output latency asked of PortAudio. Generous for the same reason as `INPUT_LATENCY_MS`; a change you make reaches the speaker about a quarter of a second later either way |
+| `OUTPUT_LATENCY_MS` | `100` | Output latency asked of PortAudio, and how far ahead the tape renders: a press reaches the speaker about twice this, plus a block, later. The default is generous; 20 makes the tape quick to play (68 ms from a pad to its sound on a Pi 5), at the risk of glitches on a busier Pi |
 | `TAPE_LATENCY_MS` | `0` | For hearing the tape later than your instrument: when the instrument comes from its own speaker and the tape from the Sidekick's. You play in time with what you hear, so the part lands this much late in the recording; each catch is taken this much later, which puts it back in time on the tape |
 | `TAPE_DEMO_ALIGN` | `false` | In the demo, make the tape measure where its playback lands in the recording, as on the Pi, instead of being told |
 

@@ -56,6 +56,12 @@ func NewDeviceSink(cfg *config.Config, captureName func() string) Sink {
 	return s
 }
 
+// outFramesPerBuffer is what the device asks for in each callback.
+const outFramesPerBuffer = 1024
+
+// PullFrames is one callback's worth (PullSize).
+func (s *deviceSink) PullFrames() int { return outFramesPerBuffer }
+
 // Open starts the supervisor and waits a moment for the first open, so the
 // log can say where the tape plays. An output that isn't there yet is not an
 // error: the supervisor keeps trying, as the capture does.
@@ -209,7 +215,7 @@ func (s *deviceSink) openStream() error {
 		p := portaudio.HighLatencyParameters(nil, dev)
 		p.Output.Channels = s.channels
 		p.SampleRate = float64(s.cfg.SampleRate)
-		p.FramesPerBuffer = 1024
+		p.FramesPerBuffer = outFramesPerBuffer
 		p.Output.Latency = time.Duration(s.cfg.OutputLatencyMS) * time.Millisecond
 		st, err := portaudio.OpenStream(p, s.callback)
 		if err != nil {

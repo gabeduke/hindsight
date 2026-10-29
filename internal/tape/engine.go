@@ -26,8 +26,6 @@ import (
 const (
 	// BlockFrames is what the renderer renders at a time: 21 ms.
 	BlockFrames = 1024
-	// aheadBlocks is how far ahead of the device it keeps: 107 ms.
-	aheadBlocks = 5
 )
 
 var (
@@ -95,6 +93,26 @@ type Options struct {
 	// clock, Start, Stop and Song Position as the tape plays. The engine
 	// stops it when it stops, if it can be.
 	Clock ClockOut
+	// OutputLatencyMS is what the device is asked to buffer
+	// (OUTPUT_LATENCY_MS): the renderer keeps that far ahead of it too
+	// (aheadFor). 0 is the default's 100 ms.
+	OutputLatencyMS float64
+}
+
+// aheadFor is how many blocks the renderer keeps ahead of a device asked
+// to buffer ms, which pulls up to pull frames at a time (audio.PullSize; 0
+// when it doesn't say): as far as the device's own buffer, never less than
+// one pull nor one block, and never more than a second. Every block ahead
+// is heard that much later (the lead), so a small buffer is a quick
+// instrument; a large one rides out a device that, after a stall, asks for
+// several pulls back to back, which a renderer one pull ahead can't feed.
+func aheadFor(ms float64, pull, sampleRate int) int {
+	if ms <= 0 {
+		ms = 100
+	}
+	n := int(math.Ceil(ms * float64(sampleRate) / 1000 / BlockFrames))
+	n = max(n, (pull+BlockFrames-1)/BlockFrames, 1)
+	return min(n, (sampleRate+BlockFrames-1)/BlockFrames)
 }
 
 type block struct {
@@ -141,6 +159,7 @@ type Engine struct {
 	cur       *block
 	off       int
 	delivered atomic.Uint64 // output frames handed to the device
+	ahead     uint64        // frames the renderer keeps ahead of the device (aheadFor)
 	late      atomic.Uint64 // blocks delivered as silence because none was ready
 	sinkBase  atomic.Int64  // engine output frame where the sink's own count began
 	sinkName  string
@@ -237,8 +256,6 @@ func NewEngine(o Options) *Engine {
 		clockOut:  o.Clock,
 		tr:        newTransport(),
 		actions:   make(chan Action, 32),
-		blocks:    make(chan *block, aheadBlocks+3),
-		free:      make(chan *block, aheadBlocks+3),
 		kick:      make(chan struct{}, 1),
 		stop:      make(chan struct{}),
 		done:      make(chan struct{}),
@@ -250,6 +267,13 @@ func NewEngine(o Options) *Engine {
 		e.pullBridge = audio.NewClockBridge(256, o.Store.SampleRate())
 		sr = o.Store.SampleRate()
 	}
+	pull := 0
+	if p, ok := o.Sink.(audio.PullSize); ok {
+		pull = p.PullFrames()
+	}
+	blocks := aheadFor(o.OutputLatencyMS, pull, sr)
+	e.ahead = uint64(blocks) * BlockFrames
+	e.blocks, e.free = make(chan *block, blocks+3), make(chan *block, blocks+3)
 	// ECHO's delay line, at its longest, made here so the render goroutine
 	// never waits on the allocator for it.
 	e.perf.bus.echo.line = make([]float32, 0, echoMaxFrames(float64(sr))*OutChannels)
@@ -394,7 +418,7 @@ func (e *Engine) pull(out []int32) {
 	}
 }
 
-// renderLoop keeps aheadBlocks rendered ahead of the device.
+// renderLoop keeps e.ahead rendered ahead of the device.
 func (e *Engine) renderLoop() {
 	defer close(e.done)
 	// What the device played before the renderer was running isn't late.
@@ -416,7 +440,7 @@ func (e *Engine) renderLoop() {
 		}
 		if e.sink == nil {
 			e.safely(func() { e.idle(out) })
-		} else if out-d >= aheadBlocks*BlockFrames {
+		} else if out-d >= e.ahead {
 			// Far enough ahead to wait -- but not to leave a load waiting
 			// on a device that isn't pulling.
 			e.safely(func() {
@@ -425,7 +449,7 @@ func (e *Engine) renderLoop() {
 				}
 			})
 		}
-		if out-d >= aheadBlocks*BlockFrames || e.sink == nil {
+		if out-d >= e.ahead || e.sink == nil {
 			select {
 			case <-e.stop:
 				return

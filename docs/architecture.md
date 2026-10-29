@@ -559,7 +559,16 @@ In).
 **The transport and the player.** One render goroutine owns the transport.
 It applies queued actions (play, stop, locate) on the exact output frame
 their quantum falls on, advances one tape frame per output frame, wraps at
-the loop's Out, and renders a few blocks (about 100 ms) ahead into a FIFO.
+the loop's Out, and renders ahead into a FIFO as far as the device is asked
+to buffer (`OUTPUT_LATENCY_MS`, `aheadFor`): never less than the sink's
+biggest pull (`audio.PullSize`: the device's 1024 frames, the demo's
+`FRAMES_PER_BUFFER`), nor more than a second. At 48 kHz that is five blocks
+(107 ms) at the default 100 ms, one (21 ms) at 20 ms; it is counted in
+time, so a 96 kHz kit keeps ten. Each block ahead is that much more lead
+between a press and its sound; a deeper FIFO rides out a device that, after
+a stall, asks for several pulls back to back. The phone's pacer, which
+pulls for a phone while the device is away, isn't counted: at a low
+setting a phone with no device can hear a gap.
 The device's callback takes blocks from the FIFO and never blocks or
 allocates; if none is ready it plays silence, counts it as late, and the
 tape counts on, so the tape never drifts against the device. Everything the

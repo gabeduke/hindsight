@@ -92,7 +92,7 @@ var Settings = []Setting{
 	{Key: "TAPE_CLOCK_OUT", Group: "Tape", Label: "Clock to", Kind: "text", Default: "",
 		Help: "Devices that follow the tape's clock: name[:nudge ms], comma-separated"},
 	{Key: "OUTPUT_LATENCY_MS", Group: "Tape", Label: "Output latency", Kind: "int", Min: 10, Max: 1000, Unit: "ms", Default: "100",
-		Help: "Asked of the interface for the tape's playback"},
+		Help: "Asked of the interface for the tape's playback, and how far ahead the tape renders: lower answers a press sooner, higher rides out a busy Pi"},
 	{Key: "TAPE_LATENCY_MS", Group: "Tape", Label: "Catch delay", Kind: "float", Min: -1000, Max: 1000, Unit: "ms", Default: "0",
 		Help: "Take every catch this much later, when you hear the tape late"},
 }
