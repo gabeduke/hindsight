@@ -417,8 +417,33 @@ My recommendation first in each.
         `docs/plan/the-map.md`), scrub (K7), the faders (K8), REC punching
         in (K3). Their flows are written, `todo` until each lands.
 
-     *At the rig, with Gabe at the keyboard*, in order (about 1 h 55 min).
-     Nothing here is done until he says go; each step says what it decides.
+     *At the rig, done 2026-10-29* with Gabe at the keyboard (the checklist
+     as run is below; the detail is in `docs/architecture/keyboard.md`):
+     - v2026.10.29.9, then .11 installed; the Stops fixed on the old
+       firmware already (the tape played on through HOME, PATCH on the
+       panel, and the retake).
+     - The fork's #10 flashed, then #11, two matching backups before each,
+       each write only 0x04000–0x73000 (`flash-diff.py`); `features` 7.
+     - The pads: #10's resend showed the chain's fault often (pad 1
+       blinking, every pad shifted to bright wrong colours on a press);
+       #11's longer reset before the chain cured it (*"the pads are
+       perfect now"*), violet's dimness with it.
+     - The quiet clock: 42 bytes a second from the keyboard on its own
+       screen (Open's clock), 6 (the lights' acks) on the Pi's.
+     - Where frames go: Linux sends them whole (`usbmon`); the keyboard
+       loses any of 600 bytes or more sent in one burst, and 512 two in
+       three, and none in chunks, so the Pi writes them in chunks (#211).
+     - Press to sound 62 ms p50, 73 ms p95; the Pi's answer to a press
+       (`confirm_ms`) 12 ms; the link's round trip 0.5–0.9 ms.
+     - The pads on `now` (decision 0060).
+     - Found: the encoders reach the tape (DRIVE went 0 to 1 as K3 turned)
+       but Gabe heard no difference in the jam room, which goes with
+       DRIVE's make-up in `STATE.md`. Still to check by ear: that the
+       knobs' numbers follow the hand (local echo), and the map's
+       decisions.
+
+     The checklist, in order (about 1 h 55 min). Nothing here is done
+     until he says go; each step says what it decides.
      Before the session, without him: hindsight's PR (the Pi's side) is
      merged, which cuts a release, and the fork's PR #10 is merged or its
      head's build is at hand.
@@ -518,10 +543,12 @@ My recommendation first in each.
      connected controller's profile picks, and another controller with a
      map gets its own. The map is an interface (who writes it, who reads
      it), so it gets a short spec of its own before it is built.
-   - *The pads' timing* is open. The lag Gabe feels most is the pads',
-     and they are quantised to a 16th by default (`controls.json`'s
-     quantum): 0–114 ms at 132 BPM. PLAY and REC are not quantised. He
-     chose to A/B a 16th against `now` by ear at the rig, then decide.
+   - *The pads' timing*, settled at the rig on 2026-10-29 (decision 0060):
+     `now`. On a 16th, the default, a pad waits up to 114 ms at 132 BPM;
+     Gabe A/B'd the two by ear (*"much better"* on `now`). On `now` a pad
+     is heard 62 ms after its note at p50, 73 ms at p95 (`GET
+     /api/latency`), about 59 ms of it the render's lead, which is the
+     engine's step 2 to take down.
    - *Settled* on 2026-10-29 (*The surface, designed*, above): what the
      encoders do on the Mixer page, and pads 15 and 16 stay CATCH and
      GRAB.
@@ -635,7 +662,7 @@ My recommendation first in each.
      | K8 | set the levels of tracks 1–4 on the faders | todo |
      | K9 | play the keyboard's synth over the tape and record it as an input | rig |
      | K10 | read what every control does, on the keyboard's help page and in the guide, and hide the overlay once I know it | todo |
-     | P1 | A/B the pads' quantum by ear, a 16th against `now`, and pick their timing | rig |
+     | P1 | A/B the pads' quantum by ear, a 16th against `now`, and pick their timing | done, 2026-10-29: `now` (decision 0060) |
      | R2 | install ours over SMK-37+VA, back up, then m-bootloader | done, 2026-10-27 |
 
    - *Build order*, each step its own PR:

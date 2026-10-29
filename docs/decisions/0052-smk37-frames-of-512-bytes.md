@@ -18,8 +18,12 @@ and takes the screen again, blank.
 ## What it rules out
 
 Sizing frames by the mailbox alone; trusting the simulator for the link.
-Where frames are lost is still to be measured
-(`docs/plan/the-instrument.md`, step 7, *Next*).
+
+Found at the rig later the same day (#211): Linux sends every frame whole,
+and the keyboard loses one that arrives in a single burst (600 bytes and
+more always, 512 two times in three), so its frames are now written in
+240-byte chunks 2 ms apart, which it took at every size to 996. The 512
+stays until the chunks have run a while.
 
 ## See
 

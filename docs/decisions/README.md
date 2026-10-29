@@ -69,3 +69,4 @@ rules; the story behind each is here. A new decision is the next number,
 - [0057](0057-specs-before-code.md) Specs before code, deleted when they land
 - [0058](0058-the-studio-is-a-place.md) The studio is a place
 - [0059](0059-the-studio-on-one-screen.md) The Studio on one screen: a touch head is name, ●, input and ›
+- [0060](0060-controller-pads-play-now.md) A controller's pads play now, not on a 16th
