@@ -283,10 +283,22 @@ My recommendation first in each.
        for the bank) and has four knobs for quick edits, plus Open's
        effects page for the synth's own reverb and delay. Which four
        knobs is a detail for the build; Open's are algorithm, feedback,
-       transpose and level. Deep editing (operators, envelopes, LFOs)
-       moves to the phone, if it is built. Unplugged from the Pi, the
-       keyboard plays its voices and nothing more: no step sequencer and
-       no projects on the unit.
+       transpose and level. Unplugged from the Pi, the keyboard plays its
+       voices and nothing more: no step sequencer and no projects on the
+       unit.
+
+       Changed by Gabe on 2026-10-28, after playing it: *sound design on
+       the keyboard, playable.* He has better sequencers (the Bento, the
+       MPC Sample), so Open's sequencer grid goes, as above. What he wants
+       on the SMK instead is to shape a sound while playing it: *"playable
+       edits to sounds like filter, osc etc."* So the synth page's knobs
+       are for sound design you can play, on the encoders, not deep
+       editing on the phone. Which edits, mapped how onto an FM voice
+       (an FM engine has no filter of its own: brightness is the
+       modulators' levels, or the effects'), is the next decision, with
+       Gabe. He also found the patch select has only 16 patches in the
+       library on the unit, not the 128 voices this plan assumed: fine as
+       it is, with the edits made on them.
    - *What the Pi does with them*, as Gabe answered a quiz on how he
      plays (2026-10-28). He plays with his hands on the keyboard and an
      eye on the tablet, into the keyboard's synth, other gear through the
