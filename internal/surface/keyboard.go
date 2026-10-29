@@ -976,6 +976,7 @@ func (k *Keyboard) Feed(msg []byte) {
 		k.status.Screen = true
 		k.status.Homed = false
 		k.shown, k.refused = nil, false // the list is empty
+		k.stood = nil                   // and the knobs' places with it: KNOB again
 	case done.cmd == cmdBatch && status == statusOK:
 		for _, it := range done.items {
 			k.applied(it, done.sent)

@@ -147,3 +147,17 @@ func TestAKnobNotShownAsItsNumberGivesNoPlaces(t *testing.T) {
 		}
 	}
 }
+
+// A CLEAR forgets where the knobs' values are drawn, on the keyboard, so
+// every KNOB goes again after one.
+func TestAClearSendsTheKnobsAgain(t *testing.T) {
+	r := echoing(t, EchoKnobs)
+	r.knobs = nil
+	r.k.Clear(Black)
+	got := r.take()
+	r.k.Feed(ack2(got[0][5], statusOK))
+	r.k.Show(atRest())
+	if r.batches(); len(r.knobs) != 7 || !r.knobs[2].Echo {
+		t.Fatalf("after a CLEAR: sent %v, want the seven KNOBs with their places", r.knobs)
+	}
+}

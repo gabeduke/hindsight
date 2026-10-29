@@ -90,7 +90,7 @@ func (u *unit) receive(f []byte) []byte {
 	case cmdHello:
 		return reply(statusOK, 2, MaxItems, EchoPads|EchoKnobs|QuietClock)
 	case cmdClear:
-		u.active, u.items = true, nil
+		u.active, u.items, u.knobs = true, nil, map[int]Item{} // a CLEAR forgets the knobs' places
 		return reply(statusOK)
 	case cmdRelease:
 		u.active, u.lights, u.knobs = false, map[int]Item{}, map[int]Item{}
