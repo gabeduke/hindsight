@@ -9,21 +9,22 @@ const tapeHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf
 const template = (id) => new RegExp(`<template id="${id}">[\\s\\S]*?</template>`).exec(tapeHtml)[0];
 
 const BAR = 96000;
-const board = (bars = 4) => ({
-  created: 'b1', frames: bars * BAR,
-  tracks: [[{ file: 'p.wav', gain_db: 0, fade_in: 0, fade_out: 0 }]],
-  grab: { in: 0, out: bars * BAR, frames: bars * BAR, before: 0, after: 0, bars, bar_frames: BAR, sources: ['main'], used: false },
+const cueClip = (bars = 4) => ({
+  id: 'b1', name: 'main', file: 'p.wav', src: 0, frames: bars * BAR, loop: true, source: 'grab',
+  lanes: [{ file: 'p.wav', src: 0, frames: bars * BAR, source: 'main' }],
+  grab: { in: 0, out: bars * BAR, frames: bars * BAR, before: 0, after: 0, bars, bar_frames: BAR, sources: ['main'] },
 });
 
-const tapeOf = () => ({
+const tapeOf = (clips = []) => ({
   id: 't', sample_rate: 48000, length: 32 * BAR, grid: { frames: 8 * BAR, bars: 8 },
   loop: { in: 0, out: 8 * BAR, on: true },
   tracks: [{ n: 1, clips: [] }, { n: 2, clips: [] }, { n: 3, clips: [] }, { n: 4, clips: [] }],
+  cue: { clips },
 });
 
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise((r) => setImmediate(r)); };
 
-async function withBufferTest({ boardData = board() }, fn) {
+async function withBufferTest(_, fn) {
   const saved = { fetch: globalThis.fetch, localStorage: globalThis.localStorage, requestAnimationFrame: globalThis.requestAnimationFrame };
   const log = [];
   const storageMap = new Map();
@@ -36,8 +37,8 @@ async function withBufferTest({ boardData = board() }, fn) {
     const method = o.method || 'GET';
     log.push({ url, method, body: o.body ? JSON.parse(o.body) : null });
     const ok = (b) => ({ ok: true, status: 200, json: async () => b });
-    if (url.startsWith('/api/tapes/grab')) return ok({ clipboard: boardData });
-    return ok({ clipboard: boardData });
+    if (url.startsWith('/api/tapes/cue/grab')) return ok({ tape: tapeOf([cueClip()]), edit: { op: 'cue-grab', cue_clip: cueClip() } });
+    return ok({});
   };
   globalThis.requestAnimationFrame = () => 0;
   mock.timers.enable({ apis: ['setInterval'] });
@@ -59,45 +60,35 @@ async function withBufferTest({ boardData = board() }, fn) {
     } }));
     state(tapeOf());
     await flush();
-    await fn({ doc, log, testStorage, buffer, flush });
+    await fn({ doc, log, testStorage, buffer, flush, state });
   } finally {
     mock.timers.reset();
     Object.assign(globalThis, saved);
   }
 }
 
-test('Buffer ▴ button stays visible when open and toggles closed', async () => {
-  await withBufferTest({}, async ({ doc, flush }) => {
-    const reopen = doc.querySelector('.buffer-reopen');
+// The drawer opens on a clip held on the lane, and the lane hears which:
+// ✕ closes it, and a clip gone from the lane closes it too.
+test('a held clip opens the drawer, ✕ closes it, and the lane hears which is open', async () => {
+  await withBufferTest({}, async ({ doc, flush, state }) => {
     const panel = doc.getElementById('buffer');
-    assert.ok(reopen, 'reopen button exists in grab row');
-
-    // Initially with board loaded, buffer starts open or closed.
-    // If open, reopen is visible with ▾; if closed, visible with ▴.
-    assert.equal(reopen.hidden, false, 'reopen button is visible when a grab exists');
-
-    if (panel.hidden) {
-      assert.match(reopen.textContent, /Buffer\s*▴/);
-      assert.equal(reopen.getAttribute('aria-expanded'), 'false');
-      reopen.dispatchEvent(new CustomEvent('click'));
-      await flush();
-      assert.equal(panel.hidden, false, 'clicking opens panel');
-    }
-
-    // Now panel is open: reopen MUST NOT be hidden!
-    assert.equal(reopen.hidden, false, 'reopen stays visible when panel is open');
-    assert.match(reopen.textContent, /Buffer\s*▾/, 'reopen shows down arrow when open');
-    assert.equal(reopen.getAttribute('aria-expanded'), 'true');
-    assert.equal(reopen.getAttribute('aria-pressed'), 'true');
-
-    // Clicking it while open must close it
-    reopen.dispatchEvent(new CustomEvent('click'));
+    const heard = [];
+    doc.addEventListener('hindsight:cue-selected', (e) => heard.push(e.detail.id));
+    assert.equal(doc.querySelector('.buffer-reopen'), null, 'no Buffer ▴: the lane is the way back');
+    assert.equal(panel.hidden, true);
+    state(tapeOf([cueClip()]));
+    doc.dispatchEvent(new CustomEvent('hindsight:cue-select', { detail: { id: 'b1' } }));
     await flush();
-
-    assert.equal(panel.hidden, true, 'clicking while open closes panel');
-    assert.equal(reopen.hidden, false, 'reopen still visible after closing');
-    assert.match(reopen.textContent, /Buffer\s*▴/, 'reopen shows up arrow when closed');
-    assert.equal(reopen.getAttribute('aria-expanded'), 'false');
+    assert.equal(panel.hidden, false, 'held, it opens');
+    assert.equal(doc.getElementById('buffer-title').textContent, 'main', 'under the clip’s name');
+    doc.getElementById('buffer-close').dispatchEvent(new CustomEvent('click'));
+    await flush();
+    assert.equal(panel.hidden, true, '✕ closes it');
+    doc.dispatchEvent(new CustomEvent('hindsight:cue-select', { detail: { id: 'b1' } }));
+    state(tapeOf([]));
+    await flush();
+    assert.equal(panel.hidden, true, 'a clip gone from the lane closes it');
+    assert.deepEqual(heard, ['b1', '', 'b1', '']);
   });
 });
 
@@ -123,7 +114,7 @@ test('Feed source selector allows choosing ch2 before grab', async () => {
     grabBtn.dispatchEvent(new CustomEvent('click'));
     await flush();
 
-    const grabs = log.filter((r) => r.url.startsWith('/api/clipboard') && r.method === 'POST');
+    const grabs = log.filter((r) => r.url.startsWith('/api/tapes/cue/grab') && r.method === 'POST');
     assert.ok(grabs.length > 0, 'grab API called');
     const lastGrab = grabs.at(-1);
     assert.deepEqual(lastGrab.body.sources, ['ch2'], 'grab payload used selected source ch2');
@@ -140,7 +131,7 @@ test('GRAB follows the armed track’s input until one is picked, and Armed trac
     const grabbed = async () => {
       doc.querySelector('.buffer-grab-key').dispatchEvent(new CustomEvent('click'));
       await flush();
-      return log.filter((r) => r.url.startsWith('/api/clipboard') && r.method === 'POST').at(-1)?.body.sources;
+      return log.filter((r) => r.url.startsWith('/api/tapes/cue/grab') && r.method === 'POST').at(-1)?.body.sources;
     };
     assert.ok(doc.querySelector('.buffer-grab-pop').contains(btn('')), 'the inputs are in the ▾’s panel, Armed track first');
     assert.equal(btn('').getAttribute('aria-pressed'), 'true');

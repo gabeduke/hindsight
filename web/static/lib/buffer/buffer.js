@@ -1,18 +1,21 @@
 // web/static/lib/buffer/buffer.js
-// The Studio's buffer (docs/superpowers/specs/2026-10-15-studio-buffer-design.md):
-// the clipboard, made visible. GRAB on the feed copies the last N bars (or
-// a span dragged across the feed) off the ring into it; the buffer opens
-// between the feed and the lanes -- a sheet over them on a phone -- and the
-// lanes fold to strips to make room. There it's trimmed, auditioned on this
-// device, then dropped on a lane (dragged there, or ↵ at the next free span
-// on the armed track), kept as a take, or tossed.
+// GRAB, and a cue clip's drawer (docs/architecture/tape.md, The cue lane;
+// the-studio-on-one-screen.md, step 5). GRAB on the feed copies the last N
+// bars (or a span dragged across the feed) off the ring onto the cue lane,
+// as a clip with a lane per input and its handles; the drawer opens on it
+// in the dock above the bar -- a sheet over the lanes on a phone -- and the
+// lanes fold to strips to make room. Holding a clip on the lane opens it
+// too. There it's trimmed, auditioned on this device, then dropped on a
+// lane (dragged there, or ↵ at the next free span on the armed track), kept
+// as a take, or tossed. A tap on the clip still launches it.
 //
 // The Studio (lib/rooms/studio.js) mounts it, so it exists only with the
 // two rooms on. It knows the tape from the page's `hindsight:tape-state`
-// event, asks the page to look again with `hindsight:tape-changed` and
-// `hindsight:clipboard`, and draws on the lanes only in a layer of its own
-// (lanes.js). Everything it holds is the Pi's: a reload, or another device,
-// sees the same buffer.
+// event, hears a held clip from the lane's `hindsight:cue-select`, says
+// which is open with `hindsight:cue-selected`, asks the page to look again
+// with `hindsight:tape-changed`, and draws on the lanes only in a layer of
+// its own (lanes.js). Everything it holds is the tape's, on the Pi: a
+// reload, or another device, sees the same clip.
 
 import * as api from './api.js';
 import { Audition } from './audition.js';
@@ -21,8 +24,9 @@ import {
   grabKey, grabSeconds, dropKey, clampWindow, gridOf, snapNear, edgeStep,
   bufferLines, bufferMeta, bufferNote, boardKey, spanWords, chipsFor, grabTitle, overwritten,
 } from './model.js';
+import { boardOf, clipOn, grabbedWords } from './cueclip.js';
 import { bindBufferKeys } from './keys.js';
-import { keyState, windowFrames, takesPoll, pulledTo } from './state.js';
+import { keyState, windowFrames, pulledTo } from './state.js';
 import { setOpen, setFold } from './fold.js';
 import { Overlay, Lift, boxesFor } from './lanes.js';
 import { SNAPS, FADE_SHAPES } from '../tape/geometry.js';
@@ -37,42 +41,44 @@ import { followLoop, readPick, writePick, readSource, writeSource } from '../roo
 import { splitKey, barTop } from '../ui/menu.js';
 import { layersOf } from '../ui/layers.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
-import { replacedWords, replacedLine, recall, raiseUndo, undoWords } from './replaced.js';
+import { recallNote, raiseUndo } from './replaced.js';
 import { GESTURE } from '../ui/press.js';
 
-const POLL_MS = 2000;
 const HOLD_MS = GESTURE.HOLD.lift; // a held sheet grip lifts the buffer onto a lane
 const MOVE_PX = GESTURE.SLOP_FINE_PX;
 const EDGE_PX = 12;    // how near IN or OUT a press takes the mark
 const SOURCES = ['main', 'ch1', 'ch2', 'aux'];
-// A take's GRAB leaves its Undo's words here for the page it opens (replaced.js).
+// A GRAB made away from the Studio leaves the clip to open on here (replaced.js).
 const pageStorage = () => { try { return globalThis.sessionStorage || null; } catch { return null; } };
 
 /**
- * mountBuffer puts GRAB in the feed's keys (keysRow), the buffer after the
- * feed, and GRAB on the ribbon's selection bar, then drives them. The
- * Studio hands it its feed and the feed's row of keys. It returns null
- * without them.
+ * mountBuffer puts GRAB in the feed's keys (keysRow), the drawer in the dock
+ * above the bar (ctx.dockSlot; after the feed without a shell), and GRAB on
+ * the ribbon's selection bar, then drives them. The Studio hands it its feed
+ * and the feed's row of keys. It returns null without them.
  */
 export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toast = defaultToast, storage = pageStorage(), ctx = null } = {}) {
   const tpl = (id) => doc.getElementById(id)?.content;
   if (!keysRow || !feed || !tpl('buffer-panel-tpl') || !tpl('buffer-grab-tpl')) return null;
   keysRow.prepend(tpl('buffer-grab-tpl').cloneNode(true));
-  feed.after(tpl('buffer-panel-tpl').cloneNode(true));
+  const drawer = tpl('buffer-panel-tpl').cloneNode(true).children[0];
+  if (ctx?.dockSlot) ctx.dockSlot.add(drawer);
+  else feed.after(drawer);
   // GRAB, then KEEP: the selection's two verbs.
   doc.getElementById('rb-sel')?.querySelector('.rb-sel-save')?.before(tpl('buffer-sel-tpl').cloneNode(true));
 
-  const $ = (id) => doc.getElementById(id);
+  // The drawer's own keys by id, found in it wherever the dock has it.
+  const $ = (id) => drawer.querySelector(`#${id}`) || doc.getElementById(id);
   const body = doc.body;
   // GRAB leads the feed's keys, at every width (the feed is a strip,
   // docs/plan/the-studio-on-one-screen.md); how much it takes, and from
   // which input, is on its ▾.
   const grabRow = keysRow.querySelector('.buffer-grab');
   const el = {
-    panel: $('buffer'),
-    notch: $('buffer').querySelector('.buffer-notch'),
-    sheetGrip: $('buffer').querySelector('.buffer-sheet-grip'),
-    meta: $('buffer-meta'),
+    panel: drawer,
+    sheetGrip: drawer.querySelector('.buffer-sheet-grip'),
+    title: drawer.querySelector('#buffer-title'),
+    meta: drawer.querySelector('#buffer-meta'),
     metaFull: doc.createElement('span'),
     metaShort: doc.createElement('span'),
     note: $('buffer-note'),
@@ -89,7 +95,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     dropWord: $('buffer-drop-word'),
     dropSub: $('buffer-drop-sub'),
     keep: $('buffer-keep'),
-    cue: $('buffer-cue'),
+    loop: $('buffer-loop'),
     keepLen: $('buffer-keep-len'),
     toss: $('buffer-toss'),
     gain: $('buffer-gain'),
@@ -107,7 +113,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     grabFrom: grabRow.querySelector('.buffer-grab-from'),
     grabMore: grabRow.querySelector('.buffer-grab-more'),
     grabPop: grabRow.querySelector('.buffer-grab-pop'),
-    reopen: grabRow.querySelector('.buffer-reopen'),
     grabSel: doc.querySelector('.buffer-grab-sel'),
   };
   el.metaFull.className = 'buffer-meta-full';
@@ -122,12 +127,15 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   viz?.append(mark);
 
   const overlay = new Overlay(doc);
-  const audition = new Audition({ onChange: () => { render(); tickPlayhead(); } });
+  const audition = new Audition({ url: (key) => api.audioURL(tapeId(), st.sel, key), onChange: () => { render(); tickPlayhead(); } });
 
   const st = {
-    board: null,      // the clipboard, as the Pi has it
+    sel: '',          // the cue clip the drawer is open on (its id), or ''
+    board: null,      // that clip, as a board (cueclip.js boardOf)
+    clip: null,       // ... and as the tape has it
+    answer: null,     // the tape as the Pi last answered a change, until the page's next look
     detail: null,     // the tape page's last hindsight:tape-state
-    seen: false,      // the first board has come
+    noted: false,     // a GRAB made away from the Studio has been looked for
     open: false,      // the buffer is showing
     dropped: '',      // a buffer just dropped (its created): ↵ drops it again further on, for a moment
     droppedAt: 0,     // when
@@ -140,83 +148,101 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     grabbing: false,
     local: null,      // the window or the fades while a mark is held: {in, out, fadeIn, fadeOut}
     lastDrop: null,   // {tape, clip, created, seen}: undo puts it back in hand
-    gen: 0,           // moves with every change sent, so a fetch from before it is dropped
+    pending: 0,       // changes on their way
     chain: Promise.resolve(), // edits go one after another
   };
 
   const sr = () => st.detail?.tape?.sample_rate || 48000;
   const grabOf = () => st.board?.grab || null;
   const snapPer = () => (SNAPS.find((s) => s.id === (st.detail?.snap || 'bar')) || SNAPS[0]).per;
-  const hint = () => doc.dispatchEvent(new CustomEvent('hindsight:clipboard'));
-  // Bringing the buffer forward -- a grab of this page's own, or the Buffer ▴
-  // key -- asks the instrument strip (lib/play/strip.js), if there is one, to
-  // give way: the two take turns. Nothing listens with Play mode off. (The
-  // bench is the buffer's panel; the event is named for it so the strip need
-  // not use a buffer- class, which only this directory may: styles.test.js.)
+  const changed = () => doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'));
+  const tapeNow = () => st.answer || st.detail?.tape || null;
+  const tapeId = () => tapeNow()?.id || '';
+  // Bringing the drawer forward -- a grab of this page's own, or a clip held
+  // on the lane -- asks the instrument strip (lib/play/strip.js), if there is
+  // one, to give way: the two take turns. Nothing listens with Play mode off.
+  // (The bench was the buffer's panel; the event is named for it so the strip
+  // need not use a buffer- class, which only this directory may: styles.test.js.)
   const forward = () => doc.dispatchEvent(new CustomEvent('hindsight:bench-forward'));
   // What K keeps from here, for the instrument's KEEP pad (lib/play/strip.js).
   // Said when it changes, and again on each poll for a strip that mounted later.
   const announceKeeps = () => doc.dispatchEvent(new CustomEvent('hindsight:keeps', { detail: { buffer: st.keeps } }));
 
-  // --- the board -----------------------------------------------------------------
+  // --- the clip ------------------------------------------------------------------
 
-  /**
-   * takeBoard takes a clipboard the Pi answered with. A new grab opens the
-   * buffer (one already dropped or kept, seen on a reload, stays closed:
-   * Buffer ▴ opens it); the same one keeps its state; anything else closes it.
-   */
-  function takeBoard(b, { mine = false } = {}) {
-    const prev = st.board;
-    const first = !st.seen;
-    st.board = b && b.tracks && b.tracks.length ? b : null;
-    const isNew = !prev || (st.board && prev.created !== st.board.created);
-    const g = grabOf();
-    if (!g) {
-      st.open = false;
-      st.dropped = '';
-    } else if (mine || isNew) {
-      st.open = mine || !g.used;
-      st.dropped = '';
-    }
-    st.seen = true;
+  let said = '';
+  // takeClip reads the clip the drawer is on from the tape: a clip gone
+  // from the lane -- tossed, undone, on another device -- closes it.
+  function takeClip() {
+    const clip = clipOn(tapeNow(), st.sel);
+    if (st.sel && !clip && tapeNow()) { st.sel = ''; st.open = false; }
+    st.clip = clip;
+    st.board = boardOf(clip);
     if (!st.open) audition.stop();
-    else if (audition.playing) audition.play(boardKey(st.board)).catch(() => audition.stop());
+    else if (audition.playing && st.board) audition.play(boardKey(st.board)).catch(() => audition.stop());
+    const now = st.open ? st.sel : '';
+    onStack(!!now);
+    if (now !== said) {
+      said = now;
+      doc.dispatchEvent(new CustomEvent('hindsight:cue-selected', { detail: { id: now } }));
+    }
     render();
-    // A take's GRAB opened this page on the buffer it made: what it replaced
-    // is said here, once, as a feed's GRAB says it on the spot.
-    if ((first || isNew) && st.board) {
-      const line = recall(storage, st.board.created);
-      if (line) raiseUndo(toast, line, 'ok', () => undoReplaced(st.board.created));
+  }
+
+  // The drawer is a drawer on the page's stack (lib/ui/layers.js): Back or
+  // Escape closes it, as ✕ does.
+  const layers = ctx?.layers || layersOf(doc);
+  let layer = null;
+  function onStack(on) {
+    if (on && !layer?.open) {
+      // Closed from outside (Escape, Back, a switch of rooms): put it away.
+      // Closed by the drawer itself it is already away, and keeps what a
+      // drop left for ↵.
+      layer = layers?.open({ el: drawer, kind: 'drawer', onClose: () => { layer = null; if (st.open) select(''); } }) || null;
+    } else if (!on && layer?.open) {
+      const l = layer;
+      layer = null;
+      l.close();
     }
   }
 
-  // GRAB's Undo: the buffer the grab `by` replaced, back from the Pi's one
-  // slot. The grab undone goes; the buffer put back is open, as a grab opens it.
-  function undoReplaced(by) {
-    return send(() => api.restoreReplaced(by), { mine: true })
-      .then((b) => toast(`Put back ${replacedWords(b.clipboard, b.seconds)}`, 'ok'))
-      .catch((e) => toast(undoWords(e), e.status === 409 ? 'warn' : 'bad'));
+  // select opens the drawer on a clip on the lane ('' closes it).
+  function select(id) {
+    st.sel = id || '';
+    st.open = !!id;
+    st.dropped = '';
+    st.local = null;
+    takeClip();
+    if (id) forward();
   }
 
-  async function fetchBoard() {
-    const g = st.gen;
-    try {
-      const b = await api.board();
-      if (!takesPoll(st, g)) return; // a change went out meanwhile, a mark is held, or a grab is on its way
-      takeBoard(b.clipboard || null);
-      announceKeeps();
-    } catch { /* the tape page says when the Pi can't be reached */ }
+  // The tape's Undo: a GRAB's, a drop's, a toss's. `then` reopens the
+  // drawer on what it brought back.
+  function undoTape(then = '') {
+    const id = tapeId();
+    return api.undo(id)
+      .then((b) => {
+        if (b?.tape) st.answer = b.tape;
+        changed();
+        if (then) select(then);
+        else takeClip();
+      })
+      .catch((e) => toast(`Could not undo: ${e.message}`, 'bad'));
   }
 
-  // send runs a change, one at a time, and takes the board it answers with.
-  function send(run, { mine = false } = {}) {
-    st.gen++;
+  // send runs a change, one at a time, and takes the tape it answers with.
+  function send(run) {
+    st.pending++;
     const p = st.chain.then(async () => {
-      const b = await run();
-      st.gen++;
-      if (b && 'clipboard' in b) takeBoard(b.clipboard, { mine });
-      hint();
-      return b;
+      try {
+        const b = await run();
+        if (b && b.tape) st.answer = b.tape;
+        changed();
+        takeClip();
+        return b;
+      } finally {
+        st.pending--;
+      }
     });
     st.chain = p.catch(() => {});
     return p;
@@ -233,6 +259,14 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     return (st.chosen || [def]).filter((n) => names.includes(n));
   }
 
+  // again takes the open clip's span again from other inputs, if it can.
+  function again(next) {
+    const g = grabOf();
+    if (!g || g.take || g.stale || !st.sel) return;
+    send(() => api.grab(tapeId(), { clip: st.sel, sources: next }))
+      .catch((e) => toast(`Could not take ${named(next.join(' + '))}: ${e.message}`, 'bad'));
+  }
+
   // pickFeedSource picks the input GRAB takes from, by hand; '' goes back
   // to following the armed track's.
   function pickFeedSource(name) {
@@ -241,37 +275,34 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     st.chosen = null;
     const next = sources();
     st.chosen = next;
-    const g = grabOf();
-    if (g && !g.take && !g.stale) {
-      send(() => api.grab({ again: true, sources: next, crate: false }))
-        .catch((e) => toast(`Could not take ${named(next.join(' + '))}: ${e.message}`, 'bad'));
-    }
+    again(next);
     render();
   }
 
   async function grab(req, what) {
     if (st.grabbing) return;
+    // With no tape heard of yet (a GRAB pressed as the page opens), the Pi
+    // takes the tape it has loaded.
+    const id = tapeId();
     st.dropped = '';
-    const wasOpen = st.open;
     st.grabbing = true;
-    st.open = true;
     render();
     forward();
     try {
-      // crate: false -- the Pi holds a buffer this replaces, if nobody
-      // dropped or kept it, as its one replaced grab, for the Undo below; the
-      // rooms no longer show a crate for it to fill.
-      const b = await send(() => api.grab({ ...req, sources: sources(), crate: false }), { mine: true });
-      const note = bufferNote(b.clipboard);
-      const kind = b.wall || b.clamped ? 'warn' : 'ok';
-      if (b.replaced) {
-        // Short, for the Undo to be seen: the buffer's own note line says the rest.
-        raiseUndo(toast, `Grabbed ${what}. ${replacedLine(b.replaced, b.replaced_seconds)}`, kind, () => undoReplaced(b.clipboard.created));
+      const b = await send(() => api.grab(id, { ...req, sources: sources() }));
+      const clip = b.edit?.cue_clip;
+      if (clip) select(clip.id);
+      const note = bufferNote(st.board);
+      const g = clip?.grab;
+      const kind = g && (g.wall || g.clamped) ? 'warn' : 'ok';
+      const replaced = b.edit?.cue_replaced;
+      if (replaced) {
+        // Short, for the Undo to be seen: the drawer's own note line says the rest.
+        raiseUndo(toast, grabbedWords(what, b.edit), kind, () => undoTape(replaced.id));
       } else {
-        toast(`Grabbed ${what}${note ? ` — ${note}` : ''}`, kind);
+        toast(`${grabbedWords(what, b.edit)}${note ? ` — ${note}` : ''}`, kind);
       }
     } catch (e) {
-      st.open = wasOpen && !!grabOf();
       toast(`Could not grab: ${e.message}`, 'bad');
     } finally {
       st.grabbing = false;
@@ -299,15 +330,14 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     if (g && (g.take || g.stale)) return; // its sources can't change
     const now = g ? g.sources : sources();
     const next = now.includes(name) ? now.filter((n) => n !== name) : [...now, name];
-    if (!next.length) return; // a buffer has a lane at least
+    if (!next.length) return; // a clip has a lane at least
     st.chosen = next;
     if (next.length === 1) {
       st.chosenSource = next[0];
       writeSource(next[0], storage);
     }
     if (!g) { render(); return; }
-    send(() => api.grab({ again: true, sources: next, crate: false }))
-      .catch((e) => toast(`Could not take ${named(name)}: ${e.message}`, 'bad'));
+    again(next);
   }
 
   // --- the window ----------------------------------------------------------------
@@ -331,13 +361,13 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   function trimTo(to) {
     st.local = { ...st.local, in: to.in, out: to.out };
     render();
-    send(() => api.trim(to.in, to.out))
+    send(() => api.trim(tapeId(), st.sel, to.in, to.out))
       .catch((e) => toast(`Could not move it: ${e.message}`, 'bad'))
       .finally(() => { if (st.local && st.local.in === to.in && st.local.out === to.out) { st.local = null; render(); } });
   }
 
   function shape(fields, done) {
-    send(() => api.shape(fields))
+    send(() => api.shape(tapeId(), st.sel, fields))
       .then(() => done && toast(done, 'ok'))
       .catch((e) => toast(`Could not change it: ${e.message}`, 'bad'));
   }
@@ -348,29 +378,30 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   // and which runs past its Out; `fitted`: DROP moved it back to fit the
   // tape. The toast says so.
   function dropAt(track, at, { long = false, fitted = false } = {}) {
-    const b = st.board, d = st.detail;
-    if (!b || !d || !d.tape) return;
-    const tape = d.tape;
+    const b = st.board, tape = tapeNow();
+    if (!b || !tape) return;
+    const clip = st.sel;
     const count = b.tracks.length;
     const frames = windowFrames(st);
     // A drag can land over a clip, and the Pi lays the buffer over it: the
     // toast says so, with its Undo, rather than leaving a trimmed clip to be found.
     const over = overwritten(tape, { first: track, count, at, frames, board: b }).clips;
     const where = `${spanWords(tape.grid, at, frames, tape.sample_rate)}${long ? ' · runs past the loop' : ''}${fitted ? ' · moved back to fit the tape' : ''}${over ? ' · replaced what was under it' : ''}`;
-    send(() => api.drop(tape.id, track, at))
+    send(() => api.drop(tape.id, clip, track, at))
       .then((r) => {
         st.dropped = b.created;
         st.droppedAt = performance.now();
         st.open = false;
         st.lastDrop = { tape: tape.id, clip: r.clip && r.clip.id, created: b.created, seen: false };
         audition.stop();
-        render();
-        doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'));
-        // The lanes unfold first; then the new block glows once, where it
-        // is -- on a phone, where its lane is brought into sight.
+        takeClip();
+        // The lanes unfold first; then the window flies from where the
+        // drawer was down to the new block, which glows once, where it is --
+        // on a phone, where its lane is brought into sight.
+        const from = el.win.getBoundingClientRect();
         requestAnimationFrame(() => requestAnimationFrame(() => {
           if (sheetMode()) doc.querySelectorAll('#lanes > .tape-track')[track - 1]?.scrollIntoView({ block: 'center' }); // clear of the docked bar
-          overlay.glow(boxesFor(doc, { track, count, at, frames, view: st.detail?.view || d.view }));
+          overlay.fly(from.width ? from : null, boxesFor(doc, { track, count, at, frames, view: st.detail?.view }), { reduced: reducedMotion() });
         }));
         const what = count > 1 ? `tracks ${track}–${track + count - 1}` : `track ${track}`;
         toast(`Dropped on ${what} · ${where}`, 'ok', { action: { label: 'Undo', run: undoDrop } });
@@ -381,56 +412,44 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   // drop is ↵ and the DROP key: the armed track (with several armed, the
   // first), at the next bar line inside the loop, over what is there.
   function drop() {
-    const b = st.board, d = st.detail;
+    const b = st.board, d = st.detail, tape = tapeNow();
     // Nothing while a grab is on its way: the span would be the old one's.
-    if (!b || !d || !d.tape || st.grabbing) return;
-    const k = dropKey({ tape: d.tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos, board: b });
+    if (!b || !d || !tape || st.grabbing) return;
+    const k = dropKey({ tape, armed: d.rec_track, armedAll: d.rec_tracks, count: b.tracks.length, frames: windowFrames(st), pos: d.pos, board: b });
     if (!k.can) { toast(`${k.word}: ${k.sub}`, 'warn', 7000); return; }
     dropAt(k.track, k.at, { long: k.long, fitted: k.fitted });
   }
 
-  // Undo of a drop: the tape steps back, and the buffer is back in hand.
+  // Undo of a drop: the tape steps back, and the clip is back in hand.
   function undoDrop() {
     const t = st.lastDrop;
     if (!t) return;
-    api.undo(t.tape)
-      .then(() => {
-        doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'));
-        backInHand();
-      })
-      .catch((e) => toast(`Could not undo: ${e.message}`, 'bad'));
+    undoTape(t.created).then(() => { st.lastDrop = null; });
   }
 
   function backInHand() {
+    const t = st.lastDrop;
     st.lastDrop = null;
-    if (grabOf()) { st.open = true; st.dropped = ''; }
-    render();
+    if (t && clipOn(tapeNow(), t.created)) select(t.created);
+    else render();
   }
 
-  // --- CUE ------------------------------------------------------------------------
+  // --- Loop ---------------------------------------------------------------------------
 
-  // The buffer onto the Studio's cue lane, as one looping clip: a tap there
-  // launches it on the next bar line (docs/architecture/tape.md, The cue lane). One undo.
-  function cueIt() {
-    const d = st.detail;
-    if (!st.board || !d || !d.tape || st.grabbing) return;
-    const tapeId = d.tape.id;
-    send(() => api.cue(tapeId))
-      .then(() => {
-        doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'));
-        toast('On the cue lane: tap it to launch it on the next bar', 'ok', {
-          action: { label: 'Undo', run: () => api.undo(tapeId).then(() => doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'))).catch((e) => toast(`Could not undo: ${e.message}`, 'bad')) },
-        });
-        fetchBoard(); // it's used now
-      })
-      .catch((e) => toast(`Could not cue it: ${e.message}`, 'bad'));
+  // Loop: whether a launch plays the clip round and round, or once. cue-set
+  // writes every field it's given: the clip goes whole.
+  function loop() {
+    const c = st.clip;
+    if (!c) return;
+    send(() => api.edit(tapeId(), 'cue-set', { cue_clip: { ...c, loop: !c.loop } }))
+      .catch((e) => toast(`Could not change it: ${e.message}`, 'bad'));
   }
 
   // --- KEEP and TOSS ----------------------------------------------------------------
 
   function keepTake() {
     if (!st.board) return;
-    send(() => api.keep())
+    send(() => api.keep(tapeId(), st.sel))
       .then((k) => {
         toast(`Kept “${named(k.label)}” as a take: it’s on the Listening Room’s shelf`, 'ok', {
           actions: [
@@ -442,7 +461,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
             { label: 'Undo', run: () => untake(k.name, k.label) },
           ],
         });
-        fetchBoard(); // it's used now
       })
       .catch((e) => toast(`Could not keep it: ${e.message}`, 'bad'));
   }
@@ -456,27 +474,17 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
 
   function toss() {
     if (!st.board) return;
+    const id = st.sel, name = st.clip?.name;
     audition.stop();
-    send(() => api.toss())
-      .then(() => toast('Tossed the buffer', 'ok', {
-        action: {
-          label: 'Undo',
-          // The crate is left alone (crate=0): what it replaces, if nobody used
-          // it, is held for an Undo of its own, and said.
-          run: () => send(() => api.restore(), { mine: true })
-            .then((b) => {
-              if (b.replaced) raiseUndo(toast, replacedLine(b.replaced, b.replaced_seconds), 'ok', () => undoReplaced(b.clipboard.created));
-            })
-            .catch((e) => toast(`Could not bring it back: ${e.message}`, 'bad')),
-        },
+    send(() => api.edit(tapeId(), 'cue-remove', { clip: id }))
+      .then(() => toast(`Tossed ${named(name || 'the part')} off the cue lane`, 'ok', {
+        action: { label: 'Undo', run: () => undoTape(id) },
       }))
       .catch((e) => toast(`Could not toss it: ${e.message}`, 'bad'));
   }
 
   function close() {
-    st.open = false;
-    audition.stop();
-    render();
+    select('');
   }
 
   // --- drawing ---------------------------------------------------------------------
@@ -556,29 +564,24 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     playRaf = requestAnimationFrame(step);
   }
 
-  // placeMark shades the buffer's span on the ribbon, and points the
-  // bench's notch at it.
+  // placeMark shades the open clip's span on the ribbon.
   function placeMark() {
     const g = grabOf();
     const ax = ribbon && ribbon.axis && ribbon.axis();
-    // A buffer grabbed before a restart isn't anywhere on this feed.
+    // A clip grabbed before a restart isn't anywhere on this feed.
     // Nor is one grabbed from a take.
-    if (!st.open || !g || g.stale || g.take || !ax || !viz) { mark.hidden = true; el.notch.hidden = true; return; }
+    if (!st.open || !g || g.stale || g.take || !ax || !viz) { mark.hidden = true; return; }
     const w = win();
     const buffered = ribbon.data?.buffered_seconds ?? ax.T;
     const fromAge = Math.min(ageOf(g.ring_from + w.in, ax.total, ax.sr), buffered);
     const toAge = Math.min(ageOf(g.ring_from + w.out, ax.total, ax.sr), buffered);
     const l = axisPct(fromAge, ax.A, ax.T), rr = axisPct(toAge, ax.A, ax.T);
-    if (fromAge >= buffered && toAge >= buffered) { mark.hidden = true; el.notch.hidden = true; return; }
+    if (fromAge >= buffered && toAge >= buffered) { mark.hidden = true; return; }
     mark.hidden = false;
     mark.style.left = `${l.toFixed(2)}%`;
     mark.style.width = `${Math.max(0.6, rr - l).toFixed(2)}%`;
     const what = g.bars ? `${g.bars} bar${g.bars === 1 ? '' : 's'}` : `${(st.board.frames / sr()).toFixed(1)} s`;
     mark.firstChild.textContent = `Grabbed · ${what} · ${g.sources.join(' + ')}`;
-    const vr = viz.getBoundingClientRect(), pr = el.panel.getBoundingClientRect();
-    const cx = vr.left + ((l + rr) / 200) * vr.width;
-    el.notch.hidden = false;
-    el.notch.style.left = `${Math.min(Math.max(16, cx - pr.left), pr.width - 16)}px`;
   }
 
   // --- rendering ---------------------------------------------------------------------
@@ -628,12 +631,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
         btn.disabled = st.grabbing;
       });
     }
-    el.reopen.hidden = !g;
-    el.reopen.innerHTML = open ? 'Buffer<span aria-hidden="true"> ▾</span>' : 'Buffer<span aria-hidden="true"> ▴</span>';
-    el.reopen.setAttribute('aria-expanded', String(open));
-    el.reopen.setAttribute('aria-pressed', String(open));
-    el.reopen.setAttribute('aria-label', open ? 'Close the buffer' : 'Open the buffer');
-    el.reopen.classList.toggle('on', open);
     if (el.grabSel) el.grabSel.disabled = st.grabbing;
     // KEEP names what it keeps: the window, in bars when there is a tempo.
     // K keeps it while the buffer is open, so the instrument's pad says so.
@@ -646,6 +643,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     if (!open) { placeMark(); return; }
 
     const rate = sr();
+    // Its name, as the lane's pad says it.
+    el.title.textContent = st.clip?.name || 'Cue';
     const winBoard = b && { ...b, frames: windowFrames(st) };
     const meta = st.grabbing && !g ? `grabbing the last ${hasGrid ? `${st.n} bar${st.n === 1 ? '' : 's'}` : `${grabSeconds(st.n)} s`}…` : g ? bufferMeta(winBoard, rate) : '';
     // A phone's line is shorter: no tempo, so the close key fits beside it.
@@ -686,7 +685,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     el.keepLen.textContent = keepLen;
     el.keep.setAttribute('aria-label', keepLabel(keepLen));
     el.toss.disabled = !g || st.grabbing;
-    if (el.cue) el.cue.disabled = !g || st.grabbing || !(d && d.tape);
+    el.loop.setAttribute('aria-pressed', String(!!st.clip?.loop));
+    el.loop.disabled = !st.clip || st.grabbing;
     for (const id of ['in-back', 'in-on', 'out-back', 'out-on']) $(`buffer-${id}`).disabled = !g || st.grabbing;
     const c = g ? firstClip() : {};
     if (!el.gain.dataset.held) el.gain.value = String(c.gain_db || 0);
@@ -827,6 +827,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   const sheetQuery = typeof matchMedia === 'function'
     ? matchMedia('(orientation: landscape) and (max-height: 440px), (max-width: 699.98px)') : null;
   const sheetMode = () => !!sheetQuery?.matches;
+  const reducedQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const reducedMotion = () => !!reducedQuery?.matches;
   function wireSheet() {
     const grip = el.sheetGrip;
     let drag = null, dragged = false;
@@ -885,9 +887,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   // (lib/ui/menu.js), on the Studio's stack of open things. A pick leaves it
   // open for the next; GRAB, a press elsewhere, Escape or Back closes it.
   // From a keyboard it opens on the bars chosen.
-  if (el.grabMore && el.grabPop) splitKey(el.grab, el.grabMore, el.grabPop, { layers: ctx?.layers || layersOf(doc), doc, focus: 'checked', floor: barTop(doc) });
+  if (el.grabMore && el.grabPop) splitKey(el.grab, el.grabMore, el.grabPop, { layers, doc, focus: 'checked', floor: barTop(doc) });
   el.grabSel?.addEventListener('click', grabSpan);
-  el.reopen.addEventListener('click', () => { if (st.open) return close(); st.open = true; st.dropped = ''; render(); forward(); });
   for (const btn of el.picks.children) {
     btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); writePick(st.n); render(); });
   }
@@ -898,7 +899,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   el.snap.addEventListener('click', () => doc.dispatchEvent(new CustomEvent('hindsight:snap-next')));
   el.drop.addEventListener('click', drop);
   el.keep.addEventListener('click', keepTake);
-  el.cue?.addEventListener('click', cueIt);
+  el.loop.addEventListener('click', loop);
   el.toss.addEventListener('click', toss);
   $('buffer-in-back').addEventListener('click', () => moveEdge('in', -1));
   $('buffer-in-on').addEventListener('click', () => moveEdge('in', 1));
@@ -966,37 +967,56 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   });
 
   // The tape, as the page polls it. A drop undone -- by the toast, or by
-  // ⌘Z on the page -- puts the buffer back in hand.
+  // ⌘Z on the page -- puts the clip back in hand.
   onDoc('hindsight:tape-state', (e) => {
     st.detail = e.detail || null;
+    // The page has looked since the last change answered: its tape is newer.
+    if (!st.pending) st.answer = null;
     // GRAB starts at the loop's length, and follows it.
     Object.assign(st, followLoop(st, st.detail?.tape));
     const t = st.lastDrop, tape = st.detail?.tape;
     if (t && tape && tape.id === t.tape && t.clip) {
       const there = tape.tracks.some((tr) => tr.clips.some((c) => c.id === t.clip));
       if (there) t.seen = true;
-      else if (t.seen && st.board?.created === t.created) backInHand();
+      else if (t.seen) backInHand();
     }
-    render();
+    if (openNoted()) return;
+    takeClip();
+    announceKeeps(); // again, for a pad that mounted later
   });
+  // A GRAB made away from the Studio -- a take's, a note's, the bar's --
+  // opens its clip here, once, and says what it took the place of: once
+  // the Studio is shown, as a view mounted out of sight closes its drawers
+  // when it goes quiet (lib/shell/view.js). The bar's GRAB comes back to a
+  // Studio already mounted, so every show looks again.
+  function openNoted() {
+    const tape = st.detail?.tape;
+    if (st.noted || !tape || (ctx && !ctx.active())) return false;
+    st.noted = true;
+    const n = recallNote(storage);
+    if (!n || !clipOn(tape, n.by)) return false;
+    select(n.by);
+    if (n.line) raiseUndo(toast, n.line, 'ok', () => undoTape());
+    return true;
+  }
+  // A clip held on the lane opens here (lib/tape/cuelane.js).
+  onDoc('hindsight:cue-select', (e) => select(e.detail?.id || ''));
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => draw()).observe(el.win);
-  every(() => { if (!doc.hidden) fetchBoard(); }, POLL_MS);
   every(() => { if (st.open && !doc.hidden) placeMark(); }, 1000);
-  onDoc('visibilitychange', () => { if (!doc.hidden) fetchBoard(); else audition.stop(); });
-  fetchBoard();
+  onDoc('visibilitychange', () => { if (doc.hidden) audition.stop(); });
   render();
   return {
     state: st,
     render,
     hide() {
+      st.noted = false; // the next show looks for a GRAB made meanwhile
       audition.stop();
       lift?.end(false);
       setOpen(body, false);
       setFold(body, false);
     },
     show() {
-      fetchBoard();
-      render();
+      if (!openNoted()) render();
     },
   };
 }

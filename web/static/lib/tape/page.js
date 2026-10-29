@@ -193,6 +193,8 @@ export function mountTapePage(ctx) {
     container: $('cue-row'),
     getTape: () => state.tape,
     getLaneView: () => laneView(),
+    getPos: () => heardNow(),
+    active: () => viewActive(),
     onEdit: (op, extra) => edit(op, extra),
     onLaunch: (clip, { now }) => launchCue(clip, now),
     onToast: toast,

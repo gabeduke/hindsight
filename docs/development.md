@@ -319,27 +319,31 @@ tape state (and unfold the lanes if folded via `#tracks-fold-btn`).
   `Tape` · `Shelf`) plus seamless continuation of a carried Shelf take.
 - `keep.js` — KEEP's request and its Undo, and Flag now's.
 
-### The buffer
+### GRAB and a cue clip's drawer
 
-`web/static/lib/buffer/` is the Studio's buffer: the clipboard, made
-visible. `studio.js` mounts it; its markup is `shell.html`'s `buffer-`
-templates. On the Pi it is the clipboard
-with a `grab` on it (`internal/tape/grab.go`): GRAB copies a span of the
-ring there at once, by Catch's own arithmetic for the last N bars, with
-handles of a bar either side; the window is trimmed in place; a grab never
-dropped or kept goes to the crate before anything replaces it.
+`web/static/lib/buffer/` is GRAB and a cue clip's drawer (it was the
+Studio's buffer, the clipboard made visible; the directory kept its name).
+`studio.js` mounts it; its markup is `shell.html`'s `buffer-` templates, the
+drawer in the dock above the bar. On the Pi a GRAB is a cue clip with lanes
+and a grab (`internal/tape/cuegrab.go`): it copies a span of the ring at
+once, by Catch's own arithmetic for the last N bars, with handles of a bar
+either side, and the window is trimmed in place. `docs/architecture/tape.md`,
+*The cue lane*, has the rest.
 
-It speaks to the tape page in events too: it reads `hindsight:tape-state`
+It speaks to the tape page in events: it reads `hindsight:tape-state`
 (which carries the tape, the armed track and its input, the sources, the
-snap and the lanes' view), and sends `hindsight:tape-changed` after a drop,
-and `hindsight:clipboard` after any change to the clipboard. It draws
-over the lanes only in a layer of its own (`lanes.js`); folding them is a
-class on the body (`fold.js`), which changes heights and nothing else.
+snap and the lanes' view), hears `hindsight:cue-select` from a held pad,
+says `hindsight:cue-selected`, and sends `hindsight:tape-changed` after any
+change. It draws over the lanes only in a layer of its own (`lanes.js`);
+folding them is a class on the body (`fold.js`), which changes heights and
+nothing else.
 
-- `buffer.js` — mounts it and drives it: GRAB, the bench or the sheet, DROP,
-  KEEP AS TAKE, TOSS.
+- `buffer.js` — mounts it and drives it: GRAB, the drawer or the sheet,
+  DROP, KEEP, TOSS.
+- `cueclip.js` — a cue clip as a board (`boardOf`), the dial's arithmetic,
+  GRAB's words.
 - `model.js` — the numbers, tested: the next free span, the window's steps.
-- `keys.js` — the buffer's keys, as a table for P3's control bus to fold in.
+- `keys.js` — the drawer's keys, as a table for P3's control bus to fold in.
 - `draw.js`, `lanes.js`, `fold.js`, `audition.js`, `api.js`.
 
 ## The Listening Room

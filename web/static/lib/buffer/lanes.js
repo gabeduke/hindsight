@@ -1,6 +1,7 @@
 // web/static/lib/buffer/lanes.js
 // The buffer over the tape's lanes: which lane a drag is over, the ghosts
-// that show where a drop lands, and the glow on a block just dropped. All of
+// that show where a drop lands, a drop's flight there, and the glow on a
+// block just dropped. All of
 // it is drawn in a layer of its own over the page, from the lanes' boxes and
 // the view the tape page says they show (the `hindsight:tape-state` event):
 // nothing here draws on, or reaches into, the lanes themselves.
@@ -8,6 +9,7 @@
 import { snapFrame } from '../tape/geometry.js';
 import { setTarget } from './fold.js';
 import { landsWords, overwritten } from './model.js';
+import { T, EASES } from '../objects/motion.js';
 
 /** rows are the tape's lanes, a row per track, in order. */
 export const rows = (doc) => [...doc.querySelectorAll('#lanes > .tape-track')];
@@ -65,6 +67,26 @@ export class Overlay {
   ghosts(boxes, label, replace = false) {
     for (const g of this.el.querySelectorAll('.buffer-ghost')) g.remove();
     boxes.forEach((b, i) => this.box(`buffer-ghost${replace ? ' buffer-ghost-replace' : ''}`, b, i === 0 ? label : ''));
+  }
+
+  /**
+   * fly carries a drop from where it was (`from`, a box: the drawer's
+   * window) to the blocks it became, by transform and opacity alone, then
+   * lights them (glow). With reduced motion, or no Web Animations, it is
+   * the glow alone: nothing teleports, and nothing travels either.
+   */
+  fly(from, boxes, { reduced = false } = {}) {
+    if (!from || reduced || !boxes.length || typeof this.el.animate !== 'function') { this.glow(boxes); return; }
+    const [b] = boxes;
+    const d = this.box('buffer-flight', b);
+    const sx = from.width / Math.max(1, b.width), sy = from.height / Math.max(1, b.height);
+    const run = d.animate([
+      { transform: `translate(${from.left - b.left}px, ${from.top - b.top}px) scale(${sx}, ${sy})`, opacity: 0.9 },
+      { transform: 'none', opacity: 1 },
+    ], { duration: T.flight, easing: `cubic-bezier(${EASES.flight.join(',')})` });
+    const land = () => { d.remove(); this.glow(boxes); };
+    run.onfinish = land;
+    run.oncancel = land;
   }
 
   /** glow lights a block just dropped, once. */

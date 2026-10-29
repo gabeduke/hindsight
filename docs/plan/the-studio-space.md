@@ -18,8 +18,8 @@ conventions. What he asked for:
   organization of the music library … A more 3 dimensional feel would help
   with my idea to make this more of a studio feel."*
 
-It takes in the open steps of `the-studio-on-one-screen.md` and
-`listening-back.md`, which hold their details.
+It took in the open steps of `the-studio-on-one-screen.md` (landed, and
+deleted) and takes in `listening-back.md`'s, which holds their details.
 
 ## Landed
 
@@ -108,10 +108,10 @@ what's next.
 9. **The notes drawer** (`listening-back.md`, step 2), on `sheet.js`.
 10. **Open** (`listening-back.md`, step 3, with the decisions above), and
     the dolly into a take.
-11. **The buffer into the cue lane** (`the-studio-on-one-screen.md`, step
-    5): cue clips as pads with a ring to the bar line, the clip drawer in
-    the dock above the bar, GRAB's peel into the lane and DROP's flight to
-    the track. Go, so it releases.
+11. ~~The buffer into the cue lane~~ (`the-studio-on-one-screen.md`, step
+    5, now deleted). Landed: `docs/architecture/tape.md`, *The cue lane*;
+    [decision 0061](../decisions/0061-grab-lands-on-the-cue-lane.md); C1,
+    J1.3, J1.6, J3.1.
 12. **Polish**: the reels' inertia on the bar, KEEP's spine to the shelf,
     lamps in tempo, the room listening with you (its lamp and VU follow
     the take), and the CSS's remaining files.

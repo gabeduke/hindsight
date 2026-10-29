@@ -369,6 +369,26 @@ leaves the tracks out of the output. What plays is `live.cue`. The lane is
 not in the mix or its exports: a clip reaches them only once it is dragged
 onto a track.
 
+**On screen** the lane's clips are pads (`lib/tape/cuelane.js`, on
+`CUE_PRESS`, `lib/ui/press.js`): a tap launches, ⇧-tap at once, a hold (a
+mouse's too, or a right click) says `hindsight:cue-select`, and a drag puts
+the clip on a track; a pad has no keys on it. While a pad waits for its bar
+line the hand on its dial goes round the bar, turned on the shared ticker
+from the playhead (`heardNow`) and parked when nothing waits; a pad new to
+the lane comes in peeled off the feed above it (`cue-peel`, a fade with
+reduced motion). The drawer is the buffer's code (`lib/buffer/buffer.js`)
+reading the open clip as a board (`lib/buffer/cueclip.js` `boardOf`):
+mounted in the dock above the bar (`ctx.dockSlot`; a sheet over the lanes on
+a phone), opened by GRAB on the clip it made and by a held pad, on the
+page's stack as a drawer (Escape, Back and ✕ close it), and gone when its
+clip leaves the lane. It says which clip it is open on with
+`hindsight:cue-selected`, which lights the pad, and every change it sends
+(`lib/buffer/api.js`) answers the tape's state and asks the page to poll
+(`hindsight:tape-changed`). GRAB made away from the Studio (a take's page, a
+note, the bar's feed) leaves the clip's id in sessionStorage
+(`lib/buffer/replaced.js` `remember`), and the Studio opens on it once
+(`recallNote`), with its Undo when it took an untouched clip's place.
+
 **The feed strip** in the Studio is the ribbon with GRAB, KEEP and Flag in
 one row. A tap on GRAB or KEEP takes the last length and its ▾ picks
 another (1, 2, 4 or 8 bars for GRAB; 30 s, 2 m or the whole feed for KEEP);

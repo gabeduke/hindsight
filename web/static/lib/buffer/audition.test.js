@@ -16,7 +16,7 @@ function fakeCtx(seconds = 2) {
   return { Ctx, started };
 }
 
-test('AUDITION fetches the clipboard’s audio with the browser’s own fetch', async () => {
+test('AUDITION fetches the clip’s audio where it is told, with the browser’s own fetch', async () => {
   // fetch must be called as itself: called as the Audition's method it
   // throws "Illegal invocation", and audition never played.
   const was = globalThis.fetch;
@@ -28,10 +28,10 @@ test('AUDITION fetches the clipboard’s audio with the browser’s own fetch', 
   };
   try {
     const { Ctx, started } = fakeCtx();
-    const a = new Audition({ Ctx });
+    const a = new Audition({ Ctx, url: (k) => `/api/tapes/cue/audio?id=t&clip=c&k=${k}` });
     await a.play('k1');
     assert.equal(a.playing, true);
-    assert.match(asked[0], /^\/api\/clipboard\/audio\?k=k1$/);
+    assert.equal(asked[0], '/api/tapes/cue/audio?id=t&clip=c&k=k1');
     assert.equal(started[0].loop, true, 'it loops');
   } finally {
     globalThis.fetch = was;
@@ -42,7 +42,7 @@ test('it plays on this device, loops from the top, and a new buffer starts again
   const { Ctx, started } = fakeCtx(2);
   const fetchImpl = async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
   let changes = 0;
-  const a = new Audition({ Ctx, fetchImpl, onChange: () => changes++ });
+  const a = new Audition({ Ctx, url: (k) => k, fetchImpl, onChange: () => changes++ });
   await a.play('one');
   await a.play('one'); // the same buffer: left playing
   assert.equal(started.length, 1);
@@ -57,9 +57,9 @@ test('it plays on this device, loops from the top, and a new buffer starts again
   assert.ok(changes >= 3);
 });
 
-test('an empty buffer says so', async () => {
+test('a clip gone from the lane says so', async () => {
   const { Ctx } = fakeCtx();
-  const a = new Audition({ Ctx, fetchImpl: async () => ({ ok: false, status: 404 }) });
-  await assert.rejects(a.play('x'), /the buffer is empty/);
+  const a = new Audition({ Ctx, url: (k) => k, fetchImpl: async () => ({ ok: false, status: 400 }) });
+  await assert.rejects(a.play('x'), /left the cue lane/);
   assert.equal(a.playing, false);
 });

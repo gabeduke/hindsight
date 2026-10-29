@@ -12,7 +12,7 @@ OP-1.
 - **Two rooms.** Hindsight is a **Studio**, where you keep, grab and build on
   the tape, and a **Listening Room**, where every take is, a tap plays it and
   **Open** is its page. The screens say their words: feed, part, note,
-  buffer, BOUNCE. Parts of this guide were written before them and still say
+  cue lane, BOUNCE. Parts of this guide were written before them and still say
   ring, clip, flag, clipboard or mix down;
   [section 8.14](#814-words-in-the-two-rooms) says what each is called now.
 
@@ -59,9 +59,9 @@ just move references around.
 | **Pass** | One time round the loop. Every pass you play is kept, and you choose which to catch |
 | **Layer** | A second catch on top of a track's existing audio, summed with it |
 | **Range** | Bars across one or more tracks, drawn on the lanes: what Cut, Copy, Paste, Insert and Delete time act on |
-| **Buffer** | The one slot that GRAB, and a range's Cut and Copy, fill, and DROP empties (§8.12). Older parts of this guide call it the *clipboard* |
-| **Cut** | Take a range out of the tape into the buffer, leaving silence (the OP-1's *lift*) |
-| **Paste, DROP** | Put the buffer on a range's start or at the playhead (the OP-1's *drop*); DROP puts it on the armed track at the next bar line |
+| **Cue lane** | The pads above track 1, where GRAB lands: tap one to launch it on the next bar line, hold it to open its drawer (§8.12) |
+| **Cut** | Take a range out of the tape, leaving silence (the OP-1's *lift*), for its Paste |
+| **Paste, DROP** | Paste puts what a range's Cut or Copy took on a range's start or at the playhead (the OP-1's *drop*); DROP puts a part from the cue lane on the armed track at the next bar line |
 | **Bus A, bus B** | The tape's two outputs into the Sidekick: bus A into channel 1, bus B into channel 2. Each has the Sidekick's EQ, FX and fader |
 | **BOUNCE** | Play the tape once and keep what came out of the mixer as a take (older parts of this guide: *mixdown*) |
 | **Lead, follow** | Whether the tape sets the tempo for the Bento (lead) or follows it (follow) |
@@ -87,8 +87,8 @@ it's one row, on a phone three.
   *REC*, with the recent end stretched so you can see it. The length KEEP
   would save is lit orange, and the strip underneath says how long ago.
   Hold and drag across it to keep or grab just that stretch (§6).
-- **GRAB** lifts the last bars into the Studio's buffer, to drop on a track
-  (§8.12). The key says how many, and from which input: *GRAB 4 BARS, from
+- **GRAB** lifts the last bars onto the Studio's cue lane, to jam with and
+  drop on a track (§8.12). The key says how many, and from which input: *GRAB 4 BARS, from
   aux · armed*. Its **▾** picks 1, 2, 4 or 8 bars, and the input -- the armed
   track's, unless you pick one.
 - **KEEP** saves the past as a take, and says how much: *KEEP 30s*. Its
@@ -464,7 +464,7 @@ and the editor bar takes the place of the toolbar.
   with this take (§3.1).
 - **Share** sends it from your phone as an MP3 (the whole take, with no
   selection), levelled when **Level** is on.
-- **GRAB** (when the Pi runs the tape) puts it in the Studio's buffer, to
+- **GRAB** (when the Pi runs the tape) puts it on the Studio's cue lane, to
   drop on a track (§4.1, §8.12).
 - **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
   delete.
@@ -490,7 +490,7 @@ selection, **IN** and **OUT**), not the Listening Room's. What is different:
 - **Notes,** one line each: its number, its time, its words (the only field;
   they save when you leave it), **▶** to play from it, **GRAB** and **✕**. A
   note's **GRAB** puts this note, up to the next note or eight bars (16
-  seconds with no tempo), into the Studio's buffer, and opens the Studio.
+  seconds with no tempo), onto the Studio's cue lane, and opens the Studio on it.
 - **A tag** sits beside ★: *+ tag*, or the tag's name. It opens *One tag*:
   choose one to give it, or press the lit one to take it off (the key then
   reads *+ tag* again). *No tag* is a separate button, shown only while the
@@ -499,7 +499,7 @@ selection, **IN** and **OUT**), not the Listening Room's. What is different:
 - **KEEP and GRAB** sit side by side. **KEEP** makes a take of the selection
   and says how long it is (*KEEP 41s*). **GRAB** puts the selection, or with
   none the last N bars before the playhead (twice N seconds without a tempo),
-  into the Studio's buffer and opens the Studio; N starts at the tape's loop,
+  onto the Studio's cue lane and opens the Studio on it; N starts at the tape's loop,
   and the key says what it will do (*GRAB 4 BARS*, *GRAB SELECTION*).
 - **No menu of places to send it.** KEEP and GRAB are the two verbs, and the
   page has nothing for a drawer of kept pieces: **More** has the DAW bundle,
@@ -806,11 +806,11 @@ From the top:
   feed in the bar has the same mini player and player, **▶** in the same
   place: see *The bar, with a take in it* (§3.1).
 - **On a phone,** with the player down, the action bar floats above the
-  player, and the buffer is a sheet (§8.12). The recording is in the track's
+  player, and a cue part's drawer is a sheet (§8.12). The recording is in the track's
   inspector: tap its name twice.
 - **On a tablet or a computer** the tracks take the whole width and share
   the height of the window between the header and the bar; the action bar,
-  the clip editor or the buffer opening makes them shorter, and they scroll
+  the clip editor or a cue part's drawer opening makes them shorter, and they scroll
   once they're as short as their heads. The header is one row on every
   screen, the page switch in its middle.
 - **With a keyboard:** **Space** plays and stops, **R** is ● Rec, **L** is
@@ -823,8 +823,9 @@ From the top:
   **⌘V / Ctrl-V** pastes, on the range or at the playhead. **Esc** lets go.
   **Shift** with a click picks several. Holding a key doesn't repeat it, and
   none of them fire while you're typing or a sheet is open.
-- **The Studio's verbs** (§8.12): **K** keeps the feed as a take (the buffer,
-  while it's open), **C** catches, **G** grabs, and **↵** drops the buffer.
+- **The Studio's verbs** (§8.12): **K** keeps the feed as a take (the cue
+  part, while its drawer is open), **C** catches, **G** grabs, and **↵** drops
+  the open cue part.
 - **With the instrument unfolded** (§8.13) the keys are the instrument's:
   **R** is STOP and **1–4** drop a track out. Fold it, or tap the lanes, to
   give them back; its **KEYS** lamp says whose they are.
@@ -853,7 +854,7 @@ where it comes round.
    only relabelled.
 
 **From a take.** Open a take (§4.1), select the part and press **GRAB**: the
-Studio opens with it in the buffer (§8.12). Arm a track and press **DROP ON
+Studio opens with it on the cue lane, its drawer open (§8.12). Arm a track and press **DROP ON
 TRACK N**. An empty tape says so too: *Or GRAB a bit of a take*.
 
 A track holds `TAPE_LENGTH_S` seconds, 20 minutes by default.
@@ -928,17 +929,16 @@ its input (tap the input on its header and choose one), then:
   the clip.
 - The toast has **Cancel** while it records, and **Undo** once kept.
 
-**The buffer (6d)** holds what you last grabbed, copied or cut -- from a
-take, the feed or a tape (7a, [below](#85-editing-like-an-op-1)) -- and
-keeps it through a restart. A copy can be as long as a track. The Studio
-shows it between the feed and the tracks (§8.12).
+**The clipboard (6d)** holds what a range's Cut or Copy last took -- from a
+take or a tape (7a, [below](#85-editing-like-an-op-1)) -- and keeps it
+through a restart, unseen, for Paste. A copy can be as long as a track.
+GRAB puts what it takes on the cue lane instead (§8.12).
 
 - **Paste**, on a range's action bar, puts it at the range's start,
   replacing what's there; with the tape stopped the playhead moves to the
   paste's end, so **Paste, Paste, Paste** lays copies end to end. **⌘V /
   Ctrl-V** pastes at the playhead without a range. On an empty tape, a paste
   is the first loop.
-- **TOSS** in the buffer empties it.
 
 **More (6d):**
 
@@ -1322,78 +1322,79 @@ is no longer on the screen. Nothing was emptied: the Pi keeps what was kept
 in it, and how it was routed. **GRAB** (§8.12) is how a bit of a take, or of
 the feed, is kept to work with, and its Undo is the safety net the crate was.
 
-### 8.12 The Studio's buffer
+### 8.12 GRAB and the cue lane
 
-The Studio puts a buffer between the feed and the tape: the one slot that GRAB, and a
-range's Cut and Copy, fill and DROP empties, out where you can work on it.
+GRAB lands on the **cue lane**, the strip of pads above track 1, where a part
+is something to jam with and to work on before it goes on the tape.
 
 - **GRAB** (or **G**), beside Keep on the feed, copies the last 1, 2, 4 or 8
-  bars you played into it -- with no tempo yet, twice as many seconds -- or,
-  on the feed's selection bar, exactly the span you held. It's a copy, with
-  a bar either side, so the feed can't overwrite it while you work. The
-  picker starts at the tape's loop in bars (a 3-bar loop starts it at 2, a
-  16-bar one at 8), so a grab fits the loop it's for; pick another and it
-  stays until the loop changes. The number of bars and the input are on
-  GRAB's **▾**: the input follows the armed track's until you pick one, and
-  its **Armed track** goes back to following it.
-- A selection on the feed has two verbs: **GRAB** (into the buffer) and
+  bars you played onto the cue lane -- with no tempo yet, twice as many
+  seconds -- or, on the feed's selection bar, exactly the span you held. It's
+  a copy, with a bar either side, so the feed can't overwrite it while you
+  work. The picker starts at the tape's loop in bars (a 3-bar loop starts it
+  at 2, a 16-bar one at 8), so a grab fits the loop it's for; pick another
+  and it stays until the loop changes. The number of bars and the input are
+  on GRAB's **▾**: the input follows the armed track's until you pick one,
+  and its **Armed track** goes back to following it. The new part comes in
+  peeled off the feed, and its drawer opens above the bar.
+- A selection on the feed has two verbs: **GRAB** (onto the cue lane) and
   **KEEP** (a take, on the shelf). Every KEEP says what it keeps: *KEEP 2m*
-  on the feed's key, *KEEP 41s* on a selection, *KEEP 4 BARS* on the
-  buffer's, and *KEEP 30s* on the instrument's pad.
+  on the feed's key, *KEEP 41s* on a selection, *KEEP 4 BARS* in a part's
+  drawer, and *KEEP 30s* on the instrument's pad.
 - On a take, **GRAB** is the same key: the selection, or the last N bars
   before the playhead (at the take's tempo; twice N seconds without one),
   with N starting at the loop's length. In the Listening Room it is on
   **Open**, a take's page (§4.1), since a tap plays and the shelf has no sheet.
-- The buffer opens, and the lanes fold to strips to make room (**Unfold**
-  gives them their height back). Pick the inputs it holds -- two make two
-  lanes, dropped on neighbouring tracks -- and drag **IN** and **OUT**, or
-  move them with **[ ]** and **⇧[ ⇧]** a step of the snap (⌗) at a time.
-  **Audition** loops it here, never through the Pi.
-- **DROP ON TRACK N** (or **↵**) lays it on the armed track at the next bar
-  line inside the loop, wrapping round to the loop's start when the buffer
-  wouldn't fit before its end, **over what is there**; or drag it by its
-  grip onto any lane, where it lands exactly where you let go. The key says
-  first where it will land: *DROP ON TRACK 2 · bars 1–4*, and *· replaces*
-  exactly when it will lay over a part on that track. It is never refused for
-  room: a full loop is dropped over. A buffer longer than the loop starts at
-  the loop's start and runs past it, and the key and the toast say so. With
-  no track armed the key is off and says *arm a track*; with several armed it
-  takes the first, and says so. **One undo** takes it back, and what it
-  replaced comes back with it. **↵** again, with the tape stopped, lands in
-  the same place and replaces its own copy (the playhead hasn't moved); while
-  it plays, the next bar line has moved on, so it lands further along. A
-  buffer that would end past the tape (a loop near its end) is moved back to
-  the latest bar line where it fits, and the key and toast say *moved back to
-  fit the tape*; only one longer than the tape is refused.
-- **KEEP** (**K**) saves it on the Listening Room's shelf, at the
-  tape's tempo. **TOSS** (**⌫**) throws it away, with Undo.
-- **CUE** puts it on the **cue lane**, the strip above track 1, as one
-  looping part (one undo). **Tap a part there to launch it on the next bar
+- **A part on the cue lane is a pad.** **Tap it to launch it on the next bar
   line**; it loops, played with the tape, until you tap it again, which
   stops it on the next bar line. **⇧-tap** does either at once. While it
-  waits for its bar line the part blinks; while it plays it's lit. With the
-  tape stopped a launch starts at once, and **Stop** stops the lane with the
-  tape. **Solo** leaves the cue lane alone in the output, **⟲** loops a
-  part or plays it once, and **dragging a part onto a track** copies it
-  onto the tape there. The lane is saved with the tape, so another device
-  sees it; what's playing on it never goes into a bounce.
-- **A grab can be undone.** GRAB over a buffer you never dropped, kept or
-  tossed -- a grab, or a range's Cut or Copy -- says so — *Replaced the buffer’s 4 BARS from the feed, never
-  dropped or kept* — with **Undo**, which puts the old buffer back (and
-  drops the grab it undoes). The Pi keeps exactly one replaced grab for it,
-  not a growing pile: the next grab over an unused buffer lets go of the one
-  before. A buffer you dropped or kept is not kept again, and says nothing; once
-  the buffer has been dropped or kept, the Undo says *Already dropped or kept —
-  undo the drop instead*. A range's Cut or Copy over an unused buffer says the
-  same, with its own Undo (beside the Cut's, which takes the cut off the tape),
-  and so does bringing back a tossed buffer over one. Only the newest Undo stays
-  on screen, and a toss ends the Undo of the grab it tossed.
-  The buffer is the only view of what GRAB, Cut and Copy hold.
+  waits for its bar line the hand on its dial goes round the bar; while it plays
+  it's lit. With the tape stopped a launch starts at once, and **Stop** stops
+  the lane with the tape. **Solo** leaves the cue lane alone in the output.
+  **Dragging a part onto a track** puts it on the tape there. The lane is
+  saved with the tape, so another device sees it; what's playing on it never
+  goes into a bounce.
+- **Hold a part** (or right-click it) to open its **drawer**, above the bar;
+  the lanes fold to strips to make room (**Unfold** gives them their height
+  back), and Escape, Back or ✕ closes it. Pick the inputs it holds -- two
+  make two lanes, dropped on neighbouring tracks -- and drag **IN** and
+  **OUT** into the bar either side, or move them with **[ ]** and **⇧[ ⇧]**
+  a step of the snap (⌗) at a time. **Audition** loops it here, never
+  through the Pi; **Loop** says whether a launch goes round or plays once.
+  Each change is one undo of the tape's.
+- **DROP ON TRACK N** (or **↵**) lays it on the armed track at the next bar
+  line inside the loop, wrapping round to the loop's start when the part
+  wouldn't fit before its end, **over what is there**, with its handles, so
+  you can widen it on the tape too; or drag it by its grip onto any lane,
+  where it lands exactly where you let go. The part stays on the cue lane.
+  The key says first where it will land: *DROP ON TRACK 2 · bars 1–4*, and
+  *· replaces* exactly when it will lay over a part on that track. It is
+  never refused for room: a full loop is dropped over. A part longer than
+  the loop starts at the loop's start and runs past it, and the key and the
+  toast say so. With no track armed the key is off and says *arm a track*;
+  with several armed it takes the first, and says so. **One undo** takes it
+  back, and what it replaced comes back with it. **↵** again, with the tape
+  stopped, lands in the same place and replaces its own copy (the playhead
+  hasn't moved); while it plays, the next bar line has moved on, so it lands
+  further along. A part that would end past the tape (a loop near its end)
+  is moved back to the latest bar line where it fits, and the key and toast
+  say *moved back to fit the tape*; only one longer than the tape is
+  refused.
+- **KEEP** (**K**) saves it on the Listening Room's shelf, at the
+  tape's tempo. **TOSS** (**⌫**) takes it off the cue lane, with Undo.
+- **A grab can be undone.** A GRAB takes the place of the last part on the
+  lane while that one is a grab you never used -- never launched, dropped,
+  kept, trimmed or renamed -- so a run of presses doesn't fill the lane; it
+  says so — *in place of “main”, which you hadn’t used* — with **Undo**,
+  the tape's, which puts that part back. Otherwise it is added after it.
+  Only the newest Undo stays on screen.
+- A range's **Cut** and **Copy** keep what they took to themselves, unseen,
+  for its **Paste**, as a DAW does.
 
-On a phone the buffer is a sheet: pull its grip up or down, or hold it and
+On a phone the drawer is a sheet: pull its grip up or down, or hold it and
 drag it up onto a lane to drop it there. With Play mode on, the sheet stands
 above the mini player, and on a laptop's height the feed folds to its keys
-while the buffer is open, so a lane or two stay in sight. The buffer and the
+while the drawer is open, so a lane or two stay in sight. The drawer and the
 instrument strip take turns: see §8.13.
 
 ### 8.13 The instrument strip (a preview)
@@ -1413,14 +1414,14 @@ drawer above the bar in the Studio, not a screen over it.
   REV turns it backwards, STOP winds it down over the beat, ½× and 2×
   change its speed, CHOP rocks it, and BREAK leaves it turning while the
   sound cuts. It remembers whether it was open, on this device.
-- **It takes turns with the buffer** (§8.12): there is
-  room for one in full. Unfolding the instrument folds the buffer to a single
+- **It takes turns with a cue part's drawer** (§8.12): there is
+  room for one in full. Unfolding the instrument folds the drawer to a single
   line -- its name, its length, **AUDITION** and ✕ -- and a tap on that line,
-  or folding the instrument, opens it again. Bringing the buffer forward (a
-  **GRAB** in the feed, or its **Buffer ▴** key) folds the instrument. A
+  or folding the instrument, opens it again. Bringing the drawer forward (a
+  **GRAB** in the feed, or a hold on a part) folds the instrument. A
   **GRAB** played on the instrument's own pad or key leaves it open, and the
-  buffer comes up as its line.
-- **On a phone,** **EDIT | PLAY** sits on the mini player, and the buffer's
+  drawer comes up as its line.
+- **On a phone,** **EDIT | PLAY** sits on the mini player, and the drawer's
   sheet stands above it, so the toggle is never under the sheet. **PLAY**
   makes the bottom panel the instrument, with the sheet dropped to its peek;
   **EDIT** gives the drawers back, the sheet at the height you left it. PLAY's
@@ -1459,9 +1460,9 @@ nothing needs to be open.
    is still for a second), and program change 0–3 picks a formula. The
    SMK-37 starts with its pads on channel 10.
 3. CATCH, GRAB, DROP and KEEP run on the Pi itself: the last pass onto the
-   armed track, the last 4 bars into the buffer (open on every Studio within
-   a couple of seconds), the buffer onto the armed track's next free span,
-   and the last 30 seconds as a take.
+   armed track, the last 4 bars onto the cue lane (on every Studio within a
+   couple of seconds), the cue lane's newest part onto the armed track's next
+   free span, and the last 30 seconds as a take.
 4. Unplug it with a pad held and the pad lets go.
 
 **A controller in a laptop** (**＋ MIDI here** under *Playing from*) plays
@@ -1526,9 +1527,9 @@ rooms, which is how parts of this guide still name it.
 | **Feed** | Everything coming in, always recording; the last 15 minutes are kept in memory. The Studio draws it at the top, and Settings sets its length | the ring, the ribbon, Buffer length |
 | **Take** | Anything you kept: a KEEP, a bounce, a phone recording or a selection of another take | jam |
 | **KEEP** | Makes a take, and nothing else. Its key says how much: *KEEP 30s*, *KEEP 4 BARS* | Capture, Save as take, cutting a take |
-| **GRAB** | Fills the buffer: the last bars of the feed or of a take, a selection, or a note's stretch | Copy on the feed, Send to → Tape, Send to → Clipboard, Keep as clip |
-| **Buffer** | The one slot GRAB, and a range's Cut and Copy, fill and DROP empties. The Studio shows it between the feed and the tracks | the clipboard |
-| **DROP** | The buffer onto the armed track, at the next bar line inside the loop; its key says where. A range's Paste and Insert keep their names | Paste |
+| **GRAB** | Puts a part on the cue lane: the last bars of the feed or of a take, a selection, or a note's stretch | Copy on the feed, Send to → Tape, Send to → Clipboard, Keep as clip |
+| **Cue lane** | The pads above track 1 that GRAB fills: a tap launches one, a hold opens its drawer above the bar | the buffer, the clipboard |
+| **DROP** | A cue part onto the armed track, at the next bar line inside the loop; its key says where. A range's Paste and Insert keep their names | Paste |
 | **BOUNCE** | Play the tape once and keep what came out of the mixer as a take, on that tape's spine (the tape's name › Bounce the loop, Bounce the whole tape, Play the last bounce) | Mix down, Cut a record |
 | **Tape** | Four tracks of parts. Tapes live in the Studio: its title menu lists them | the Tape page |
 | **Part** | A piece of audio on a track | clip |
@@ -1541,8 +1542,8 @@ rooms, which is how parts of this guide still name it.
 | **● Rec** | Records onto the armed track | a punch |
 
 Two rules that go with them. **KEEP always makes a take;** it never puts
-anything on a tape. **GRAB always fills the buffer,** and a GRAB over a buffer
-nobody dropped or kept says so, with **Undo**.
+anything on a tape. **GRAB always lands on the cue lane,** and a GRAB in the
+place of a grab nobody used says so, with **Undo**.
 
 ### 8.15 Walkthroughs
 
@@ -1555,7 +1556,7 @@ or see.
    first on the *Takes* shelf. Tap it → it plays in the bar.
 2. **Lift a moment.** In the Studio press **GRAB** on the feed (the key says
    how much: *GRAB 8 s*, or *GRAB 4 BARS* once the tape has a tempo). The
-   buffer opens, with **IN** and **OUT** to trim. If no track is armed, tap a
+   part lands on the cue lane with its drawer open, with **IN** and **OUT** to trim. If no track is armed, tap a
    track's **●**. Then press **DROP ON TRACK N**. The toast says *Dropped on track N* with
    **Undo**.
 3. **Listen back, jot a note.** In the Listening Room tap a take → it plays in
@@ -1563,7 +1564,7 @@ or see.
    opens over the room at that moment, playing on. Type, *Add note*.
 4. **Reuse a bit.** Tap a take in the Listening Room → it plays. Let it play
    past the bit you want, then tap its **name** in the bar → Open. Press **GRAB
-   4 BARS** → the Studio opens with up to four bars in the buffer (fewer if
+   4 BARS** → the Studio opens with up to four bars on the cue lane (fewer if
    less had played). If no track is
    armed, tap a track's **●**. Then press **DROP ON TRACK N**.
 5. **Finish it.** In the Studio tap the tape's name, then **Bounce the whole tape**, and wait as
@@ -1608,8 +1609,8 @@ has no tip.
 | The rig (menu) | Your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
 | Shelf · List | The takes on shelves, a month to a shelf, or in a list by month and day. This device remembers which |
 | ✎ Note | A note at the playhead, with the cursor in its words |
-| GRAB (a take) | Into the Studio's buffer, and the Studio opens: the take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
-| GRAB (a note) | This note, to the next note or eight bars, into the Studio's buffer |
+| GRAB (a take) | Onto the Studio's cue lane, and the Studio opens on it: the take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
+| GRAB (a note) | This note, to the next note or eight bars, onto the Studio's cue lane |
 | Tag (a take) | The take's one tag |
 | Made from | The take this one was cut from: a tap opens it |
 | From this take | What was cut from this take: a tap opens one |
@@ -1685,7 +1686,7 @@ has no tip.
 | The tempo (the bar’s display) | The tempo of what’s in the bar. In the Studio, with the tape, a tap opens its menu: call the loop more bars or fewer |
 | The source (the bar’s display) | What the bar plays: the tape, the take, or the live feed. A tap chooses another: the tape, the live feed, one of the last few takes, or the shelf |
 | Where it plays (the bar’s display) | Where what’s in the bar plays: the tape in the jam room, on a phone or both; a take or the feed on this device. A tap opens where the tape plays |
-| GRAB (the feed, in the bar) | GRAB the bars around where the feed is into the Studio’s buffer, and go there |
+| GRAB (the feed, in the bar) | GRAB the bars around where the feed is onto the Studio’s cue lane, and go there |
 | ⟲ Loop | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |
@@ -1750,7 +1751,7 @@ has no tip.
 | Fit | Back to the loop and a bar either side, after a pinch, a pan, or the playhead paging the view along |
 | Snap (⌗) | What a drag snaps to: a slid clip, a trim, a fade, or a range drawn on the lanes. A bar, a beat, an eighth, or nothing |
 | Lock the loop (⌗) | Lock the loop where it is: a range you draw leaves it alone, so you can edit elsewhere while it plays on. Unlocked, the loop follows the range |
-| Fold the tracks (⌗) | Fold the tracks away, or show them again: the ruler, the buffer and the bar stay. A DROP from the buffer shows them, so you see where it landed |
+| Fold the tracks (⌗) | Fold the tracks away, or show them again: the ruler, the cue lane and the bar stay. A DROP from a cue clip shows them, so you see where it landed |
 | ⌗ (the ruler) | The View menu: what a drag snaps to, the loop’s lock, Fit, folding the tracks, and on a touch screen whether Insert and Delete time ask first. It says the snap, and shows the lock while it’s on |
 | Layer / Replace | Onto audio already there: layer on top of it, or replace it |
 | Repeat to the loop’s end | Copies of this clip end to end, to the end of the loop: one bar through four |
@@ -1822,28 +1823,27 @@ has no tip.
 | SYNC (the bar's display) | While the tape plays in the jam room, how playback and recording line up. Green: to the sample. Amber: by the clocks, nudge a catch if it's off. Red: not lined up yet. Out while it is stopped or plays on a phone |
 | Jam room / This phone / Both | The jam room plays through the Sidekick and records; this phone plays a backing track here, about 0.8 s behind; both does both |
 | Play in the jam room | Take the tape back from the phone: the jam room plays it from the same spot, and Rec and Catch come back |
-| Grab | Copy the last bars of the feed (with no tempo yet, the last seconds) into the buffer, from its sources, to trim and drop. G |
+| Grab | Copy the last bars of the feed (with no tempo yet, the last seconds) onto the cue lane, from its inputs, and open it to trim and drop. In the place of the last grab if you never used it, with Undo. G |
 | Last 1 2 4 8 (grab) | How many bars Grab takes. It starts at the tape's loop length, so a grab fits the loop it is for; with no tempo, twice as many seconds |
-| Feed source | Which input channel Grab captures into the buffer |
-| Grab (ribbon) | Put exactly the span you selected on the ribbon into the buffer |
+| Feed source | Which input Grab takes from |
+| Grab (ribbon) | Put exactly the span you selected on the ribbon onto the cue lane |
 | KEEP (ribbon) | Keep exactly the span you selected on the ribbon as a take; the key says how long it is |
-| Buffer ▴ / ▾ | Open or close the buffer: what you grabbed last waits there |
-| Buffer grip | Pull the buffer up or down. Hold it, then drag onto a lane, to drop it there |
-| Sources (buffer) | Which inputs the buffer holds, a lane each, all over the same span; they drop on neighbouring tracks |
-| Audition | Loop the buffer on this device, never through the Pi, so the jam goes on |
-| Unfold | Give the lanes their height back, and leave the buffer open |
-| ✕ (buffer) | Close the buffer. What you grabbed stays in it, for Buffer ▴ or another drop |
-| Drag to a lane | Drag the buffer onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
-| The buffer's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
-| Cue | Put the buffer on the cue lane above the tracks, as one looping part. Tap it there to launch it on the next bar line (⇧ starts it at once) and again to stop it; drag it onto a track to put it on tape. One undo. |
-| Drop on track | Lay the buffer on the armed track (with several armed, the first) at the next bar line inside the loop, over what is there: the key says where, and "replaces" when it will. Never refused for room. One undo. Stopped, ↵ again lands in the same place and replaces its own copy; playing, the next bar line has moved on. ↵ |
-| KEEP (buffer) | Save the buffer as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo; the key says how long it is. K |
-| Toss | Throw the buffer away; Undo brings it back. ⌫ |
+| Drawer grip | Pull the drawer up or down. Hold it, then drag onto a lane, to drop it there |
+| Inputs (cue) | Which inputs the clip holds, a lane each, all over the same span: tap one to take it again with or without that input. They drop on neighbouring tracks |
+| Audition | Loop the clip on this device, never through the Pi, so the jam goes on |
+| Unfold | Give the lanes their height back, and leave the drawer open |
+| Loop (cue) | Whether a launch from the cue lane plays the clip round and round until it is tapped again, or once |
+| ✕ (cue) | Close the drawer. The clip stays on the cue lane: hold it there to open it again |
+| Drag to a lane | Drag the clip onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
+| The clip's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
+| Drop on track | Lay the clip on the armed track (with several armed, the first) at the next bar line inside the loop, over what is there, with its handles: the key says where, and "replaces" when it will. Never refused for room. One undo. The clip stays on the cue lane. Stopped, ↵ again lands in the same place and replaces its own copy; playing, the next bar line has moved on. ↵ |
+| KEEP (cue) | Save the clip as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo; the key says how long it is. K |
+| Toss | Take the clip off the cue lane; Undo brings it back. ⌫ |
 | In ◂ ▸ / Out ◂ ▸ | Move IN or OUT a step of the snap (⌗): [ and ] for IN, ⇧[ and ⇧] for OUT |
-| Gain (buffer) | The buffer's level, on every lane |
-| Normalize (buffer) | Bring the loudest lane's loudest moment to just under full scale, the lanes kept in balance |
-| Reverse (buffer) | Play the buffer backwards, or forwards again |
-| Fades (buffer) | The fades' curve: equal power, linear, S-curve or exponential. Drag the corners for their length |
+| Gain (cue) | The clip's level, on every lane |
+| Normalize (cue) | Bring the loudest lane's loudest moment to just under full scale, the lanes kept in balance |
+| Reverse (cue) | Play the clip backwards, or forwards again |
+| Fades (cue) | The fades' curve: equal power, linear, S-curve or exponential. Drag the corners for their length |
 | Instrument ▴ | Play mode as a drawer. Folded: the track keys and the tricks as small pads, still live. Unfolded: the reel and every pad, and the computer's keys play it |
 | Keys (instrument) | Lit while the computer's keys play the instrument: R is STOP then, not ● Rec, and 1 drops track 1 out. A tap on the lanes, or on this, gives them back to editing |
 | A pad | Hold it: dim when touched, bright when it's heard, on the next grid line. Let go and it stops, in time. Bright with a ring: another hand is playing it |
@@ -1851,7 +1851,7 @@ has no tip.
 | ⌗ (instrument) | Where this device's presses land: at once, or the next 16th, 8th, beat or bar |
 | Lead | How long a press takes to be heard from the Pi: play that far ahead of the beat |
 | MIDI learn | Every pad shows its key on the controller (– for none). Tap a pad, then play a key or turn a knob on the controller. Esc cancels |
-| Catch, Grab, Drop, Keep (instrument) | The Studio's verbs from the instrument: the last pass onto the armed track, the last bars into the buffer, the buffer onto the armed track, and the feed (or the open buffer) as a take. C, G, ↵, K |
+| Catch, Grab, Drop, Keep (instrument) | The Studio's verbs from the instrument: the last pass onto the armed track, the last bars onto the cue lane, the open cue clip onto the armed track, and the feed (or the open cue clip) as a take. C, G, ↵, K |
 | Edit / Play (phone) | On a phone: Play makes the bottom panel the instrument; Edit gives the drawers back. Play's lamp lights while a pad sounds |
 | Studio (rig) | Back to the Studio |
 | Socket | Drag from it to another socket to plug a cable in, or choose it and then where it goes. A pull on a plug unplugs it. Choose it to see what it carries |

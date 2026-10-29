@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -122,4 +123,35 @@ func TestTheCueClipsDrawerOverTheAPI(t *testing.T) {
 		t.Fatalf("drop = %s", w.Body.String())
 	}
 	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/drop"+q, `{"clip":"`+c.ID+`","track":4,"at":0}`), http.StatusBadRequest, "two lanes from track 4")
+}
+
+// A controller's GRAB and DROP are the Studio's: GRAB lands on the cue lane,
+// where every tablet sees it, and DROP lays the lane's newest clip on the
+// armed track. The clipboard, a range's Cut and Copy's, is left alone.
+func TestAControllersGrabAndDropUseTheCueLane(t *testing.T) {
+	r, _ := newBufferAPI(t)
+	id := makeLoadedTape(t, r)
+	verbs := piVerbs{bufferAPIs[r]}
+	if _, err := verbs.Verb("drop", ""); !errors.Is(err, errNothingToDrop) {
+		t.Fatalf("DROP with nothing on the lane: %v", err)
+	}
+	if d, err := verbs.Verb("grab", ""); err != nil || d.says != "GRABBED 8 S" {
+		t.Fatalf("GRAB: %+v, %v", d, err)
+	}
+	eng := bufferEngines[r]
+	tp := eng.Loaded()
+	if tp.State.Cue == nil || len(tp.State.Cue.Clips) != 1 || tp.State.Cue.Clips[0].Source != "grab" {
+		t.Fatalf("the lane = %+v", tp.State.Cue)
+	}
+	if c, _ := eng.Clipboard(); c != nil {
+		t.Fatalf("GRAB filled the clipboard: %+v", c)
+	}
+	d, err := verbs.Verb("drop", "")
+	if err != nil || d.track != 1 {
+		t.Fatalf("DROP: %+v, %v", d, err)
+	}
+	tp = eng.Loaded()
+	if tp.ID != id || len(tp.State.Tracks[0].Clips) != 1 || !tp.State.Cue.Clips[0].Touched {
+		t.Fatalf("after DROP: track 1 %+v, lane %+v", tp.State.Tracks[0].Clips, tp.State.Cue.Clips)
+	}
 }

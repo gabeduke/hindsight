@@ -449,7 +449,7 @@
             <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
             <button id="catch-more" class="icon-btn key-more np-catch-more" type="button" aria-label="What to catch" data-tip="catch-more"><svg class="i i-down" width="18" height="18" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#down"/></svg></button>
           </span>
-          <button id="np-feed-grab" class="icon-btn np-feed-grab" type="button" aria-label="GRAB from the live feed into the Studio’s buffer" data-tip="np-feed-grab" data-for="feed" data-mini="feed"><span class="np-grab-word">GRAB</span><span class="np-grab-sub">from the feed</span></button>
+          <button id="np-feed-grab" class="icon-btn np-feed-grab" type="button" aria-label="GRAB from the live feed onto the Studio’s cue lane" data-tip="np-feed-grab" data-for="feed" data-mini="feed"><span class="np-grab-word">GRAB</span><span class="np-grab-sub">from the feed</span></button>
         </div>
         <!-- The modes: ⟲ (Loop for the tape, Repeat for a take) and the
              metronome. -->
@@ -867,7 +867,6 @@
       <button class="icon-btn buffer-grab-key" type="button" aria-keyshortcuts="G" data-tip="grab"><span class="buffer-grab-line"><span class="buffer-grab-word">Grab</span><span class="buffer-grab-n" aria-hidden="true"></span><kbd class="buffer-kbd" aria-hidden="true">G</kbd></span><span class="buffer-grab-from" aria-hidden="true"></span></button>
       <button class="icon-btn key-more buffer-grab-more" type="button" aria-label="How much GRAB takes, and from which input" data-tip="grab-more">▾</button>
     </span>
-    <button class="icon-btn buffer-reopen" type="button" hidden data-tip="buffer-open">Buffer<span aria-hidden="true"> ▴</span></button>
     <!-- GRAB's panel: the last 1, 2, 4 or 8 bars, and from which input --
          the armed track's unless one is picked here. -->
     <div class="key-pop buffer-grab-pop" role="dialog" aria-label="What GRAB takes" hidden>
@@ -890,30 +889,29 @@
   <button class="icon-btn buffer-grab-sel" type="button" data-tip="grab-span">GRAB</button>
 </template>
 <template id="buffer-panel-tpl">
-  <section class="panel buffer-panel" id="buffer" aria-label="The buffer" data-height="half" hidden>
-    <span class="buffer-notch" aria-hidden="true"></span>
+  <section class="panel buffer-panel" id="buffer" aria-label="The cue clip" data-height="half" hidden>
     <button class="buffer-sheet-grip" type="button" aria-label="Pull it up or down; hold it and drag onto a lane to drop it there" data-tip="buffer-grip"></button>
     <div class="buffer-head">
-      <h2 class="buffer-title">Buffer</h2>
+      <h2 class="buffer-title" id="buffer-title">Cue</h2>
       <span class="buffer-meta" id="buffer-meta"></span>
-      <div class="buffer-sources" id="buffer-sources" role="group" aria-label="Sources in the buffer" data-tip="buffer-sources"></div>
+      <div class="buffer-sources" id="buffer-sources" role="group" aria-label="The clip’s inputs" data-tip="buffer-sources"></div>
       <span class="buffer-note" id="buffer-note" role="status"></span>
       <span class="buffer-spacer" aria-hidden="true"></span>
       <button class="icon-btn buffer-audition" id="buffer-audition" type="button" aria-pressed="false" data-tip="buffer-audition"><span class="buffer-led" aria-hidden="true"></span>Audition</button>
       <button class="icon-btn buffer-snap" id="buffer-snap" type="button" data-tip="tape-snap"><svg class="i i-view" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#view"/></svg><span id="buffer-snap-name">Bar</span></button>
       <button class="icon-btn buffer-unfold" id="buffer-unfold" type="button" aria-pressed="false" data-tip="buffer-unfold">Unfold<span aria-hidden="true"> ▾</span></button>
-      <button class="icon-btn buffer-close" id="buffer-close" type="button" aria-label="Close the buffer; Buffer ▴ opens it again" data-tip="buffer-close">✕</button>
+      <button class="icon-btn buffer-loop" id="buffer-loop" type="button" aria-pressed="true" data-tip="buffer-loop">Loop</button>
+      <button class="icon-btn buffer-close" id="buffer-close" type="button" aria-label="Close the drawer; hold the clip on the cue lane to open it again" data-tip="buffer-close">✕</button>
     </div>
     <div class="buffer-body">
-      <button class="buffer-grip" id="buffer-grip" type="button" aria-label="Drag the buffer onto a lane" data-tip="buffer-drag"><span class="buffer-grip-dots" aria-hidden="true"></span><span class="buffer-grip-word">Drag to a lane</span></button>
+      <button class="buffer-grip" id="buffer-grip" type="button" aria-label="Drag the clip onto a lane" data-tip="buffer-drag"><span class="buffer-grip-dots" aria-hidden="true"></span><span class="buffer-grip-word">Drag to a lane</span></button>
       <div class="buffer-window" id="buffer-window" data-tip="buffer-window">
-        <canvas class="buffer-canvas" id="buffer-canvas" role="img" aria-label="The buffer’s audio, with IN and OUT"></canvas>
+        <canvas class="buffer-canvas" id="buffer-canvas" role="img" aria-label="The clip’s audio, its handles either side, with IN and OUT"></canvas>
       </div>
       <div class="buffer-acts">
         <button class="icon-btn buffer-drop" id="buffer-drop" type="button" aria-keyshortcuts="Enter" data-tip="buffer-drop"><span class="buffer-drop-word" id="buffer-drop-word">Drop</span><span class="buffer-drop-sub" id="buffer-drop-sub"></span></button>
         <div class="buffer-acts-row">
           <button class="icon-btn buffer-keep" id="buffer-keep" type="button" aria-keyshortcuts="K" data-tip="buffer-keep"><span id="buffer-keep-word">Keep</span><span class="buffer-keep-len" id="buffer-keep-len"></span><kbd class="buffer-kbd" aria-hidden="true">K</kbd></button>
-          <button class="icon-btn buffer-cue" id="buffer-cue" type="button" data-tip="buffer-cue">Cue</button>
           <button class="icon-btn buffer-toss" id="buffer-toss" type="button" aria-keyshortcuts="Backspace" data-tip="buffer-toss">Toss<kbd class="buffer-kbd" aria-hidden="true">⌫</kbd></button>
         </div>
       </div>
@@ -931,7 +929,7 @@
         <button class="icon-btn buffer-step" id="buffer-out-on" type="button" aria-label="OUT on a step" aria-keyshortcuts="Shift+]" data-tip="buffer-edges">▸</button>
         <kbd class="buffer-kbd" aria-hidden="true">⇧[ ]</kbd>
       </span>
-      <label class="buffer-gain" data-tip="buffer-gain">Gain <input id="buffer-gain" type="range" min="-30" max="12" step="0.5" aria-label="The buffer’s level"><span class="buffer-gain-val" id="buffer-gain-val">+0.0 dB</span></label>
+      <label class="buffer-gain" data-tip="buffer-gain">Gain <input id="buffer-gain" type="range" min="-30" max="12" step="0.5" aria-label="The clip’s level"><span class="buffer-gain-val" id="buffer-gain-val">+0.0 dB</span></label>
       <button class="icon-btn buffer-shape" id="buffer-normalize" type="button" data-tip="buffer-normalize">Normalize</button>
       <button class="icon-btn buffer-shape" id="buffer-reverse" type="button" aria-pressed="false" data-tip="buffer-reverse">Reverse</button>
       <button class="icon-btn buffer-shape" id="buffer-fades" type="button" data-tip="buffer-fades">Fades · <span id="buffer-fades-shape">equal power</span></button>

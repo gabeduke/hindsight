@@ -118,8 +118,8 @@ test('the buffer says when it is brought forward, and the strip answers', async 
   const buffer = readFileSync(new URL('../buffer/buffer.js', import.meta.url), 'utf8');
   const strip = readFileSync(new URL('./strip.js', import.meta.url), 'utf8');
   assert.match(buffer, /const forward = \(\) => doc\.dispatchEvent\(new CustomEvent\('hindsight:bench-forward'\)\)/);
-  assert.match(buffer, /st\.grabbing = true;\s*st\.open = true;\s*render\(\);\s*forward\(\);/, 'a grab of this page brings it forward');
-  assert.match(buffer, /el\.reopen\.addEventListener\('click', \(\) => \{[^}]*forward\(\);/, 'so does its Buffer ▴ key');
+  assert.match(buffer, /st\.grabbing = true;\s*render\(\);\s*forward\(\);/, 'a grab of this page brings it forward');
+  assert.match(buffer, /function select\(id\) \{[^}]*if \(id\) forward\(\);/, 'so does a clip held on the cue lane');
   assert.match(strip, /addEventListener\('hindsight:bench-forward', onForward\)/);
   // A GRAB the strip plays itself is the strip moving: it stays.
   assert.match(strip, /onForward = \(\) => yieldTo\(verbing \? 'strip' : 'buffer'\)/);
