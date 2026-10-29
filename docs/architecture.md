@@ -785,7 +785,9 @@ running off its end, the cue lane's clips starting, ending or leaving,
 and each pass of the loop logged; ● Rec arming, turning on and ending; a
 mixdown's state; the output mode; and the clipboard and the crate once
 written (the store's `changed` hook). A page is told of a new revision so
-that it polls at once (`docs/plan/pushing-tape-state.md`). `Bump` runs on
+that it polls at once: a nudge, not the state, so the page has one way in
+for its state, at about 30–50 ms from a change to the tablet's paint where
+the 200 ms poll alone took up to 235. `Bump` runs on
 the render goroutine, so it takes no lock and never blocks: each
 subscriber's channel holds one tap, and a subscriber reads `Rev` when it
 wakes. The render goroutine bumps once a block, after it has published

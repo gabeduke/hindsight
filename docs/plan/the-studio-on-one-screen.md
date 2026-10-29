@@ -1,39 +1,32 @@
 # The Studio on one screen
 
-> Its open steps (3, 4 and 5) are now steps 8 and 11 of
-> `the-studio-space.md`, which changes two decisions here: ⋯ goes (its
-> items join the tape's name menu and the ⌗ View menu), and ● on a phone
-> records from the phone.
-
 Agreed with Gabe on 2026-10-22, from a usability review of every screen
-against the flows. He asked for *"moving unnecessary buttons into drawers or
-menus and focusing on the handful of main user flows."*
+against the flows: *"moving unnecessary buttons into drawers or menus and
+focusing on the handful of main user flows."* Its open steps (3, 4 and 5)
+are steps 8 and 11 of `the-studio-space.md`, which changed two decisions
+here: ⋯ went (its items into the tape's name menu and ⌗'s View menu), and
+● on a phone records from the phone.
 
-What the review measured, on the tablet (1024×768, the main device):
-
-- **The Studio has 65 controls on screen, 30 of them under 32 px.** The
-  Listening Room has 25 (5 small), Open 48 (3), the Rig 39 (5).
-- **Only 1½ of the 4 tracks show above the bar.** The header takes 110 px
-  in two rows, the feed 240 px, and the sections, ruler and cue lane 130 px.
-- **The jam's own targets are 26×30 px:** each track's ●, M, S and input
-  chip, and the ruler's chips.
-- **The guide has four ways in** (Guide, ?, ⋯ → The guide, and the Settings
-  line), and Releases has two.
-
+The review, on the tablet (1024×768): the Studio had 65 controls on
+screen, 30 of them under 32 px, and only 1½ of its 4 tracks above the bar;
+the jam's own targets (each track's ●, M, S and input chip) were 26×30 px.
 The flows come down to four jobs: **catch it** (KEEP, GRAB), **build it**
-(arm, CATCH, DROP), **jam it** (the cue lane) and **listen back** (tap, note,
-Open). What serves one of those stays on screen. The rest goes one tap
-further away: into a menu, a drawer or an inspector, and never out of reach.
+(arm, CATCH, DROP), **jam it** (the cue lane) and **listen back** (tap,
+note, Open). What serves one of those stays on screen; the rest goes one
+tap further away, never out of reach.
 
-## Decisions
+Landed: the header's one menu (step 1; `docs/architecture.md`, *The
+frame*; J5.1), the feed as a strip (step 2; J1.1, J1.6), and on a phone
+the ruler's keys as one ⌗ menu with bars numbered every 2nd, 4th or 8th
+when zoomed out (`barEvery`).
+
+## Decisions still to build
 
 | | |
 |---|---|
-| One menu for the app's tools | Releases (the version), the Guide, ? (help mode), Settings and the Rig go into one menu at the header's right, on every page. The Settings sheet keeps its about line. This reverses "Settings, Releases and the guide live in the header's `.appbar-end`" (AGENTS.md, *Where things live in the UI*), which changes with it. On a tablet the Studio's header becomes one row: the rooms, the tape and its tempo, ↶ ↷, ⋯ and the menu. |
-| The feed is a strip | The ribbon, with GRAB, KEEP and Flag in one row. **How much goes on the key:** a tap takes the last length, and its ▾ picks another (1, 2, 4 or 8 bars for GRAB; 30 s, 2 m or the whole feed for KEEP), as Catch's ▾ already holds its bars. **The input follows the armed track's**, with an override in GRAB's ▾. **The readouts leave:** free disk, dropped buffers, the MIDI tempo and the *Input channels* disclosure go to the Rig, behind a lamp that lights when something is wrong. **● Phone moves into ⋯.** |
 | Track heads on a touch screen | Name, ● and the input chip, with ● at 44 px. M, S and the level move to the track's inspector, which already has the level, pan and bus. With a mouse they stay in the head. |
-| The ruler's keys | ⌗ snap and the loop's lock move to the range's action bar and ⋯. Tracks ▾ stays. **On a phone** (done, 2026-10-23: Gabe found them *"smooshed into the phone UI"*, two rows that pushed everything down) all four are one key, ⌗ and the snap, whose menu has the snap, the lock, Fit and the fold; the tablet could use the same menu when step 3 comes. Zoomed out, the ruler numbers every 2nd, 4th or 8th bar from bar 1 (`barEvery`), not every one. |
-| The buffer merges into the cue lane | The buffer stops being a panel of its own. GRAB lands on the cue lane, and selecting a cue clip opens its edit drawer: IN and OUT, gain, Normalize, Reverse, the fades, Audition, then DROP on the armed track (↵), KEEP (K) and Toss (⌫). A tap still launches a clip. The roadmap already wanted the clip editor for the cue lane's trims. |
+| The ruler's keys on the tablet | ⌗ snap and the loop's lock move to the range's action bar and ⌗'s View menu, as on the phone. Tracks ▾ stays. |
+| The buffer merges into the cue lane | The buffer stops being a panel of its own. GRAB lands on the cue lane, and selecting a cue clip opens its edit drawer: IN and OUT, gain, Normalize, Reverse, the fades, Audition, then DROP on the armed track (↵), KEEP (K) and Toss (⌫). A tap still launches a clip. The clip editor does the cue lane's trims. |
 
 ### To settle when the merge is built
 
@@ -60,17 +53,8 @@ Each step is its own PR, with its flows updated in `docs/flows.md` and
 `scripts/flows/`, looked at in a browser at phone, tablet and desktop size
 in both schemes, and with the layout baseline shrinking, never growing.
 
-1. ~~**The header's menu.**~~ Done. J5.1 drives it on the tablet, a
-   computer and a phone. On the way: the output button's rules had looked
-   for it in the bar since it moved into the tools (a phone showed *Jam
-   room* in full, every page a square box), and the guide's links in each
-   page's ⋯ became the menu's guide, which opens at the page's section.
-2. ~~**The feed strip.**~~ Done. J1.1 and J1.6 choose a length on the ▾.
-   Two calls made while building it: the readouts and *Input channels* went
-   into a sheet behind the lamp, with a link to the Rig, not onto the Rig's
-   page (leaving for it stops the tape on this device about 6 s later); and
-   ● Phone shows on the strip only while it records, since ⋯ is its way in
-   and a recording must stay in sight.
+1. ~~The header's menu.~~ Landed.
+2. ~~The feed strip.~~ Landed.
 3. **The track heads and the ruler on touch.** Updates J1.5, J1.9 and J1.11.
    Static.
 4. **A budget in the layout checks** (`scripts/flows/layout.mjs`): on the
@@ -80,8 +64,4 @@ in both schemes, and with the layout baseline shrinking, never growing.
    keeps its lanes and handles, GRAB to the lane, and dropping or keeping a
    cue clip), then the drawer, then the buffer panel goes. Updates C1, J1.3,
    J1.6 and J3.1. Go, so it releases.
-6. **Open's pass.** Moved into `listening-back.md` (2026-10-23), with the
-   way into a take and the notes drawer.
-
-Then the roadmap's next steps (`shell-roadmap.md`): the output switch, then
-the bookmark drawer.
+6. Open's pass: moved into `listening-back.md`.
