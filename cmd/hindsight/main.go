@@ -370,7 +370,7 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 	opts := tape.Options{Store: store, Capture: cap, Sink: sink, Sources: sources,
 		MinFreeGB: cfg.MinFreeGB, LatencyMS: cfg.TapeLatencyMS,
 		Saver: saver, TakesDir: cfg.OutputDir, MixdownTail: cfg.TapeMixdownTailS,
-		HandleSeconds: cfg.TapeHandleS}
+		HandleSeconds: cfg.TapeHandleS, OutputLatencyMS: float64(cfg.OutputLatencyMS)}
 	if out := clockOut(cfg, demo); out != nil {
 		opts.Clock = out
 	}

@@ -114,6 +114,17 @@ func (o *Output) setMode(m OutputMode) {
 	o.lost.Store(false)
 }
 
+// PullFrames is the device's (audio.PullSize). The pacer's own pulls, for a
+// phone with the device away, are a step or two of the stream's (stream.go)
+// and aren't counted: at a low OUTPUT_LATENCY_MS a phone with no device to
+// pace it can hear a gap where the renderer was a step behind.
+func (o *Output) PullFrames() int {
+	if p, ok := o.dev.(audio.PullSize); ok {
+		return p.PullFrames()
+	}
+	return 0
+}
+
 func (o *Output) Open(channels int, pull func([]int32)) (string, error) {
 	o.pull = pull
 	name, err := o.dev.Open(channels, o.devPull)
