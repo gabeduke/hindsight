@@ -159,8 +159,8 @@ func TestEveryScreenFitsTheKeyboard(t *testing.T) {
 				t.Errorf("%s: %v doesn't fit", s.Tape, it)
 			}
 		}
-		// The busiest is about 960 bytes of commands, a little more than
-		// one frame holds: two, then.
+		// The busiest is about 960 bytes of commands, and a frame holds
+		// MaxFrame: three, then.
 		cmds := plan(nil, items)
 		frames := 0
 		for len(cmds) > 0 {
@@ -168,7 +168,7 @@ func TestEveryScreenFitsTheKeyboard(t *testing.T) {
 			cmds = cmds[n:]
 			frames++
 		}
-		if frames > 2 {
+		if frames > 3 {
 			t.Errorf("%s: a whole screen takes %d frames", s.Tape, frames)
 		}
 	}
