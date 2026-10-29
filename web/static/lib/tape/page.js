@@ -40,6 +40,7 @@ import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
 import { watchChanges } from './changes.js';
+import { lightFor } from '../bar/press-note.js';
 import * as sel from './selection.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
 import { syncState } from '../bar/display.js';
@@ -322,9 +323,17 @@ function nudged() {
   if (gate.nudge()) poll();
 }
 // followTheTape is the Studio's ctx.socket: open while it is shown.
+// A press on the keyboard heard on it is the bar's note's (handed on), and
+// lights the head of the track it changed here, for the note's second.
+function heardPress(p) {
+  engine.tape.heardPress(p);
+  if (!p.lit.includes('track')) return;
+  const head = lanes.find((l) => l.n === p.track)?.row.querySelector('.tt-head');
+  if (head) lightFor([head], p);
+}
 function followTheTape() {
   engine.tape.delegate(barHands);
-  const changes = watchChanges(nudged);
+  const changes = watchChanges({ onNudge: nudged, onPress: heardPress });
   return {
     close() {
       changes.close();

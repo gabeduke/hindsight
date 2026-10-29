@@ -255,11 +255,12 @@ test('the tape: ▶ then ■ before a poll says so stops it, and the Pi has the 
 // docs/plan/pushing-tape-state.md: the Pi's word that the tape changed
 // polls the bar's tape at once, while the bar polls it itself.
 function fakeWatch() {
-  const w = { open: 0, nudge: null };
-  w.watch = (fn) => {
+  const w = { open: 0, nudge: null, press: null };
+  w.watch = ({ onNudge, onPress }) => {
     w.open++;
-    w.nudge = fn;
-    return { close() { w.open--; w.nudge = null; } };
+    w.nudge = onNudge;
+    w.press = onPress;
+    return { close() { w.open--; w.nudge = null; w.press = null; } };
   };
   return w;
 }
@@ -321,5 +322,21 @@ test('the tape: a nudge while a poll is out asks once more after it, never two a
   await settle();
   assert.equal(polls, 2, 'and only once');
   assert.equal(most, 1);
+  s.destroy();
+});
+
+test('the tape: a press on the keyboard is heard on the bar\'s socket, or handed on from the Studio\'s', async () => {
+  stubs(() => ({ tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }));
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  const heard = [];
+  const off = s.onPress((p) => heard.push(p.words));
+  w.press({ words: 'PLAY', role: 'play', lit: ['play'], track: 0, ms: 1000 });
+  s.delegate({ poll() {} });
+  s.heardPress({ words: 'STOP', role: 'stop', lit: ['play'], track: 0, ms: 1000 });
+  off();
+  s.heardPress({ words: 'KEPT 30 S', role: 'rec', lit: ['rec'], track: 0, ms: 1000 });
+  assert.deepEqual(heard, ['PLAY', 'STOP']);
   s.destroy();
 });

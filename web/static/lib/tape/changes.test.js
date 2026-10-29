@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { revisions, watchChanges, CHANGES_PATH } from './changes.js';
+import { revisions, watchChanges, pressOf, CHANGES_PATH, BANNER_MS } from './changes.js';
 
 // The socket's reconnect and dead-socket rules are lib/socket.js's, tested
 // through connectLive in lib/live.test.js. Here: what the page is told.
@@ -23,9 +23,9 @@ function rig() {
     doc: { hidden: false, ...quiet }, win: quiet,
     location: { protocol: 'https:', host: 'pi.local' },
   };
-  const nudges = [];
-  const w = watchChanges((m) => nudges.push(m.rev), env);
-  return { sockets, nudges, w, clock };
+  const nudges = [], presses = [];
+  const w = watchChanges({ onNudge: (m) => nudges.push(m.rev), onPress: (p) => presses.push(p) }, env);
+  return { sockets, nudges, presses, w, clock };
 }
 
 test('it watches /api/tapes/changes on the page\'s host', () => {
@@ -89,4 +89,33 @@ test('close() lets the socket go', () => {
   const r = rig();
   r.w.close();
   assert.ok(r.sockets[0].closed);
+});
+
+test('a press on the keyboard is heard with what is left of its second, by the Pi\'s clock', () => {
+  const r = rig();
+  r.sockets[0].say({ rev: 7, at_ms: 1 });
+  r.sockets[0].say({ rev: 8, at_ms: 5040, press: { words: 'PLAY', role: 'play', lit: ['play'], at_ms: 5000 } });
+  assert.deepEqual(r.presses, [{ words: 'PLAY', role: 'play', lit: ['play'], track: 0, ms: BANNER_MS - 40 }]);
+  assert.deepEqual(r.nudges, [8], 'the revision it moved is a nudge as well');
+});
+
+test('a press with the revision unchanged is heard, and nudges nothing', () => {
+  const r = rig();
+  r.sockets[0].say({ rev: 7, at_ms: 1 });
+  r.sockets[0].say({ rev: 7, at_ms: 10, press: { words: 'NO TRACK ARMED', role: 'refused', lit: [], at_ms: 10 } });
+  assert.equal(r.presses.length, 1);
+  assert.equal(r.presses[0].role, 'refused');
+  assert.deepEqual(r.nudges, []);
+});
+
+test('pressOf: a second already over says nothing; what it lit is what the page can light', () => {
+  assert.equal(pressOf({ rev: 1, at_ms: 3000, press: { words: 'KEPT 30 S', role: 'rec', lit: ['rec'], at_ms: 1900 } }), null);
+  assert.equal(pressOf({ rev: 1, at_ms: 1 }), null);
+  assert.equal(pressOf({ rev: 1, press: { words: '' } }), null);
+  assert.deepEqual(
+    pressOf({ rev: 1, at_ms: 100, press: { words: 'DROPPED ON T2', role: 'verb', lit: ['track', 'lamp'], track: 2, at_ms: 100 } }),
+    { words: 'DROPPED ON T2', role: 'verb', lit: ['track'], track: 2, ms: BANNER_MS },
+  );
+  assert.deepEqual(pressOf({ press: { words: 'X', role: 'new', lit: ['track'] } }).lit, [], 'a track lit with no track is nothing');
+  assert.equal(pressOf({ press: { words: 'X', role: 'new' } }).role, 'verb');
 });

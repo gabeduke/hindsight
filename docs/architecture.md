@@ -683,6 +683,46 @@ the fallback for a socket that is down. J1.14 times ▶, ■ and a rename made
 at the Pi to the page's paint, in the Studio and in the Listening Room's
 bar: within 100 ms on the demo.
 
+**The keyboard's press** (`internal/api/press.go`; `the-instrument.md`,
+step 7, *The tablet*) rides the same socket, as an event carrying the words
+and what changed, not a diff. Each press on the SMK-37 that says something
+on its own screen (`keyboardSays`, `banner.go`: the verbs, their refusals,
+a Play pad refused) is published on the API's `presses` feed, which never
+blocks the verb (a socket four presses behind misses one), and every open
+changes socket sends it at once, with the revision as it is then:
+
+    {"rev":N,"at_ms":…,"press":{"words":"DROPPED ON T2","role":"verb","lit":["track"],"track":2,"at_ms":…}}
+
+- `words` are the banner's, in capitals, at most 19 characters;
+- `role` is its colour, as on the keyboard: `play` (green), `stop` and
+  `verb` (CATCH, GRAB, DROP: the display's own ink), `rec` (KEEP, which
+  is the keyboard's REC: red), `refused` (amber), and `mixer`, a Mixer
+  page press in its `track`'s colour (K6: nothing says it yet);
+- `lit` is what it changed: `play` (▶, for PLAY and STOP), `rec` (●, for
+  KEEP), `track` (that track's head, for CATCH and DROP). A refusal lights
+  nothing;
+- `track` is the track lit, 1 up, and left out for none;
+- `at_ms` is when the banner's second began, by the Pi's clock: the press,
+  or for a verb timed from when it was done, then. The message's own
+  `at_ms` is when it left, so a page takes what is left of the second
+  from the two, whatever its own clock says.
+
+Only the keyboard's presses are sent (another controller's say nothing),
+whether or not Hindsight has its screen. In the page, `watchChanges({onNudge,
+onPress})` reads it with `pressOf` (`lib/tape/changes.js`), and a message
+whose rev moved is a nudge as well. The bar's tape source hands each press
+to `onPress` listeners, from its own socket or, while the Studio is shown,
+from the Studio's (`heardPress`); the engine's listener is the bar's note
+(`lib/bar/press-note.js`, `#np-press`), which puts the words over the
+display, after the keyboard's icon, for what is left of the second, and
+lights ▶ or ● (`.kb-lit`, `data-kb` the role). The Studio lights the
+track's head itself (`lightFor`). The note is out of the layout, over the
+display alone, and lets taps through, so nothing on the bar moves; in the
+phone's mini player the reels step aside for its second. A take in the
+bar, or Open's page, has no tape socket, so no note. J1.15 presses PLAY,
+STOP and a refused CATCH on a keyboard in the demo (`api.keyboard()`, a
+FIFO for its rawmidi node) and checks the note comes and goes.
+
 **Catching.** What the tape played at output frame `o` is in the capture
 ring at `o + delta`. A catch looks up the output frames it wants -- a pass
 from the cycle log, or the last N bars from the position map, back from the
@@ -1090,7 +1130,7 @@ to move in Open's pass.
 |---|---|
 | `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf), `backToTape`, `setSource`, `playing()`, `snapshot()`, `onChange` |
 | `engine.audio` | `adopt`, `owns`, `release`, `audioFor`: the take in the bar belongs to the engine, so a shelf row torn down never stops it, and two shelves never hold two elements for one take. Engine media is never in a view's subtree (a removed media element pauses) |
-| `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport; the Studio delegates while it is shown and hands it back, `delegate(null)`, on hide, so the bar polls the tape itself in the other rooms), `setLevels`. While it polls the tape itself it watches `/api/tapes/changes` (`lib/tape/changes.js`) and polls on each new revision |
+| `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport; the Studio delegates while it is shown and hands it back, `delegate(null)`, on hide, so the bar polls the tape itself in the other rooms), `setLevels`. While it polls the tape itself it watches `/api/tapes/changes` (`lib/tape/changes.js`) and polls on each new revision. `onPress(fn)` hears each press on the keyboard (see *The keyboard's press*), and `heardPress(p)` is the Studio's socket handing one on |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
 | `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class. `lib/bar/player.js` sets `#np[data-size]` (`mini`, `full`) |
