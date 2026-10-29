@@ -49,14 +49,14 @@ test('the tape page loads the Studio through mount.js', () => {
 });
 
 // The Studio and the tape page share a page but import nothing of each
-// other's; they speak in events, as Play mode does. A grab that replaces a
-// buffer nobody dropped no longer goes to a crate the page shows (F3): the Pi
-// holds it for GRAB's Undo, and nothing tells the tape page about the crate.
-test('the buffer tells the tape page the clipboard changed, and nothing about a crate', () => {
+// other's; they speak in events, as Play mode does. A GRAB onto the cue lane
+// is an edit of the tape, which the drawer asks the page to look at again;
+// nothing tells the tape page about a crate (F3).
+test('the drawer tells the tape page the tape changed, and nothing about a crate', () => {
   const buffer = readFileSync(new URL('../buffer/buffer.js', import.meta.url), 'utf8');
   const tapePage = readFileSync(new URL('../tape/page.js', import.meta.url), 'utf8');
-  assert.match(buffer, /new CustomEvent\('hindsight:clipboard'\)/);
-  assert.match(tapePage, /addEventListener\('hindsight:clipboard', \(\) => fetchClipboard\(\)\)/);
+  assert.match(buffer, /new CustomEvent\('hindsight:tape-changed'\)/);
+  assert.match(tapePage, /addEventListener\('hindsight:tape-changed', \(\) => \{ if \(viewActive\(\)\) poll\(true\); \}\)/);
   assert.doesNotMatch(buffer, /crate-changed/);
   assert.doesNotMatch(tapePage, /crate-changed/);
 });

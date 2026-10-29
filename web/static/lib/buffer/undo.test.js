@@ -1,9 +1,11 @@
 // web/static/lib/buffer/undo.test.js
-// GRAB's Undo (F3 of the flow spec). The real buffer, built from tape.html's
-// own templates on a stand-in document, with a Pi that answers from a table
-// and remembers what it was asked: a GRAB over a buffer nobody dropped or
-// kept says so, with Undo, and Undo puts the old one back; a GRAB over
-// nothing, or over one that was dropped or kept, says nothing of the kind.
+// GRAB onto the cue lane, and its Undo (F3 of the flow spec;
+// the-studio-on-one-screen.md, step 5). The real drawer, built from
+// shell.html's own templates on a stand-in document, with a Pi that keeps a
+// tape -- its cue lane and its history -- and remembers what it was asked: a
+// GRAB opens the drawer on the clip it made; one that took the place of an
+// untouched GRAB says so, with Undo, and Undo is the tape's, which brings the
+// old clip back, open; a toss is undone the same way.
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,48 +18,51 @@ const tapeHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf
 const template = (id) => new RegExp(`<template id="${id}">[\\s\\S]*?</template>`).exec(tapeHtml)[0];
 
 const BAR = 96000; // 120 BPM at 48 kHz
-const board = (bars, created, used = false) => ({
-  created, frames: bars * BAR,
-  tracks: [[{ file: `p-${created}.wav`, gain_db: 0, fade_in: 0, fade_out: 0 }]],
-  grab: { in: 0, out: bars * BAR, frames: bars * BAR, before: 0, after: 0, bars, bar_frames: BAR, sources: ['main'], used },
+const clip = (bars, id, over = {}) => ({
+  id, name: 'main', file: `p-${id}.wav`, src: 0, frames: bars * BAR, loop: true, source: 'grab',
+  lanes: [{ file: `p-${id}.wav`, src: 0, frames: bars * BAR, source: 'main' }],
+  grab: { in: 0, out: bars * BAR, frames: bars * BAR, before: 0, after: 0, bars, bar_frames: BAR, sources: ['main'] },
+  ...over,
+});
+const tapeOf = (clips) => ({
+  id: 't', sample_rate: 48000, length: 8 * BAR, grid: { frames: 8 * BAR, bars: 8 },
+  loop: { in: 0, out: 8 * BAR, on: false }, tracks: [1, 2, 3, 4].map(() => ({ clips: [] })),
+  cue: { clips },
 });
 
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise((r) => setImmediate(r)); };
 
 /**
- * withPi mounts the buffer against a Pi whose clipboard is `pi.board`; a POST
- * replaces it with pi.next (and says it replaced `pi.replaced`), and the Undo
- * restores pi.replaced. Every request is in `log`.
+ * withPi mounts the drawer against a Pi whose tape's cue lane is `lane`. A
+ * GRAB makes pi.next, in the place of the newest clip if it is an untouched
+ * GRAB, else after it; the tape's Undo steps its history back. Every request
+ * is in `log`, and the page's poll is `poll()`.
  */
-async function withPi(init, fn, { storage = null } = {}) {
+async function withPi({ lane = [], next = null }, fn, { storage = null } = {}) {
   const saved = { fetch: globalThis.fetch, localStorage: globalThis.localStorage };
-  const pi = { board: init.board || null, next: init.next || null, replaced: init.replaced || null, log: [], failUndo: init.failUndo || '', tossReplaces: !!init.tossReplaces };
+  const pi = { tape: tapeOf(lane), history: [], next, log: [] };
+  const change = (to) => { pi.history.push(pi.tape); pi.tape = to; };
   globalThis.fetch = async (url, o = {}) => {
     const method = o.method || 'GET';
-    pi.log.push({ url, method, body: o.body ? JSON.parse(o.body) : null });
+    const body = o.body ? JSON.parse(o.body) : null;
+    pi.log.push({ url, method, body });
     const ok = (b) => ({ ok: true, status: 200, json: async () => b });
-    if (url.startsWith('/api/clipboard?toss=1')) {
-      pi.tossed = pi.board;
-      pi.board = null;
-      return ok({ clipboard: null });
+    const clips = pi.tape.cue.clips;
+    if (url.startsWith('/api/tapes/cue/grab')) {
+      const last = clips.at(-1);
+      const replaced = last && last.source === 'grab' && !last.touched ? last : null;
+      change(tapeOf([...(replaced ? clips.slice(0, -1) : clips), pi.next]));
+      return ok({ tape: pi.tape, edit: { op: 'cue-grab', cue_clip: pi.next, ...(replaced ? { cue_replaced: replaced } : {}) } });
     }
-    if (url.startsWith('/api/clipboard/restore') && !url.includes('replaced=1')) {
-      // A toss's Undo: the tossed buffer comes back, and says what it replaced.
-      const had = pi.board;
-      pi.board = pi.tossed;
-      return ok({ clipboard: pi.board, seconds: 8, crated: [], ...(had && pi.tossReplaces ? { replaced: had, replaced_seconds: 8 } : {}) });
+    if (url.startsWith('/api/tapes/edit') && body.op === 'cue-remove') {
+      change(tapeOf(clips.filter((c) => c.id !== body.clip)));
+      return ok({ tape: pi.tape, edit: { op: 'cue-remove', clips: 1 } });
     }
-    if (url.startsWith('/api/clipboard/restore')) {
-      if (pi.failUndo) return { ok: false, status: 409, json: async () => ({ error: pi.failUndo }) };
-      pi.board = pi.replaced;
-      return ok({ clipboard: pi.board, seconds: 1 });
+    if (url.startsWith('/api/tapes/undo')) {
+      pi.tape = pi.history.pop();
+      return ok({ tape: pi.tape });
     }
-    if (url === '/api/clipboard' && method === 'POST') {
-      pi.board = pi.next;
-      return ok({ clipboard: pi.board, seconds: 8, clamped: false, wall: false, why: '', crated: [],
-        ...(pi.replaced ? { replaced: pi.replaced, replaced_seconds: 8 } : {}) });
-    }
-    return ok({ clipboard: pi.board });
+    return ok({});
   };
   globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
   mock.timers.enable({ apis: ['setInterval'] });
@@ -77,17 +82,19 @@ async function withPi(init, fn, { storage = null } = {}) {
       toasts.push(t);
       return t; // as the page's toast hands back its element
     } });
-    assert.ok(buffer, 'the buffer was built');
-    doc.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
-      tape: {
-        id: 't', sample_rate: 48000, length: 8 * BAR, grid: { frames: 8 * BAR, bars: 8 },
-        loop: { in: 0, out: 8 * BAR, on: false }, tracks: [1, 2, 3, 4].map(() => ({ clips: [] })),
-      },
-      rec_track: 1, rec_tracks: [1], rec_input: 'main', sources: [{ name: 'main' }], snap: 'bar', pos: 0, view: {},
-    } }));
-    await flush();
+    assert.ok(buffer, 'the drawer was built');
+    // The page's poll: what the Pi has now.
+    const poll = async () => {
+      doc.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
+        tape: pi.tape, rec_track: 1, rec_tracks: [1], rec_input: 'main', sources: [{ name: 'main' }], snap: 'bar', pos: 0, view: {},
+      } }));
+      await flush();
+    };
+    // Asked to look again, the page polls.
+    doc.addEventListener('hindsight:tape-changed', () => { poll(); });
+    await poll();
     const click = (node) => node.dispatchEvent(new CustomEvent('click'));
-    await fn({ doc, pi, toasts, buffer, grab: async () => { click(keysRow.querySelector('.buffer-grab-key')); await flush(); } });
+    await fn({ doc, pi, toasts, buffer, poll, grab: async () => { click(keysRow.querySelector('.buffer-grab-key')); await flush(); } });
   } finally {
     mock.timers.reset();
     Object.assign(globalThis, saved);
@@ -97,124 +104,97 @@ async function withPi(init, fn, { storage = null } = {}) {
 
 const actionsOf = (t) => (t.opts?.actions || (t.opts?.action ? [t.opts.action] : [])).map((a) => a.label);
 
-test('a GRAB over a buffer nobody dropped or kept says so, with Undo', async () => {
-  const old = board(4, 'old'), next = board(2, 'new');
-  await withPi({ board: old, next, replaced: old }, async ({ pi, toasts, grab }) => {
+test('a GRAB lands on the cue lane and opens the drawer on it', async () => {
+  await withPi({ next: clip(2, 'new') }, async ({ doc, pi, toasts, buffer, grab }) => {
+    await grab();
+    const post = pi.log.find((r) => r.url.startsWith('/api/tapes/cue/grab'));
+    assert.equal(post.url, '/api/tapes/cue/grab?id=t', 'onto the tape’s lane');
+    assert.deepEqual(post.body.sources, ['main']);
+    assert.equal(buffer.state.sel, 'new');
+    assert.equal(doc.getElementById('buffer').hidden, false);
+    assert.match(toasts.at(-1).msg, /^Grabbed the last \d+ bars onto the cue lane/);
+    assert.deepEqual(actionsOf(toasts.at(-1)), [], 'nothing replaced, nothing to undo');
+    assert.equal(pi.log.filter((r) => r.url.startsWith('/api/clipboard')).length, 0, 'the clipboard is left to Cut and Copy');
+  });
+});
+
+test('a GRAB in the place of an untouched one says so, and Undo brings that one back, open', async () => {
+  await withPi({ lane: [clip(4, 'old')], next: clip(2, 'new') }, async ({ pi, toasts, buffer, grab }) => {
     await grab();
     const t = toasts.at(-1);
-    assert.match(t.msg, /Replaced the buffer’s 4 BARS from the feed, never dropped or kept/);
+    assert.match(t.msg, /in place of “main”, which you hadn’t used/);
     assert.deepEqual(actionsOf(t), ['Undo']);
-    const post = pi.log.find((r) => r.method === 'POST' && r.url === '/api/clipboard');
-    assert.equal(post.body.crate, false, 'the rooms keep the replaced one in the Pi’s one slot, not in a crate nobody sees');
-  });
-});
-
-test('Undo puts the old buffer back, naming the grab it undoes', async () => {
-  const old = board(4, 'old'), next = board(2, 'new');
-  await withPi({ board: old, next, replaced: old }, async ({ pi, toasts, buffer, grab }) => {
-    await grab();
-    assert.equal(buffer.state.board.created, 'new');
-    await toasts.at(-1).opts.action.run();
+    assert.equal(buffer.state.sel, 'new');
+    await t.opts.action.run();
     await flush();
-    const undo = pi.log.find((r) => r.url.startsWith('/api/clipboard/restore'));
-    assert.equal(undo.method, 'POST');
-    assert.equal(undo.url, '/api/clipboard/restore?replaced=1&by=new');
-    assert.equal(buffer.state.board.created, 'old', 'the old buffer is the buffer again');
-    assert.ok(buffer.state.open, 'and it is open, as a grab opens it');
-    assert.match(toasts.at(-1).msg, /^Put back the buffer’s 4 BARS from the feed/);
+    assert.equal(pi.log.filter((r) => r.url.startsWith('/api/tapes/undo')).length, 1, 'the tape’s own Undo, once');
+    assert.equal(buffer.state.sel, 'old', 'the old clip is open again');
+    assert.ok(buffer.state.open);
   });
 });
 
-test('an Undo the Pi refuses says why, and leaves the buffer as it was', async () => {
-  const old = board(4, 'old'), next = board(2, 'new');
-  await withPi({ board: old, next, replaced: old, failUndo: 'Already dropped or kept — undo the drop instead' }, async ({ toasts, buffer, grab }) => {
+test('a GRAB after a touched clip is added after it, with no Undo to offer', async () => {
+  await withPi({ lane: [clip(4, 'old', { touched: true })], next: clip(2, 'new') }, async ({ pi, toasts, grab }) => {
     await grab();
-    await toasts.at(-1).opts.action.run();
-    await flush();
-    assert.equal(toasts.at(-1).kind, 'warn');
-    assert.equal(toasts.at(-1).msg, 'Already dropped or kept — undo the drop instead', 'the Pi’s plain words, as they are');
-    assert.equal(buffer.state.board.created, 'new');
-  });
-});
-
-test('Undo of a toss asks for the crate to be left alone, and says what it replaced, with Undo', async () => {
-  const tossed = board(4, 'tossed'), later = board(2, 'later');
-  await withPi({ board: tossed, next: later, tossReplaces: true, replaced: tossed }, async ({ doc, pi, toasts, buffer }) => {
-    const click = (id) => doc.getElementById(id).dispatchEvent(new CustomEvent('click'));
-    click('buffer-toss');
-    await flush();
-    assert.equal(pi.board, null);
-    pi.board = later; // another grab, made after the toss
-    buffer.render();
-    await toasts.find((t) => t.msg === 'Tossed the buffer').opts.action.run();
-    await flush();
-    const restore = pi.log.find((r) => r.url.startsWith('/api/clipboard/restore'));
-    assert.equal(restore.url, '/api/clipboard/restore?crate=0', 'nothing goes to the crate');
-    const said = toasts.find((t) => /^Replaced the buffer/.test(t.msg));
-    assert.ok(said, 'it says what the restored buffer replaced');
-    assert.deepEqual(actionsOf(said), ['Undo']);
-  });
-});
-
-test('a newer GRAB takes the older GRAB’s Undo off the screen', async () => {
-  const a = board(4, 'a'), b = board(2, 'b'), c = board(1, 'c');
-  await withPi({ board: a, next: b, replaced: a }, async ({ pi, toasts, grab }) => {
-    await grab();
-    const first = toasts.at(-1);
-    assert.match(first.msg, /Replaced the buffer’s 4 BARS/);
-    pi.next = c; pi.replaced = b;
-    await grab();
-    const second = toasts.at(-1);
-    assert.match(second.msg, /Replaced the buffer’s 2 BARS/);
-    assert.equal(first.dismissed, true, 'the older Undo is gone: tapping it could only fail');
-    assert.equal(second.dismissed, false);
-  });
-});
-
-test('a GRAB over nothing says nothing of replacing, and offers no Undo', async () => {
-  await withPi({ board: null, next: board(2, 'new') }, async ({ toasts, grab }) => {
-    await grab();
-    const t = toasts.at(-1);
-    assert.match(t.msg, /^Grabbed the last \d+ bars/);
-    assert.doesNotMatch(t.msg, /Replaced|crate/i);
-    assert.deepEqual(actionsOf(t), []);
-  });
-});
-
-test('a GRAB over a buffer that was dropped or kept says nothing of replacing either', async () => {
-  // The Pi answers no `replaced` for a used one; the page does not guess.
-  await withPi({ board: board(4, 'old', true), next: board(2, 'new') }, async ({ toasts, grab }) => {
-    await grab();
-    assert.doesNotMatch(toasts.at(-1).msg, /Replaced|crate/i);
+    assert.deepEqual(pi.tape.cue.clips.map((c) => c.id), ['old', 'new']);
     assert.deepEqual(actionsOf(toasts.at(-1)), []);
   });
 });
 
-test('no toast mentions the crate any more', async () => {
-  const old = board(4, 'old');
-  await withPi({ board: old, next: board(2, 'new'), replaced: old }, async ({ toasts, grab }) => {
+test('a newer GRAB takes the older GRAB’s Undo off the screen', async () => {
+  await withPi({ lane: [clip(4, 'a')], next: clip(2, 'b') }, async ({ pi, toasts, grab }) => {
     await grab();
-    for (const t of toasts) assert.doesNotMatch(t.msg, /crate/i);
+    const first = toasts.at(-1);
+    pi.next = clip(1, 'c');
+    await grab();
+    const second = toasts.at(-1);
+    assert.deepEqual(actionsOf(second), ['Undo']);
+    assert.equal(first.dismissed, true, 'the older Undo is gone: tapping it could only undo the wrong grab');
+    assert.equal(second.dismissed, false);
   });
 });
 
-test('a take’s GRAB leaves its note for the Studio, which says it once, with Undo', async () => {
-  const old = board(4, 'old'), next = board(2, 'new');
+test('Toss takes the clip off the lane, and its Undo puts it back, open', async () => {
+  await withPi({ lane: [clip(4, 'x')] }, async ({ doc, pi, toasts, buffer }) => {
+    doc.dispatchEvent(new CustomEvent('hindsight:cue-select', { detail: { id: 'x' } }));
+    await flush();
+    doc.getElementById('buffer-toss').dispatchEvent(new CustomEvent('click'));
+    await flush();
+    assert.deepEqual(pi.tape.cue.clips, []);
+    assert.equal(doc.getElementById('buffer').hidden, true, 'gone from the lane, the drawer shuts');
+    const t = toasts.find((x) => /^Tossed/.test(x.msg));
+    assert.deepEqual(actionsOf(t), ['Undo']);
+    await t.opts.action.run();
+    await flush();
+    assert.deepEqual(pi.tape.cue.clips.map((c) => c.id), ['x']);
+    assert.equal(buffer.state.sel, 'x');
+    assert.equal(doc.getElementById('buffer').hidden, false);
+  });
+});
+
+test('no toast mentions the crate or the buffer any more', async () => {
+  await withPi({ lane: [clip(4, 'old')], next: clip(2, 'new') }, async ({ toasts, grab }) => {
+    await grab();
+    for (const t of toasts) assert.doesNotMatch(t.msg, /crate|buffer/i);
+  });
+});
+
+test('a GRAB made away from the Studio opens its clip here, once, saying what it replaced, with Undo', async () => {
   const mem = new Map();
   const storage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v), removeItem: (k) => mem.delete(k) };
-  remember(storage, { by: 'new', line: 'Replaced the buffer’s 4 BARS from the feed, never dropped or kept' });
-  // The Studio opens with the new buffer already on the Pi.
-  await withPi({ board: next, replaced: old }, async ({ pi, toasts, buffer }) => {
-    assert.equal(buffer.state.board.created, 'new');
-    const said = toasts.filter((t) => /Replaced the buffer/.test(t.msg));
+  remember(storage, { by: 'new', line: 'In place of “main”, which you hadn’t used' });
+  // The Studio opens with the take's clip already on the lane.
+  await withPi({ lane: [clip(2, 'new')] }, async ({ pi, toasts, buffer, poll }) => {
+    pi.history.push(tapeOf([clip(4, 'old')]));
+    assert.equal(buffer.state.sel, 'new');
+    const said = toasts.filter((t) => /In place of/.test(t.msg));
     assert.equal(said.length, 1);
     assert.deepEqual(actionsOf(said[0]), ['Undo']);
     await said[0].opts.action.run();
     await flush();
-    assert.equal(pi.log.find((r) => r.url.startsWith('/api/clipboard/restore')).url, '/api/clipboard/restore?replaced=1&by=new');
-    assert.equal(buffer.state.board.created, 'old');
+    assert.deepEqual(pi.tape.cue.clips.map((c) => c.id), ['old']);
     // The next poll does not say it again.
-    mock.timers.tick(2000); await flush();
-    assert.equal(toasts.filter((t) => /Replaced the buffer/.test(t.msg)).length, 1);
+    await poll();
+    assert.equal(toasts.filter((t) => /In place of/.test(t.msg)).length, 1);
   }, { storage });
 });

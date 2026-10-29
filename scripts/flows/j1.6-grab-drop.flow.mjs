@@ -1,5 +1,5 @@
-// J1.6 Lift a moment: GRAB the last bars of the jam into the buffer, then
-// DROP them on the armed track. How many bars is on GRAB's ▾, whose bars
+// J1.6 Lift a moment: GRAB the last bars of the jam onto the cue lane, its
+// drawer open above the bar, then DROP them on the armed track. How many bars is on GRAB's ▾, whose bars
 // open under it (lib/ui/menu.js splitKey).
 // docs/flows.md#j16
 const parts = (s) => (s.tracks ?? []).reduce((n, tr) => n + (tr.clips?.length ?? 0), 0);
@@ -33,10 +33,18 @@ export default {
     }), await grab.innerText());
     await t.step('tap GRAB', () => t.tap(grab));
     t.expect('the panel shuts', await t.poll(() => document.querySelector('.buffer-grab-pop')?.hidden));
-    t.expect('the buffer opens with the grab', await t.poll(() => !document.getElementById('buffer')?.hidden, null, 8000));
-    // The buffer opens as GRAB goes; the Pi's grab lands a moment later.
-    const grabbed = await api.until(async () => (await api.get('/api/clipboard'))?.clipboard?.grab, 'the grab on the Pi', 8000).catch(() => null);
-    t.expect('the Pi grabbed 2 bars', grabbed?.bars === 2, grabbed);
+    const grabbed = await api.until(async () => (await api.tapeState()).cue?.clips?.[0]?.grab, 'the grab on the cue lane', 8000).catch(() => null);
+    t.expect('the Pi grabbed 2 bars onto the cue lane', grabbed?.bars === 2, grabbed);
+    t.expect('its drawer opens above the bar', await t.poll(() => {
+      const d = document.getElementById('buffer');
+      return d && !d.hidden && d.parentElement?.id === 'np-dock';
+    }, null, 8000));
+    // DROP is pressed seeing where it lands: every track is above the drawer.
+    t.expect('the tracks are above the drawer, none under the bar', await t.poll(() => {
+      const top = document.getElementById('buffer').getBoundingClientRect().top;
+      const rows = [...document.querySelectorAll('#lanes > .tape-track')];
+      return rows.length > 0 && rows.every((r) => { const b = r.getBoundingClientRect(); return b.height > 0 && b.bottom <= top + 1; });
+    }, null, 3000));
 
     // The key reads "Drop on track N · bars a–b" once the grab is placed.
     const label = () => document.getElementById('buffer-drop')?.textContent.replace(/\s+/g, ' ').trim() ?? '';

@@ -42,7 +42,8 @@ export function typingInto(el) {
 
 // Where ↵ belongs to what has the focus, however it got there: a link, a
 // menu's item, anything in a sheet or a menu, and the buffer's own keys.
-const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab';
+// A cue clip's pad, focused, launches on ↵ (lib/tape/cuelane.js).
+const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab, .cue-pad';
 // And a button -- a toast's Undo, Loop -- but only one the keyboard brought
 // the focus to. Chrome focuses a button that's clicked: arm a track with its
 // ●, press ↵ for DROP, and the ↵ went to the ●, which disarmed it. ▶ never

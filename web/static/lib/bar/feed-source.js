@@ -6,7 +6,8 @@
 
 import { paintOxide, oxideColors, drawTrace, traceLines } from '../wave/tape-strip.js';
 import { withAlpha } from '../theme.js';
-import { replacedLine, remember } from '../buffer/replaced.js';
+import { remember } from '../buffer/replaced.js';
+import { replacedNote } from '../buffer/cueclip.js';
 import { forTheTape } from './carry.js';
 import { feedDisplay } from './display.js';
 
@@ -106,20 +107,20 @@ export function feedSource({
   }
 
   /**
-   * grabToStudio sends a window around the current feed scrub position into
-   * the Studio's clipboard buffer (`POST /api/clipboard`) and returns `/tape.html`.
+   * grabToStudio GRABs the last seconds of the feed onto the loaded tape's
+   * cue lane (`POST /api/tapes/cue/grab`) and returns `/tape.html`, whose
+   * drawer opens on the clip.
    */
   async function grabToStudio({ seconds = 8 } = {}) {
-    const res = await fetchImpl('/api/clipboard', {
+    const res = await fetchImpl('/api/tapes/cue/grab', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ seconds, crate: false }),
+      body: JSON.stringify({ seconds }),
     });
     const b = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
-    if (b.replaced && b.clipboard) {
-      remember(storage, { by: b.clipboard.created, line: replacedLine(b.replaced, b.replaced_seconds) });
-    }
+    const clip = b.edit?.cue_clip;
+    if (clip) remember(storage, { by: clip.id, line: replacedNote(b.edit) });
     forTape();
     return '/tape.html';
   }

@@ -1,6 +1,7 @@
 // web/static/lib/buffer/api.js
-// The buffer's requests (internal/api, "the clipboard"). Each answers the
-// Pi's JSON, or throws an Error whose message is ready to show.
+// The drawer's requests: a cue clip's (internal/api/cue.go), and the tape's
+// that it needs (drop's Undo, the peaks). Each answers the Pi's JSON, or
+// throws an Error whose message is ready to show.
 
 async function call(path, { method = 'GET', body, fetchImpl = globalThis.fetch } = {}) {
   let res;
@@ -22,42 +23,42 @@ async function call(path, { method = 'GET', body, fetchImpl = globalThis.fetch }
   return b;
 }
 
-/** board is what's on the clipboard: {clipboard, error?}. */
-export const board = (o) => call('/api/clipboard', o);
+const q = (tapeId) => (tapeId ? `?id=${encodeURIComponent(tapeId)}` : '');
 
 /**
- * grab is the Studio's GRAB: {bars} or {seconds}, or {ring_from, ring_to},
- * from sources; {again: true, sources} takes the buffer's own span again.
+ * grab is the Studio's GRAB onto the cue lane: {bars} or {seconds}, or
+ * {ring_from, ring_to}, from sources; {clip, sources} takes that clip's span
+ * again from those; {take, from, to} a take's span. With no tape id, the
+ * loaded tape's lane. The tape's state, with edit.cue_clip and, when it took
+ * an untouched GRAB's place, edit.cue_replaced.
  */
-export const grab = (req, o) => call('/api/clipboard', { ...o, method: 'POST', body: req });
+export const grab = (tapeId, req, o) => call(`/api/tapes/cue/grab${q(tapeId)}`, { ...o, method: 'POST', body: req });
 
-/** trim moves the window: {in, out} in frames from the grab's start. */
-export const trim = (inF, outF, o) => call('/api/clipboard', { ...o, method: 'PATCH', body: { in: inF, out: outF } });
+/** trim moves a cue clip's window: {in, out} in frames from its grab's start. The tape's state. */
+export const trim = (tapeId, clip, inF, outF, o) => call(`/api/tapes/cue/clip${q(tapeId)}`, { ...o, method: 'PATCH', body: { clip, in: inF, out: outF } });
 
-/** shape sets the lanes' gain_db, fades, normalize or reverse. */
-export const shape = (fields, o) => call('/api/clipboard', { ...o, method: 'PATCH', body: fields });
+/** shape sets a cue clip's gain_db, fades and their curves, normalize or reverse. The tape's state. */
+export const shape = (tapeId, clip, fields, o) => call(`/api/tapes/cue/clip${q(tapeId)}`, { ...o, method: 'PATCH', body: { ...fields, clip } });
 
-/** keep is KEEP AS TAKE: {name, label, seconds}. */
-export const keep = (o) => call('/api/clipboard/keep', { ...o, method: 'POST' });
+/** keep is a cue clip's KEEP, as a take: {name, label, seconds}. */
+export const keep = (tapeId, clip, o) => call(`/api/tapes/cue/keep${q(tapeId)}`, { ...o, method: 'POST', body: { clip } });
 
-/** toss empties the clipboard, keeping it aside for restore. */
-export const toss = (o) => call('/api/clipboard?toss=1', { ...o, method: 'DELETE' });
+/** drop lays a cue clip on the tape, {track, at}, a lane a track: one undo. */
+export const drop = (tapeId, clip, track, at, o) => call(`/api/tapes/cue/drop${q(tapeId)}`, { ...o, method: 'POST', body: { clip, track, at } });
 
-/** restore is a toss's Undo. */
-export const restore = (o) => call('/api/clipboard/restore?crate=0', { ...o, method: 'POST' });
+/** edit is one of the tape's edits (cue-set, cue-remove): the tape's state. */
+export const edit = (tapeId, op, body, o) => call(`/api/tapes/edit${q(tapeId)}`, { ...o, method: 'POST', body: { op, ...body } });
+
+/** audioURL is a cue clip's audition, its lanes summed; key names what it plays now. */
+export const audioURL = (tapeId, clip, key) =>
+  `/api/tapes/cue/audio?id=${encodeURIComponent(tapeId)}&clip=${encodeURIComponent(clip)}&k=${encodeURIComponent(key)}`;
 
 /**
- * restoreReplaced is GRAB's Undo: the buffer the grab made at `by` (its
- * clipboard's `created`) replaced, back on the clipboard. The Pi keeps one.
+ * restoreReplaced is a range's Cut or Copy's Undo: the clipboard it made at
+ * `by` (its `created`) replaced, back on the clipboard. The Pi keeps one.
  */
 export const restoreReplaced = (by, o) =>
   call(`/api/clipboard/restore?replaced=1&by=${encodeURIComponent(by)}`, { ...o, method: 'POST' });
-
-/** drop lays the clipboard on the tape: {track, at}, one undo. */
-export const drop = (tapeId, track, at, o) => call(`/api/tapes/drop?id=${encodeURIComponent(tapeId)}`, { ...o, method: 'POST', body: { track, at } });
-
-/** cue puts the buffer on the cue lane, looping: the tape's state, edit.cue_clip the clip. */
-export const cue = (tapeId, o) => call(`/api/tapes/cue/add?id=${encodeURIComponent(tapeId)}`, { ...o, method: 'POST' });
 
 /** undo steps the tape back one: a drop's Undo. */
 export const undo = (tapeId, o) => call(`/api/tapes/undo?id=${encodeURIComponent(tapeId)}`, { ...o, method: 'POST' });

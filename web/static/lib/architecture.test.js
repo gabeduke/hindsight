@@ -135,10 +135,10 @@ test('Guardrail 8: FeedSource polls live envelope, draws waveform trace on #np-s
           }),
         };
       }
-      if (url === '/api/clipboard') {
+      if (url === '/api/tapes/cue/grab') {
         return {
           ok: true,
-          json: async () => ({ status: 'ok' }),
+          json: async () => ({ edit: { op: 'cue-grab', cue_clip: { id: 'c1' } } }),
         };
       }
       return { ok: false };
@@ -156,8 +156,8 @@ test('Guardrail 8: FeedSource polls live envelope, draws waveform trace on #np-s
 
   const href = await src.grabToStudio({ seconds: 15 });
   assert.equal(href, '/tape.html');
-  const clipCall = calls.find((c) => c.url === '/api/clipboard');
-  assert.ok(clipCall, 'grabToStudio must POST to /api/clipboard');
+  const grabCall = calls.find((c) => c.url === '/api/tapes/cue/grab');
+  assert.ok(grabCall, 'grabToStudio must POST to /api/tapes/cue/grab: the loaded tape’s cue lane');
   src.destroy();
 });
 

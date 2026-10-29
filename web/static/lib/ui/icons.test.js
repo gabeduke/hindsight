@@ -168,11 +168,10 @@ test('the header’s, the bar’s and the ruler’s keys are drawn from the spri
 // drawn yet, by file. A count may only go down, and when a region is drawn
 // its number here goes down with it.
 const TYPED = {
-  'lib/buffer/buffer.js': 2, // Buffer ▾/▴, the unfold key's ▾/▴
+  'lib/buffer/buffer.js': 1, // the unfold key's ▾/▴
   'lib/play/screen.js': 1, // Play mode's ▾/▴
   'lib/shell/views/room.js': 1, // ▶ Play all / ■ Stop
   'lib/tape/away-sheet.js': 2, // ▶ Listen / ■ Stop, ■ Stop and keep
-  'lib/tape/cuelane.js': 1, // a cue part's ⟲
   'lib/tape/page.js': 1, // the clip editor's ▶/❚❚
   'lib/wave/lanes.js': 1, // a lane's ▾/▸
   'lib/wave/page.js': 1, // the editor bar's ▶/❚❚
