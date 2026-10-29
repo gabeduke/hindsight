@@ -201,6 +201,29 @@ func TestAKnownControllerShipsAProfile(t *testing.T) {
 	f.waitFor(t, "press stop 16th")
 }
 
+// On Hindsight's firmware the SMK-37's buttons are notes on channel 16:
+// PLAY runs the transport and REC keeps, under either spelling of its name:
+// "SMK37 Open   " is what the Elite reported on Hindsight's firmware
+// (2026-10-27), trailing spaces and all. The same notes on another channel,
+// its keys', run nothing.
+func TestTheSMK37sSurfaceButtonsRunVerbs(t *testing.T) {
+	_, _, a, _ := controlsAPI(t, t.TempDir())
+	v := &fakeVerbs{}
+	a.controls.verbs = v
+	for _, port := range []string{"SMK-37", "SMK37 Open   "} {
+		a.ControlMIDI(port, 0x90, 16, 100) // channel 1: a key, low
+		a.ControlMIDI(port, 0x9F, 16, 127) // channel 16: PLAY
+		a.ControlMIDI(port, 0x8F, 16, 0)
+		v.wait(t, "transport")
+		a.ControlMIDI(port, 0x9F, 17, 127) // REC
+		a.ControlMIDI(port, 0x8F, 17, 0)
+		v.wait(t, "transport", "keep")
+		v.mu.Lock()
+		v.ran = nil
+		v.mu.Unlock()
+	}
+}
+
 // learn binds the next note or CC from that controller -- and nothing from
 // another -- and says so on the socket; it's in controls.json after.
 func TestLearnBindsOnlyFromThatController(t *testing.T) {

@@ -163,27 +163,52 @@ type profile struct {
 // controller's drum pads usually send (36 up, as here). That keeps its
 // keys, on channel 1 and starting at C3 (48), from running CATCH or DROP
 // while they're played. If its pads send elsewhere, MIDI LEARN rebinds them.
-var profiles = []profile{
-	{Name: "SMK-37", Bindings: func() Bindings {
-		out := defaultBindings()
-		for id, list := range out {
-			for i, b := range list {
-				if b.Note != nil {
-					list[i] = bwith(b, 10)
-				}
+//
+// On Hindsight's own firmware (internal/surface) the keyboard sends the same
+// pads, and its buttons as notes on channel 16 numbered as its panel's:
+// PLAY (16) runs the transport, REC (17) KEEPs. Its USB name may be spelt
+// without the hyphen, so both names match.
+func smk37Bindings() Bindings {
+	out := defaultBindings()
+	for id, list := range out {
+		for i, b := range list {
+			if b.Note != nil {
+				list[i] = bwith(b, 10)
 			}
-			out[id] = list
 		}
-		return out
-	}},
+		out[id] = list
+	}
+	out["transport"] = append(out["transport"], bwith(bn(16), 16))
+	out["keep"] = append(out["keep"], bwith(bn(17), 16))
+	return out
+}
+
+// keyboardNames are the SMK-37's, as its USB name may spell it: the one list
+// its profile and its client (keyboard.go) both match.
+var keyboardNames = []string{"SMK-37", "SMK37"}
+
+var profiles = func() []profile {
+	var out []profile
+	for _, name := range keyboardNames {
+		out = append(out, profile{Name: name, Bindings: smk37Bindings})
+	}
+	return out
+}()
+
+// profileOf is the profile a controller's name matches, or nil.
+func profileOf(name string) *profile {
+	low := strings.ToLower(name)
+	for i, p := range profiles {
+		if strings.Contains(low, strings.ToLower(p.Name)) {
+			return &profiles[i]
+		}
+	}
+	return nil
 }
 
 func profileFor(name string) (string, Bindings) {
-	low := strings.ToLower(name)
-	for _, p := range profiles {
-		if strings.Contains(low, strings.ToLower(p.Name)) {
-			return p.Name, p.Bindings()
-		}
+	if p := profileOf(name); p != nil {
+		return p.Name, p.Bindings()
 	}
 	return "", defaultBindings()
 }
@@ -889,8 +914,12 @@ func (a *API) controllerLatch(port string, down bool) {
 }
 
 // ControllerGone is the watcher's word that a controller's port went: what
-// it held is let go, as a dropped socket's is. Also its All Notes Off.
+// it held is let go, as a dropped socket's is. Also its All Notes Off. The
+// SMK-37's client forgets the keyboard (keyboard.go).
 func (a *API) ControllerGone(port string) {
+	if a.keyboard != nil && isKeyboard(port) {
+		a.keyboard.Gone()
+	}
 	b := &a.controls
 	b.mu.Lock()
 	var held []string

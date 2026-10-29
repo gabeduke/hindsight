@@ -147,7 +147,53 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 - The instrument's DRIVE make-up by ear with the SMK-37 (about 10 dB quieter
   on a loud loop at full drive).
 - `BenchmarkRenderABlock` on the Pi 4B.
-- The SMK-37 profile's MIDI channel (a guess: channel 10).
+- The SMK-37 profile's MIDI channel on M-VAVE's firmware (a guess: channel
+  10). On Hindsight's own, the pads are channel 10, read off the unit.
+- **The SMK-37 on Hindsight's own firmware** (`the-instrument.md` step 7,
+  which holds the plan; this is where it stands, 2026-10-28). The firmware
+  is `gabeduke/smk37-hindsight`, whose `HINDSIGHT.md` covers its builds,
+  the flash tools and the virtual keyboard.
+  - **The keyboard:**
+    - The Elite runs the fork's `main` (the soft-key build, 9efec0ae), and
+      shows up as "SMK37 Open". m-bootloader 1.2 is on it.
+    - Two matching backups were taken, and a third after m-bootloader.
+      They're on Gabe's Mac, never in a repo.
+    - Every write from here on goes through M-Flasher (`download-mode`,
+      then the install). Never use Open's workbench or M-UPGRADE again:
+      they put M-VAVE's loader back. The rules on which regions must never
+      be written are in step 7.
+  - **The PRs**, all green, all Gabe's to merge:
+    - #182, the spec. Docs only, so no release.
+    - this one, #183. It cuts a release, but does nothing unless
+      `TAPE_CONTROLLER` names the SMK-37. Four fixes from review are
+      pushed.
+    - #188, which keeps a deploy from deleting the Pi's `settings.json`.
+      No release.
+  - **The Pi:**
+    - It runs main plus #183 **from before the review fixes**, deployed
+      unreleased (`v2026.10.27.3-10-ge4ddcf11`), with
+      `TAPE_CONTROLLER=SMK37` saved in its `settings.json`.
+    - On restart it took the keyboard's screen and drew the panel.
+  - **Next, at the rig**, with the interface on so KEEP has something in
+    the ring:
+    1. Deploy #183's head merged with main. Until #188 merges, save
+       `TAPE_CONTROLLER` again after the deploy, then restart (see
+       *Gotchas*).
+    2. Check, from the Pi's log and `/api/status`:
+       - PLAY starts and stops the tape;
+       - REC keeps a take that reaches the shelf;
+       - HOME gives the screen back;
+       - HOME held for a second hands it back to Hindsight.
+    3. Gabe saw "some overlap on a couple screens", which isn't explained
+       yet.
+  - **Then:**
+    1. Agree the K flow stories with Gabe. They're written in step 7, and
+       none are agreed yet.
+    2. Build-order step 2: the virtual port `/api/controllers/virtual`,
+       and the keyboard on `/api/status`.
+    3. Step 4: `t.keyboard` in the flows harness, and K1–K5.
+
+    Steps 1 and 3 (the fork's CI artifact and the page's link) are done.
 - The rig page with the real Sidekick (the eight steps in PR #107).
 - The device spike (iPad standalone audio when backgrounded; Android
   discarding the PWA mid-jam) needs the tablet and the iPad.
@@ -156,6 +202,15 @@ A flow that taps that soon hears nothing, which is why `t.api.keep` waits.)
 
 - `gh pr edit` fails on this repo (the retired projects API). Use
   `gh api -X PATCH repos/gabeduke/hindsight/pulls/<n> -F body=@file`.
+- Until #188 merges, `make deploy` deletes the Pi's `settings.json`, which
+  is what the Settings sheet saves. After a deploy, save the setting
+  again (`PUT /api/settings`), then `POST /api/restart`.
+- On the Pi, the service's log is
+  `journalctl _SYSTEMD_USER_UNIT=hindsight.service`;
+  `journalctl --user -u` finds nothing.
+- The `flows` job once failed J1.3 on desktop (the selection went before
+  GRAB was tapped), then passed when re-run, with no web change. If it
+  comes back, it's on main.
 - A demo without `TAPE_DIR` and `SETTINGS_FILE` writes `~/hindsight`. The
   flows runner sets both to a temp dir.
 - Flaky Go tests: fixed on 2026-10-22, from every red `test` job in the
@@ -238,6 +293,9 @@ keys, Open's own, the menus' ✓) go as their regions are rebuilt.
 Beside it, in tracks of their own: `the-instrument.md` (agreed
 2026-10-26), Hindsight as something you play. Its step 1 comes first:
 latency measured in use, every control timed to the ear, kept on the Pi.
+And `pushing-tape-state.md` (agreed 2026-10-28): the Pi nudges the page
+when the tape changes, so the tablet follows a controller's press in about
+30–50 ms instead of up to 235.
 4. Fix the layout findings above, and look through the storyboard
    (`--storyboard`, or CI's `flow-storyboard` artifact) with Gabe for what
    no check can see. The coverage map lists the controls no flow touches.

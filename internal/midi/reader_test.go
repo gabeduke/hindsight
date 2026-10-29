@@ -115,14 +115,19 @@ func TestWatcherTimestampsFinelyEnoughToEstimateTempo(t *testing.T) {
 		wr.Write([]byte{ClockByte})
 		time.Sleep(5 * time.Millisecond)
 	}
+	written := time.Since(start)
 	waitFor(t, "120 pulses", func() bool { return clock.Pulses() >= 120 })
 
 	got, ok := clock.BPM(start.Add(-time.Second), time.Now())
 	if !ok {
 		t.Fatal("BPM refused; the reader is batching its timestamps")
 	}
-	if math.Abs(got-500) > 150 {
-		t.Errorf("BPM = %.1f, want roughly 500", got)
+	// Against the tempo actually written: on a loaded runner the sleeps
+	// run long (CI's once averaged 7.9 ms, 315 BPM), and the reader should
+	// hear what was played, not what was meant.
+	want := 60 / (24 * written.Seconds() / 120)
+	if math.Abs(got-want) > want*0.3 {
+		t.Errorf("BPM = %.1f, want roughly the %.1f written", got, want)
 	}
 }
 

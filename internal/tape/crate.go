@@ -95,6 +95,7 @@ func (s *Store) LoadCrate() (*Crate, error) {
 func (s *Store) SaveCrate(c *Crate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.bump()
 	b, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err

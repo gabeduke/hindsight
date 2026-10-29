@@ -118,22 +118,32 @@ func dataLen(status byte) int {
 //
 // SysEx is skipped byte by byte until 0xF7, and counted, because a
 // variable-length message has no place in a fixed-size ring and nothing on
-// this rig sends one anyone wants in a DAW.
+// this rig sends one anyone wants in a DAW. A controller that talks back in
+// SysEx (the SMK-37 on Hindsight's firmware, internal/surface) is heard
+// through OnSysEx, which still leaves the message out of the ring.
 type Parser struct {
 	// OnMessage receives every complete channel or system common message.
 	OnMessage func(status, d1, d2 byte)
 	// OnRealtime receives every realtime byte, clock included, as it arrives.
 	OnRealtime func(b byte)
+	// OnSysEx, when set, receives every complete SysEx message of up to
+	// MaxSysEx bytes, F0 to F7, in a buffer it may keep. Longer ones, and
+	// ones a status byte cuts short, aren't passed on.
+	OnSysEx func(msg []byte)
 
 	status  byte // running status, 0 when none
 	need    int  // data bytes still wanted for the message in progress
 	have    int
 	data    [2]byte
 	inSysEx bool
+	sysex   []byte // the SysEx message so far, for OnSysEx; nil once too long
 
 	// SysExDropped counts skipped SysEx messages, so a manifest can say so.
 	SysExDropped uint64
 }
+
+// MaxSysEx is the longest SysEx message a Parser passes to OnSysEx.
+const MaxSysEx = 256
 
 // Feed offers one byte.
 func (p *Parser) Feed(b byte) {
@@ -151,12 +161,24 @@ func (p *Parser) Feed(b byte) {
 		if b == SysExEnd {
 			p.inSysEx = false
 			p.SysExDropped++
+			if p.sysex != nil {
+				msg := append(p.sysex, b)
+				p.sysex = nil
+				p.OnSysEx(msg)
+			}
 		} else if b >= 0x80 {
 			// A status byte inside SysEx terminates it implicitly. Fall through
 			// and treat the byte as the start of a new message.
 			p.inSysEx = false
+			p.sysex = nil
 			p.SysExDropped++
 			p.Feed(b)
+		} else if p.sysex != nil {
+			if len(p.sysex) == MaxSysEx-1 {
+				p.sysex = nil // no room for its F7: too long to pass on
+			} else {
+				p.sysex = append(p.sysex, b)
+			}
 		}
 		return
 	}
@@ -166,6 +188,9 @@ func (p *Parser) Feed(b byte) {
 			p.inSysEx = true
 			p.status = 0
 			p.have = 0
+			if p.OnSysEx != nil {
+				p.sysex = append(make([]byte, 0, 16), b)
+			}
 			return
 		}
 		n := dataLen(b)

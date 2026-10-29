@@ -121,6 +121,56 @@ func TestWatcherOpensAControllerWithCaptureOff(t *testing.T) {
 	}
 }
 
+// sysexSink is a sink that hears SysEx too, as internal/api's does.
+type sysexSink struct {
+	sink
+	sysex [][]byte
+}
+
+func (s *sysexSink) ControlSysEx(port string, msg []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sysex = append(s.sysex, append([]byte(port+":"), msg...))
+}
+
+// A controller's SysEx reaches a sink that hears it -- the keyboard's acks
+// and its RELEASE (internal/surface) -- and its notes go on as before. The
+// ring stays free of both.
+func TestAControllersSysExReachesTheSink(t *testing.T) {
+	cards, snd, _, smk := controllerFixture(t)
+	ring := NewEventRing(100)
+	s := &sysexSink{}
+	w := controllerWatcher(cards, snd, Policy{Capture: true, Controllers: []string{"smk"}}, ring)
+	w.SetControlSink(s)
+	w.Start()
+	defer w.Stop()
+
+	wr := openWriterSoon(t, smk)
+	defer wr.Close()
+	waitFor(t, "the controller to open", func() bool { return controllerOpen(w) })
+	time.Sleep(60 * time.Millisecond) // past the drain window
+	if _, err := wr.Write([]byte{0xF0, 0x7D, 0x48, 0x53, 0x01, 0x00, 0x03, 0xF7, 0x99, 39, 100}); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "a SysEx and a note on the bus", func() bool {
+		n, _ := s.count()
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return n == 1 && len(s.sysex) == 1
+	})
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if want := append([]byte("SMK-37:"), 0xF0, 0x7D, 0x48, 0x53, 0x01, 0x00, 0x03, 0xF7); string(s.sysex[0]) != string(want) {
+		t.Errorf("SysEx = % x, want % x", s.sysex[0], want)
+	}
+	if want := [4]any{"SMK-37", byte(0x99), byte(39), byte(100)}; s.msgs[0] != want {
+		t.Errorf("note = %v, want %v", s.msgs[0], want)
+	}
+	if ring.Len() != 1 {
+		t.Errorf("the ring holds %d events, want the note alone", ring.Len())
+	}
+}
+
 // MIDI_IGNORE wins over everything, TAPE_CONTROLLER too: an ignored device
 // is never opened, so a broad controller name can't make it play the tape.
 func TestAnIgnoredControllerIsNeverOpened(t *testing.T) {
