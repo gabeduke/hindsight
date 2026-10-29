@@ -40,7 +40,7 @@ import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
 import { watchChanges } from './changes.js';
-import { lightFor } from '../bar/press-note.js';
+import { lightTrackHead } from '../bar/press-note.js';
 import * as sel from './selection.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
 import { syncState } from '../bar/display.js';
@@ -327,9 +327,7 @@ function nudged() {
 // lights the head of the track it changed here, for the note's second.
 function heardPress(p) {
   engine.tape.heardPress(p);
-  if (!p.lit.includes('track')) return;
-  const head = lanes.find((l) => l.n === p.track)?.row.querySelector('.tt-head');
-  if (head) lightFor([head], p);
+  lightTrackHead(lanes, p);
 }
 function followTheTape() {
   engine.tape.delegate(barHands);

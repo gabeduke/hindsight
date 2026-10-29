@@ -86,12 +86,14 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
   // milliseconds; the tick stays as the fallback.
   // A press on the keyboard comes on the same socket (changes.js pressOf),
   // or the Studio's while it is shown, which hands it on (heardPress): the
-  // bar's note hears it either way (onPress).
+  // bar's note hears it either way (onPress). The keyboard plays the tape
+  // whatever is in the bar, so the socket stays open with a take in it too,
+  // for the presses: only its nudges wait for the tape to be back.
   let changes = null;
   const pressListeners = new Set();
   const heardPress = (p) => { for (const f of pressListeners) f(p); };
   const syncChanges = () => {
-    const on = !stopped && active && !del;
+    const on = !stopped && !del;
     if (on && !changes) {
       changes = watch({ onNudge: () => { if (active && !del && !document.hidden) ask(); }, onPress: heardPress });
     } else if (!on && changes) { changes.close(); changes = null; }

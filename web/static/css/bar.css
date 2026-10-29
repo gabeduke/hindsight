@@ -208,6 +208,10 @@ button.np-lcd-key { cursor: pointer; }
   font: 600 19px/20px var(--mono); letter-spacing: .04em; white-space: nowrap;
   text-shadow: 0 0 7px color-mix(in srgb, currentColor 60%, transparent);
 }
+/* At rest it is there for a screen reader (a live region) and not to see;
+   a press shows it (data-kb, its role). */
+.np-press { opacity: 0; }
+.np-press[data-kb] { opacity: 1; }
 .np-press-mark { flex: none; }
 .np-press-words { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .np-press[data-kb="refused"] {
@@ -489,12 +493,15 @@ button.np-lcd-key { cursor: pointer; }
   .np[data-size="mini"] .np-lcd { height: 40px; }
   .np[data-size="mini"] .np-lcd-pos { min-width: 0; min-height: 0; padding: 0 5px; }
   .np[data-size="mini"] :is(.np-lcd-key, .np-unit, .np-levels) { display: none; }
-  /* The keyboard's press in the mini player's small window: the reels step
-     aside for its second, so the display has the window's width (the
-     window's own width, and so ▶, stay as they are), and its words wrap to
-     two short lines rather than cut to one letter. */
-  .np[data-size="mini"] .np-window:has(.np-press:not([hidden])) .np-reel { display: none; }
-  .np[data-size="mini"] .np-press { gap: 4px; padding: 0 6px; }
+  /* The keyboard's press in the mini player's small window: over the whole
+     window, reels and all, not the display alone (the display is too narrow
+     for its words, and it, not .np-lcd, is what the note is placed in
+     here), above the reels; its words wrap to two short lines rather than
+     cut to one letter. The display gives up its z-index too: a flex item
+     with one is a stacking context even unpositioned, and would keep the
+     note under the right reel. */
+  .np[data-size="mini"] .np-lcd { position: static; z-index: auto; }
+  .np[data-size="mini"] .np-press { z-index: 2; gap: 4px; padding: 0 8px; border-radius: inherit; }
   .np[data-size="mini"] .np-press-mark { width: 12px; height: 12px; }
   .np[data-size="mini"] .np-press-words {
     white-space: normal; overflow-wrap: anywhere;

@@ -672,10 +672,11 @@ tape to the Studio, closing it hands it back (`delegate(null)`). A nudge
 asks `poll-gate.js`'s `nudge()`, which polls at once with no poll out, or
 has the poll that is out poll once more when it ends (`end()` says so),
 never two at once. The bar's tape source (`lib/bar/tape-source.js`) is not
-a view: its socket's life is tied to `del` and `active` instead. It
-watches while it polls the tape itself (in the bar, `active`, and not
-handed to the Studio, `!del`), and closes on `delegate(d)`, on
-`setActive(false)` and on `destroy()`. Its polls go through a gate of their
+a view: its socket's life is tied to `del` instead. It watches while the
+tape is not handed to the Studio (`!del`), and closes on `delegate(d)` and
+on `destroy()`. With a take in the bar (`setActive(false)`) it stays open
+for the keyboard's presses (*The keyboard's press*), but its nudges poll
+nothing until the tape is back. Its polls go through a gate of their
 own on the same rules (a tick skipped while one is out, a wake-up forced,
 a nudge, a press or the hand-back asked for once), with a 4 s timeout so a
 poll lost in a sleep frees the gate. The 200 ms and 500 ms polls stay, as
@@ -716,12 +717,26 @@ from the Studio's (`heardPress`); the engine's listener is the bar's note
 (`lib/bar/press-note.js`, `#np-press`), which puts the words over the
 display, after the keyboard's icon, for what is left of the second, and
 lights ▶ or ● (`.kb-lit`, `data-kb` the role). The Studio lights the
-track's head itself (`lightFor`). The note is out of the layout, over the
-display alone, and lets taps through, so nothing on the bar moves; in the
-phone's mini player the reels step aside for its second. A take in the
-bar, or Open's page, has no tape socket, so no note. J1.15 presses PLAY,
-STOP and a refused CATCH on a keyboard in the demo (`api.keyboard()`, a
-FIFO for its rawmidi node) and checks the note comes and goes.
+track's head itself (`lightTrackHead`). The note is out of the layout,
+over the display alone (in the phone's mini player, over the whole window,
+reels and all, since the display there is too narrow), and lets taps
+through, so nothing on the bar moves. `#np-press` is a live region
+(`role="status"`, `aria-atomic`) that is always in the page: a press shows
+by its `data-kb` and its words, and goes by emptying them, never by
+`hidden`, which would take it out of the accessibility tree.
+
+**Every press answers, whatever the bar holds.** The keyboard plays the
+tape, not the bar's source, so the note shows over the display in every
+room with the shell's bar: over the tape, the live feed or a take alike,
+in the Studio (through its socket) and anywhere else (through the bar's,
+which stays open for presses while a take is in the bar). Open's page
+(`wave.html`) has no tape source and no note.
+
+J1.15 presses PLAY, STOP, a refused CATCH, GRAB and DROP on a keyboard in
+the demo (`api.keyboard()`, a FIFO for its rawmidi node), in the Studio
+and in the Listening Room, with a take in the bar there too, and checks
+each note comes and goes, what it lit (▶, the dropped-on track's head)
+and that ▶ never moved.
 
 **Catching.** What the tape played at output frame `o` is in the capture
 ring at `o + delta`. A catch looks up the output frames it wants -- a pass

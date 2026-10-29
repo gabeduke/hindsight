@@ -419,8 +419,9 @@
             <!-- A press on the keyboard: its words over the display for the
                  second its own screen shows them, marked as the keyboard's,
                  and out of the layout, so nothing on the bar moves
-                 (lib/bar/press-note.js). -->
-            <div id="np-press" class="np-press" role="status" hidden><svg class="i i-keyboard np-press-mark" width="18" height="18" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#keyboard"/></svg><span class="sr-only">The keyboard: </span><span id="np-press-words" class="np-press-words"></span></div>
+                 (lib/bar/press-note.js). A live region, always in the page:
+                 shown by its data-kb, never by `hidden`. -->
+            <div id="np-press" class="np-press" role="status" aria-atomic="true"><svg class="i i-keyboard np-press-mark" width="18" height="18" aria-hidden="true"><use href="/icons/ui.svg?v=c8b28c4c#keyboard"/></svg><span class="sr-only">The keyboard: </span><span id="np-press-words" class="np-press-words"></span></div>
           </div>
           <svg id="np-reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
         </div>

@@ -280,7 +280,7 @@ test('the tape: a nudge from the Pi polls at once, not at the next tick', async 
   assert.equal(w.open, 0, 'destroy lets the socket go');
 });
 
-test('the tape: handed to the Studio, the bar stops watching; handed back, it watches and polls', async () => {
+test('the tape: handed to the Studio, the bar stops watching; handed back, it watches and polls; with a take in the bar, it hears only presses', async () => {
   let polls = 0;
   stubs(() => { polls++; return { tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }; });
   const w = fakeWatch();
@@ -294,7 +294,11 @@ test('the tape: handed to the Studio, the bar stops watching; handed back, it wa
   await settle();
   assert.equal(polls, before + 1, 'and asks the Pi at once, for what changed meanwhile');
   s.setActive(false);
-  assert.equal(w.open, 0, 'the bar holding a take: no socket');
+  assert.equal(w.open, 1, 'the bar holding a take still hears the keyboard\'s presses');
+  const before2 = polls;
+  w.nudge({ rev: 9 });
+  await settle();
+  assert.equal(polls, before2, 'but a nudge polls nothing until the tape is back');
 });
 
 test('the tape: a nudge while a poll is out asks once more after it, never two at once', async () => {
@@ -338,5 +342,18 @@ test('the tape: a press on the keyboard is heard on the bar\'s socket, or handed
   off();
   s.heardPress({ words: 'KEPT 30 S', role: 'rec', lit: ['rec'], track: 0, ms: 1000 });
   assert.deepEqual(heard, ['PLAY', 'STOP']);
+  s.destroy();
+});
+
+test('the tape: with a take in the bar, a press on the keyboard is still heard', async () => {
+  stubs(() => ({ tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }));
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  const heard = [];
+  s.onPress((p) => heard.push(p.words));
+  s.setActive(false);
+  w.press({ words: 'PLAY', role: 'play', lit: ['play'], track: 0, ms: 1000 });
+  assert.deepEqual(heard, ['PLAY']);
   s.destroy();
 });
