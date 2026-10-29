@@ -13,6 +13,11 @@
 // A TEXT waiting for the same place as a newer one is replaced, so a counter
 // updated faster than the keyboard draws never piles up.
 //
+// After a press, a banner takes the screen's top line for BannerFor, timed
+// by the Keyboard's own clock and loop (Banner), then the line that was
+// there comes back. While it shows, a TEXT for the top line is kept for
+// then rather than drawn over it.
+//
 // What the keyboard's panel sends while Hindsight has its screen is plain
 // MIDI, and goes to Play mode's bus with every other controller's
 // (internal/api's controls).
@@ -58,6 +63,17 @@ const (
 	MaxText = 40
 	// Knobs is how many encoders KNOB can set.
 	Knobs = 7
+
+	// TopX and TopY are the top line's place. The banner takes that place,
+	// as TEXT works by place, so a layout puts its top line there: a line
+	// anywhere else would show under the banner. BannerScale is the
+	// banner's, 19 characters from TopX.
+	TopX        = 8
+	TopY        = 8
+	BannerScale = 2
+	// BannerFor is how long a banner shows, from its press
+	// (docs/plan/the-instrument.md, *The flash*).
+	BannerFor = time.Second
 )
 
 var header = []byte{0xF0, 0x7D, 'H', 'S', 0x01}
@@ -88,14 +104,15 @@ type message struct {
 type Keyboard struct {
 	send      func([]byte)
 	connected func() bool
-	now       func() time.Time
 
 	// AckTimeout is how long a message waits for its ack before it is sent
 	// again, Tries times in all; Probe is how often HELLO asks whether the
-	// keyboard is there. Set them before Start.
+	// keyboard is there. Clock is the Keyboard's time, time.Now; a test
+	// stands in. Set them before Start.
 	AckTimeout time.Duration
 	Tries      int
 	Probe      time.Duration
+	Clock      func() time.Time
 
 	mu        sync.Mutex
 	queue     []*message
@@ -104,6 +121,12 @@ type Keyboard struct {
 	status    Status
 	probed    time.Time
 	onPresent func()
+
+	// top is the top line's TEXT payload as the layout last drew it, nil
+	// when it drew none since the last CLEAR; banner is when the banner
+	// showing over it goes, zero when none shows.
+	top    []byte
+	banner time.Time
 
 	stop chan struct{}
 	done chan struct{}
@@ -116,7 +139,7 @@ func New(send func([]byte), connected func() bool) *Keyboard {
 	return &Keyboard{
 		send:       send,
 		connected:  connected,
-		now:        time.Now,
+		Clock:      time.Now,
 		AckTimeout: 250 * time.Millisecond,
 		Tries:      3,
 		Probe:      2 * time.Second,
@@ -144,7 +167,7 @@ func (k *Keyboard) Start() {
 			case <-k.stop:
 				return
 			case <-t.C:
-				k.tick()
+				k.Tick()
 			}
 		}
 	}()
@@ -182,16 +205,48 @@ func (k *Keyboard) Clear(c Colour) bool {
 	if c >= colours {
 		return false
 	}
-	return k.enqueue(cmdClear, []byte{byte(c)})
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if !k.status.Present {
+		return false
+	}
+	k.top, k.banner = nil, time.Time{} // a CLEAR wipes the banner with everything else
+	k.queueLocked(cmdClear, []byte{byte(c)})
+	return true
 }
 
 // Text puts s at (x, y) at scale 1 to 4 in c, replacing what was there; an
 // empty s removes it. It is drawn in capitals, cut to what fits, and only
-// while Hindsight has the screen.
+// while Hindsight has the screen. The top line, while a banner shows, is
+// drawn when the banner goes.
 func (k *Keyboard) Text(x, y, scale int, c Colour, s string) bool {
+	payload, ok := textPayload(x, y, scale, c, s)
+	if !ok {
+		return false
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if !k.status.Present {
+		return false
+	}
+	if x == TopX && y == TopY {
+		k.top = payload
+		if s == "" {
+			k.top = nil
+		}
+		if !k.banner.IsZero() {
+			return true // drawn when the banner goes
+		}
+	}
+	k.queueLocked(cmdText, payload)
+	return true
+}
+
+// textPayload is TEXT's payload: false when it can't be drawn.
+func textPayload(x, y, scale int, c Colour, s string) ([]byte, bool) {
 	if x < 0 || y < 0 || scale < 1 || scale > 4 || c >= colours ||
 		x+6*scale > Width || y+7*scale > Height {
-		return false
+		return nil, false
 	}
 	var b strings.Builder
 	for _, r := range s {
@@ -207,8 +262,51 @@ func (k *Keyboard) Text(x, y, scale int, c Colour, s string) bool {
 	if len(text) > MaxText {
 		text = text[:MaxText]
 	}
-	payload := append([]byte{byte(x & 127), byte(x >> 7), byte(y & 127), byte(y >> 7), byte(scale), byte(c)}, text...)
-	return k.enqueue(cmdText, payload)
+	return append([]byte{byte(x & 127), byte(x >> 7), byte(y & 127), byte(y >> 7), byte(scale), byte(c)}, text...), true
+}
+
+// Now is the Keyboard's clock: a press is stamped with it, so its banner is
+// timed from the press (Banner).
+func (k *Keyboard) Now() time.Time { return k.Clock() }
+
+// Banner puts s over the top line in c until BannerFor after pressed, then
+// puts back the line that was there; a banner already showing is replaced,
+// and its time starts again from pressed. Nothing is drawn unless Hindsight
+// has the screen, or once that time has passed (a verb that took longer
+// than it). False when nothing was drawn.
+func (k *Keyboard) Banner(pressed time.Time, c Colour, s string) bool {
+	payload, ok := textPayload(TopX, TopY, BannerScale, c, s)
+	if !ok || s == "" {
+		return false
+	}
+	until := pressed.Add(BannerFor)
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if !k.status.Present || !k.status.Screen || !k.Now().Before(until) {
+		return false
+	}
+	// Queued under the same lock as the check: a HOME between the two
+	// would otherwise find nothing to drop, and the banner would follow it.
+	k.banner = until
+	k.queueLocked(cmdText, payload)
+	return true
+}
+
+// unbanner puts back the top line once the banner's time is up. Called with
+// mu held, from tick.
+func (k *Keyboard) unbanner() {
+	if k.banner.IsZero() || k.Now().Before(k.banner) {
+		return
+	}
+	k.banner = time.Time{}
+	if !k.status.Screen {
+		return // HOME since: the screen is the keyboard's
+	}
+	payload := k.top
+	if payload == nil {
+		payload = []byte{TopX & 127, TopX >> 7, TopY & 127, TopY >> 7, BannerScale, byte(Text)} // no text: removed
+	}
+	k.queueLocked(cmdText, payload)
 }
 
 // Release gives the screen back.
@@ -231,6 +329,12 @@ func (k *Keyboard) enqueue(cmd byte, payload []byte) bool {
 	if !k.status.Present {
 		return false
 	}
+	k.queueLocked(cmd, payload)
+	return true
+}
+
+// queueLocked is enqueue with mu held, for a keyboard that is there.
+func (k *Keyboard) queueLocked(cmd byte, payload []byte) {
 	queued := false
 	if cmd == cmdText {
 		for i := len(k.queue) - 1; i >= 0 && k.queue[i].cmd == cmdText; i-- {
@@ -245,7 +349,6 @@ func (k *Keyboard) enqueue(cmd byte, payload []byte) bool {
 		k.queue = append(k.queue, &message{cmd: cmd, payload: payload})
 	}
 	k.next()
-	return true
 }
 
 // nextSeq is 1 to 127: seq 0 is the keyboard's own RELEASE and OFFER.
@@ -269,22 +372,25 @@ func (k *Keyboard) next() {
 // frame stamps m as sent now and encodes it. Called with mu held.
 func (k *Keyboard) frame(m *message) []byte {
 	m.tries++
-	m.sent = k.now()
+	m.sent = k.Now()
 	out := append(append([]byte{}, header...), m.seq, m.cmd)
 	out = append(out, m.payload...)
 	return append(out, 0xF7)
 }
 
-// tick probes, sends again what had no ack, and forgets a keyboard that
-// stopped answering or was unplugged.
-func (k *Keyboard) tick() {
+// Tick probes, sends again what had no ack, puts back the top line once a
+// banner's time is up, and forgets a keyboard that stopped answering or was
+// unplugged. Start's loop calls it every 20 ms; a test with its own Clock
+// may call it instead of Start.
+func (k *Keyboard) Tick() {
 	connected := k.connected()
 	k.mu.Lock()
 	defer k.mu.Unlock()
+	k.unbanner()
 	switch {
 	case !connected:
 		k.forget()
-	case k.flight != nil && k.now().Sub(k.flight.sent) >= k.AckTimeout:
+	case k.flight != nil && k.Now().Sub(k.flight.sent) >= k.AckTimeout:
 		if k.flight.tries < k.Tries {
 			k.send(k.frame(k.flight))
 		} else if k.status.Present {
@@ -294,8 +400,8 @@ func (k *Keyboard) tick() {
 		} else {
 			k.flight = nil
 		}
-	case !k.status.Present && k.flight == nil && k.now().Sub(k.probed) >= k.Probe:
-		k.probed = k.now()
+	case !k.status.Present && k.flight == nil && k.Now().Sub(k.probed) >= k.Probe:
+		k.probed = k.Now()
 		k.queue = append([]*message{{cmd: cmdHello}}, k.queue...)
 		k.next()
 	}
@@ -307,12 +413,14 @@ func (k *Keyboard) tick() {
 func (k *Keyboard) forget() {
 	k.status = Status{Homed: k.status.Homed}
 	k.flight, k.queue = nil, nil
+	k.top, k.banner = nil, time.Time{}
 }
 
 // dropDrawing forgets the CLEARs and TEXTs waiting or in flight, after
 // HOME: they draw a screen that is the keyboard's now. A late ack for one
 // in flight then matches nothing. Called with mu held.
 func (k *Keyboard) dropDrawing() {
+	k.banner = time.Time{} // nothing to put back on a screen that isn't ours
 	drawing := func(m *message) bool { return m.cmd == cmdClear || m.cmd == cmdText }
 	if k.flight != nil && drawing(k.flight) {
 		k.flight = nil
@@ -376,7 +484,7 @@ func (k *Keyboard) Feed(msg []byte) {
 	}
 	done, status := k.flight, msg[7]
 	k.flight = nil
-	k.status.RTT = k.now().Sub(done.sent)
+	k.status.RTT = k.Now().Sub(done.sent)
 	var present func()
 	switch {
 	case done.cmd == cmdHello && status == statusOK && !k.status.Present:

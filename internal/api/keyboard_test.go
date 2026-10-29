@@ -12,14 +12,16 @@ import (
 // firmware answers the client's messages as the keyboard's firmware does,
 // through the API's ControlSysEx: an ack for each, by its seq.
 type firmware struct {
-	mu   sync.Mutex
-	cmds []byte
-	acks chan []byte
+	mu     sync.Mutex
+	cmds   []byte
+	frames [][]byte
+	acks   chan []byte
 }
 
 func (f *firmware) send(b []byte) {
 	f.mu.Lock()
 	f.cmds = append(f.cmds, b[6])
+	f.frames = append(f.frames, append([]byte(nil), b...))
 	f.mu.Unlock()
 	f.acks <- []byte{0xF0, 0x7D, 'H', 'S', 0x01, b[5], 0x7F, 0x00, 0xF7}
 }
