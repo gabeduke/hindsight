@@ -8,21 +8,23 @@ short spec in this folder when it is next.
 
 - **Cue lane: the shelf and the tracks as sources.** Throw a take from the
   shelf (`POST /api/tapes/cue/add` with `take` does the Pi's half) or lift a
-  part from a track onto the lane. (`shell-roadmap.md`)
+  part from a track onto the lane.
 - **The flows' gestures in the harness.** J1.3 and J1.11 each carry a
   hold-then-drag helper; one `t.holdDrag` beside `t.hold` would do.
 - **Output switch: Live feed / Playback,** with a real live stream of the
-  ring. Today's Feed source plays no audio. (`shell-roadmap.md` §3)
-- **Tracks collapse to one strip while the cue lane is open.**
+  ring. Today's Feed source plays no audio. Playback is the tape's tracks
+  plus the cue lane, summed (with Cue on, the cue lane alone); a shelf take
+  is a one-off Playback source; "output" is what this browser plays.
+  (Agreed 2026-10-16, before the bar's display took the source key.)
+- **Tracks collapse to one strip while the cue lane is open,** and the
+  reverse, as the buffer folds the lanes (`body.buffer-fold`).
 - **U1: the take page gets the tape's edit controls** (fade in/out curves,
   gain, normalize, reverse); #148 shared only the curve math and the
   navigation.
-- **Progressive disclosure:** move secondary controls into drawers, sheets
-  and menus (Gabe, 2026-10-17). Agreed and ordered on 2026-10-22 in
-  `the-studio-on-one-screen.md`.
 - **The Rig as a shell view** (leaving for it stops the tape on this device).
 - **Open (`wave.html`) as a Listening Room sub-view** (large: its own clock).
-- Exported **songs** as a finished object, separate from takes (Later).
+- Exported **songs** as a finished object, separate from takes: a source
+  for the bar with no tracks and no cue lane.
 - Notes on tapes; several tags per take.
 
 ## Sound
@@ -33,6 +35,10 @@ short spec in this folder when it is next.
 - More filters and FX (the Sidekick has several of the same tricks).
 - MIDI controller keys into the trick queue on the Pi.
 - Crate pads on keys 5–0 (parked).
+- **Bug: tape on this phone, Both mode:** a reconnect of the phone's stream
+  replays the tape. Not yet fixed.
+- **VU calibration:** 0 VU at about −20 dBFS, in place of `REF_DBFS`'s −18
+  (`lib/scene/vu.js`). Offered to Gabe; not decided.
 
 ## Rendering (the scene contract, `docs/architecture.md`)
 
