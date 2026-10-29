@@ -5,6 +5,19 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.9 — 2026-10-29
+
+- Docs: the fork's last build is 453,060 bytes, 861 free (340ef0c)
+- A knob being turned on the keyboard keeps its echoed value on the screen until the tape has saved it, so it no longer flickers back or jumps; a pad's answer is its half, not the light before it (e1b7dc2)
+- After a CLEAR the Pi says again where every knob stands and where its value is drawn, as the keyboard forgets them with the screen (dde8317)
+- The keyboard's flows, K1 to K11: taking the screen, PLAY and the keyboard's own Stops, HOME and its hand-back, and the FX page run on a stand-in firmware; REC, the Mixer page, scrub, the faders, the map and the pad strip are todo (ffc1288)
+- A model of the SMK-37's link in the tests: the screen must settle over a link that loses big frames and drops acks, which fails with the 1,024-byte frames the unit lost (de6e8ca)
+- The SMK-37's own Start and Stop no longer stop the tape, and the keyboard answers a touch at once: a pad lights and a knob shows its value as you touch it, with the Pi confirming after (3e16ecb)
+- Phones and tablets pick up the new player when they next load the app (ee6ba91)
+- The phone's ● shows a phone recording wherever it was started, and a tap on it stops it (e283402)
+- On a phone: the player is a sheet you drag, and a big red ● on the mini player records from the phone (d96acae)
+
+
 ## v2026.10.29.8 — 2026-10-29
 
 - Docs only: the rig checklist's image is 861 bytes short of full, from the fork's last build (9bc13c4)
