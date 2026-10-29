@@ -973,3 +973,98 @@ func TestTheLogKeepsItsNewest(t *testing.T) {
 		t.Fatalf("seq %d, %d events from %d to %d: want the newest 64, 37 to 100", seq, len(ev), ev[0].Seq, ev[len(ev)-1].Seq)
 	}
 }
+
+// heardLead makes r's ear lead frames behind its render head: a press now
+// is played to what output frame r.out-lead sounded like.
+func (r *rig) heardLead(lead int64) {
+	const now = int64(1e12)
+	at := int64(r.out) - lead
+	r.e.nowFn = func() int64 { return now }
+	r.e.heardFn = func(o uint64) (int64, bool) { return now + (int64(o)-at)*1e9/48000, true }
+}
+
+func TestAHitJustAfterTheLineItHeardLandsOnItAtOnce(t *testing.T) {
+	// Playing from 10000; after ten blocks the render head is at tape frame
+	// 20240, and the ear 2048 frames behind it, at 18192: 192 frames (4 ms)
+	// after the sixteenth at 18000. The player hit it on that line. It once
+	// landed on the next sixteenth after the render head, 21000: a whole
+	// sixteenth late to the ear.
+	a, b := pair(t, 10000, Loop{})
+	a.run(10)
+	b.run(10)
+	a.heardLead(2048)
+	if err := a.e.Press(PadStop, QuantumSixteenth); err != nil {
+		t.Fatal(err)
+	}
+	k := firstDiff(a.run(4), b.run(4))
+	if k < 0 {
+		t.Fatal("the trick changed nothing")
+	}
+	if tape := 20240 + k; tape > 20240+64 {
+		t.Fatalf("it first sounded at tape frame %d, want at once, from 20240", tape)
+	}
+	// STOP winds down from the line, as if it had begun there 2240 frames
+	// ago, not from where the render head happened to be.
+	if h := a.e.perf.head; h.anchor != 18000 || h.start != 10240-2240 {
+		t.Fatalf("the head left at tape %d, output %d; want 18000, %d", h.anchor, h.start, 10240-2240)
+	}
+}
+
+func TestAHitJustBeforeALineLandsOnIt(t *testing.T) {
+	// The ear 300 frames behind the render head (tape 20240), at 19940: 1060
+	// frames before the sixteenth at 21000, which isn't rendered yet.
+	a, b := pair(t, 10000, Loop{})
+	a.run(10)
+	b.run(10)
+	a.heardLead(300)
+	if err := a.e.Press(PadStop, QuantumSixteenth); err != nil {
+		t.Fatal(err)
+	}
+	k := firstDiff(a.run(4), b.run(4))
+	if tape := 20240 + k; k < 0 || tape != 21000 {
+		t.Fatalf("it first sounded at tape frame %d, want the sixteenth at 21000", tape)
+	}
+}
+
+func TestAHitJustBeforeALineTheRenderHeadHasPassedLandsOnItAtOnce(t *testing.T) {
+	// The ear 2440 frames behind the render head (tape 20240), at 17800:
+	// 200 frames before the sixteenth at 18000, which is already rendered.
+	// The next one after the render head is 21000, a sixteenth late.
+	a, b := pair(t, 10000, Loop{})
+	a.run(10)
+	b.run(10)
+	a.heardLead(2440)
+	if err := a.e.Press(PadStop, QuantumSixteenth); err != nil {
+		t.Fatal(err)
+	}
+	k := firstDiff(a.run(4), b.run(4))
+	if tape := 20240 + k; k < 0 || tape > 20240+64 {
+		t.Fatalf("it first sounded at tape frame %d, want at once, from 20240", tape)
+	}
+	if h := a.e.perf.head; h.anchor != 18000 {
+		t.Fatalf("the head left at tape %d, want the line at 18000", h.anchor)
+	}
+}
+
+func TestATapThatLandsLateStillSoundsAWholeSixteenth(t *testing.T) {
+	// The ear 4000 frames behind, at tape 16240: 1240 after the sixteenth at
+	// 15000, which lands at once, 5240 frames after its line. Let go at
+	// once, it still sounds a sixteenth from where it's first heard.
+	a, b := pair(t, 10000, Loop{})
+	a.run(10)
+	b.run(10)
+	a.heardLead(4000)
+	if err := a.e.Press(PadStop, QuantumSixteenth); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.e.Release(PadStop); err != nil {
+		t.Fatal(err)
+	}
+	held, plain := a.run(4), b.run(4)
+	if k := firstDiff(held, plain); k < 0 || k > 64 {
+		t.Fatalf("it first sounded %d frames in, want at once", k)
+	}
+	if k := rigSixteenth - 100; held[k*OutChannels] == plain[k*OutChannels] {
+		t.Fatalf("let go %d frames in, before a whole sixteenth", k)
+	}
+}

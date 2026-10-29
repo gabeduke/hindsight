@@ -168,6 +168,7 @@ type Engine struct {
 	// an output with no clock bridge of its own (the demo's).
 	pullBridge *audio.ClockBridge
 	heardFn    func(o uint64) (int64, bool) // tests: when output frame o is heard
+	nowFn      func() int64                 // tests: the monotonic clock a press is stamped with
 	bridgeless bool                         // the output keeps no bridge: pullBridge stands in
 
 	crateMu sync.Mutex // one change of crate.json at a time
