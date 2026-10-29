@@ -60,7 +60,8 @@ type Out struct {
 // of a message written at once, with ChunkGap between, for a device that
 // loses a long burst: the SMK-37's own SysEx reader loses a frame of 512
 // bytes written whole, as Linux's USB MIDI sends it at full speed, and takes
-// one of 996 in chunks (measured on the unit, 2026-10-29).
+// one of 996 in chunks (measured on the unit, 2026-10-29). The gap follows
+// every chunk, a message's last too, so two messages never run together.
 type OutTarget struct {
 	Match    string
 	NudgeMS  float64
@@ -393,8 +394,9 @@ func (p *outPort) write(msg []byte) bool {
 			}
 			return false
 		}
-		if rest = rest[n:]; len(rest) > 0 {
-			p.out.sleep(p.gap)
+		rest = rest[n:]
+		if p.chunk > 0 {
+			p.out.sleep(p.gap) // after the last chunk too: the next message waits
 		}
 	}
 	p.sent.Add(1)

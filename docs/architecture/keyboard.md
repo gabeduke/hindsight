@@ -305,13 +305,15 @@ None of it showed in the simulator:
   through, paced by macOS at about 250 ms.
 - **Where it goes**, found 2026-10-29 with `usbmon`: Linux puts every frame
   on the wire whole (a 512-byte frame is 684 bytes of USB MIDI packets in
-  11 transfers, each one completed), so it is the keyboard's SysEx reader,
-  after USB, that loses it: every frame of 600 bytes or more, and two in
+  11 transfers, each one completed), so it must be the keyboard's SysEx
+  reader, after USB, that loses it: every frame of 600 bytes or more, and two in
   three of 512, written whole. Written in chunks it loses none: every size
   from 512 to 996, three times each, at 48 bytes a 0.5 ms or 2 ms gap, 120
   a 1 ms gap or 240 a 2 ms gap. So the API writes the keyboard's frames
-  240 bytes at a time, 2 ms apart (`keyboardChunk`; `midi.OutTarget`'s
-  `Chunk` and `ChunkGap`, which any port may take), and before that the
+  240 bytes at a time, 2 ms apart, the gap after a frame's last chunk too
+  (`keyboardChunk`; `midi.OutTarget`'s `Chunk` and `ChunkGap`, which any
+  port may take). With one frame in flight at a time nothing queues
+  behind a chunked frame long enough to go stale. Before that the
   client was silently sending most whole screens twice or more (a lost
   frame goes again after `AckTimeout`, and isn't logged).
 - **The pads' chain** (the fork's #11): Open held it low for 36 bytes,

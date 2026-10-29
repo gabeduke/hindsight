@@ -308,10 +308,17 @@ func TestAChunkedTargetGetsALongMessageInPiecesApart(t *testing.T) {
 	clk.Set(start + int64(2*time.Millisecond))
 	waitFor(t, "the second piece", func() bool { return dev.count() == 2 && clk.Sleeping() == 1 })
 	clk.Set(start + int64(4*time.Millisecond))
-	waitFor(t, "the last piece", func() bool { return dev.count() == 3 })
+	waitFor(t, "the last piece", func() bool { return dev.count() == 3 && clk.Sleeping() == 1 })
+	o.Send(start, []byte{0xF0, 9, 0xF7}) // the next message waits out the gap after the last piece
+	time.Sleep(20 * time.Millisecond)
+	if n := dev.count(); n != 3 {
+		t.Fatalf("the next message went %d writes in, before the gap after the last piece", n)
+	}
+	clk.Set(start + int64(6*time.Millisecond))
+	waitFor(t, "the next message", func() bool { return dev.count() == 4 })
 	dev.mu.Lock()
 	defer dev.mu.Unlock()
-	want := [][]byte{{0xF0, 1, 2, 3}, {4, 5, 6, 7}, {8, 0xF7}}
+	want := [][]byte{{0xF0, 1, 2, 3}, {4, 5, 6, 7}, {8, 0xF7}, {0xF0, 9, 0xF7}}
 	for i, w := range want {
 		if string(dev.got[i]) != string(w) || dev.at[i] != start+int64(i)*int64(2*time.Millisecond) {
 			t.Fatalf("piece %d: % x at %v, want % x at %v", i, dev.got[i], time.Duration(dev.at[i]-start), w, time.Duration(i)*2*time.Millisecond)
