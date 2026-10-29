@@ -41,6 +41,11 @@ export default {
     const { page, api } = t;
     await t.given('a fresh tape', () => api.tape('Span'));
     await t.given('25s of the jam in the feed', () => api.ringHas(25));
+    // A press on a flag is the flag's (it opens its options), never a
+    // selection, and the flags an earlier flow left (J1.2) drift along the
+    // ribbon as they age: one under 0.4 once took the second hold, and GRAB
+    // was never offered. The span is selected on a feed with none.
+    await t.given('no flags on the feed', () => api.del('/api/flag?all=1'));
     const before = new Set((await api.takes()).map((x) => x.name));
 
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
