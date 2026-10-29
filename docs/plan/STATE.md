@@ -51,7 +51,10 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 ## Open, needs Gabe at the rig
 
 - The instrument's DRIVE make-up by ear with the SMK-37 (about 10 dB
-  quieter on a loud loop at full drive).
+  quieter on a loud loop at full drive). At the rig on 2026-10-29 the
+  encoders reached the tape (DRIVE 0 to 1 as K3 turned) but Gabe heard no
+  difference in the jam room: find why the tape's FX aren't heard there
+  first.
 - `BenchmarkRenderABlock` on the Pi 4B.
 - **The push, timed** (the last step of pushing the tape's state): the
   SMK-37's PLAY, from its log line to the tablet's paint. Expected 30–50 ms
@@ -69,14 +72,14 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
     **learnt on the unit** (the 764-byte frame loss, the dead-keyboard
     retake, the Stops, the pads' colours): `docs/architecture/keyboard.md`,
     *On the unit* and *Learnt on the unit*.
-  - **Next** (Gabe, 2026-10-29: to dial in the link and the signal
-    flow): the pads, the Stops, local echo and the link's model are built
-    without the unit (the fork's PR #10, not flashed; the Pi's side in
-    hindsight). What needs Gabe at the keyboard is the checklist *At the
-    rig* under *Next* in `the-instrument.md`, step 7: install, flash,
-    look, listen, measure, about 1 h 45 min. Then the build order's rest
-    (K11's pad strip, K6 after the map's spec `the-map.md`, K7, K8, K3),
-    whose flows are written and `todo`.
+  - **Dialled in at the rig, 2026-10-29** (*At the rig* under *Next* in
+    `the-instrument.md`, step 7): the fork's #10 and #11 on the unit
+    (local echo, the quiet clock, the pads' chain), the Stops fixed, the
+    frames written in chunks (#211), the pads on `now` (decision 0060).
+  - **Next:** `MaxFrame` up from 512 once the chunks have run a while (a
+    whole screen in one frame); the map's spec agreed (`the-map.md`);
+    then the build order's rest (K11's pad strip, K6 after the map, K7,
+    K8, K3), whose flows are written and `todo`.
 - The rig page with the real Sidekick (the eight steps in PR #107).
 - The device spike (iPad standalone audio when backgrounded; Android
   discarding the PWA mid-jam) needs the tablet and the iPad.
