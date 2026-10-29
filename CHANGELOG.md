@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.4 — 2026-10-29
+
+- Review fixes for the keyboard's banner: a HOME can't slip in before it, and tests for STILL BUSY and every verb's words (f91ac01)
+- The SMK-37's screen says what each press did, or why it was refused, for a second (95cbcd8)
+- Design the SMK-37's surface with Gabe: its screen, its lights and the tablet following it (771a490)
+
+
 ## v2026.10.29.3 — 2026-10-29
 
 - The tape answers a press sooner on a kit set to a low output latency: it renders only as far ahead as the device buffers (59c7bd3)
