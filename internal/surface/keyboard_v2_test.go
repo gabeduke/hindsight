@@ -403,8 +403,8 @@ func TestEveryFrameFitsWhatTheUnitTakesFromThePi(t *testing.T) {
 				break
 			}
 			for _, f := range got {
-				if len(f) > 600 {
-					t.Fatalf("%s: a %d-byte frame, over the 600 the unit takes from the Pi", sc.name, len(f))
+				if len(f) > MaxFrame || MaxFrame > 600 {
+					t.Fatalf("%s: a %d-byte frame (MaxFrame %d), over the 600 the unit takes from the Pi", sc.name, len(f), MaxFrame)
 				}
 				r.k.Feed(ack2(f[5], statusOK))
 			}

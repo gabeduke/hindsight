@@ -327,11 +327,14 @@ is also a `midi.ControlSysExSink`. They still stay out of the event ring.
   last. An item that would end up drawn under one it should cover (the
   banner's box under a top line that came back) is taken away and sent
   again after it.
-- **BATCH frames**, at most 1,024 bytes (`MaxFrame`), one in flight as
+- **BATCH frames**, at most 512 bytes (`MaxFrame`), one in flight as
   every message is. The next is planned only when nothing waits, from the
   screen wanted then, so a screen changing faster than the keyboard
-  acks sends only what it is now. A whole screen is about 960 bytes of
-  commands: two frames. A BATCH the keyboard refuses keeps what it did
+  acks sends only what it is now. The firmware's mailbox holds 1,024
+  bytes, but over the Pi's USB MIDI the unit loses a frame of about 700
+  or more (764 lost, 624 acked in 2 ms, 2026-10-29), so half the mailbox
+  it is. A whole screen is about 960 bytes of commands: two or three
+  frames. A BATCH the keyboard refuses keeps what it did
   (its ack's done count) and stops the drawing; the client then draws the
   screen again whole from a CLEAR, at most every `Heal` (2 s), and logs
   it, so one refusal doesn't freeze the screen and a screen the keyboard

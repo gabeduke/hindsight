@@ -619,7 +619,7 @@ func (k *Keyboard) queueScreen() {
 		return
 	}
 	k.relight() // the stages now, as an ack can come between ticks
-	// The screen's changes, then the lights': a whole screen is two frames,
+	// The screen's changes, then the lights': a whole screen is two or three frames,
 	// and a light that changes on its own goes in a frame of its own.
 	cmds := plan(k.shown, k.want)
 	if !k.fresh || k.landings == nil {

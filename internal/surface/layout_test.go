@@ -141,7 +141,7 @@ func lineDiff(want, got string) string {
 }
 
 // No screen holds more than the keyboard's 96 items, two at one place, or
-// one that doesn't fit, and a whole screen goes in two frames at most.
+// one that doesn't fit, and a whole screen goes in three frames at most.
 func TestEveryScreenFitsTheKeyboard(t *testing.T) {
 	for _, s := range overlapStates() {
 		items := Layout(s)
