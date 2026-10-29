@@ -80,6 +80,7 @@ type tricks interface {
 	MovesSince(seq uint64) ([]tape.TrickEvent, uint64)
 	TrickLead() (time.Duration, bool)
 	HeardIn(out uint64) (time.Duration, bool)
+	HeldPads() []string
 }
 
 // playHolds counts, per pad, the connections holding it.

@@ -16,6 +16,8 @@ type rig struct {
 	connected bool
 	clock     time.Time
 	presents  chan struct{}
+	leds      []Item    // the lights batches has seen, for lamps
+	play      *landings // Play mode's landings, as lit gives them
 }
 
 func newRig(t *testing.T) *rig {

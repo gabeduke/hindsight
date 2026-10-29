@@ -540,6 +540,7 @@ func (a *API) ControlMIDI(port string, status, d1, d2 byte) {
 	if !ok {
 		return
 	}
+	a.keyboardButton(port, m) // SHIFT's light, whatever it's bound to
 	b := &a.controls
 	down := m.typ == "on" || m.typ == "rt" || (m.typ == "cc" && (m.value >= 64 || m.cc >= 120))
 	key := msgKey(m)
@@ -862,6 +863,7 @@ func (a *API) controllerPress(port, pad, q string, v float64) {
 	b.held[port][pad] = true
 	b.keys[port][pad]++
 	b.mu.Unlock()
+	a.keyboardFinger(port, pad, true)
 }
 
 // controllerRelease is one key on pad let go. The pad lets go with the last
@@ -886,10 +888,12 @@ func (a *API) controllerRelease(port, pad string) {
 		}
 		b.wait[port][pad] = true
 		b.mu.Unlock()
+		a.keyboardFinger(port, pad, false) // the hand is off it, though the latch holds it
 		return
 	}
 	delete(b.held[port], pad)
 	b.mu.Unlock()
+	a.keyboardFinger(port, pad, false)
 	if eng := a.playerOrNil(); eng != nil {
 		a.playHolds.release(pad, func() { _ = eng.Release(pad) })
 	}
@@ -1038,11 +1042,13 @@ func (a *API) queueVerb(port, id, rt string) {
 		q = b.slowQ
 	}
 	j := verbJob{port: port, id: id, rt: rt, pressed: a.keyboardPressed(port)}
+	a.keyboardFinger(port, id, true) // a command pad: half until it's done
 	select {
 	case q <- j:
 	default:
 		log.Printf("[!] %s: %s dropped: the verbs before it haven't finished", holder(port), id)
 		a.keyboardSays(port, j.pressed, refused(id, errBusy))
+		a.keyboardDone(port, id, false)
 	}
 }
 
@@ -1060,10 +1066,12 @@ func (a *API) runVerb(j verbJob) {
 	if err != nil {
 		log.Printf("[!] %s: %s: %v", holder(j.port), j.id, err)
 		a.keyboardSays(j.port, j.pressed, refused(j.id, err))
+		a.keyboardDone(j.port, j.id, false)
 		return
 	}
 	log.Printf("[*] %s: %s", holder(j.port), done.log)
 	a.keyboardSays(j.port, j.pressed, did(j.id, done))
+	a.keyboardDone(j.port, j.id, true) // a command pad flashes when done
 }
 
 // piVerbs are the verbs on this Pi's tape, capture and clipboard.

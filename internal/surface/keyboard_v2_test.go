@@ -35,9 +35,36 @@ func (r *rig) presentV2() {
 	r.k.Feed(ack2(got[0][5], statusOK))
 }
 
-// batches are the commands in the BATCH frames sent since the last take,
-// acked as version 2 acks them, with each frame checked.
+// batches are the screen's commands in the BATCH frames sent since the last
+// take, acked as version 2 acks them, with each frame checked. The lights
+// in them are kept for lamps.
 func (r *rig) batches() []Item {
+	r.t.Helper()
+	all := r.sentBatches()
+	var out []Item
+	for _, it := range all {
+		if it.Kind == KindLED {
+			r.leds = append(r.leds, it)
+		} else {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// lamps are the lights sent since the last lamps, in BATCH frames, acked;
+// the screen's commands among them are dropped.
+func (r *rig) lamps() []Item {
+	r.t.Helper()
+	r.batches()
+	out := r.leds
+	r.leds = nil
+	return out
+}
+
+// sentBatches is every command in the BATCH frames sent since the last
+// take, acked.
+func (r *rig) sentBatches() []Item {
 	r.t.Helper()
 	var out []Item
 	for {
@@ -63,6 +90,15 @@ func decodeBatch(t *testing.T, p []byte) []Item {
 	for len(p) > 0 {
 		cmd, size := Kind(p[0]), int(p[1])
 		b := p[2 : 2+size]
+		if cmd == KindLED {
+			it := Item{Kind: KindLED, X: int(b[0])}
+			for i := range min(3, size-1) {
+				it.Lamp[i] = int(b[1+i])
+			}
+			out = append(out, it)
+			p = p[2+size:]
+			continue
+		}
 		it := Item{Kind: cmd, X: n14(b, 0), Y: n14(b, 1)}
 		switch cmd {
 		case KindText:
