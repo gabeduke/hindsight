@@ -16,4 +16,4 @@ write-up goes missing.
 
 ## What it rules out
 
-"Docs to follow"; an interface change hidden in a feature's diff.
+Leaving the write-up for later; an interface change hidden in a feature's diff.

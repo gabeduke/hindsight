@@ -14,7 +14,9 @@ fails on one that doesn't.
 ## Why
 
 Chrome holds `:active` back under a touch, so a key pressed by a finger, or
-tapped quickly, showed no press; times written out per rule drifted apart.
+tapped quickly, showed no press; and times written into rules duplicated
+the tokens (60e90dbe: "six written-in times that equal a token now use
+it").
 
 ## What it rules out
 

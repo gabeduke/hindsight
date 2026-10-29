@@ -15,5 +15,5 @@ kit's owner reads.
 
 ## What it rules out
 
-Subjects written for developers ("fix", "wip", a ticket number); editing
+Subjects written for developers rather than for a kit's owner; editing
 `CHANGELOG.md` by hand.

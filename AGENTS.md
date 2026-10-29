@@ -23,7 +23,8 @@ Don't read `CHANGELOG.md`: it is generated, and `git log` has the same lines.
   around: reading state back out of the DOM, a `setTimeout` to win a
   race, copying a helper instead of moving it somewhere both can import,
   `!important`, a `catch` that swallows, a second way to do what
-  `lib/ui/` already does. ([0020](docs/decisions/0020-build-the-interface-first.md))
+  `lib/ui/` already does.
+  ([0020](docs/decisions/0020-build-the-interface-first.md))
 - **An exception is Gabe's decision, not a fix.** Never add an entry to an
   allow-list, a budget, `TYPED`, `scripts/flows/layout-known.json` or a
   "still their own" list to turn a check green. They exist so the numbers
@@ -77,14 +78,17 @@ On a Mac, and in a cloud sandbox: `docs/development.md`, *Testing*.
   `go.mod`, `go.sum`, `web/`, `deploy/` (not the hub's manifests in
   `deploy/hub`, apart from its Dockerfile), and `docs/guide.md`, which the
   binary embeds. A merge touching none of those (a spec, a doc, this file, a
-  dev script) cuts nothing, and its commits ride along in the next code
-  release's notes; one touching any of them releases, so a spec landed with
-  its code still ships. **A merge of code is a deployment**: the hub is
-  redeployed at once, and every kit's Update button offers it.
+  dev script, the Makefile) cuts nothing, and its commits ride along in the
+  next code release's notes; one touching any of them releases, so a spec
+  landed with its code still ships. **A merge of code is a deployment**,
+  even though no Pi installs anything until someone asks it to: the hub is
+  redeployed at once (the *Point the hub at …* commits move `deploy/hub` to
+  the new image), and every kit's Update button offers the new tarball.
   ([0027](docs/decisions/0027-what-cuts-a-release.md))
 - **A new file that ships goes on the list.** `scripts/test-release-scripts.sh`
-  reads the patterns out of the workflow and fails if the "Assemble the
-  archive" step packs anything the list doesn't cover.
+  reads the patterns out of the workflow, checks what should and shouldn't
+  release, and fails if the "Assemble the archive" step packs anything the
+  list doesn't cover. ([0027](docs/decisions/0027-what-cuts-a-release.md))
 - **Commit subjects are the release notes**: `CHANGELOG.md` is every
   non-merge subject since the last tag, and each kit's release picker shows
   them to whoever is deciding whether to update. Write them for that person.
@@ -116,11 +120,11 @@ deploy target lives in the untracked `deploy.local.env`; docs say
 How the stylesheets are laid out: `docs/architecture/css-and-motion.md`,
 *The stylesheets*.
 
-- `objects.css` holds **materials** (oxide, paper, plastic, metal, the VU
-  faces), the same in both schemes, so it has no dark block; a token that
-  follows the scheme goes in `styles.css` beside its dark value
-  (`lib/objects/materials.test.js`). `styles.css` holds layout, type and
-  chrome.
+- `web/static/objects.css` holds **materials** (oxide, paper, plastic,
+  metal, the VU faces), the same in both schemes, so it has no dark block; a
+  token that follows the scheme goes in `styles.css` beside its dark value,
+  and `lib/objects/materials.test.js` fails if one lands in the wrong file.
+  `styles.css` holds layout, type and chrome.
   ([0032](docs/decisions/0032-materials-and-scheme-tokens.md))
 - **`css/` holds a stylesheet per place**: `css/chrome.css` is the header
   on every page (and a phone's tabs), `css/bar.css` the bar, all of each. A
@@ -174,8 +178,8 @@ How the stylesheets are laid out: `docs/architecture/css-and-motion.md`,
 - **Before reporting any change to what the app does, run
   `node scripts/flows.mjs` and put its table in your report.**
   `docs/flows.md` is how Gabe uses the app, as stories, each a Playwright
-  flow that drives the demo like a user on a tablet and a desktop and fails
-  on any page error.
+  flow that drives the demo like a user (real taps and holds on a tablet
+  profile and a desktop one) and fails on any page error.
   ([0043](docs/decisions/0043-the-user-flows-are-the-goal.md))
   - A core flow that fails is a regression, yours or already on main: say
     which. Don't edit a flow's expectations to make it pass unless the
@@ -199,7 +203,8 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   working on; Studio | Listening Room, centred; the tools), laid out by one
   rule set and by no page of its own (`styles.test.js` fails on a rule
   elsewhere that places it, or one there for a page; J5.1 if the switch
-  moves). A room's context goes in the start zone through the header slot,
+  moves between the Studio, the Listening Room, Capture and Open). A room's
+  context goes in the start zone through the header slot,
   its ↶ ↷ before ☰. The tempo, where it plays and the alignment are on the
   bar's display, not in the header.
   ([0044](docs/decisions/0044-one-header-frame.md))
@@ -207,7 +212,8 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   one menu (☰, `lib/nav.js` `mountHeaderTools`), last in the tools, top
   right on every page. A new app-wide tool goes in it, never beside ☰, and
   nothing hides ☰ or its items (*CSS*, above). **☰ means that menu and
-  nothing else**: a tab or a key gets an icon of its own. The Settings
+  nothing else**: a tab or a key gets an icon of its own (the Listening
+  Room's spines, the shelf's List). The Settings
   sheet's first line (`lib/settings.js`, `aboutLine`) carries the version,
   Releases, the guide and the rig too.
   ([0019](docs/decisions/0019-one-header-menu.md))
@@ -223,10 +229,11 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   (`lib/ui/icons.js` `icon`, `setIcon`, or `<svg class="i …">` markup),
   never a unicode glyph; a new one is a `<symbol>` and a name in `ICONS`.
   **A change to the sprite moves its address** (`SPRITE`'s `?v=`, its hash)
-  in `icons.js`, `SHELL` and every `<use>`; `icons.test.js` names it, and
-  fails on a name the sprite hasn't got. Scripts change an icon with
-  `setIcon`, never by typing a glyph; the glyphs still typed are counted
-  (`TYPED`) and only go down. Tests and flows read a key's state
+  in `icons.js`, `SHELL` and every `<use>`: `icons.test.js` fails and names
+  the new address, and fails on a name the sprite hasn't got. Scripts change
+  an icon with `setIcon`, never by typing a glyph; the glyphs scripts still
+  type, in the regions not drawn yet, are counted (`TYPED`) and only go
+  down. Tests and flows read a key's state
   (`.playing`, `aria-pressed`), never its picture.
   ([0046](docs/decisions/0046-icons-not-glyphs.md))
 - **The bar's keys live in its zones** (`css/bar.css`, `#np` in
@@ -241,11 +248,12 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   ([0047](docs/decisions/0047-the-bars-keys-live-in-its-zones.md))
 - **Moving between rooms** is the router's View Transition
   (`docs/architecture/shell.md`, *Moving between rooms*), drawn by
-  `css/rooms-motion.css`, which gives the header and the bar
-  view-transition names only while a switch is drawn (`html[data-turn]`),
-  and nothing else. A room's entrance is CSS keyed on
-  `html[data-arriving="<room>"]`. The switch only flips classes and what is
-  shown; `show()` runs after the turn, so nothing heavy goes in the switch.
+  `css/rooms-motion.css` (on every page, after `styles.css`), which gives the
+  header and the bar view-transition names only while a switch is drawn
+  (`html[data-turn]`), and nothing else: their layout is their own
+  stylesheets'. A room's entrance is CSS keyed on
+  `html[data-arriving="<room>"]`, set for the length of a turn into it. The
+  switch only flips classes and what is shown; `show()` runs after the turn, so nothing heavy goes in the switch.
   A `prewarm` view mounts out of sight: no class on `<body>` (those are its
   `bodyClass`), nothing in the header, the dock or the bar but through its
   slots, nothing to the room shown (only a room mounting shown restores a
@@ -317,7 +325,8 @@ proof-of-concept shortcuts don't come back
   with an `onClose` that puts it away, and closes with `layer.close()`; so
   Back and Escape close it in turn, a press outside closes a menu, and a
   switch of rooms closes the menus. Never a history entry or an Escape
-  ladder of its own (Back would take two presses). A handler that keeps Escape for itself (a field's own, a drag
+  ladder of its own (Back would take two presses). A handler that keeps
+  Escape for itself (a field's own, a drag
   let go) calls `preventDefault()`. The test fails on a `pushState` outside
   the router and the stack, and lists the ones still their own in
   `OWN_HISTORY`. ([0055](docs/decisions/0055-one-way-to-close-things.md))

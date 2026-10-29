@@ -6,7 +6,7 @@
 
 Nobody adds an entry to an allow-list, a budget, `TYPED`,
 `scripts/flows/layout-known.json` or a "still their own" list (`OWN_MENUS`,
-`OWN_HISTORY`, `NOT_GESTURES`) to turn a check green. Report the failure,
+`OWN_HISTORY`) to turn a check green. Report the failure,
 and what it would take to fix it properly.
 
 ## Why

@@ -15,8 +15,9 @@ mount in `shell.html` and route listeners, polls and ticker steps through
 
 The rooms began as a proof of concept, and the guardrails name its shortcuts
 so they don't come back: the shelf reading the bar by 2 Hz DOM scraping,
-`.click()` on hidden legacy controls, the cassette's hubs going round by a
-CSS spin at one speed whatever the packs, and a page flashing what a room
+`.click()` on hidden legacy controls, reels turned by `@keyframes
+room-spin` and the cassette's hubs by a CSS spin at one speed whatever the
+packs (`architecture.test.js`, Guardrails 1, 2 and 2b), and a page flashing what a room
 replaces before an async class hid it.
 
 ## What it rules out
