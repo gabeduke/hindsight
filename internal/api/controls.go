@@ -1080,13 +1080,13 @@ func (a *API) runVerb(j verbJob) {
 	a.keyboardDone(j.port, j.id, true) // a command pad flashes when done
 }
 
-// piVerbs are the verbs on this Pi's tape, capture and clipboard.
+// piVerbs are the verbs on this Pi's tape, its cue lane and the capture.
 type piVerbs struct{ a *API }
 
 // keepSeconds is what KEEP from a controller keeps: the Studio's default.
 const keepSeconds = 30
 
-// grabBars is what GRAB from a controller grabs: the buffer's default, or
+// grabBars is what GRAB from a controller grabs: the Studio's default, or
 // twice as many seconds with no tempo.
 const grabBars = 4
 
@@ -1146,35 +1146,30 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 			req.Seconds = 2 * grabBars
 			says = grabbedWords(2*grabBars, "S")
 		}
-		if _, err := a.tape.Grab(req); err != nil {
+		// Onto the cue lane, as the Studio's GRAB: every tablet shows it.
+		if _, err := a.tape.GrabToCue(t.ID, req, ""); err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{log: fmt.Sprintf("grabbed the last %d bars of %s into the buffer", grabBars, src), says: says}, nil
+		return verbDone{log: fmt.Sprintf("grabbed the last %d bars of %s onto the cue lane", grabBars, src), says: says}, nil
 	case "drop":
 		if !armed {
 			return verbDone{}, errNotArmed
 		}
-		c, err := a.tape.Clipboard()
-		if err != nil {
-			return verbDone{}, err
+		// The cue lane's newest clip -- the last GRAB, from here or a
+		// tablet -- at the next free span on the armed track, a lane a track.
+		if t.State.Cue == nil || len(t.State.Cue.Clips) == 0 {
+			return verbDone{}, errNothingToDrop
 		}
-		if c.Empty() {
-			return verbDone{}, tape.ErrEmptyClipboard
-		}
-		// A buffer lays down its window, as the page's DROP measures it
-		// (lib/buffer/state.js, windowFrames).
-		frames := c.Frames
-		if g := c.Grab; g != nil && g.Out > g.In {
-			frames = g.Out - g.In
-		}
-		at, ok := tape.NextFreeSpan(t.State, t.Length, track, len(c.Tracks), frames, a.tape.Live().Heard)
+		c := t.State.Cue.Clips[len(t.State.Cue.Clips)-1]
+		lanes := max(1, len(c.Lanes))
+		at, ok := tape.NextFreeSpan(t.State, t.Length, track, lanes, c.Frames, a.tape.Live().Heard)
 		if !ok {
 			return verbDone{}, fmt.Errorf("%w %d", errNoRoom, track)
 		}
-		if _, err := a.tape.DropClipboardAt(t.ID, track, false, &at); err != nil {
+		if _, err := a.tape.CueDrop(t.ID, c.ID, track, false, &at); err != nil {
 			return verbDone{}, err
 		}
-		return verbDone{log: fmt.Sprintf("dropped the buffer on track %d", track), says: droppedWords(track), track: track}, nil
+		return verbDone{log: fmt.Sprintf("dropped %q from the cue lane on track %d", c.Name, track), says: droppedWords(track), track: track}, nil
 	}
 	return verbDone{}, fmt.Errorf("%s isn't a verb the Pi runs", id)
 }

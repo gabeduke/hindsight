@@ -29,6 +29,7 @@ var (
 	errTapeOff       = errors.New("the tape is off")
 	errNoAudioOut    = errors.New("nothing plays the tape: this build has no audio output")
 	errNoRoom        = errors.New("no room on track")
+	errNothingToDrop = errors.New("nothing on the cue lane to drop: GRAB first")
 	errBusy          = errors.New("the verbs before it haven't finished")
 )
 
@@ -91,6 +92,7 @@ var refusals = []struct {
 	{tape.ErrNotPlayed, "BARS NOT PLAYED"},
 	{tape.ErrSlipped, "SLIPPED: TRY AGAIN"},
 	{tape.ErrEmptyClipboard, "BUFFER IS EMPTY"},
+	{errNothingToDrop, "CUE LANE IS EMPTY"},
 	{errNoRoom, "NO ROOM ON TRACK"},
 	{tape.ErrMixingDown, "MIXDOWN PLAYING"},
 	{errBusy, "STILL BUSY"},

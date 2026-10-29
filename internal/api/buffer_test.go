@@ -50,13 +50,17 @@ func newBufferAPI(t *testing.T) (*mux.Router, string) {
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
 	bufferEngines[r] = eng
-	t.Cleanup(func() { delete(bufferEngines, r) })
+	bufferAPIs[r] = a
+	t.Cleanup(func() { delete(bufferEngines, r); delete(bufferAPIs, r) })
 	return r, dir
 }
 
 // bufferEngines is each newBufferAPI router's tape engine, for reading what
 // the HTTP API no longer shows (the crate).
 var bufferEngines = map[*mux.Router]*tape.Engine{}
+
+// bufferAPIs is each newBufferAPI router's API, for the verbs a controller runs.
+var bufferAPIs = map[*mux.Router]*API{}
 
 type boardBody struct {
 	Clipboard *struct {
