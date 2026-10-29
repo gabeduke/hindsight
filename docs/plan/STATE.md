@@ -238,7 +238,7 @@ keys, Open's own, the menus' ✓) go as their regions are rebuilt.
 Beside it, in tracks of their own: `the-instrument.md` (agreed
 2026-10-26), Hindsight as something you play. Its step 1 comes first:
 latency measured in use, every control timed to the ear, kept on the Pi.
-And `pushing-tape-state.md` (2026-10-28, to agree): the Pi nudges the page
+And `pushing-tape-state.md` (agreed 2026-10-28): the Pi nudges the page
 when the tape changes, so the tablet follows a controller's press in about
 30–50 ms instead of up to 235.
 4. Fix the layout findings above, and look through the storyboard

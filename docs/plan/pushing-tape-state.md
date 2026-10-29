@@ -21,7 +21,7 @@ average, and up to about 235 ms later; on the bar it takes up to half a
 second. The sound never waits on any of this: a controller's press acts on
 the Pi. It is only what the tablet shows that lags.
 
-## Decisions, my recommendation first
+## Decisions
 
 | | |
 |---|---|
