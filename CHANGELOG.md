@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.29.10 — 2026-10-29
+
+- Studio: a second armed track's inspector says it is recording, instead of "Not armed" with an Arm it that would move the arm off the first (0518bd8)
+- Listening Room on a tablet: a press on the foot of a shelf's All › opens it, instead of landing on the shelf below (00cc074)
+- The Studio on a touch screen: each track's head is its name, ● a finger wide, its input and ›, which opens its inspector with Mute, Solo and the level at the top (34b062a)
+- Flows: a touch profile stays a touch screen after a hold or a drag (bd4116a)
+
+
 ## v2026.10.29.9 — 2026-10-29
 
 - Docs: the fork's last build is 453,060 bytes, 861 free (340ef0c)
