@@ -89,9 +89,12 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   take in the open steps of `listening-back.md` and
   `the-studio-on-one-screen.md`, which hold their details.
 - **`the-instrument.md`** (agreed 2026-10-26), in tracks of its own:
-  Hindsight as something you play. Its step 1 comes first: latency
+  Hindsight as something you play. Its step 1 is built: latency
   measured in use, every control timed to the ear, kept on the Pi
-  ([decision 0016](../decisions/0016-measure-latency-in-use.md)). Its step 7, the SMK-37, is above.
+  ([decision 0016](../decisions/0016-measure-latency-in-use.md);
+  `GET /api/latency`, the rig's line). Next, Gabe at the rig reads the
+  numbers on the Pi 5, which choose step 2's buffers. Its step 7, the
+  SMK-37, is above.
 - **An auto-install trigger** for releases ([decision 0012](../decisions/0012-agents-install-releases.md); `backlog.md`).
 
 Leftovers, to fold in as each is touched:

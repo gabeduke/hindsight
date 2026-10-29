@@ -76,21 +76,19 @@ My recommendation first in each.
 
 ### The engine
 
-1. **Instrument latency, in use.** Nothing a person sees changes:
-   - *The Pi:* a control (a WebSocket message, a MIDI message) is stamped
-     when it arrives, with the output frame the render applies it at;
-     the output's clock bridge says when that frame is heard. That gives
-     control → ear on the jam room per event.
-   - *The client:* the page stamps the touch (`event.timeStamp`) and the
-     send, and keeps a clock offset to the Pi from the socket's round trips;
-     a phone listening also knows its jitter buffer's fill (already
-     reported) and `AudioContext.outputLatency`. That gives touch → ear on
-     each path.
+1. ~~**Instrument latency, in use.**~~ Built (`docs/architecture/tape.md`,
+   *Latency, in use*): every press, set and release from a page or a
+   controller is timed to the ear, `GET /api/latency` says each path's
+   p50, p95 and worst with the buffers and underflows beside them, the rig
+   has a line of it and This device a Latency overlay. Still to do:
+   - *The numbers*, at the rig on the Pi 5, then the Pi 4B: a jam with the
+     SMK-37 and a phone, read off the rig's line, into this spec's *Where
+     the time goes today*. Step 2's buffers are chosen from them.
    - *Ground truth now and then:* the alignment's Δ (`align.go`) is a
-     loopback measurement of the output already.
-   - Rolling percentiles per path (p50, p95, max) with the buffer settings
-     and underflows beside them, kept on the Pi, never sent anywhere else:
-     `GET /api/latency`, a line in the Rig, and a dev overlay.
+     loopback measurement of the output already; set it beside the
+     figures by hand until it is shown with them.
+   - A controller's transport keys (PLAY, STOP) go through the verb queue
+     and are not timed yet.
 2. **The performance mode**, on the Pi 5, then checked on the Pi 4B: live
    controls at the device's edge, a small output buffer with
    `LowLatencyParameters`, real-time priority for the render thread. A test

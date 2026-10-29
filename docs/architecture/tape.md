@@ -96,6 +96,52 @@ doesn't hear), or no straight play from the line to the render head, a
 press lands on the transport's own target, the next line after the
 render head.
 
+**Latency, in use** (`latency.go`; [decision 0016](../decisions/0016-measure-latency-in-use.md)).
+Every press, set and release a hand plays is timed to the moment it is
+heard, and the Pi keeps the figures, never sending them anywhere.
+
+- *Who stamps what.* The engine's `PressStamped`, `SetStamped`,
+  `PreviewModStamped` and `ReleaseStamped` take a `Stamp`: the way the
+  control came (`ViaPage`, the Play socket; `ViaMIDI`, a controller and its
+  mod knobs, `ModKnobs.Via`) and, from a page, its touch and its send on the
+  Pi's clock. `Press`, `Set`, `PreviewMod` and `Release` are those with an
+  empty `Stamp`, which is never timed: tests, HTTP, a player who has gone.
+  The engine stamps the arrival itself (`trickMsg.heard`, which `landing`
+  already read).
+- *The render path.* As the render goroutine applies a control, a set at
+  its drain, a press or release on the block it lands in, it calls
+  `timed`: a few atomic stores into a ring of 512 made with the engine, no
+  lock and no allocation (`TestTimingAllocatesNothing`, which also holds a
+  timed block to an untimed one's allocations). A control applied later
+  than the render head it was drained at waited for a grid line: it is
+  counted as quantised and not timed, as its wait is the music's.
+- *When it is heard.* A collector, four times a second, reads the ring
+  and, once a control's frame has gone to the device, asks `heardAt` (the
+  output's clock bridge, or the demo's pull bridge) when the room hears
+  it; with the tape on a phone, the phone's own report of the frame it
+  plays and when (`HearOnPhone`, from the stream's `fill` message).
+  A slot the render goroutine lapped, or a frame nobody hears, is
+  counted as missed.
+- *The figures.* Each way in to each ear is a path (`page→room`,
+  `page→phone`, `midi→room`), with the median, 95th percentile and worst
+  of its last 256 controls: in total, from the touch where the page said,
+  else its send, else its arrival; and in legs, touch to send (the page's
+  own handling), send to Pi (the Wi-Fi), Pi to ear. Beside them, the
+  settings they were taken with (the block, `aheadFor`'s lead,
+  `OUTPUT_LATENCY_MS`, the lead now) and the underflows so far (late
+  blocks, the device's restarts, the phone's underruns). `GET
+  /api/latency` says them; the rig's line and the dev overlay draw them
+  (`lib/play/latency.js`).
+- *The page's clock.* The Play socket answers `{"t":"clock","c"}` with the
+  Pi's time as it read the ping and as it answered; `lib/play/piclock.js`
+  takes the offset from the quickest of the last sixteen trips, and
+  `link.js` adds `touch` (the event's `timeStamp`) and `sent` to each
+  press, set and release once it has one. The stream's player says on the
+  same clock which output frame its speaker plays.
+- *Not timed yet.* A controller's transport keys (PLAY, STOP) go through
+  the verb queue (`api/controls.go`, `queueVerb`), not the engine's
+  inbox: they carry no stamp.
+
 The revision, the changes socket and the keyboard's press, which tell a
 page the tape has changed, are in `push.md`.
 
