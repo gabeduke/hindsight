@@ -84,11 +84,19 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
   // Studio, whose own socket feeds it then. A new revision polls now, not
   // at the next tick, so a press made at the Pi shows in tens of
   // milliseconds; the tick stays as the fallback.
+  // A press on the keyboard comes on the same socket (changes.js pressOf),
+  // or the Studio's while it is shown, which hands it on (heardPress): the
+  // bar's note hears it either way (onPress). The keyboard plays the tape
+  // whatever is in the bar, so the socket stays open with a take in it too,
+  // for the presses: only its nudges wait for the tape to be back.
   let changes = null;
+  const pressListeners = new Set();
+  const heardPress = (p) => { for (const f of pressListeners) f(p); };
   const syncChanges = () => {
-    const on = !stopped && active && !del;
-    if (on && !changes) changes = watch(() => { if (active && !del && !document.hidden) ask(); });
-    else if (!on && changes) { changes.close(); changes = null; }
+    const on = !stopped && !del;
+    if (on && !changes) {
+      changes = watch({ onNudge: () => { if (active && !del && !document.hidden) ask(); }, onPress: heardPress });
+    } else if (!on && changes) { changes.close(); changes = null; }
   };
   tick();
   syncChanges();
@@ -249,6 +257,10 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
       if (!t) { ctx.clearRect(0, 0, W, H); return; }
       paintTapeOverview(ctx, W, H, t, live ? pos() : null, { col });
     },
+    /** heardPress is a press on the keyboard heard on the Studio's socket, handed on. */
+    heardPress,
+    /** onPress hears each press on the keyboard (changes.js pressOf), and answers its off. */
+    onPress(fn) { pressListeners.add(fn); return () => pressListeners.delete(fn); },
     /** on hears every change to what the bar shows of the tape, and answers its off. */
     on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     /** changed: something the LCD shows changed (the stream's state). */
@@ -259,6 +271,7 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
       listeners.clear();
+      pressListeners.clear();
     },
   };
 }

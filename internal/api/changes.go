@@ -22,6 +22,13 @@ import (
 // takes a silent socket for a dead one. A beat whose rev differs from the
 // last the page heard also catches a nudge that was lost.
 //
+// A press on the keyboard (press.go) goes out at once as well, with the
+// revision as it is then and the press under "press":
+//
+//	{"rev":N,"at_ms":…,"press":{"words":"PLAY","role":"play","lit":["play"],"at_ms":…}}
+//
+// so a page that hears one hears a nudge too when the revision moved.
+//
 // The page never writes to it; the reader is there for close frames and the
 // pong deadline, as /api/live's is.
 
@@ -29,8 +36,9 @@ import (
 const changesBeat = time.Second
 
 type changesMsg struct {
-	Rev  uint64 `json:"rev"`
-	AtMS int64  `json:"at_ms"`
+	Rev   uint64    `json:"rev"`
+	AtMS  int64     `json:"at_ms"`
+	Press *keyPress `json:"press,omitempty"`
 }
 
 func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +55,8 @@ func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
 
 	taps, cancel := changes.Subscribe()
 	defer cancel()
+	presses, unpress := a.presses.subscribe()
+	defer unpress()
 
 	gone := make(chan struct{})
 	go func() {
@@ -67,12 +77,12 @@ func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
 	// was (a bump between Subscribe and the hello) says nothing: a nudge is
 	// always news, and only the beat repeats.
 	var last uint64
-	send := func() error {
+	send := func(p *keyPress) error {
 		last = changes.Rev()
 		_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
-		return conn.WriteJSON(changesMsg{Rev: last, AtMS: time.Now().UnixMilli()})
+		return conn.WriteJSON(changesMsg{Rev: last, AtMS: time.Now().UnixMilli(), Press: p})
 	}
-	if send() != nil {
+	if send(nil) != nil {
 		return
 	}
 
@@ -90,13 +100,18 @@ func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
 			if changes.Rev() == last {
 				continue
 			}
-			if send() != nil {
+			if send(nil) != nil {
 				return
 			}
 			// A change has just been said: the next beat is a second from now.
 			beat.Reset(changesBeat)
+		case p := <-presses:
+			if send(&p) != nil {
+				return
+			}
+			beat.Reset(changesBeat)
 		case <-beat.C:
-			if send() != nil {
+			if send(nil) != nil {
 				return
 			}
 		case <-ping.C:

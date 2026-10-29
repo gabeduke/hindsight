@@ -82,6 +82,9 @@ type API struct {
 	// one, and kbOut its port (keyboard.go).
 	keyboard *surface.Keyboard
 	kbOut    keyboardOut
+	// presses are the keyboard's presses as the tablets hear them, on
+	// /api/tapes/changes (press.go).
+	presses pressFeed
 	// playConns names Play mode's connections, as the owners of the tape
 	// mods they preview.
 	playConns atomic.Uint64

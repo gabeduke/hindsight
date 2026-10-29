@@ -51,6 +51,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | J1.12 | play the tape from the bar (or Space): reels, the display saying it plays the tape (its name to a screen reader), a moving counter, and \|◂ back to the loop's start; ▶ goes down the moment my finger is on it, and a quick tap still shows it down; ● (Record) sits beside ▶, red, as in any DAW | `j1.12-bar-transport` | core |
 | J1.13 | find ▶ where my hand left it: the bar keeps one shape for the tape, the live feed and a take, in the Studio and the Listening Room, on a tablet on its side, a Pixel Tablet's 1280×800 and one held upright at 800, with nothing past the screen's edge (▶ once stood at three places on one tablet, and the bar ran 336 px off it with a take in it) | `j1.13-bar-shape` | core (tablets) |
 | J1.14 | see on the tablet what was pressed at the Pi (*"could we start pushing state to the UI"*): ▶ and ■ pressed at the Pi, as a controller presses them, and a rename show in the Studio within 100 ms, and ▶ in the bar in the Listening Room after the Studio, each the slowest of five (`pushing-tape-state.md`) | `j1.14-follow-the-pi` | core |
+| J1.15 | see on the bar what I pressed on the keyboard (*"often when playing an instrument you develop an intuitive feel by watching something"*; the-instrument.md, step 7, *The tablet*): PLAY, STOP, a refused CATCH, GRAB and DROP pressed on the SMK-37 (a FIFO for its node in the demo, `api.keyboard()`) each show their words over the bar's display, after the keyboard's icon, within half a second, and go after about a second, in a live region a screen reader hears; PLAY green and STOP lighting ▶, DROP lighting the head of the track it went on (GRAB and DROP on the tablet and the desktop, as J1.6), a refusal an amber band lighting nothing; ▶ never moves; in the Studio and in the Listening Room, and there with a take in the bar too (the keyboard plays the tape whatever the bar holds) | `j1.15-keyboard-note` | core (tablet, desktop, phone) |
 | J2.2 | tap a take to play it, and keep it playing as I move between rooms; the switch turns the camera from one wall of the room to the other (the Studio on the left, the shelves on the right), while the header holds still and the bar is never turned with the room, and a tap on ▶ as it turns isn't lost, while a tap on the shelves as it turns does nothing (they aren't where they show yet) | `j2.2-persist` | core |
 | J2.3 | choose what the bar plays from its display: the source on the window (TAPE, FEED or the take's name) opens the tape, the live feed (whose GRAB sends it into the buffer), the last few takes and Go to the shelf (the Listening Room), with ▶ in one place for each; the Feed \| Tape \| Shelf switch on the bar is gone | `j2.3-bar-sources` | core |
 | J2.4 | jot a note on what's playing without it stopping or leaving the room: ✎ at the bar's right end, on the screen at 1024 and 1280 | `j2.4-note` | core (and 1280×800) |
@@ -182,6 +183,12 @@ export default {
   then, by writing its sidecar in the run's own demo (so not with
   `HINDSIGHT_URL`). The profiles share one demo, in turn: a take one
   profile seeds is on the others' shelves too.
+- `t.api.keyboard()` plugs the SMK-37 into the run's own demo: a FIFO for
+  its rawmidi node, which the demo's MIDI watcher reads as the keyboard's
+  (the demo boots with `TAPE_CONTROLLER=SMK` and an empty node directory,
+  so there is no keyboard until a flow plugs one in). It answers
+  `press(bytes)`, MIDI as the keyboard sends it, and `unplug()`: unplug it
+  in a `finally`, as J1.15 does.
 - `FLOWS_CPU=4 node scripts/flows.mjs` runs the pages four times slower,
   as a CI runner can: a flow that passes only on a fast machine is racing
   the app (and the app may be racing a person on an old tablet).

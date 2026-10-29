@@ -14,6 +14,7 @@ import { takeSource, playheadOf } from './take-source.js';
 import { feedSource } from './feed-source.js';
 import { noteHere } from './take-keys.js';
 import { sourceMenu } from './source-menu.js';
+import { barPressNote } from './press-note.js';
 import { layersOf } from '../ui/layers.js';
 import { pageCarry, isStudio } from './carry.js';
 import { createHandoff, takesFinder } from './handoff.js';
@@ -133,6 +134,9 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
       keys: [$('np-output')],
     });
     bar.kick();
+    // A press on the keyboard, over the display for its second (press-note.js).
+    let note = null;
+    tape.onPress((p) => { note ??= barPressNote(document); note.show(p); });
     const paintOut = () => {
       paintOutSheet(tape.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
     };

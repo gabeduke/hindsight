@@ -436,7 +436,9 @@ My recommendation first in each.
 
      The build order, each its own PR:
      1. the banner as TEXT on today's protocol (PLAY, STOP, KEPT 30 S,
-        refusals) and the note on the tablet's bar: the Pi alone;
+        refusals) and the note on the tablet's bar: the Pi alone
+        (the banner #195; the note on the changes socket, J1.15: *The
+        keyboard's press* in `architecture.md`);
      2. partial repaint, in the fork;
      3. protocol version 2 (BOX, BAR, TEXT's background, the palette,
         the items, BATCH), with simulator scripts in CI;
