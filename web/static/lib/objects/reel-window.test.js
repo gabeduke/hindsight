@@ -106,3 +106,13 @@ test('the bench draws its reels with the bar\'s own rules, kept in step', () => 
     assert.equal(norm(twin.body), norm(r.body), sel);
   }
 });
+
+test('the reel\'s flange takes no press, so its film strip covers nothing', () => {
+  // The rendered flange is the whole sheet of cells, laid out at full size
+  // and clipped to one: at some angles its box reaches the Studio's last
+  // track head, and a box that takes presses there counted as covering the
+  // level (a flaky target-size fail in J2.2, by where the reel stopped).
+  const turn = rules(fileCss('css/bar.css')).filter((r) => r.sel.includes('.np-turn'));
+  assert.ok(turn.length, 'bar.css has the reel\'s .np-turn rule');
+  assert.ok(turn.some((r) => /pointer-events:\s*none/.test(r.body)), '.np-turn says pointer-events: none');
+});

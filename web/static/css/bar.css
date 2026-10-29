@@ -97,7 +97,13 @@ body.tape-page .np[data-size="mini"][data-source="tape"] [data-mini~="studio"] {
 .np-reel { flex: none; width: clamp(48px, 15cqi, 88px); height: clamp(48px, 15cqi, 88px); position: relative; z-index: 1; }
 .np-well { fill: rgba(0,0,0,.06); }
 .np-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
-.np-turn { transform-box: view-box; }
+/* The flange is a picture, not a key: it takes no press. Its rendered
+   sheet is the whole film strip, laid out at full size and clipped to one
+   cell, so its box reaches far past the reel -- up to the Studio's last
+   track head at some angles -- and a box that takes presses there counted
+   as covering whatever it overlaps (axe's target-size failed track 4's
+   level, by the angle the reel stopped at). */
+.np-turn { transform-box: view-box; pointer-events: none; }
 .np-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
 .np-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
 /* The rendered flange (lib/objects/spin.js) once its sheet has loaded; the
