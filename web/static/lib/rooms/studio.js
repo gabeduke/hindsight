@@ -303,26 +303,20 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
   $('feed-sheet-close')?.addEventListener('click', () => el.feedSheet?.close());
   el.feedSheet?.addEventListener('click', (e) => { if (e.target === el.feedSheet) el.feedSheet.close(); });
 
-  let live = null;
-  const openLive = () => {
-    if (live) return;
-    live = connectLive({
-      onFrame: (f) => {
-        if (!status) return;
-        const { rms, peak, clip } = frameLevels(f, status.save_channels.map((c) => c - 1));
-        bars?.update(rms, peak, clip);
-        vu?.update(rms, peak, clip);
-        const last = f.bins?.[f.bins.length - 1];
-        if (chans && last?.rms) chans.update(last.rms, f.peak, f.clip);
-      },
-    });
-  };
-  const closeLive = () => { live?.close(); live = null; };
-  openLive();
-  if (typeof window !== 'undefined') {
-    window.addEventListener('pagehide', closeLive);
-    window.addEventListener('pageshow', () => { if (!ctx || ctx.active()) openLive(); });
-  }
+  // The meters' socket: held while the room is shown (ctx.socket), or for
+  // as long as the page without a ctx. lib/socket.js closes it on pagehide
+  // and opens a fresh one when the page is shown again.
+  const openLive = () => connectLive({
+    onFrame: (f) => {
+      if (!status) return;
+      const { rms, peak, clip } = frameLevels(f, status.save_channels.map((c) => c - 1));
+      bars?.update(rms, peak, clip);
+      vu?.update(rms, peak, clip);
+      const last = f.bins?.[f.bins.length - 1];
+      if (chans && last?.rms) chans.update(last.rms, f.peak, f.clip);
+    },
+  });
+  if (ctx) ctx.socket(openLive); else openLive();
 
   // Recording from this phone, as on Capture: its take lands on the
   // Listening Room's shelf.
@@ -389,14 +383,12 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     ribbon,
     buffer,
     hide() {
-      closeLive();
       ribbon.pause();
       buffer?.hide?.();
       keepMenu?.close();
       if (el.feedSheet?.open) el.feedSheet.close();
     },
     show() {
-      openLive();
       ribbon.resume();
       buffer?.show?.();
       pollStatus();
