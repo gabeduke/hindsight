@@ -139,7 +139,7 @@ func (v *fakeVerbs) Verb(id, rt string) (verbDone, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	v.ran = append(v.ran, strings.TrimSuffix(id+" "+rt, " "))
-	return verbDone{id, strings.ToUpper(id)}, nil
+	return verbDone{log: id, says: strings.ToUpper(id)}, nil
 }
 
 func (v *fakeVerbs) wait(t *testing.T, want ...string) {
