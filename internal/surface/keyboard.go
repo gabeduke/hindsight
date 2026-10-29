@@ -25,7 +25,10 @@
 // what the keyboard has (diff.go) and sent as BATCH frames of at most
 // MaxFrame bytes, one in flight at a time, so a screen changing faster than
 // the keyboard draws sends only what it is when the link is free. The
-// banner is Layout's then, a box and its words over the top line.
+// banner is Layout's then, a box and its words over the top line. The
+// pads' and buttons' lights go in the same frames (lights.go): Lamps of
+// the State, with each pad's stage at the moment (PadLights), only those
+// that changed.
 //
 // What the keyboard's panel sends while Hindsight has its screen is plain
 // MIDI, and goes to Play mode's bus with every other controller's
@@ -63,6 +66,7 @@ const (
 	cmdOffer   = 0x05
 	cmdBox     = 0x06 // version 2's, as are BAR, LED and BATCH
 	cmdBar     = 0x07
+	cmdLED     = 0x08
 	cmdBatch   = 0x09
 	cmdAck     = 0x7F
 
@@ -177,6 +181,15 @@ type Keyboard struct {
 	refused bool
 	healed  time.Time
 
+	// The lights (lights.go), version 2's too: pads is each pad's stage over
+	// time, lamps the lights the State and the stages want now, and lit the
+	// keyboard's as its acks have said, by target. A CLEAR keeps lit, as
+	// the keyboard keeps its lights; HOME, a RELEASE or a keyboard
+	// forgotten empties it, as the lights go back to the keyboard.
+	pads  PadLights
+	lamps []Item
+	lit   map[int]Item
+
 	stop chan struct{}
 	done chan struct{}
 }
@@ -241,6 +254,7 @@ func (k *Keyboard) Farewell() []byte {
 		return nil
 	}
 	k.status.Screen = false
+	k.lit = nil
 	return k.frame(&message{cmd: cmdRelease, version: k.version(), seq: k.nextSeq()})
 }
 
@@ -433,6 +447,40 @@ func (k *Keyboard) Follow(f func() State) {
 	k.follow = f
 }
 
+// PadDown is pad i, 0-15, pressed on the keyboard: half, until what it
+// does is heard (PadHeard) or, a command pad, until it is done (PadDone).
+func (k *Keyboard) PadDown(i int) { k.padsDo(func(now time.Time) { k.pads.Down(i) }) }
+
+// PadUp is pad i let go on the keyboard: back to dim, unless what it does
+// is heard, until its release is.
+func (k *Keyboard) PadUp(i int) { k.padsDo(func(now time.Time) { k.pads.Up(i) }) }
+
+// PadsLanded is what Play mode says of the pads since it was last asked:
+// the presses and releases landed, each with when it is heard on the
+// Keyboard's clock (its landing frame mapped to now through the lead), and
+// which pads the tape holds now, read before them. A pad is full from its
+// press's landing until its release's, whichever holder pressed it; one
+// the tape no longer holds, with no release among these or before, goes
+// back now (a tape loaded under it), so it can't stay lit.
+func (k *Keyboard) PadsLanded(held [Pads]bool, landed []Landing) {
+	k.padsDo(func(now time.Time) { k.pads.Landed(held, landed, now) })
+}
+
+// PadDone is command pad i done (ok) or refused: it flashes full once,
+// for FlashFor, if it went through; either way it stops being half.
+func (k *Keyboard) PadDone(i int, ok bool) {
+	k.padsDo(func(now time.Time) { k.pads.Done(i, ok, now) })
+}
+
+// padsDo changes the pads' lights and sends what that changes.
+func (k *Keyboard) padsDo(f func(now time.Time)) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	f(k.Now())
+	k.relight()
+	k.next()
+}
+
 // pull shows Follow's screen when it is due.
 func (k *Keyboard) pull() {
 	k.mu.Lock()
@@ -452,7 +500,7 @@ func (k *Keyboard) pull() {
 // while it shows. Called with mu held.
 func (k *Keyboard) redraw() {
 	if k.state == nil {
-		k.want = nil
+		k.want, k.lamps = nil, nil
 		return
 	}
 	s := *k.state
@@ -462,6 +510,17 @@ func (k *Keyboard) redraw() {
 		s.Banner = &f
 	}
 	k.want = Layout(s)
+	k.relight()
+}
+
+// relight is the lights to want now: the state's, with the pads' stages at
+// this moment. Called with mu held.
+func (k *Keyboard) relight() {
+	if k.state == nil {
+		k.lamps = nil
+		return
+	}
+	k.lamps = Lamps(*k.state, k.pads.Stages(k.Now()))
 }
 
 // queueScreen queues the next BATCH of what the screen wants, when nothing
@@ -470,7 +529,9 @@ func (k *Keyboard) queueScreen() {
 	if k.status.Version < 2 || !k.status.Screen || k.want == nil || k.refused {
 		return
 	}
-	cmds := plan(k.shown, k.want)
+	// The screen's changes, then the lights': a whole screen is two frames,
+	// and a light that changes on its own goes in a frame of its own.
+	cmds := append(plan(k.shown, k.want), relit(k.lit, k.lamps)...)
 	if len(cmds) == 0 {
 		return
 	}
@@ -565,6 +626,7 @@ func (k *Keyboard) Tick() {
 	defer k.mu.Unlock()
 	k.unbanner()
 	k.heal()
+	k.relight() // a pad heard, or its flash over, since the last
 	switch {
 	case !connected:
 		k.forget()
@@ -582,6 +644,8 @@ func (k *Keyboard) Tick() {
 		k.probed = k.Now()
 		k.queue = append([]*message{{cmd: cmdHello, version: 1}}, k.queue...) // read by every version
 		k.next()
+	default:
+		k.next() // a light that changed since the last tick
 	}
 }
 
@@ -593,6 +657,7 @@ func (k *Keyboard) forget() {
 	k.flight, k.queue = nil, nil
 	k.top, k.banner = nil, time.Time{}
 	k.state, k.want, k.shown, k.refused = nil, nil, nil, false
+	k.pads, k.lamps, k.lit = PadLights{}, nil, nil
 }
 
 // dropDrawing forgets the CLEARs and TEXTs waiting or in flight, after
@@ -601,6 +666,7 @@ func (k *Keyboard) forget() {
 func (k *Keyboard) dropDrawing() {
 	k.banner = time.Time{} // nothing to put back on a screen that isn't ours
 	k.shown = nil          // a CLEAR starts it again
+	k.lit = nil            // the lights went back with the screen: all sent again
 	drawing := func(m *message) bool { return m.cmd == cmdClear || m.cmd == cmdText || m.cmd == cmdBatch }
 	if k.flight != nil && drawing(k.flight) {
 		k.flight = nil
@@ -613,6 +679,19 @@ func (k *Keyboard) dropDrawing() {
 	}
 	k.queue = kept
 	k.next()
+}
+
+// applied keeps cmd as done by the keyboard: a light in lit, an item in the
+// screen's list. Called with mu held.
+func (k *Keyboard) applied(cmd Item) {
+	if cmd.Kind == KindLED {
+		if k.lit == nil {
+			k.lit = map[int]Item{}
+		}
+		k.lit[cmd.X] = cmd
+		return
+	}
+	k.shown = apply(k.shown, cmd)
 }
 
 // Gone says the keyboard's port went (internal/midi's ControllerGone). A
@@ -683,7 +762,7 @@ func (k *Keyboard) Feed(msg []byte) {
 		k.shown, k.refused = nil, false // the list is empty
 	case done.cmd == cmdBatch && status == statusOK:
 		for _, it := range done.items {
-			k.shown = apply(k.shown, it)
+			k.applied(it)
 		}
 	case done.cmd == cmdBatch && status != statusReleased:
 		// Stopped short: what came before it is done. A screen the keyboard
@@ -694,7 +773,7 @@ func (k *Keyboard) Feed(msg []byte) {
 			n = int(msg[8]) | int(msg[9])<<7
 		}
 		for _, it := range done.items[:min(n, len(done.items))] {
-			k.shown = apply(k.shown, it)
+			k.applied(it)
 		}
 		log.Printf("[!] SMK-37: the keyboard refused a screen's command %d (status %d): %v", n, status, done.items[min(n, len(done.items)-1)])
 		k.refused = true // until heal draws it again whole
@@ -707,8 +786,10 @@ func (k *Keyboard) Feed(msg []byte) {
 			k.dropDrawing()
 		}
 		k.status.Screen = false
+		k.lit = nil
 	case done.cmd == cmdRelease && status == statusOK:
 		k.status.Screen = false
+		k.lit = nil
 	}
 	k.next()
 	k.mu.Unlock()

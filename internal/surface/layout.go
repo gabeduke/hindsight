@@ -71,8 +71,9 @@ type State struct {
 	Selected           int // the Mixer page's track, 1-4
 	Solo, Mute         [4]bool
 
-	Page Page
-	Held [16]bool // FX pads held now
+	Page  Page
+	Held  [16]bool // FX pads held now
+	Shift bool     // SHIFT held on the keyboard: its light (lights.go)
 
 	Meter [4]int // 0-127
 	Fader [4]int // 0-127, 100 is 0 dB

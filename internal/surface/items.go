@@ -22,7 +22,10 @@ const (
 
 // Item is one thing on the screen. A TEXT is S at (X, Y) at Scale in Colour
 // on Back; a BOX fills W by H at (X, Y) in Colour; a BAR fills the left
-// Value/127 of its W by H in Colour and the rest in Back.
+// Value/127 of its W by H in Colour and the rest in Back. An LED (lights.go)
+// is a light, not on the screen: X is its target, a pad 0-15 or 16 + a
+// button's id, and Lamp a pad's red, green and blue, 0-127, or a button's
+// Light first.
 type Item struct {
 	Kind         Kind
 	X, Y, W, H   int
@@ -30,6 +33,7 @@ type Item struct {
 	Colour, Back Colour
 	Value        int
 	S            string
+	Lamp         [3]int
 }
 
 // TextItem is a TEXT: s cleaned to what the keyboard draws (capitals,
@@ -102,8 +106,12 @@ func (it Item) removal() Item {
 	return out
 }
 
-// removes says whether the item is a removal.
+// removes says whether the item is a removal. A light never is: it is set,
+// to off if need be.
 func (it Item) removes() bool {
+	if it.Kind == KindLED {
+		return false
+	}
 	if it.Kind == KindText {
 		return it.S == ""
 	}
@@ -125,6 +133,8 @@ func (it Item) payload() []byte {
 		return append(append(b, byte(it.Scale), byte(it.Colour), byte(it.Back)), it.S...)
 	case KindBox:
 		return append(put14(nil, it.X, it.Y, it.W, it.H), byte(it.Colour))
+	case KindLED:
+		return it.ledPayload()
 	default:
 		return append(put14(nil, it.X, it.Y, it.W, it.H), byte(it.Value), byte(it.Colour), byte(it.Back))
 	}
@@ -140,6 +150,8 @@ func (it Item) String() string {
 		return fmt.Sprintf("text %d %d %d %d %d %s", it.X, it.Y, it.Scale, it.Colour, it.Back, strings.ReplaceAll(it.S, " ", "_"))
 	case KindBox:
 		return fmt.Sprintf("box %d %d %d %d %d", it.X, it.Y, it.W, it.H, it.Colour)
+	case KindLED:
+		return it.ledString()
 	default:
 		return fmt.Sprintf("bar %d %d %d %d %d %d %d", it.X, it.Y, it.W, it.H, it.Value, it.Colour, it.Back)
 	}
