@@ -428,8 +428,10 @@ export function mountCapture(ctx) {
   ctx.on(window, 'online', () => { pollStatus(); pollTakes(); });
   ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { pollStatus(); pollTakes(); } });
 
-  // The meters' socket, held while Capture is shown (ctx.socket).
-  ctx.socket(() => connectLive({
+  let liveHandle = null;
+  function startLive() {
+    if (liveHandle) return;
+    liveHandle = connectLive({
       onOpen: () => link.ok('live'),
       onClose: () => link.fail('live'),
       onFrame: (f) => {
@@ -440,7 +442,15 @@ export function mountCapture(ctx) {
         const last = f.bins?.[f.bins.length - 1];
         if (chanMeters && last?.rms) chanMeters.update(last.rms, f.peak, f.clip);
       },
-    }));
+    });
+  }
+
+  function stopLive() {
+    liveHandle?.close?.();
+    liveHandle = null;
+  }
+
+  startLive();
 
   // ---------------------------------------------------------------- loops
 
@@ -465,15 +475,18 @@ export function mountCapture(ctx) {
   // while another room is shown.
   return {
     show({ first } = {}) {
+      startLive();
       ribbon?.resume?.();
       if (!first) {
         pollStatus().then(() => pollTakes(true));
       }
     },
     hide() {
+      stopLive();
       ribbon?.pause?.();
     },
     destroy() {
+      stopLive();
       vuMeters?.destroy?.();
       ribbon?.destroy?.();
     },

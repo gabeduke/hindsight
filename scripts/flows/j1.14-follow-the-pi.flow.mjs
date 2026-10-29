@@ -46,6 +46,7 @@ export default {
     const stopped = () => !document.getElementById('np-play')?.classList.contains('playing');
     const named = (n) => document.getElementById('tape-name-text')?.textContent === n;
     const worst = (xs) => Math.max(...xs);
+    const pause = () => t.wait(150 + Math.round(Math.random() * 200));
     // heard(n) resolves when the n-th /api/tapes/changes socket the page
     // opens from now on has carried its first message, the ones before it
     // closed: the page is listening, on the socket that stays. Loading the

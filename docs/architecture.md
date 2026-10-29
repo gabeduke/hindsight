@@ -982,8 +982,7 @@ the desk (the lit tab, a bar of another shape) changes in place.
   saved scroll is restored only by a room that mounts shown, never by one
   warming while the Studio is up). Its first visit is a reveal, still
   `first: true`, but its `hide()` has run before it: so its `show()` puts
-  back on every visit what `hide()` put away, and what `ctx` holds comes
-  back with it (Capture's live socket is `ctx.socket`'s), and
+  back on every visit what `hide()` put away (Capture's live socket), and
   what it runs outside `ctx` (Capture's ribbon, on its own timer) stops in
   `hide()` and starts in `show()`.
 - **A tap lands where it looks, or nowhere.** While a switch is drawn,

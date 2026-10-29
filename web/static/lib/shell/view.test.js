@@ -697,15 +697,12 @@ test('a prewarmed view’s first show puts back what its hide put away: Capture 
   const show = /show\(\{ first \}\) \{([\s\S]*?)\n      \},/.exec(capture)?.[1] ?? '';
   assert.match(show, /capture\?\.show\?\.\(\{ first \}\)/, 'Capture’s show is handed every visit, the first one included');
   assert.doesNotMatch(show, /if \(!first\)/, 'not only the later ones');
-  // Its live socket is ctx.socket's, which opens on every wake, the first
-  // after a prewarm included (the ctx.socket tests). Its ribbon polls on a
-  // timer of its own, not through ctx: paused when Capture is put away, and
-  // started again when it is shown.
+  // Its ribbon polls on a timer of its own, not through ctx: paused when
+  // Capture is put away, and started again when it is shown.
   const app = source('../../app.js');
-  assert.match(app, /ctx\.socket\(\(\) => connectLive\(/, 'the meters’ socket is held through ctx');
   const handle = app.slice(app.lastIndexOf('return {'));
-  assert.match(/show\(\{ first \} = \{\}\) \{([\s\S]*?)\n    \},/.exec(handle)?.[1] ?? '', /ribbon\?\.resume\?\.\(\)/);
-  assert.match(/hide\(\) \{([\s\S]*?)\n    \},/.exec(handle)?.[1] ?? '', /ribbon\?\.pause\?\.\(\)/);
+  assert.match(/show\(\{ first \} = \{\}\) \{([\s\S]*?)\n    \},/.exec(handle)?.[1] ?? '', /startLive\(\);[\s\S]*ribbon\?\.resume\?\.\(\)/);
+  assert.match(/hide\(\) \{([\s\S]*?)\n    \},/.exec(handle)?.[1] ?? '', /stopLive\(\);[\s\S]*ribbon\?\.pause\?\.\(\)/);
 });
 
 test('a room mounted out of sight leaves the room shown where it is: it restores its own scroll only when it mounts shown', () => {
