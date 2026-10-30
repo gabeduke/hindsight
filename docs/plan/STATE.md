@@ -95,18 +95,59 @@ and still looks it:
 
 ## Next
 
-- **The walkthrough has begun** (2026-10-30): `walkthrough.md` holds Gabe's
-  stories and what is decided so far. Specs come out of it: reaching back
-  (Catch and Keep as one move), song sections and templates, the pocket
-  kit (a phone that records on its own and syncs the tape). Play mode's
-  flag is retired (its strip deleted; `architecture/tape.md`, *When a pad
-  lands*).
-- **`the-ecosystem.md` comes first** (2026-10-30, not yet agreed): Gabe
-  finds the UX chaotic and wants an ecosystem of components reached from
-  every surface. Its walkthrough settles what is kept, merged or cut, and
-  the instrument's shape. Gabe rolled forward on 2026-10-30 ("merge
-  anything"): the play look (#218) and Open's rebuild (#220) landed ahead
-  of it. Components (`components.md`) are next.
+
+- **The component migration, paced** (`components.md`, agreed
+  2026-10-30). One component per session, one PR each, tried by Gabe on
+  the tablet before the next starts. Gabe, 2026-10-30: "merge anything, we
+  roll forward", so a reviewed, green PR merges without waiting for him.
+  Start each session fresh from this file and `components.md`. The queue:
+  0. **Left from 2026-10-30**, if not merged yet (`gh pr list`):
+     - setting the tempo at any time (#223): held, since its flow
+       (J1.20) has no phone path and fails there, where the tempo is in
+       the player pulled up; the PR says what is needed;
+     - the flows' phone profile can't see a page wider than the phone:
+       with `isMobile` an overflowing page zooms out, so `checkLayout`'s
+       offscreen misses it; check `clientWidth` too (found by the
+       harness, #238);
+     - a flaky Go test: `TestTheTakesRevisionMovesTheMomentAWriteChangesTheList`
+       (`internal/api/takes_rev_test.go`, from #225) failed in CI on
+       main's code with "no message within 300ms: i/o timeout" (run
+       41103214833, a docs-only PR). It looks like a race between the
+       socket subscribing and the write: wait for the socket's first
+       message before the write, and don't widen the 300 ms.
+  1. **Transport** (the bar): `components.md` §6, row 1. It amends
+     AGENTS.md and decision 0047 (call 1).
+  2. **Library: the List.**
+  3. **Library: the wall.** The search becomes the library's state
+     (call 2), and AGENTS.md's `#shelf-q` line changes with it.
+  4. **The notes drawer**, on the take model.
+  5. **Pads** (the cue lane). They need `lib/ui/drag.js` first.
+
+  In between, the models still to build (step 4): `feed`, `take`, `rig`,
+  `tape`, and the rest of `transport`. #231 built only the tape's
+  transport: no source, output or tempo verbs, and getters rather than
+  `snapshot()`. Then the one push socket at `/api/changes` (call 3).
+- **The walkthrough's specs** wait on Gabe's questions:
+  - `reach-back.md` (Catch and Keep as one move);
+  - `song-sections.md` (templates you fill in);
+  - `the-pocket-kit.md` (a phone that records on its own and syncs the
+    tape; 19 questions).
+
+  Their builds sit on the Transport and the List, so they come after
+  those. `walkthrough.md` holds the stories and what is still to talk
+  through. Play mode's flag is retired (#232: its strip deleted;
+  `architecture/tape.md`, *When a pad lands*).
+- **Calls taken for Gabe on 2026-10-30, his to overrule:**
+  - `tempo.md`'s recommendations: move the bar lines now, varispeed later;
+  - the phone's cue drawer docks above the mini player;
+  - ▶ in the Studio, with nothing playing, plays the tape;
+  - Export always offers Download;
+  - Open's selection bar as #220 recommends.
+- **`the-ecosystem.md` is the map.** Landed so far:
+  - step 2, one verb set (#224);
+  - step 4's first models: takes (#225), the tape's transport (#231).
+
+  Step 5 is the migration above, and step 7 is the play look.
 - **`the-studio-space.md` is the build order**: steps 1–11 have landed
   (10, Open and the dolly into a take: `docs/architecture/take-page.md`,
   *Open*); 12 (polish) is open, and so is Open's one unbuilt part, the
