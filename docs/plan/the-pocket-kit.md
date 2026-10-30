@@ -33,7 +33,7 @@ conformance tests; no one codebase is the contract.*
 ## The pieces
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph phone["Phone: the pocket kit"]
     io["mic or USB interface"] <--> cb["audio callback<br/>(native, never Go)"]
     cb --> feed[("the phone's feed<br/>a ring file")]
@@ -60,12 +60,17 @@ flowchart LR
   friend -->|"objects"| store
 ```
 
-The five layers of `the-ecosystem.md` hold: the phone is a second
-**engine**; it speaks the same **protocol** as the Pi; its screens are the
-same **models** and **components**; the phone is one more **surface**.
-What is new is that two engines can each hold a tape, so the protocol has
-to carry a tape between them, which today it never does: *nothing syncs
-between devices* (`the-ecosystem.md`, *What is there today*).
+The five layers of `the-ecosystem.md` carry over: the phone's screens
+are the same **models** and **components**, it speaks the same
+**protocol**, and it is one more **surface**. But it is also a second
+**engine**, and that **departs from the ecosystem's first rule**: *the Pi
+is already the one brain … every direction below keeps this*
+(`the-ecosystem.md`, *What is there today*; decision 0017). Away from the
+Pi the phone has to be a brain of its own, so two engines can each hold a
+tape, and the protocol has to carry a tape between them, which today it
+never does: *nothing syncs between devices*. The Pi stays the brain at
+home, and the home of every tape that is Gabe's (*Sync*); whether that is
+the line to hold is the first question at the end.
 
 **This spec is the engine ↔ engine half**: the tape as a portable
 document, and sync between the phone, the Pi, the hub and a friend's
@@ -128,11 +133,13 @@ immutable audio. Five things tie it to one Pi:
 3. **Undo is whole copies of the state.** It can't merge with edits made
    elsewhere, and it makes the file up to 100 times the size of the tape.
 4. **Device state is mixed in.** The armed tracks, the inputs and the click
-   sit in `tape.json`, though the code already says they are *"where you
-   are, not what's on the tape"* (`model.go`, `Tape`).
-5. **Derived files sit beside the audio**: peaks, previews, a take's cue
-   chunk (the notes, written into the WAV, so a take's bytes change when a
-   note does).
+   sit in `tape.json`, though the code already says the armed tracks and
+   inputs are *"where you are, not what's on the tape"* (`model.go`,
+   `Tape`).
+5. **Derived data travels with the audio**: peaks and previews sit beside
+   it, and a take's notes are written into its WAV (a `cue ` chunk and
+   `LIST` labels, `audio/cue.go`), so a take's bytes change when a note
+   does.
 
 ### The format
 
@@ -148,8 +155,9 @@ engine exports, imports and syncs, and a Pi can keep a tape in both.
   (`writeWAVHeader`): RIFF, a 16-byte `fmt ` chunk, `data`, nothing else;
   32-bit integer PCM, interleaved, little-endian. Anyone can check an
   object with `sha256sum`.
-- **A take's audio is an object too**, hashed over its canonical form (its
-  WAV without the cue chunk), so a note never changes what the audio is.
+- **A take's audio is an object too**, hashed over its canonical form:
+  `RIFF`, `fmt ` and `data` alone, with the sizes worked out again, and
+  no `cue ` or `LIST` chunk. So a note never changes what the audio is.
 - **Derived files are not objects**: peaks, previews, waveforms. Each
   engine makes its own. A reversed part's file is an object (it is audio
   the renderer plays) and keeps naming what it was reversed from.
@@ -174,7 +182,7 @@ by hash, and who made each part. Shortened:
 ```json
 {
   "format": "hindsight-tape", "format_version": 2,
-  "id": "t-01JBX4Q7Z9…", "name": "Sunday groove", "home": "pi:<kit id>",
+  "id": "t-01JBX4Q7Z9…", "name": "Sunday groove", "home": "d-01JAQ3…",
   "sample_rate": 48000, "length": 57600000, "version": 312,
   "grid": {"frames": 384000, "bars": 4},
   "loop": {"in": 0, "out": 384000, "on": true},
@@ -182,16 +190,18 @@ by hash, and who made each part. Shortened:
     {"n": 1, "name": "MPC", "bus": "A", "gain_db": -6, "pan": 0,
      "parts": [{"id": "p-01JBX4R2…", "object": "sha256-9b1c…",
                 "src": 4800, "frames": 384000, "at": 0, "layer": 0,
-                "gain_db": 0, "by": "u-gabe", "made": "2026-10-30T21:14:03Z"}]}
+                "gain_db": 0, "by": "u-01JAQ2…",
+                "made": "2026-10-30T21:14:03.120Z/2"}]}
   ],
-  "cue": {"clips": []}, "sections": [], "style": null
+  "cue": {"parts": []}, "sections": [], "style": null
 }
 ```
 
 - **Ids are ULIDs** with a prefix (`t-` a tape, `p-` a part, `s-` a
   section, `u-` a person, `d-` a device): unique without asking anyone, and
   in time order. The slug stays as the tape's folder name on a Pi.
-- **`home`** names the engine that orders this tape's edits (*Sync*).
+- **`home`** names the engine that orders this tape's edits (*Sync*): a
+  Pi is a device too, and the hub has an id of its own.
 - **`by`** is the person who made the part (*Identity*).
 - **Device state stays on the device**: the armed tracks, the inputs, the
   click, where it plays. They are not in the document.
@@ -201,6 +211,11 @@ by hash, and who made each part. Shortened:
   back what it doesn't, untouched, so a Pi a release ahead of a phone loses
   nothing through it. An unknown `format_version` is refused with words
   saying to update.
+- **`format_version` is today's `version`**: in `tape.json` (and a take's
+  `.meta.json`) `version` is the schema's. In the document the schema is
+  `format_version`, and `version` is the tape's version, the count of its
+  edits, which is the word `components.md` uses for a noun's state. An
+  importer reads a `tape.json`'s `version` as its `format_version`.
 
 #### The grid and tempo
 
@@ -219,7 +234,7 @@ A meter other than 4/4 would be a new field, read as 4/4 when absent.
 - **An edit** is small and says what it means:
 
   ```json
-  {"edit": "part.add", "id": "d-pixel:41", "by": "u-gabe",
+  {"edit": "part.add", "id": "d-01JAQ4…:41", "by": "u-01JAQ2…",
    "base": 309, "made": "2026-10-30T21:14:03.120Z/2",
    "track": 3, "part": {"id": "p-01JBX5…", "object": "sha256-77ad…",
                         "src": 4800, "frames": 384000, "at": 768000}}
@@ -299,7 +314,7 @@ each wait to reach it.
 - **Once per place.** An object is stored once however many tapes, takes or
   people use it, and a phone that has cached a tape's audio never fetches
   it again. A catch dropped on two tapes is one object.
-- **The feed never syncs.** Neither the Pi's ring nor the phone's leaves
+- **The feed never syncs.** Neither the Pi's feed nor the phone's leaves
   its device; only what someone kept or caught does.
 
 ### Offline first
@@ -325,6 +340,10 @@ order. **Recommended**; the alternatives are in *Questions*.
 | Insert or delete time, and an edit made before it | The older edit's positions move with the time edit, as text does around an insert | Its part lands on the bar it was meant for |
 | An edit the home refuses (past the end, no such track) | Refused, as now, with the same words | `Tape.Change` validates every edit, wherever it was made |
 
+A device's clock can be wrong, and a fast one would win every clash, so
+the home takes no `made` later than its own clock when the edit arrives:
+an edit is never newer than its delivery.
+
 Each edit gets an answer: applied, applied and moved (by a time edit),
 overruled (by whom), or refused (why). The phone says so in words, once:
 *2 of your changes were overruled by Gabe's tablet*.
@@ -333,16 +352,21 @@ overruled (by whom), or refused (why). The phone says so in words, once:
 
 Undo by whole copies of the state can't work once two engines edit one
 tape: stepping back would throw away the other's edits. **Recommended:
-Undo walks back your own edits**, the way a take's history already does
-(`audio.Op`, `docs/architecture/takes.md`, *Undo*): each edit carries what
-it changed from, Undo puts that back only while the thing still holds
-what the edit set, and otherwise says it was changed since and skips it.
+Undo walks back your own edits**, by the guard a take's history already
+keeps (`audio.Op`, `docs/architecture/takes.md`, *Undo*): each edit
+carries what it changed from, Undo puts that back only while the thing
+still holds what the edit set, and otherwise says it was changed since and
+skips it.
 
 "Your own" means the person, not the device: Gabe's tablet, keyboard and
 phone are all Gabe, so his Undo on the keyboard still undoes what the
 tablet just did, as it does today. Someone else's edits are theirs to
-undo. This changes the Pi's Undo, so it waits for slice 2, the first time
-two engines edit one tape.
+undo. A take's Undo is per *device* today (`history.go`, `mine`); it
+moves to per person in the same change, so there is one rule. Until the
+Pi's other routes have access control, an edit with no device token (a
+page, the keyboard, a controller) counts as the kit's owner. This changes
+the Pi's Undo, so it waits for slice 2, the first time two engines edit
+one tape.
 
 ### What the hub does
 
@@ -364,9 +388,13 @@ needs three things from it, in order:
 3. **Slice 3: the home of a shared tape.** Its edits in order and its
    snapshots live on the hub, which runs the same Go code as a Pi to apply
    them (the same `Tape.Change`, the same rules), and its objects live in
-   the store. Gabe's Pi is then a replica of that tape like any phone,
-   pulling on its heartbeat. The hub never renders, mixes or carries live
-   audio.
+   the store. Gabe's Pi is then a replica of that tape like any phone.
+   The hub has no changes socket today, and the Pi only calls it every 10
+   minutes (`hub.DefaultEvery`), so the hub needs a nudge of its own for
+   the tapes it homes: a socket a replica holds open while it is on the
+   tape, as the Pi's `/api/tapes/changes` is, and the 10 minutes as the
+   fallback when none is open. The hub never renders, mixes or carries
+   live audio.
 
 Not proposed: the hub as a relay for a phone to reach the Pi from away.
 The Pi's name points at a LAN address on purpose, and a phone away from
@@ -410,98 +438,32 @@ player*). The difference is the language at the edge (*Sharing code*).
 ### Always listening, in the background
 
 Both platforms let an app keep recording with the screen off once the
-recording has started while the app was in front, and both show the user
-that it is happening. Neither lets an app start the mic from the
-background. So the design is the same on both: **Listen is a key in the
-app; once on, it keeps going in the pocket, with a notification (Android)
-or the recording indicator (iOS) saying so, and KEEP and Stop on it.**
+recording has started from a tap, and both show the user that it is
+happening; neither lets an app turn the mic on by itself, from the
+background or at boot. So the design is the same on both: **Listen is a
+key in the app; once on, it keeps going in the pocket, with a
+notification (Android) or the recording indicator (iOS) saying so, and
+KEEP and Stop on it.** What follows from the platforms (the sources are
+in *Appendix: the platforms*):
 
-**Android** (checked against developer.android.com, 2026-10-30):
-
-- **A foreground service of type `microphone`**, with `RECORD_AUDIO` and,
-  since Android 14, `FOREGROUND_SERVICE_MICROPHONE`
-  ([service types](https://developer.android.com/develop/background-work/services/fgs/service-types)).
-- **Started only from in front.** For an app targeting Android 14 or later,
-  a microphone service can't be started from the background, and the usual
-  exemptions don't lift that; a tap on the app, its notification or a
-  widget can. It can't start at boot either
-  ([restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)).
-  So Listen never turns itself on, after a reboot or anything else.
-- **No time limit.** The 6-hours-a-day limit is for `dataSync` and
-  `mediaProcessing` services only
-  ([timeouts](https://developer.android.com/develop/background-work/services/fgs/timeout)).
-  Android 16 changed nothing here
-  ([16](https://developer.android.com/about/versions/16/behavior-changes-all)).
-- **Android 17** (stable since 2026-06-16) silences an app's background
-  *playback*, without an error, unless it has a visible activity or a
-  foreground service, and for apps targeting it the service must have been
-  started from in front
-  ([background audio](https://developer.android.com/about/versions/17/changes/bg-audio)).
-  The Listen service qualifies, so the tape can play with the screen off
-  during an overdub. Android 17 also adds memory limits by RAM
-  ([17, all apps](https://developer.android.com/about/versions/17/behavior-changes-all)),
-  one more reason the feed lives on disk. Nothing in 16 or 17 limits a
-  microphone service.
-- **The user can stop it.** The notification drawer's Task Manager stops
-  the whole app with no callback
-  ([handling it](https://developer.android.com/develop/background-work/services/fgs/handle-user-stopping)),
-  and the notification can be swiped away since Android 13
-  ([13](https://developer.android.com/about/versions/13/behavior-changes-all)).
-  So the feed's file is written so that a kill loses at most its last
-  second, and the app finds and keeps it at the next start, as the Pi
-  recovers a `.part` (`docs/architecture/takes.md`).
-- **When a call or another app takes the mic**, the app isn't stopped: it
-  is fed silence, and can see that it is
-  (`AudioRecordingConfiguration.isClientSilenced`,
-  [sharing audio input](https://developer.android.com/media/platform/sharing-audio-input)).
-  The feed marks the gap, so a reach-back across it says so instead of
-  keeping silence as if it were music.
-- **Phone makers** kill background apps beyond what Android does; Pixels
-  are rated the best for it
-  ([dontkillmyapp.com](https://dontkillmyapp.com/google), not Google's).
-- **AAudio through Oboe**, Google's recommended library for the lowest
-  latency, maintained (1.11.0, September 2026)
-  ([Oboe](https://developer.android.com/games/sdk/oboe),
-  [AAudio](https://developer.android.com/ndk/guides/audio/aaudio/aaudio)).
-  A phone that declares `android.hardware.audio.pro` promises a round
-  trip of 20 ms by the NDK's page
-  ([latency](https://developer.android.com/ndk/guides/audio/audio-latency)),
-  25 ms by the Android 16 compatibility document
-  ([CDD 5.6](https://source.android.com/docs/compatibility/16/android-16-cdd)).
-  No current figure for a Pixel was found; the spike measures Gabe's.
-
-**iOS** (designed for now, not built):
-
-- **The `audio` background mode**, an `AVAudioSession` in
-  `.playAndRecord`
-  ([playAndRecord](https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/playandrecord);
-  the archived
-  [Audio Session Programming Guide](https://developer.apple.com/library/archive/documentation/Audio/Conceptual/AudioSessionProgrammingGuide/AudioGuidelinesByAppType/AudioGuidelinesByAppType.html)).
-  No current Apple page says in plain words that recording may *continue*
-  in the background but not *start* there; that rests on the archived
-  guide, Apple's forums and the session's `cannotInterruptOthers` error.
-  An Apple engineer on the forums: the mode keeps the app awake while its
-  session is active, *"which isn't quite the same as guaranteeing it will
-  not be suspended"*
-  ([forum](https://developer.apple.com/forums/thread/764096)).
-- **Real-time input and output** through `AVAudioSinkNode` and
-  `AVAudioSourceNode`, whose blocks run on the audio thread; an input tap
-  does not
-  ([WWDC 2019, *What's New in AVAudioEngine*](https://developer.apple.com/videos/play/wwdc2019/510/)).
-- **Interruptions**: a call or Siri interrupts the session; the feed marks
-  the gap, and Listen resumes when the interruption ends
-  ([interruptions](https://developer.apple.com/documentation/avfaudio/handling-audio-interruptions)).
-  iOS 27 replaces the old interruption notification with session lifecycle
-  notifications, so new code starts there.
-  `setPrefersNoInterruptionsFromSystemAlerts` keeps a banner-style call
-  from interrupting, and Apple names music performance as its use
-  ([docs](https://developer.apple.com/documentation/avfaudio/avaudiosession/setprefersnointerruptionsfromsystemalerts(_:))).
-- **The indicator** is the orange dot
-  ([Apple](https://support.apple.com/en-us/108331)); App Review allows
-  background modes only for their purpose (2.5.4) and asks for a clear
-  sign while recording (2.5.14)
-  ([guidelines](https://developer.apple.com/app-store/review/guidelines/)),
-  which Listen is.
+- **Android**: a foreground service of type `microphone`, which has no
+  time limit, and audio through AAudio and Oboe. Android 17 silences an
+  app's background playback unless such a service is running, which
+  Listen is, so the tape can play with the screen off during an overdub.
+- **It can be stopped from outside**: Android's Task Manager kills the
+  app with no callback, and iOS may suspend it. So the feed's file is
+  written so that a kill loses at most its last second, and the app picks
+  the file up at its next start, as the Pi finishes a phone recording's
+  `.part` (`docs/architecture/takes.md`, *Phone recordings*).
+- **A call takes the mic**: Android feeds the app silence, iOS interrupts
+  the session. Either way the feed marks the gap, so a reach-back across
+  it says so instead of keeping silence as if it were music, and Listen
+  carries on when the call ends.
+- **iOS**: the `audio` background mode, an `AVAudioSession` in
+  `.playAndRecord`, and the real-time `AVAudioSinkNode` and
+  `AVAudioSourceNode`. Apple's pages don't promise that a background
+  recording won't be suspended, so that is the first thing an iOS build
+  proves.
 
 ### The phone's feed
 
@@ -516,12 +478,14 @@ or the recording indicator (iOS) saying so, and KEEP and Stop on it.**
 - **How long**: 30 minutes by default (691 MB, below), a setting like
   *Feed length* on the Pi. Gabe's jams run 5 to 10 minutes, and he only
   knows it was good a few minutes in.
-- **Reaching back** is the move `docs/plan/reach-back.md` (a spec in
-  progress) makes one on the Pi: open the feed, drag its two ends, IN and
-  OUT, to the part you want, and send it. In slice 1 the phone has one
-  send, KEEP onto the shelf (a take); slice 2 adds CATCH onto the armed
-  track, and GRAB onto the cue lane if the phone has one. The words are
-  that spec's, and follow it if they change.
+- **Reaching back** is the move `docs/plan/reach-back.md` (PR #229, not
+  yet agreed) makes one on the Pi: open the feed (a sheet titled *Feed*
+  on a phone), drag its two ends, IN and OUT, round the span you want,
+  and send it. In slice 1 the phone has one send, KEEP onto the shelf (a
+  take); slice 2 adds CATCH onto the armed track, and GRAB onto the cue
+  lane if that spec keeps it. A bare press takes the default span, so
+  KEEP on the notification keeps *since you started*. The words are that
+  spec's, and follow it if they change.
 - **A note** (the ecosystem's NOTE) from the notification marks a moment
   in the feed, and a reach-back can start from it, as a span from a note
   can on the Pi (`docs/architecture/takes.md`, *Saving any span*).
@@ -569,46 +533,18 @@ the last pass. That is the strongest argument for the next section.
 
 ### USB audio interfaces
 
-**The Zoom AMS-24** Gabe mentions has two inputs (XLR or jack, phantom
-power, Hi-Z on the first), a stereo line out and two headphone outs; over
-USB-C it records two channels and plays four, 24-bit at up to 96 kHz, as
-USB Audio Class 2.0
-([Zoom](https://zoomcorp.com/en/us/audio-interface/audio-interfaces/ams-series/)).
-Two things from Zoom's own pages matter here:
+**The Zoom AMS-24** Gabe mentions records two inputs and plays four
+channels over USB-C, as a class 2 interface. Zoom says that with a phone
+it must run on its own batteries or adapter, and lists it for Android 9
+to 11 and iOS up to 26 only. Android opens an interface's channels by
+number and lets an app choose the device, but Google documents only
+class 1 USB audio, so whether the AMS-24 works on Gabe's phone is for the
+spike (*Appendix: the platforms*). With it:
 
-- **It needs its own power with a phone**: *"an external power supply or
-  batteries must be used"* (two AA, or Zoom's adapter;
-  [manual](https://zoomcorp.com/manuals/ams-24-en/)). So it doesn't drain
-  the phone, but it is one more thing to carry charged.
-- **Zoom lists it for Android 9 to 11 only**, and iOS up to 26. Gabe's
-  phone is newer, so whether it works is for the spike to find out.
-
-Android, as documented:
-
-- **UAC1 is documented, UAC2 isn't.** Google's USB audio page describes a
-  subset of class 1, one or two channels, and is plainly out of date
-  ([AOSP](https://source.android.com/docs/core/audio/usb)); no Google page
-  says class 2 works, though Zoom says this class 2 interface does on
-  Android. The compatibility document does require USB host mode and USB
-  audio through AAudio's low-latency path
-  ([CDD 5.10](https://source.android.com/docs/compatibility/16/android-16-cdd)).
-- **Both inputs, as channels.** `AudioFormat.Builder.setChannelIndexMask`
-  (Android 6) opens an interface's channels by number, for recording too
-  ([reference](https://developer.android.com/reference/android/media/AudioFormat.Builder)).
-- **Choosing the device**: `AudioRecord.setPreferredDevice`, or
-  `AAudioStreamBuilder_setDeviceId` with an id from
-  `AudioManager.getDevices()`, checked after opening
-  ([NDK audio](https://developer.android.com/ndk/reference/group/audio)).
-
-So the app lists the interface's inputs and outputs and Listen records the
-ones chosen; with the interface for both input and output, an overdub has
-one clock, and its calibration is a cable from its output to its input,
-once.
-
-On iOS, an iPhone with USB-C takes microphones and small accessories
-([Apple](https://support.apple.com/en-us/105099)); audio interfaces aren't
-named, and a new accessory needs the phone unlocked to connect
-([Wired Accessories](https://support.apple.com/en-us/111806)).
+- the app lists the interface's inputs and outputs, and Listen records
+  the ones chosen;
+- with the interface for both input and output, an overdub has one clock,
+  and its calibration is a cable from its output to its input, once.
 
 ### Battery and storage
 
@@ -643,7 +579,7 @@ plus takes in `internal/audio`. Four ways to get it onto a phone:
 | | What | For | Against |
 |---|---|---|---|
 | A | **Native per platform**: Kotlin with Oboe in C++ on Android; Swift with AVAudioEngine on iOS | The best fit to each platform; no bridge | The tape's rules written three times (Go, Kotlin, Swift), and kept the same by tests alone; iOS starts from zero |
-| B | **Kotlin Multiplatform**: the model and sync in shared Kotlin, audio native each side (stable since Kotlin 1.9.20, November 2023, [JetBrains](https://blog.jetbrains.com/kotlin/2023/11/kotlin-multiplatform-stable/); Compose for iOS since 1.8.0, May 2025) | One codebase for both phones; Kotlin is Android's own language | Still two implementations of the rules (Go on the Pi, Kotlin on phones); a render in Kotlin has a garbage collector on Android |
+| B | **Kotlin Multiplatform**: the model and sync in shared Kotlin, audio native each side (stable since Kotlin 1.9.20, November 2023, [JetBrains](https://blog.jetbrains.com/kotlin/2023/11/kotlin-multiplatform-stable/); Compose for iOS since 1.8.0, May 2025) | One codebase for both phones; Kotlin is Android's own language | Still two implementations of the rules (Go on the Pi, Kotlin on phones) |
 | C | **A shared C++ or Rust core**: model, render and audio in one native library on both phones ([cpal](https://github.com/RustAudio/cpal) plays through AAudio and Core Audio; [UniFFI](https://github.com/mozilla/uniffi-rs) makes the Kotlin and Swift bindings) | Real-time safe, both phones from one core | A third language in a one-person project; the Pi stays Go unless 27,000 lines are rewritten, so two implementations again |
 | D | **gomobile**: the Pi's Go core (model, edits, render-ahead, catch, sync) as a library on both phones, the audio callback native | **One implementation of the rules** on the Pi, the hub and both phones; its tests already exist; renders match the Pi's because they are the Pi's | gomobile is *"experimental"*, with no support from the Go team ([golang/mobile](https://github.com/golang/mobile)); one Go library per app; a narrow bridge; a Go runtime in the app |
 
@@ -651,11 +587,19 @@ plus takes in `internal/audio`. Four ways to get it onto a phone:
 native.** What it means in practice:
 
 - **What goes in the core** is the code that has no device in it:
-  `internal/tape`'s model, edits, renderer and catch (the PortAudio files
-  are already behind `//go:build cgo`, out of a build that doesn't ask for
-  them), the takes' meta and history, the objects store and sync. MIDI,
-  the Sidekick's rig, the hub's heartbeat and the update machinery stay
-  out.
+  `internal/tape`'s model, edits, renderer and catch, the takes' meta and
+  history, the objects store and sync. Live MIDI (`internal/midi`), the
+  Sidekick's rig, the hub's heartbeat and the update machinery stay out;
+  `internal/smf`, the MIDI file an export carries, comes along.
+- **PortAudio has to come out of the core's build first.** `internal/tape`
+  imports `internal/audio`, whose `source_portaudio.go` and
+  `sink_portaudio.go` are behind `//go:build cgo`; gomobile always builds
+  with cgo, so today an Android build of `internal/tape` pulls PortAudio
+  in (`CGO_ENABLED=1 GOOS=android go list -deps ./internal/tape` lists
+  it). Either the constraint becomes `cgo && !android && !ios`, or
+  PortAudio moves to a package of its own that only `cmd/hindsight`
+  imports (recommended: the core then can't reach a device by accident).
+  It is the first step of the format work (*Build order*, step 3).
 - **The audio callback never enters Go.** On Android it is C++ on Oboe; on
   iOS the source and sink nodes' blocks call the same small C code. That C
   code is a pair of lock-free queues and the feed's buffer; the core fills
@@ -674,7 +618,8 @@ native.** What it means in practice:
   native code aligned to 16 KB pages (for updates from 2027-02-01,
   [page sizes](https://developer.android.com/guide/practices/page-sizes));
   for gomobile that is NDK r28 or later, by a Go maintainer's word on the
-  tracker rather than a document.
+  tracker rather than a document
+  ([golang/go#74839](https://github.com/golang/go/issues/74839)).
 - **The screens**: native and small for slice 1 (Listen, the reach-back,
   the takes, sync). From slice 2, the Studio's components, the PWA's own
   code, in a web view, talking to the core through the same screen ↔
@@ -707,8 +652,8 @@ Go and the JavaScript agree, by copying. The suite makes that the rule:
 - **What it covers**:
   - *Objects*: canonical bytes to hash; a WAV with a cue chunk to the same
     hash as without.
-  - *Documents*: a version-1 `tape.json` to its version-2 document and
-    back; unknown fields kept.
+  - *Documents*: a `tape.json` of schema 1 to its document of format 2
+    and back; unknown fields kept.
   - *Edits*: a snapshot and an edit to the snapshot after, or the refusal
     and its words.
   - *Merges*: a home's snapshot and two replicas' edits to the merged
@@ -726,15 +671,14 @@ Go and the JavaScript agree, by copying. The suite makes that the rule:
   the C queues.
 - **The rule**: a fixture is never edited to make an implementation pass,
   only when the format changes on purpose, as a flow is never edited to
-  make the app pass (decision 0043), and a change to it is Gabe's call
-  like any exception (decision 0021).
+  make the app pass (decision 0043), and a change to one is Gabe's call.
 
 ## 5. Android's personal apps
 
 Announced by Google on 2026-10-13: an app *vibe-coded* in Google AI
 Studio installs on your own phone through Google Play with a Google
 account, *"no developer account required"*; it stays private, outside
-the store's catalogue, and isn't reviewed; sharing with *"a close circle
+the store's catalogue; sharing with *"a close circle
 of friends and family"* comes *"in the coming months"*; select markets
 including the US, 18 and over
 ([Google](https://blog.google/products-and-platforms/platforms/google-play/google-play-updates-october-2026/)).
@@ -743,13 +687,13 @@ What AI Studio makes is a Kotlin and Jetpack Compose app of one activity
 in one module, client-side only, and *"No NDK or native code: C and C++
 code is not supported"*
 ([AI Studio's Android docs](https://ai.google.dev/gemini-api/docs/aistudio-android)).
-Play's help page says AI Studio is the only way to make one, it is
-updated by prompting AI Studio again, its source and prompts go to Google,
-and it may not use a few high-risk permissions (accessibility, SMS, call
-log, notification listeners, installing packages), a list the mic isn't
-on ([Play Console help](https://support.google.com/googleplay/android-developer/answer/18765789)).
-The project can be downloaded as a ZIP to carry on in Android Studio,
-which makes it an ordinary app, outside this route.
+Play's help page says AI Studio is the only way to make one, it isn't
+reviewed, it is updated by prompting AI Studio again, its source and
+prompts go to Google, and it may not use a few high-risk permissions
+(accessibility, SMS, call log, notification listeners, installing
+packages), a list the mic isn't on ([Play Console help](https://support.google.com/googleplay/android-developer/answer/18765789)).
+AI Studio's page says the project can be downloaded as a ZIP to carry on
+in Android Studio, which makes it an ordinary app, outside this route.
 
 | The pocket kit needs | What Google says |
 |---|---|
@@ -779,7 +723,7 @@ protocol, which is built on the Pi first.
 ### Slice 1: the pocket recorder
 
 **What**: Listen keeps the phone's last 30 minutes; open the feed, drag
-IN and OUT round the piece, and KEEP it onto the shelf as a take; star,
+IN and OUT round the span, and KEEP it onto the shelf as a take; star,
 name and note takes on the phone; at home, the takes go to the Pi by
 themselves and appear on the shelf with *Phone* on their spine. This
 fixes the original problem: the jam you didn't know was good is kept,
@@ -790,7 +734,8 @@ wherever you were.
 - `GET /api/kit`: what this engine is (a Pi, a phone, the hub), what it
   can do (a feed, a tape, MIDI, strips) and which sync protocol it speaks,
   so a phone knows what it is talking to before it syncs.
-- Pairing: a code from the tablet, a device token for the phone.
+- People and devices, and pairing: a code from the tablet, a device
+  token for the phone, which belongs to Gabe (*Identity*).
 - Objects: `have`, a resumable upload, a download.
 - Takes: import a take (its id, its object, its meta, `by`, the device);
   meta edits as `audio.Op`s, the rules takes already have.
@@ -811,7 +756,7 @@ before; sit down with the Orchid and play chords over it*.
 
 **Needs**:
 
-- The version-2 document: export and import on the Pi, the tape's version
+- The tape document: export and import on the Pi, the tape's version
   on the changes socket.
 - Edits as named edits with `base`, `made` and `by`, applied by the
   Pi's home rules; their answers.
@@ -829,7 +774,7 @@ back in their colour, with their name. The piece becomes a collaboration.
 
 **Needs**:
 
-- People, invites and rights (*Identity*).
+- Invites and rights (*Identity*); people and devices came in slice 1.
 - The hub as the home of a shared tape, running the same core.
 - An object store, signed uploads, share links.
 - The conflict rules for real, with every row in the suite.
@@ -846,14 +791,16 @@ this spec.
    the screen off for an hour; then the AMS-24 plugged in. Measure
    underruns, the round trip, battery, heat and the app's size. If it
    fails, the fallback in *Sharing code*.
-3. **The format in Go, on the Pi**: the canonical hash and an index of the
-   pool by hash; the version-2 document, exported and imported; the suite's
-   *Objects* and *Documents* rows. No behaviour changes.
-4. **Slice 1's protocol on the Pi**: `/api/kit`, pairing, objects, take
-   import, and their suite rows; then the Android app's slice 1.
-5. **Edits as named edits** on the Pi, the one verb set (#224) carried
-   down to the tape's own changes, and Undo per person; then slice 2's
-   protocol and app.
+3. **The core's build, and objects, on the Pi**: PortAudio out of the
+   core's build (*Sharing code*); the canonical hash and an index of the
+   pool by hash; the suite's *Objects* rows. No behaviour changes.
+4. **Slice 1's protocol on the Pi**: `/api/kit`, people, devices and
+   pairing, objects, take import, and their suite rows; then the Android
+   app's slice 1.
+5. **The tape document and edits as named edits** on the Pi: the
+   tape document, exported and imported (the suite's *Documents*
+   rows); the one verb set (#224) carried down to the tape's own changes;
+   Undo per person. Then slice 2's protocol and app.
 6. **The hub's object store and share links**, then shared tapes (slice
    3), then iOS if it is wanted.
 
@@ -880,39 +827,172 @@ The spike answers the first, second, third and fifth on Gabe's phone.
 
 My recommendation first in each.
 
-1. **The code**: the Go core on the phone through gomobile, with the audio
+1. **A second engine.** The ecosystem keeps the Pi as the one brain. Away
+   from it, should the phone be a brain of its own (recommended: the Pi
+   stays the brain at home and the home of your tapes, and the phone
+   syncs to it), or should the phone stay a view of the Pi and record only
+   into it, as today?
+2. **The shape of the format and sync**: audio named by its hash, a
+   snapshot and the edits since; one home per tape that orders its edits,
+   rather than a peer-to-peer merge; snapshots down on the nudge, edits up?
+3. **The code**: the Go core on the phone through gomobile, with the audio
    callback native, after a spike proves it? Or native per platform, or a
    Rust core?
-2. **The feed's length** on the phone: 30 minutes (691 MB)? Should Listen
+4. **The feed's length** on the phone: 30 minutes (691 MB)? Should Listen
    switch itself off after a long silence, and after how long? And is
-   *Listen* the key's name, beside a room called the Listening Room?
-3. **Takes from the phone**: sent to the Pi by themselves when home
+   *Listen* the key's name, beside the Listening Room and the ecosystem's
+   proposed Listen workspace?
+5. **The battery**: is an evening of listening (three hours) leaving most
+   of the battery the target the spike measures against?
+6. **Takes from the phone**: sent to the Pi by themselves when home
    (recommended), or chosen one by one? Kept on the phone after, or only
    their previews?
-4. **The conflict rule**: the last change *made* wins, removals win over
+7. **The conflict rule**: the last change *made* wins, removals win over
    changes, overdubs always layer, a replace never removes what its author
    couldn't hear?
-5. **Undo per person** rather than one Undo for everyone, from slice 2 on
-   the Pi too?
-6. **On a shared tape**: anyone adds and changes their own parts, and only
+8. **Undo per person** rather than one Undo for everyone, from slice 2 on
+   the Pi too, and for takes, with an untokened page or the keyboard
+   counting as you?
+9. **On a shared tape**: anyone adds and changes their own parts, and only
    the owner changes anyone's?
-7. **Share links**: audio in an object store outside the house, signed by
-   the hub. Which store, and do links expire?
-8. **How a friend joins**: an invite link and a key on their phone, no
-   account? Or sign in with Google from the start?
-9. **The phone's screens**: small and native for slice 1, then the
-   Studio's own components in a web view, rather than a second UI?
-10. **Overdubs across two clocks** (USB in, the phone's speaker out):
+10. **Share links**: audio in an object store outside the house, signed by
+    the hub. Recommended: an S3-like store chosen by price when it is
+    built, and links that lapse after a month unless kept, since a shared
+    jam is *"a sketch that isn't permanent"* (`walkthrough.md`). Or links
+    that last?
+11. **How a friend joins**: an invite link and a key on their phone, no
+    account? Or sign in with Google from the start?
+12. **The phone's screens**: small and native for slice 1, then the
+    Studio's own components in a web view, rather than a second UI?
+13. **Overdubs across two clocks** (USB in, the phone's speaker out):
     refuse with words (recommended), or allow with a warning?
-11. **Bluetooth**: listening only, never an overdub?
-12. **The AMS-24**: on the phone for slice 1 (on its own batteries, and
-    untested on an Android newer than 11), or is it for the Pi (the
-    walkthrough's second interface) and the phone's own mic is enough to
-    start?
-13. **iOS**: kept honest by the suite and the bridge's shape, and not
+14. **Bluetooth**: listening only, never an overdub?
+15. **The AMS-24**: recommended, the phone's own mic for slice 1, and the
+    AMS-24 tried in the spike (it needs its own batteries with a phone,
+    and Zoom lists it only up to Android 11). Or is it wanted on the phone
+    from the start, or is it for the Pi (the walkthrough's second
+    interface)?
+16. **iOS**: kept honest by the suite and the bridge's shape, and not
     built until Hindsight is a product?
-14. **Personal apps**: skip them (they can't hold native code), and start
+17. **Personal apps**: skip them (they can't hold native code), and start
     in Android Studio over USB?
-15. **Where the app lives**: in this repo (`pocket/`, beside `cmd/`, so
-    the core, the suite and the Pi move together; `release.yml`'s paths
-    leave it out of the Pi's releases), or a repo of its own?
+18. **The fixtures**: changed only when the format changes on purpose, and
+    each change yours to agree, as a flow is?
+19. **Where the app lives**: in this repo, under `pocket/` as a Go module
+    of its own (recommended: the core, the suite and the Pi move
+    together; `golang.org/x/mobile` stays out of the Pi's `go.mod`, which
+    is on `release.yml`'s list; `go vet ./...` at the root doesn't sweep
+    it; whether a nested module may import `internal/` is for the spike to
+    confirm), or a repo of its own?
+
+## Appendix: the platforms
+
+Checked on 2026-10-30 against Google's, Apple's and Zoom's own pages.
+
+**Android**
+
+- **A foreground service of type `microphone`**, with `RECORD_AUDIO` and,
+  since Android 14, `FOREGROUND_SERVICE_MICROPHONE`
+  ([service types](https://developer.android.com/develop/background-work/services/fgs/service-types)).
+- **Started only from a tap.** For an app targeting Android 14 or later, a
+  microphone service can't be started from the background, and the usual
+  exemptions don't lift that; a tap on the app, its notification or a
+  widget can. It can't start at boot either
+  ([restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)).
+- **No time limit.** The 6-hours-a-day limit is for `dataSync` and
+  `mediaProcessing` services only
+  ([timeouts](https://developer.android.com/develop/background-work/services/fgs/timeout)).
+  Android 16 changed nothing here
+  ([16](https://developer.android.com/about/versions/16/behavior-changes-all)).
+- **Android 17** (stable since 2026-06-16,
+  [Android Developers](https://developer.android.com/blog/posts/android-17-is-here))
+  silences an app's background *playback*, without an error, unless it has
+  a visible activity or a foreground service, and for apps targeting it
+  the service must have been started from a tap
+  ([background audio](https://developer.android.com/about/versions/17/changes/bg-audio)).
+  It also adds memory limits by RAM
+  ([17, all apps](https://developer.android.com/about/versions/17/behavior-changes-all)),
+  one more reason the feed lives on disk. Nothing in 16 or 17 limits a
+  microphone service.
+- **The user can stop it.** The notification drawer's Task Manager stops
+  the whole app with no callback
+  ([handling it](https://developer.android.com/develop/background-work/services/fgs/handle-user-stopping)),
+  and the notification can be swiped away since Android 13
+  ([13](https://developer.android.com/about/versions/13/behavior-changes-all)).
+- **When a call or another app takes the mic**, the app isn't stopped: it
+  is fed silence, and can see that it is
+  (`AudioRecordingConfiguration.isClientSilenced`,
+  [sharing audio input](https://developer.android.com/media/platform/sharing-audio-input)).
+- **Phone makers** kill background apps beyond what Android does; Pixels
+  are rated the best for it
+  ([dontkillmyapp.com](https://dontkillmyapp.com/google), not Google's).
+- **AAudio through Oboe**: Google's page points to Oboe for the lowest
+  latency ([Oboe](https://developer.android.com/games/sdk/oboe),
+  [AAudio](https://developer.android.com/ndk/guides/audio/aaudio/aaudio)),
+  and it is maintained (1.11.0, 2026-09-15,
+  [releases](https://github.com/google/oboe/releases)). A phone that
+  declares `android.hardware.audio.pro` promises a round trip of 20 ms by
+  the NDK's page
+  ([latency](https://developer.android.com/ndk/guides/audio/audio-latency)),
+  25 ms by the Android 16 compatibility document
+  ([CDD 5.6](https://source.android.com/docs/compatibility/16/android-16-cdd)).
+  No current figure for a Pixel was found.
+- **USB audio.** Google's USB audio page describes a subset of class 1,
+  one or two channels, and is plainly out of date
+  ([AOSP](https://source.android.com/docs/core/audio/usb)); no Google page
+  says class 2 works. A phone that declares `android.hardware.audio.pro`
+  must support USB host mode and USB audio through AAudio's low-latency
+  path ([CDD 5.10](https://source.android.com/docs/compatibility/16/android-16-cdd)).
+  `AudioFormat.Builder.setChannelIndexMask` (Android 6) opens an
+  interface's channels by number, for recording too
+  ([reference](https://developer.android.com/reference/android/media/AudioFormat.Builder)),
+  and `AudioRecord.setPreferredDevice` or `AAudioStreamBuilder_setDeviceId`
+  chooses the device, to be checked after opening
+  ([NDK audio](https://developer.android.com/ndk/reference/group/audio)).
+
+**iOS**
+
+- **The `audio` background mode**, an `AVAudioSession` in
+  `.playAndRecord`
+  ([playAndRecord](https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/playandrecord);
+  the archived
+  [Audio Session Programming Guide](https://developer.apple.com/library/archive/documentation/Audio/Conceptual/AudioSessionProgrammingGuide/AudioGuidelinesByAppType/AudioGuidelinesByAppType.html)).
+  No current Apple page says in plain words that recording may *continue*
+  in the background but not *start* there; that rests on the archived
+  guide, Apple's forums and the session's `cannotInterruptOthers` error.
+  An Apple engineer on the forums: the mode keeps the app awake while its
+  session is active, *"which isn't quite the same as guaranteeing it will
+  not be suspended"*
+  ([forum](https://developer.apple.com/forums/thread/764096)).
+- **Real-time input and output** through `AVAudioSinkNode` and
+  `AVAudioSourceNode`, whose blocks run on the audio thread; an input tap
+  does not
+  ([WWDC 2019, *What's New in AVAudioEngine*](https://developer.apple.com/videos/play/wwdc2019/510/)).
+- **Interruptions**: a call or Siri interrupts the session
+  ([interruptions](https://developer.apple.com/documentation/avfaudio/handling-audio-interruptions)).
+  Apple's docs say iOS 27 adds session lifecycle notifications, and the
+  old interruption notification is retired after iOS 26
+  ([interruptionNotification](https://developer.apple.com/documentation/avfaudio/avaudiosession/interruptionnotification)),
+  so new code starts there.
+  `setPrefersNoInterruptionsFromSystemAlerts` keeps a banner-style call
+  from interrupting, and Apple names music performance as its use
+  ([docs](https://developer.apple.com/documentation/avfaudio/avaudiosession/setprefersnointerruptionsfromsystemalerts(_:))).
+- **The indicator** is the orange dot
+  ([Apple](https://support.apple.com/en-us/108331)); App Review allows
+  background modes only for their purpose (2.5.4) and asks for a clear
+  sign while recording (2.5.14)
+  ([guidelines](https://developer.apple.com/app-store/review/guidelines/)),
+  which Listen is.
+- **USB-C**: an iPhone with USB-C takes microphones and small accessories
+  ([Apple](https://support.apple.com/en-us/105099)); audio interfaces
+  aren't named, and a new accessory needs the phone unlocked to connect
+  ([Wired Accessories](https://support.apple.com/en-us/111806)).
+
+**The Zoom AMS-24**: two inputs (XLR or jack, phantom power, Hi-Z on the
+first), a stereo line out and two headphone outs; over USB-C it records
+two channels and plays four, 24-bit at up to 96 kHz, as USB Audio Class
+2.0. Compatible phones listed: Android 9 to 11, iOS up to 26
+([Zoom](https://zoomcorp.com/en/us/audio-interface/audio-interfaces/ams-series/)).
+With a phone, *"an external power supply or batteries must be used"*
+(two AA, or Zoom's adapter;
+[manual](https://zoomcorp.com/manuals/ams-24-en/)).
