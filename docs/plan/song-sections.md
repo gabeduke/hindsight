@@ -91,10 +91,14 @@ yet agreed, and is on the `claude/components-spec` branch.
   loop.
 - **Rig** says which device hears a Program Change.
 - **Tempo** sets the tempo a template needs.
-- **The picker is a component of its own**, mounted in the dock slot, or a
-  `createSheet` on the phone. It reads the `take` model (the peaks, the
-  notes) and the `tape` model (the sections). *Use for Verse* is the tape
-  model's `paste`: a take's span onto a track (`/api/tapes/drop`).
+- **The picker is the Take component** ("one take: hear it, select") in a
+  mode of its own: a selection a section long that steps by passes. It is
+  mounted in the dock slot, or a `createSheet` on the phone. It reads the
+  `take` model (the peaks, the notes) and the `tape` model (the sections).
+- ***Use for Verse* is the tape model's `paste`** (`/api/tapes/drop`), with
+  `at` the section's start. It doesn't use `send`, which places a take by
+  its own tempo and downbeat: the window is already on the take's bars, so
+  a span and a place are all it needs.
 - **The workspaces:**
   - **Build:** laying out a song, a section's settings, the picker;
   - **Jam:** *Play it*, and the cues.
@@ -157,16 +161,18 @@ yet agreed, and is on the `claude/components-spec` branch.
    - What follows moves either way.
    - **+** is refused when the push would run past the tape's end
      (`roomToPush`).
-   - A run of taps is one undo step: an edit of kind `section-bars`, which
-     the model's 2 s rule coalesces.
+   - A run of taps on one section is one undo step: an edit of kind
+     `section-bars:<id>`, which the model's 2 s rule coalesces. Taps on
+     two sections stay two steps.
 
    Dragging an edge stays what it is: a relabel that moves nothing.
 4. **Filling a section, by playing.** Use the moves that already exist: tap
    the section (the loop follows), arm a track, play over it, and Catch the
    best pass. The inspector's *Fill it* row has two keys:
    - **Play it** loops the section and plays it after a bar of count-in.
-   - **From a take…** opens the picker (decision 7) on this section, for
-     the take chosen from the shelf, newest first.
+   - **From a take…** opens a menu of the ten newest takes that have a
+     tempo (the `takes` model). The take chosen opens in the picker
+     (decision 7), on this section.
 5. **Per-section mutes on Hindsight's tracks.**
    - **Where they apply:** the renderer silences a section's `muted`
      tracks inside its span, with the 3 ms declick a cut's edge gets.
@@ -209,8 +215,15 @@ yet agreed, and is on the `claude/components-spec` branch.
    whatever MIDI can't do, and gear without MIDI. The separate-tracks
    method goes in the guide as a technique, with no code. A guide change
    releases, so it goes in with step 4's PR.
-   - **What is sent:** Program Change `program − 1`, through `midi.Out`,
-     which already schedules the clock.
+   - **What is sent:** Program Change `program − 1`.
+   - **How it is sent: a new interface.** `midi.Out.Send` writes to every
+     port it opened, and `ClockOut` (`clock.go`) has no send for one
+     device. So:
+     - `midi.Out` gains `SendTo(name, at, msg)`;
+     - its match list takes the device named for sequences, beside the
+       clock's followers;
+     - `ClockOut` gains an optional part for it, as `ClockFollower` is
+       one.
    - **Who hears it:** the one device the Rig names for sequences, never
      every follower of the clock (the Bento and the Sidekick don't want it).
      Until the rig roles exist, that is a setting, `TAPE_PROGRAM_OUT`: a
@@ -395,8 +408,11 @@ Two things come first:
    - Flow J1.19, *mute a track in the verses*.
 5. **Cues.** `Section.Cue`; the flag over the strip two bars ahead while
    the tape plays. Later, the SMK-37's screen.
-6. **Program Change.** `Section.Program` and the send in `clock.go`,
-   including after a jump. Go tests with the clock's fake out.
+6. **Program Change.** `Section.Program`; `midi.Out.SendTo` and
+   `ClockOut`'s part for it; the send in `clock.go`, after a locate and at
+   the wrap; `TAPE_PROGRAM_OUT` and `TAPE_PROGRAM_CHANNEL`. Go tests with
+   the clock's fake out: only the named device hears it, on its channel,
+   on the beat before.
 7. **A jam into a song.** *Make it a song…*, *From a take…* and the
    picker. Flow J2.12, *make last night's jam a song*.
 
