@@ -78,6 +78,8 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
   const bar = new NowPlaying({
     onEject: () => backToTape({ byHand: true }),
     onTouch: () => { touches++; handoff.touch(); },
+    // A take or the feed stopped by ▶ in the Studio: the tape takes the bar.
+    onPause: () => tapeUnlessPlaying(),
     // ✎: the page's notes drawer (setOnNote, the shell's boot.js), else stash the frame and open the take.
     onNote: () => {
       if (typeof onNote === 'function') {
@@ -185,13 +187,14 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     }
     eject();
   }
-  // In the Studio the bar is the tape's whenever nothing else in it plays
+  // In the Studio the bar is the tape's when nothing else in it plays
   // (docs/architecture/bar.md, *In the Studio, the tape*): a take or the live
   // feed left in it stopped -- played in the Listening Room and stopped
-  // there, carried from the last page, or a take stopped here -- gives way
-  // to the tape, so ▶ there plays the tape. One still playing stays and
-  // plays on (J2.2) until it stops. The Studio asks as it is shown; the
-  // hand-off, as it settles; a take, as it stops or ends.
+  // there, carried from the last page, or stopped by ▶ here -- gives way to
+  // the tape, so ▶ there plays the tape. One still playing stays and plays
+  // on (J2.2). The Studio asks as it is shown; the hand-off, as it settles;
+  // the bar, as ▶ stops what it holds. A take that stops by itself (its end,
+  // its selection's Out, Play all moving on) is left be until the next.
   function tapeUnlessPlaying() {
     if (!tape || !isStudio(location.pathname)) return;
     if (!bar.src || bar.src === tape || bar.src.playing()) return;
@@ -253,15 +256,7 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     const src = takeSource(t, player, { onGone: () => { if (take && take.src === src) backToTape(); } });
     const audio = adoptAudio(player.audio);
     audio.addEventListener('play', takePlays);
-    // Stopped, or played to its end, in the Studio: the tape takes the bar.
-    for (const ev of ['pause', 'ended']) audio.addEventListener(ev, tapeUnlessPlaying);
-    take = {
-      name: t.name, audio, src,
-      off: () => {
-        audio.removeEventListener('play', takePlays);
-        for (const ev of ['pause', 'ended']) audio.removeEventListener(ev, tapeUnlessPlaying);
-      },
-    };
+    take = { name: t.name, audio, src, off: () => audio.removeEventListener('play', takePlays) };
     bar.load(take.src);
     if (old && old.audio !== audio) releaseAudio(old.audio);
     old?.off();
@@ -393,7 +388,8 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     /**
      * tapeUnlessPlaying puts the tape back in the bar, in the Studio, when
      * what the bar holds instead (a take, the feed) isn't playing: the
-     * Studio's view says so each time it is shown.
+     * Studio's view says so each time it is shown. The engine asks too, as
+     * the hand-off settles and as ▶ stops what the bar holds (onPause).
      */
     tapeUnlessPlaying,
     setSource,

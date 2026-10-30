@@ -317,16 +317,6 @@ export function pageCarry() {
   return createCarry({ storage });
 }
 
-/**
- * studioVisit is what the Studio's own page (tape.html) does with the hand-off:
- * nothing. Its bar is the tape's and never reads the record, so a take can't
- * displace the tape; and it writes none, so the Room's record stands while
- * the person is there -- the Rig and the guide are the same -- and the
- * Listening Room, back, finds the take (the record's own five minutes
- * and its `at` cover the gap). It answers what it did, for the test.
- */
-export function studioVisit(carry) { void carry; return 'transparent'; }
-
 /** openTheTape: go to the Studio for the tape from a page with its own deck (the take page's toasts): no take goes along. */
 export function openTheTape({ carry = pageCarry(), go = (u) => { location.href = u; } } = {}) {
   carry.forTheTape();

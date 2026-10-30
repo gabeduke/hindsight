@@ -67,19 +67,19 @@ sideways scroll).
   from below zero (*BAR -1.4*, on a take whose downbeat was set a few
   seconds in).
 - **In the Studio, the tape** (`lib/bar/engine.js` `tapeUnlessPlaying`):
-  the bar is the tape's there whenever what it holds instead isn't
-  playing. A take or the feed left in it stopped (a take played in the
-  Listening Room and stopped there, or carried from the last page and not
-  playing) gives way to the tape as the Studio is shown, and a take stopped
-  or played to its end in the Studio gives way as it stops, so ▶ in the
-  Studio plays the tape. A take still playing when you change rooms stays,
-  and plays on (J2.2), until it stops. The feed, stopped in the Studio,
-  gives way the next time the Studio is shown, not as it stops. Gabe's ▶ on
-  his Mac once played a take left in the bar from the Listening Room, and
-  the tape, never moving, had no playhead (J1.17). **Decided on Gabe's
+  in the Studio the bar gives a take or the feed back to the tape when it
+  isn't playing, so ▶ there plays the tape. That is checked as the Studio
+  is shown (`lib/shell/views/studio.js` `show`, every visit), as the
+  hand-off from the last page settles, and as ▶ stops what the bar holds
+  (`NowPlaying`'s `onPause`). A take still playing when you change rooms
+  stays, and plays on (J2.2). A take that stops by itself in the Studio
+  (its end, its selection's Out, Play all moving on to the next) is left be
+  until the Studio is shown again, so Play all carries on there. Gabe's ▶
+  on his Mac once played a take left in the bar from the Listening Room,
+  and the tape, never moving, had no playhead (J1.17). **Decided on Gabe's
   behalf on 2026-10-30, while he was away; his to overrule** (the other
-  way: a take stays in the Studio's bar until ⏏, as before, with ▶ playing
-  it).
+  way: a take stays in the Studio's bar until ⏏, as before, with ▶
+  playing it).
 - **It folds by its grabber** (`lib/bar/fold.js`), a pill on a lip above its
   top edge: a tap toggles, a drag down folds, a drag up unfolds, and it
   slides by a FLIP on the lid spring (a transform, never a height a frame).

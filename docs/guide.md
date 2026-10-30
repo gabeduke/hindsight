@@ -107,9 +107,10 @@ it's one row, on a phone three.
   take's name), its tempo and where it plays: tap the source to choose the
   tape, the live feed, one of the last few takes or the shelf. A take
   tapped in the Listening Room plays in it and keeps playing when you
-  change rooms; in the Studio, once nothing else in it plays, the bar is
-  the tape's again, so **▶** there plays the tape. On a phone it's the mini player above the tabs: tap its
-  window for the whole bar (§8.2).
+  change rooms. In the Studio, a take or the feed stopped (in the
+  Listening Room, or by **▶** there) gives the bar back to the tape, so
+  **▶** there plays the tape. On a phone it's the mini player above the
+  tabs: tap its window for the whole bar (§8.2).
 
 ### 3.1 The takes page
 

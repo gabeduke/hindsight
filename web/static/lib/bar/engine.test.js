@@ -105,8 +105,8 @@ test('in the Studio a take that isn’t playing gives the bar back to the tape, 
   assert.equal(bar.ejected, false, 'not ⏏: a take picked later still goes in the bar');
 });
 
-test('a take still playing in the Studio stays and plays on, and gives way to the tape when it stops there', async () => {
-  const { bar } = await open();
+test('a take still playing in the Studio stays and plays on; ▶ stopping it there gives the bar back to the tape', async () => {
+  const { bar, $, click } = await open();
   const take = aTake();
   bar.loadTake(take.t, take.player);
   await take.player.toggle(); // playing, as the rooms change
@@ -114,14 +114,24 @@ test('a take still playing in the Studio stays and plays on, and gives way to th
   bar.tapeUnlessPlaying();
   assert.equal(bar.sourceKind, 'take', 'a take still playing keeps playing (J2.2)');
   assert.equal(take.audio.paused, false);
-  await take.player.toggle(); // stopped in the Studio
-  assert.equal(bar.sourceKind, 'tape');
-  take.audio.paused = false; // the old take's audio is the bar's no more:
-  take.audio.emit('pause'); // its late events move nothing
-  assert.equal(bar.sourceKind, 'tape');
+  click($('np-play')); // ❚❚, in the Studio
+  assert.equal(take.audio.paused, true);
+  assert.equal(bar.sourceKind, 'tape', 'the next ▶ plays the tape');
 });
 
-test('a take played to its end in the Studio gives the bar back to the tape', async () => {
+test('▶ stopping a take in the Listening Room leaves it in the bar', async () => {
+  const { bar, $, click } = await open();
+  const take = aTake();
+  bar.loadTake(take.t, take.player);
+  await take.player.toggle();
+  click($('np-play'));
+  assert.equal(take.audio.paused, true);
+  assert.equal(bar.sourceKind, 'take');
+});
+
+// Play all moves from take to take by itself, in any room: a take that stops
+// by itself in the Studio (its end, Play all moving on) is left be.
+test('a take that stops by itself in the Studio stays until the Studio is shown again', async () => {
   const { bar } = await open();
   const take = aTake();
   bar.loadTake(take.t, take.player);
@@ -129,7 +139,19 @@ test('a take played to its end in the Studio gives the bar back to the tape', as
   await take.player.toggle();
   take.audio.paused = true;
   take.audio.ended = true;
+  take.audio.emit('pause');
   take.audio.emit('ended');
+  assert.equal(bar.sourceKind, 'take');
+  bar.tapeUnlessPlaying(); // the Studio shown again
+  assert.equal(bar.sourceKind, 'tape');
+});
+
+test('the live feed stopped by ▶ in the Studio gives the bar back to the tape too', async () => {
+  const { bar, $, click } = await open();
+  location.pathname = '/tape.html';
+  bar.setSource('feed');
+  assert.equal(bar.sourceKind, 'feed');
+  click($('np-play'));
   assert.equal(bar.sourceKind, 'tape');
 });
 
