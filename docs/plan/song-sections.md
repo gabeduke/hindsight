@@ -1,14 +1,18 @@
 # Song sections: templates you fill in
 
-Not agreed yet: the decisions and the questions, for Gabe. His words, on
-2026-10-30 (`walkthrough.md`, *Song templates*): he jams for 5 or 10
-minutes, and gets great moments but not the shapes most ears expect. He
-wants templates for pop, blues, jazz, ambient and a jam band, each a row of
-sections to fill in with light edits, *"which is part of the problem"*:
-he doesn't know the structures himself. Change a section's bars to make it
-his own; mute pads of the MPC Sample's beat to suit each section, or layer
-guitar or vocals where it needs filling. *"I could see this making
-hindsight a really cool songwriting machine."*
+Not agreed yet: the decisions and the questions, for Gabe.
+
+From the walkthrough of 2026-10-30 (`walkthrough.md`, *Song templates*,
+PR #226):
+
+- He jams for 5 or 10 minutes and gets great moments, but not the shapes
+  most ears expect.
+- He wants templates for pop, blues, jazz, ambient and a jam band, each a
+  structure of sections to fill in with light edits. He doesn't know the
+  structures himself, *"which is part of the point."*
+- He wants to change a section's bars to make it his own.
+- He wants to mute pads of the MPC beat to suit each section, or to layer
+  guitar or vocals where it needs something. *"A songwriting machine."*
 
 ## The mockups
 
@@ -22,8 +26,9 @@ dark.
   shape and its length at 96 BPM.
 - [`tablet-section.png`](song-sections/tablet-section.png): Pop laid out,
   the Verse tapped. Its inspector shows the length, *Heard in it* (every
-  Verse), the cue, the MPC's sequence and *Fill it*. The Guitar is hatched
-  where it sits out.
+  Verse), the cue, the MPC's sequence and *Fill it*. The name, the colour,
+  Duplicate and Remove are below them, as the inspector scrolls. The
+  Guitar is hatched where it sits out.
 - [`tablet-cue.png`](song-sections/tablet-cue.png): playing in the
   Pre-chorus, with the Chorus's cue up two bars ahead.
 - [`tablet-picker.png`](song-sections/tablet-picker.png): a jam made into a
@@ -64,41 +69,39 @@ What is missing:
 
 ## In the ecosystem's terms
 
-This uses the models and components of `the-ecosystem.md`, *The shape*.
-The component contract (`docs/plan/components.md`) is still being written,
-so the names below may move to fit it.
+These are the models and components of `components.md`. That spec is not
+yet agreed, and is on the `claude/components-spec` branch.
 
-- **The `tape` model owns sections.** They are already its state
-  (`State.Sections`). The `tape` model (`lib/models/tape.js`, not built;
-  `lib/models/takes.js` is the shape) holds:
-  - in its state, `sections`, each with `muted`, `cue` and `program`;
-  - as its commands, adding, changing and removing a section, Duplicate
-    section, laying out a template and a section's bars;
-  - the templates, read once (`GET /api/tapes/templates`).
+- **The `tape` model owns sections.** Its snapshot already holds them, and
+  this spec adds `muted`, `cue` and `program` to each. Its `edit(op)`
+  carries the section ops:
+  - `section-add`, `section-set` and `section-remove`;
+  - `duplicate-section`;
+  - the new `section-template` and `section-bars`.
 
-  Every change reaches every device through its `onChange`, from the
-  tape's revision (`push.md`). There is no `sections` model of its own.
-- **The Tape component** ("tracks, parts, sections, the loop") draws them:
+  The templates are read once (`GET /api/tapes/templates`). There is no
+  `sections` model.
+- **The Tape component** ("tracks, parts, sections, the loop") draws:
   - the strip;
-  - the section inspector and its *Heard in it*;
-  - the hatching on the lanes;
-  - the cue's flag over the strip. The flag's countdown reads the
-    `transport` model's position on the shared ticker.
-- **Others:**
-  - **Transport** plays *Play it* once the tape's command has set the
-    loop.
-  - **Rig** decides which devices hear the Program Change.
-  - **Tempo** must have set a tempo before a template can be laid out.
-- **The picker is the Take component**, docked in the Tape's workspace. It
-  is one take's window, a section long, read from the `take` model, and
-  *Use for Verse* is the protocol's **DROP** onto a track.
-- **Where it is used, among the tablet's workspaces:**
+  - the section inspector, with *Heard in it*;
+  - the hatching;
+  - the cue's flag. The flag's countdown reads the `transport` model's
+    position on `cx.loop`.
+- **Transport** plays *Play it* once the tape model's `setLoop` has set the
+  loop.
+- **Rig** says which device hears a Program Change.
+- **Tempo** sets the tempo a template needs.
+- **The picker is a component of its own**, mounted in the dock slot, or a
+  `createSheet` on the phone. It reads the `take` model (the peaks, the
+  notes) and the `tape` model (the sections). *Use for Verse* is the tape
+  model's `paste`: a take's span onto a track (`/api/tapes/drop`).
+- **The workspaces:**
   - **Build:** laying out a song, a section's settings, the picker;
-  - **Jam:** *Play it*, and the cues while playing.
-- **The engine** keeps it all on the Pi. The renderer applies the mutes,
-  and the clock's scheduler sends the Program Change. The SMK-37's screen
-  can show the section and its cue later, drawn by the Pi as it draws the
-  screen now.
+  - **Jam:** *Play it*, and the cues.
+- **The engine:**
+  - the renderer applies the mutes;
+  - the clock's scheduler sends the Program Change;
+  - later, the SMK-37's screen shows the section and its cue.
 
 ## Decisions
 
@@ -108,10 +111,13 @@ so the names below may move to fit it.
    - `cue`: up to 60 characters of what to play there;
    - `program`: an MPC sequence, 1–16.
 
-   **Recommended: settings follow the name.** Changing the Chorus's mutes
-   changes every section called Chorus, in one edit. A section renamed
-   *Last chorus* has settings of its own. The inspector says *every Chorus*
-   under the settings while more than one section has the name.
+   **Recommended: the mutes and the program follow the name.** Changing
+   the Chorus's mutes changes every section called Chorus, in one edit.
+   - A section renamed *Last chorus* has settings of its own.
+   - The inspector says *every Chorus* while more than one section has the
+     name.
+   - The cue is each section's own, so a template can say *the last time,
+     biggest* on one Chorus and not the others.
 2. **Templates are data on the Pi**: `internal/tape/templates.go`, listed
    by `GET /api/tapes/templates`, so the keyboard and the laptop get the
    same ones.
@@ -120,42 +126,59 @@ so the names below may move to fit it.
      isn't a theorist.
    - **Choosing one** starts from the tape's name menu (0045: what acts on
      the tape is in its name's menu). Its row *Lay out a song…* opens the
-     templates' menu in its place. That menu lists the five templates, each
-     with its line, its shape and its length at the tape's tempo, then
-     *Clear the sections*. This adds no key to the Studio at rest, which
-     holds `STUDIO_BUDGET` (J1.16): making the strip's *Sections* label a
-     key would add a second control under 32 px.
+     templates' menu in its place.
+     - The menu lists the five templates, each with its line, its shape
+       and its length at the tape's tempo.
+     - Each row is a `menuItem` (0056) with one more part: a figure under
+       its line, which is the shape. `lib/ui/menu.js` gains that part.
+     - Then comes *Clear the sections*. It isn't red: it is undone like any
+       edit, and it leaves the audio.
+     - This adds no key to the Studio at rest, which holds `STUDIO_BUDGET`
+       (J1.16). Making the strip's *Sections* label a key would add a
+       second control under 32 px.
    - **Applying one** is a new op, `section-template {template}`: one step
      of undo.
-     - Its sections go from bar 1 and replace any there.
+     - Its sections go from bar 1 and replace all the tape's sections,
+       including any past the template's end.
      - The audio doesn't move.
      - There is no confirm: a toast with Undo.
      - Refused on a tape with no tempo (*Set the tempo first*: the tempo
        key, `tempo.md`), and past the tape's end.
    - Every template is in 4/4, the tape's only metre. A shuffle or a 12/8
      blues is counted in 4.
-3. **A section's length** is a new op, `section-bars {section, bars}`, with
-   − and + in its inspector.
+3. **A section's length** is a new op, `section-bars {section, bars}`, where
+   `bars` is its new length. The inspector has − and + for it.
    - **+** puts an empty bar at its end, on every track (`cutAt` and
-     `shiftFrom`, as Insert does with no clipboard), and the section grows
-     to cover it.
-   - **−** deletes its last bar (Delete time).
+     `shiftFrom`, as Insert does with no clipboard). The op moves the
+     section's end too: `shiftFrom` leaves alone a section that ends where
+     the push begins.
+   - **−** deletes its last bar (Delete time). It stops at one bar: a
+     section is at least a bar long.
    - What follows moves either way.
-   - A run of taps is one undo step (the model's 2 s coalescing).
+   - **+** is refused when the push would run past the tape's end
+     (`roomToPush`).
+   - A run of taps is one undo step: an edit of kind `section-bars`, which
+     the model's 2 s rule coalesces.
 
    Dragging an edge stays what it is: a relabel that moves nothing.
 4. **Filling a section, by playing.** Use the moves that already exist: tap
    the section (the loop follows), arm a track, play over it, and Catch the
-   best pass. The inspector's *Fill it* row adds one key, **Play it**: it
-   loops the section and plays it after a bar of count-in. The other way to
-   fill one is a take (decision 7).
+   best pass. The inspector's *Fill it* row has two keys:
+   - **Play it** loops the section and plays it after a bar of count-in.
+   - **From a take…** opens the picker (decision 7) on this section, for
+     the take chosen from the shelf, newest first.
 5. **Per-section mutes on Hindsight's tracks.**
    - **Where they apply:** the renderer silences a section's `muted`
-     tracks inside its span (`mixTrack`'s `silent`, per span), with the
-     3 ms declick a cut's edge gets. A track's own M and S still apply on
-     top.
-   - **The mix, a bounce and the stems** honour them (silence there), so
-     the DAW gets the arrangement.
+     tracks inside its span, with the 3 ms declick a cut's edge gets.
+     `mixTrack`'s `silent` becomes per span. Every reader of it changes
+     with it: the mix, and Play mode's paths in `trick.go`. In the mix, a
+     track's own M and S still apply on top.
+   - **The mix and a bounce honour them.**
+   - **So do the stems: a change to them.** `export.go` builds each stem
+     with its M and S cleared and no sections. Section mutes are an
+     arrangement, like a Cut, so a stem gets them: silence there. That way
+     the DAW opens the song as it plays here. The track's own M and S stay
+     cleared, as now.
    - **The inspector's *Heard in it*** is a row of the four tracks,
      on or off.
    - **On the lanes**, a muted track is hatched across the section.
@@ -184,22 +207,32 @@ so the names below may move to fit it.
 
    **Recommended: Program Change, with the cue as well.** The cue covers
    whatever MIDI can't do, and gear without MIDI. The separate-tracks
-   method goes in the guide as a technique, with no code.
-   - **What is sent:** Program Change `program − 1`, to the devices
-     `TAPE_CLOCK_OUT` names (`midi.Out`, which already schedules the clock
-     there), on the MPC's MIDI In channel (default *All*).
+   method goes in the guide as a technique, with no code. A guide change
+   releases, so it goes in with step 4's PR.
+   - **What is sent:** Program Change `program − 1`, through `midi.Out`,
+     which already schedules the clock.
+   - **Who hears it:** the one device the Rig names for sequences, never
+     every follower of the clock (the Bento and the Sidekick don't want it).
+     Until the rig roles exist, that is a setting, `TAPE_PROGRAM_OUT`: a
+     name to match, as `TAPE_CLOCK_OUT` takes.
+   - **On which channel:** a setting of Hindsight's own,
+     `TAPE_PROGRAM_CHANNEL`, default 1. The MPC's MIDI In Channel is *All*
+     by default, so it hears any.
    - **When:** on the last beat before a section that has a program, so a
      queued change lands on the bar line.
-   - **After a jump:** after any locate or loop wrap, the program of the
-     section it lands in is sent first, then the Song Position and the
-     Continue. That way a looped section gets its own sequence every pass.
+   - **After a locate:** the program of the section it lands in goes first,
+     then the Song Position and the Continue, as now.
+   - **At the loop's wrap:** the program goes before the Song Position the
+     wrap already sends. That way a looped section gets its own sequence
+     every pass.
    - **What that asks of the MPC's sequences:** each one's length divides
      its sections' (1, 2, 4 or 8 bars).
    - This is the *program change at a section's start* that the sections
      spec of 2026-10-07 left for the rig roles.
 7. **A jam into a song, after the fact.**
    - **Where it starts:** *Make it a song…* in the take's name menu, on
-     Open (0045). Pick a template. Hindsight makes a new
+     Open (0045). Pick a template. (Or *From a take…* in a section's
+     inspector, decision 4, on a tape you already have.) Hindsight makes a new
      tape at the take's tempo with the template's sections. The Studio
      opens on it with the **picker** docked above the bar (the cue
      drawer's place, `ctx.dockSlot`; on the phone, a sheet).
@@ -217,8 +250,9 @@ so the names below may move to fit it.
    - **Picking again** replaces what is there.
    - **A take with no tempo, or no downbeat,** is refused with *Set its
      tempo on its page first*. The take's page already has both: its BPM,
-     and its *Downbeat* row. A jam played to a clock has them already
-     (`midi.md`, *why takes start on a downbeat*).
+     and its *Downbeat* row. A jam played to a clock that sent a MIDI
+     Start has them already, with `MIDI_SNAP_BARS` on (`midi.md`, *why
+     takes start on a downbeat*).
    - **Recommended over the alternative,** which puts the 10-minute jam
      on track 1 and rearranges it in place. With the picker the tape stays
      the song's length, the take is untouched, and any section can be
@@ -229,8 +263,9 @@ so the names below may move to fit it.
 ## The templates
 
 The length is at 96 BPM, the demo's tempo. The menu works it out at the
-tape's tempo. *Usually* is the tempo the style is usually played at: shown,
-never set. Each section's cue is pre-filled from its row.
+tape's tempo. *Usually* is the tempo the style is usually played at. It is
+here as a guide, and a template never sets it. Each section's cue is
+pre-filled from its row.
 
 **Pop**: *Verses tell the story, the chorus is the bit people sing back,
 and the bridge is the one surprise before the last chorus.* 64 bars, 2:40;
@@ -248,8 +283,8 @@ usually 90–120.
 | Outro | 4 | the chorus fading, or the intro again |
 
 **Blues**: *One 12-bar pattern, round and round. Each time round is a verse
-or a solo, the chords move at bars 5, 7 and 9, and the last two bars turn it
-back to the top.* 68 bars, 2:50; usually 70–120.
+or a solo. The chords move at bar 5, come home at 7, and move every bar
+from 9; the last two bars turn it back to the top.* 68 bars, 2:50; usually 70–120.
 
 | Section | Bars | Cue |
 | --- | --- | --- |
@@ -314,8 +349,8 @@ usually 100–130.
 1. **The structures.** Are these the five shapes, at these lengths? The MPC
    suggests a sixth, **hip-hop** (Intro 4, Verse 16, Hook 8, Verse 16,
    Hook 8, Outro 4): wanted?
-2. **Settings by name** (every Chorus shares its mutes, cue and sequence),
-   or each section its own?
+2. **Settings by name** (every Chorus shares its mutes and its sequence,
+   while each keeps its own cue), or each section all its own?
 3. **The MPC.** Would you build a section's beat as its own MPC sequence,
    so Hindsight can switch it? Or do you prefer to mute by hand, with the
    cue on screen?
@@ -331,25 +366,39 @@ usually 100–130.
 Each step is its own PR with its flow. The flows don't exist yet: each PR
 writes its own.
 
+Two things come first:
+
+- **The walkthrough.** Nothing user-visible merges before it ends
+  (`STATE.md`, *the-ecosystem.md comes first*). Step 1 can go ahead now.
+  The rest waits for it.
+- **The `tape` model** (`lib/models/tape.js`, the ecosystem's step 4). The
+  new keys call it rather than adding to `lib/tape/page.js`, so it is
+  built first, as its own PR (0020).
+
 1. **Hardware check on the MPC Sample** (no code). Does a Program Change
    switch at once, or at the sequence's end? On which channel? Does it
    follow Song Position, or only Start? Decision 6's timing waits on this.
 2. **Templates.** `templates.go`, `GET /api/tapes/templates` and
    `section-template`, with Go tests (laid from bar 1, replacing, refused
-   with no tempo or past the end, one undo). The *Sections* key's menu.
-   Flow J1.18, *lay out a song from a template*.
+   with no tempo or past the end, one undo). *Lay out a song…* in the
+   tape's menu, and the templates' menu, with `menuItem`'s figure. Flow
+   J1.18, *lay out a song from a template*.
 3. **A section's length.** `section-bars` and − / + in the inspector.
    J1.18 extended.
-4. **Per-section mutes.** `Section.Muted`, the renderer, mixdown and stems;
-   *Heard in it*; the hatching. Go tests that the audio inside the section
-   is silent, the audio outside it isn't, and undo puts it back. Flow J1.19,
-   *mute a track in the verses*.
+4. **Per-section mutes.**
+   - On the Pi: `Section.Muted` and the per-span `silent` (the mix,
+     `trick.go`, mixdown and the stems).
+   - On the page: *Heard in it* and the hatching.
+   - Go tests: the audio inside the section is silent, the audio outside
+     it isn't, a stem has the silence, and undo puts it back.
+   - The guide's separate-tracks technique.
+   - Flow J1.19, *mute a track in the verses*.
 5. **Cues.** `Section.Cue`; the flag over the strip two bars ahead while
    the tape plays. Later, the SMK-37's screen.
 6. **Program Change.** `Section.Program` and the send in `clock.go`,
    including after a jump. Go tests with the clock's fake out.
-7. **A jam into a song.** *Make it a song…* and the picker. Flow J2.12,
-   *make last night's jam a song*.
+7. **A jam into a song.** *Make it a song…*, *From a take…* and the
+   picker. Flow J2.12, *make last night's jam a song*.
 
 Steps 2–4 are the songwriting machine on their own. Steps 5–7 can wait on
 the walkthrough's answers about the instrument and who leads the clock.
