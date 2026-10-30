@@ -45,6 +45,10 @@ export default {
     t.expect('the drawer opens on it', await t.poll((id) => !document.getElementById('buffer')?.hidden
       && document.querySelector(`#cue-row .cue-clip-chip[data-id="${id}"]`)?.getAttribute('aria-expanded') === 'true', lane.id, 5000));
     t.expect('a hold launches nothing', !((await live()).cue?.playing ?? []).includes(lane.id));
+    // On a phone the drawer comes up over the folding lanes, under the finger
+    // that held: its lift once pulled the drawer's grip to full height.
+    t.expect('and its lift presses nothing the drawer brought under it', await page.evaluate(() => document.getElementById('buffer').dataset.height !== 'full'),
+      await page.evaluate(() => document.getElementById('buffer').dataset.height));
     await t.step('Escape closes it', () => page.keyboard.press('Escape'));
     t.expect('it shuts on Escape', await t.poll(() => document.getElementById('buffer')?.hidden, null, 3000));
 

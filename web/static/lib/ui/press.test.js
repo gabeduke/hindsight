@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { GESTURE, SPINE_PRESS, ARM_PRESS, CUE_PRESS, pressMachine, bindPress } from './press.js';
+import { GESTURE, SPINE_PRESS, ARM_PRESS, CUE_PRESS, pressMachine, bindPress, swallowLift } from './press.js';
 
 // The keys that hold today, with their callers' options: a spine
 // (lib/room/doorway.js) and a track's ● (lib/tape/page.js), which never had a
@@ -460,6 +460,41 @@ for (const k of KINDS) {
     assert.equal(c.pending(), 0, 'no hold is left waiting');
   });
 }
+
+// What a hold opens can come up under the finger (a phone's cue drawer, as
+// the lanes fold): the click its lift sends there is swallowed; one on the
+// key is its machine's; and soon after the lift a click is a click again.
+test('swallowLift: the lift of a hold presses nothing it opened, and lets go soon after', () => {
+  const c = clock();
+  const on = { click: [], pointerup: [], pointercancel: [] };
+  const doc = {
+    addEventListener: (type, fn) => on[type].push(fn),
+    removeEventListener: (type, fn) => { on[type] = on[type].filter((l) => l !== fn); },
+  };
+  const fire = (type, target) => {
+    const e = { type, target, prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; } };
+    for (const fn of [...on[type]]) fn(e);
+    return e;
+  };
+  const key = { contains: (t) => t === 'pad' };
+  swallowLift(doc, key, { setTimer: c.setTimer });
+  const own = fire('click', 'pad');
+  assert.equal(own.prevented || own.stopped, false, 'the key’s own click is left to its machine');
+  fire('pointerup', 'grip');
+  const lift = fire('click', 'grip');
+  assert.ok(lift.prevented && lift.stopped, 'the lift’s click on what came up under it is swallowed');
+  c.advance(GESTURE.LIFT_GRACE_MS);
+  const later = fire('click', 'grip');
+  assert.equal(later.prevented || later.stopped, false, 'after the grace, a click is a click');
+  assert.equal(on.click.length + on.pointerup.length + on.pointercancel.length, 0, 'nothing is left listening');
+  // A hold whose touch is taken (the OS's gesture): no click comes, so the
+  // next tap anywhere is a tap at once, not eaten.
+  swallowLift(doc, key, { setTimer: c.setTimer });
+  fire('pointercancel', 'pad');
+  const next = fire('click', 'drop');
+  assert.equal(next.prevented || next.stopped, false, 'after a cancel the next tap is not eaten');
+  assert.equal(on.click.length + on.pointerup.length + on.pointercancel.length, 0, 'nothing is left listening after a cancel');
+});
 
 // A cue clip: a mouse holds as a finger does, and ⇧ is the tap's (launch at
 // once), never a hold.

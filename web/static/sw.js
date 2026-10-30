@@ -43,6 +43,7 @@ const SHELL = [
   '/lib/ui/menu.js',
   '/lib/ui/sheet.js',
   '/lib/ui/measure.js',
+  '/lib/ui/reveal.js',
   '/lib/theme.js',
   '/lib/nav.js',
   '/lib/shelf.js',

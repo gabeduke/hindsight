@@ -40,11 +40,40 @@ export default {
       return d && !d.hidden && d.parentElement?.id === 'np-dock';
     }, null, 8000));
     // DROP is pressed seeing where it lands: every track is above the drawer.
-    t.expect('the tracks are above the drawer, none under the bar', await t.poll(() => {
-      const top = document.getElementById('buffer').getBoundingClientRect().top;
-      const rows = [...document.querySelectorAll('#lanes > .tape-track')];
-      return rows.length > 0 && rows.every((r) => { const b = r.getBoundingClientRect(); return b.height > 0 && b.bottom <= top + 1; });
-    }, null, 3000));
+    // On a phone the drawer is a sheet over the foot of the page, docked
+    // above the mini player: it brings the cue lane and the armed track into
+    // sight above it, under the header, and the rest are a scroll away.
+    const sheet = await page.evaluate(() => getComputedStyle(document.getElementById('buffer')).position === 'fixed');
+    if (!sheet) {
+      t.expect('the tracks are above the drawer, none under the bar', await t.poll(() => {
+        const top = document.getElementById('buffer').getBoundingClientRect().top;
+        const rows = [...document.querySelectorAll('#lanes > .tape-track')];
+        return rows.length > 0 && rows.every((r) => { const b = r.getBoundingClientRect(); return b.height > 0 && b.bottom <= top + 1; });
+      }, null, 3000));
+    } else {
+      const armed = (await api.tapeState()).rec_track;
+      t.expect('the cue lane and the armed track are in sight above the drawer, under the header', await t.poll((n) => {
+        const top = document.getElementById('buffer').getBoundingClientRect().top;
+        const head = document.querySelector('.appbar').getBoundingClientRect().bottom;
+        return [document.getElementById('cue-row'), document.querySelectorAll('#lanes > .tape-track')[n - 1]]
+          .every((r) => { const b = r?.getBoundingClientRect(); return !!b && b.height > 0 && b.top >= head - 1 && b.bottom <= top + 1; });
+      }, armed, 3000),
+      await page.evaluate(() => ({ drawer: document.getElementById('buffer').getBoundingClientRect().top, rows: [...document.querySelectorAll('#cue-row, #lanes > .tape-track')].map((r) => Math.round(r.getBoundingClientRect().top)) })));
+      t.expect('and ▶ is not under it', await page.evaluate(() => document.getElementById('np-play').getBoundingClientRect().top
+        >= document.getElementById('buffer').getBoundingClientRect().bottom - 1));
+      await t.step('scroll the lanes up, clear of the drawer', async () => {
+        await page.mouse.move(200, 120);
+        for (let i = 0; i < 8; i++) {
+          const clear = await page.evaluate(() => [...document.querySelectorAll('#lanes > .tape-track')].at(-1).getBoundingClientRect().bottom
+            <= document.getElementById('buffer').getBoundingClientRect().top - 4);
+          if (clear) break;
+          await page.mouse.wheel(0, 60);
+          await t.wait(200);
+        }
+      });
+      t.expect('the rest are a scroll away: the last track comes up above the drawer', await page.evaluate(() => [...document.querySelectorAll('#lanes > .tape-track')].at(-1).getBoundingClientRect().bottom
+        <= document.getElementById('buffer').getBoundingClientRect().top + 1));
+    }
 
     // The key reads "Drop on track N · bars a–b" once the grab is placed.
     const label = () => document.getElementById('buffer-drop')?.textContent.replace(/\s+/g, ' ').trim() ?? '';

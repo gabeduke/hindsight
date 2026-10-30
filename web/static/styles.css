@@ -3908,9 +3908,10 @@ body.buffer-open .studio-feed > .viz-wrap { height: 76px; }
 body.buffer-fold .tape-sections-row { display: none; }
 
 /* A phone: the buffer is a sheet over the folded lanes, at the inspector's
-   heights -- peek, half, full -- with the mini player tucked under it. The
-   feed is shorter still while it's open, GRAB and KEEP on one row, so the
-   strips show above it. */
+   heights -- peek, half, full -- docked above the mini player, as the
+   inspector is (decision 0061: docked above the bar), so ▶ is never under
+   it. The feed is shorter still while it's open, GRAB and KEEP on one row,
+   so the strips show above it. */
 @media (orientation: landscape) and (max-height: 440px), (max-width: 699.98px) {
   .buffer-panel {
     position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); z-index: 20; margin: 0;
@@ -3921,6 +3922,8 @@ body.buffer-fold .tape-sections-row { display: none; }
   }
   .buffer-panel[data-height="peek"] { height: 96px; }
   .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - 8px); }
+  body:not(.player-open) .buffer-panel { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px)); }
+  body:not(.player-open) .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - var(--np-h, 0px) - 8px); }
   .buffer-grip, .buffer-hint, .buffer-panel .buffer-kbd, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .buffer-meta-full { display: none; }
   .buffer-meta-short { display: inline; }
   .buffer-panel .buffer-title { letter-spacing: .14em; }
@@ -3944,10 +3947,13 @@ body.buffer-fold .tape-sections-row { display: none; }
   .buffer-gain input { flex: 1 1 auto; width: auto; }
   .icon-btn.buffer-shape { order: 6; flex: 1 1 auto; min-height: 38px; white-space: nowrap; }
   .icon-btn.buffer-drop { align-items: center; text-align: center; min-height: 64px; }
-  body.tape-page.buffer-open { padding-bottom: calc(var(--dock-b, 0px) + 45svh); }
+  /* The page scrolls the lanes clear of it. By #np, as the inspector's: as
+     body.tape-page.buffer-open it tied with css/bar.css's padding for the
+     mini player, which comes later and won, so nothing could scroll. */
+  body.tape-page.buffer-open:has(#np) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px) + 45svh); }
   body.buffer-open .studio-feed > .viz-wrap { height: 60px; }
   body.buffer-open .studio-feed-head > .meters { display: none; }
-  body.tape-page.buffer-open:has(.np) #toasts { bottom: calc(var(--dock-b, 0px) + 45svh + 12px); }
+  body.tape-page.buffer-open:has(.np) #toasts { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px) + 45svh + 12px); }
   /* GRAB and KEEP share the keys' row, half each. A phone has no G to
      press, and the word less tracking. */
   .buffer-grab { flex: 1 1 0; min-width: 0; }
@@ -4664,6 +4670,11 @@ body.buffer-fold .tape-track:not(.buffer-target) .tt-head .tt-arm-dot { width: 8
 @media (max-width: 699.98px) {
   body.buffer-fold .tape-track:not(.buffer-target) { height: 22px; }
   body.buffer-fold .tape-track:not(.buffer-target) .tt-lane { height: 20px; }
+  /* A strip has no room for a key a finger wide (● at 44 px, decision
+     0059): it shows the track's name alone, a label, and ● comes back as
+     the lanes unfold. */
+  body.buffer-fold .tape-track:not(.buffer-target) .tt-head .tt-arm { display: none; }
+  body.buffer-fold .tape-track:not(.buffer-target) .tt-head .tt-name { pointer-events: none; }
 }
 
 /* ---------- Rooms F5b: a cassette flies from its shelf to the deck (lib/room/fly.js, ghost.js; lib/scene/flight.js) ----------
