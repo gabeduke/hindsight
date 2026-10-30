@@ -18,14 +18,24 @@ export default {
     await grab.waitFor({ state: 'visible' });
     await t.step('GRAB’s ▾', () => t.tap(page.locator('.buffer-grab-more')));
     // The bars once opened about 370 px left of the finger: the inputs' row
-    // makes the panel wide, and the bars sat at its far end.
+    // makes the panel wide, and the bars sat at its far end. On a phone the
+    // panel is wider than the room left of the ▾, so it spans the screen
+    // under it instead, and its bars cross the finger's line. By the device,
+    // not the page's shape: a tablet in the phone's shape is the regression.
+    const phone = t.profile === 'phone';
     const where = await page.evaluate(() => {
       const r = (sel) => document.querySelector(sel).getBoundingClientRect();
       const more = r('.buffer-grab-more'), pop = r('.buffer-grab-pop'), bars = r('.buffer-grab-pop .buffer-bars');
-      return { pop: Math.round(pop.right - more.right), bars: Math.round(more.right - bars.right), under: Math.round(pop.top - more.bottom) };
+      return {
+        pop: Math.round(pop.right - more.right), bars: Math.round(more.right - bars.right), under: Math.round(pop.top - more.bottom),
+        on: pop.left >= 0 && pop.right <= innerWidth, across: bars.left <= more.right && bars.right >= more.left,
+      };
     });
-    t.expect('its bars open under the ▾, by the finger, the panel’s right edge on the ▾’s',
-      Math.abs(where.pop) <= 2 && where.bars >= 0 && where.bars <= 60 && where.under >= 0 && where.under <= 12, where);
+    t.expect(phone ? 'its bars open under the ▾, across the finger’s line, the panel on the screen'
+      : 'its bars open under the ▾, by the finger, the panel’s right edge on the ▾’s',
+    where.under >= 0 && where.under <= 12 && (phone
+      ? where.on && where.across
+      : Math.abs(where.pop) <= 2 && where.bars >= 0 && where.bars <= 60), where);
     await t.step('tap 2 bars', () => t.tap(page.locator('.buffer-grab-pop .buffer-bars button[data-n="2"]')));
     t.expect('GRAB says it takes 2 bars, from the armed track’s input', await t.poll(() => {
       const k = document.querySelector('.buffer-grab-key')?.textContent ?? '';
@@ -43,8 +53,7 @@ export default {
     // On a phone the drawer is a sheet over the foot of the page, docked
     // above the mini player: it brings the cue lane and the armed track into
     // sight above it, under the header, and the rest are a scroll away.
-    const sheet = await page.evaluate(() => getComputedStyle(document.getElementById('buffer')).position === 'fixed');
-    if (!sheet) {
+    if (!phone) {
       t.expect('the tracks are above the drawer, none under the bar', await t.poll(() => {
         const top = document.getElementById('buffer').getBoundingClientRect().top;
         const rows = [...document.querySelectorAll('#lanes > .tape-track')];

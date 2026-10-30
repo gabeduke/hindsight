@@ -138,6 +138,22 @@ export default {
       await t.tap(page.locator('.tt-name').nth(1));
     });
     t.expect('the inspector opens', await t.poll(() => !!document.getElementById('track-sheet')?.open, null, 2000));
+    // On a phone the inspector is a sheet over the foot of the page, and the
+    // part under it: the page scrolls it clear first, as a thumb would. (Once
+    // it has come up: it slides in.)
+    await page.evaluate(() => Promise.all(document.getElementById('track-sheet').getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {}))));
+    if (await page.evaluate(() => document.querySelector('.tt-lane').getBoundingClientRect().bottom
+        > document.getElementById('track-sheet').getBoundingClientRect().top)) {
+      await t.step('scroll the part clear of the inspector', async () => {
+        for (let i = 0; i < 12; i++) {
+          const clear = await page.evaluate(() => document.querySelector('.tt-lane').getBoundingClientRect().bottom
+            < document.getElementById('track-sheet').getBoundingClientRect().top - 8);
+          if (clear) break;
+          await page.mouse.wheel(0, 120);
+          await t.wait(150);
+        }
+      });
+    }
     s = await spot();
     await t.step('tap the part', () => tapAt(s.x, s.y));
     await t.poll(() => document.getElementById('multi-bar')?.hidden === false, null, 3000);
@@ -210,7 +226,16 @@ export default {
     s = await spot();
     await t.step('swipe across the part', () => drag(s.x, s.y, s.perBar, 0, { steps: 4 }));
     await t.wait(600);
-    t.expect('a quick drag pans the lanes (Fit appears)', await page.isVisible('#view-fit'));
+    // Fit is beside the ruler; on a phone, a row of ⌗'s View menu.
+    let fit = await page.isVisible('#view-fit');
+    if (t.profile === 'phone') {
+      await page.locator('#ruler-more').scrollIntoViewIfNeeded();
+      await t.step('open ⌗, the View menu', () => t.tap(page.locator('#ruler-more')));
+      fit = await page.locator('#rm-fit').waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false);
+      await page.keyboard.press('Escape');
+      await page.locator('#ruler-menu').waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+    }
+    t.expect('a quick drag pans the lanes (Fit appears)', fit);
     t.expect('and leaves the part where it is, on the Pi', (await clip()).at === c0.at, `${c0.at} → ${(await clip()).at}`);
 
     await t.step('reload', () => page.reload());

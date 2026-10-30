@@ -2,6 +2,8 @@
 // in the Listening Room is there when ✎ is pressed in the Studio and on the
 // take's page; Back puts the drawer away and leaves the room where it was;
 // the Sketchbook is gone. docs/flows.md#u3, listening-back.md.
+import { aTake } from './room.mjs';
+
 export default {
   id: 'U3',
   title: 'One notes drawer, in both rooms and on Open',
@@ -10,8 +12,7 @@ export default {
     const { page, api } = t;
     const take = await t.given('a take on the shelf', () => api.keep(20));
     await t.given('the Listening Room is open', () => page.goto(`${t.base}/takes.html`));
-    // A phone starts on the List (J2.7); a tablet and wider on the shelf wall.
-    await t.given('the take is playing', () => t.tap(page.locator('#view-room .room-cassette:visible, #takes .take.spine:visible').first()));
+    await t.given('the take is playing', () => t.tap(aTake(page)));
     await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
     const up = () => t.poll(() => {
       const d = document.getElementById('notes-drawer');
