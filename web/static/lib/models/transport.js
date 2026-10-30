@@ -102,7 +102,7 @@ export function createTransport(env = {}) {
   const agreed = () => { if (want && !!(live && live.playing) === want.playing) want = null; };
   let del = null;
   const listeners = new Set();
-  const fire = () => { for (const f of [...listeners]) f(); };
+  const fire = () => { for (const f of listeners) f(); };
 
   const gate = pollGate();
   const ask = () => (gate.nudge() ? poll() : undefined);
@@ -143,9 +143,9 @@ export function createTransport(env = {}) {
   // the bar too, for the presses; its nudges wait for the tape to be back.
   let changes = null;
   const pressListeners = new Set();
-  const heardPress = (p) => { for (const f of [...pressListeners]) f(p); };
+  const heardPress = (p) => { for (const f of pressListeners) f(p); };
   const takesListeners = new Set();
-  const heardTakes = (m) => { for (const f of [...takesListeners]) f(m); };
+  const heardTakes = (m) => { for (const f of takesListeners) f(m); };
   const syncChanges = () => {
     const on = loaded && !stopped && !del;
     if (on && !changes) {
