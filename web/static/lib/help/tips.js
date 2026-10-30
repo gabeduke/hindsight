@@ -99,7 +99,7 @@ export const TIPS = [
   { control: '● on the mini player (phone)', ids: ['np-phone-rec'], tip: 'Record from this phone, straight into Hindsight: its take goes on the shelf. Tap again to stop. In the Studio, ● is the tape’s: hold it to record from this phone instead' },
   { control: '▾ beside ● (phone)', ids: ['np-phone-more'], tip: 'Recording from this phone: start or stop it, pick its input, or see its level first' },
   { control: 'The grabber (bar)', ids: ['np-grabber'], tip: 'Fold the bar to one row, or unfold it: a tap, or drag it down to fold and up to unfold. Gives the tape lanes room. On a phone, it puts the player away' },
-  { control: 'The tempo (the bar’s display)', ids: ['np-tempo'], tip: 'The tempo of what’s in the bar. In the Studio, with the tape, a tap opens its menu: call the loop more bars or fewer' },
+  { control: 'The tempo (the bar’s display)', ids: ['np-tempo'], tip: 'The tempo of what’s in the bar. In the Studio, with the tape, a tap opens its menu: type, nudge or tap a new tempo (the bar lines move, the audio stays), or call the loop more bars or fewer' },
   { control: 'The source (the bar’s display)', ids: ['np-source'], tip: 'What the bar plays: the tape, the take, or the live feed. A tap chooses another: the tape, the live feed, one of the last few takes, or the shelf' },
   { control: 'Where it plays (the bar’s display)', ids: ['np-output'], tip: 'Where what’s in the bar plays: the tape in the jam room, on a phone or both; a take or the feed on this device. A tap opens where the tape plays' },
   { control: 'GRAB (the feed, in the bar)', ids: ['np-feed-grab'], tip: 'GRAB the bars around where the feed is onto the Studio’s cue lane, and go there' },

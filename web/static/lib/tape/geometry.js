@@ -132,6 +132,22 @@ export function bpm(grid, sampleRate) {
   return (grid.bars * 4 * 60 * sampleRate) / grid.frames;
 }
 
+/**
+ * TAP_RESET_MS: a tap this long after the last starts counting again. Two
+ * seconds is a beat at 30 BPM, slower than any tempo a tape takes.
+ */
+export const TAP_RESET_MS = 2000;
+
+/**
+ * tappedBpm is the tempo of taps at `times` (ms, oldest first): the mean of
+ * the last eight's gaps, once there are four; 0 before.
+ */
+export function tappedBpm(times) {
+  const last = times.slice(-8);
+  if (last.length < 4) return 0;
+  return (60000 * (last.length - 1)) / (last[last.length - 1] - last[0]);
+}
+
 /** barBeat reads a tape frame as "bar.beat", from 1, on a grid. */
 export function barBeat(frame, grid) {
   if (!grid) return '';

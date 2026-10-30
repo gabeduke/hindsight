@@ -30,7 +30,7 @@ import (
 //	GET    /api/tapes                  the tapes, and which is loaded
 //	POST   /api/tapes                  a new tape: {name, bpm?, bars?}
 //	GET    /api/tapes/state?id=        one tape, with the transport if it's loaded
-//	PATCH  /api/tapes?id=              name, click, loop, a track, a clip
+//	PATCH  /api/tapes?id=              name, click, loop, a track, a clip; tempo {bpm, bars} on an empty tape, {bpm} re-grids any
 //	DELETE /api/tapes?id=              delete one (not the loaded one), and free its audio
 //	POST   /api/tapes/load?id=         make it the loaded tape
 //	POST   /api/tapes/transport?id=    {action: play|stop|locate, quantum, pos}
@@ -321,6 +321,9 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 		kind = "loop"
 	case b.Style != nil && b.Loop == nil && b.Track == nil && b.Clip == nil && b.Tempo == nil && b.Bars == nil:
 		kind = b.Style.Kind()
+	case b.Tempo != nil && b.Tempo.Bars == 0 && b.Loop == nil && b.Track == nil && b.Clip == nil && b.Bars == nil && b.Style == nil:
+		// A tempo nudged and nudged again (−, −, −) is one step.
+		kind = "tempo"
 	}
 	// The inputs there are, read before the tape is locked to change it.
 	var inputs []tape.SourceState
@@ -384,7 +387,19 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			if err := meta(t); err != nil { // the name and click ride along, outside undo
 				return err
 			}
-			if tm := b.Tempo; tm != nil {
+			if tm := b.Tempo; tm != nil && tm.Bars == 0 {
+				// No bars: a re-grid, on any tape. The bar lines move to the
+				// new tempo and the audio, the loop and the clips keep their
+				// frames: nothing is stretched (docs/plan/tempo.md).
+				if rec != nil && rec.Tape == t.ID {
+					return tape.WaitsForRecording(fmt.Errorf("%w: the tempo waits until it ends; the punch counts bars", tape.ErrRecording))
+				}
+				if tm.BPM < 20 || tm.BPM > 400 {
+					return fmt.Errorf("%w: tempo 20–400 BPM", tape.ErrBadParameter)
+				}
+				g := s.Grid.Retempo(tm.BPM, sr)
+				s.Grid = &g
+			} else if tm != nil {
 				// Only while the tape is empty: once it has audio its tempo is
 				// fixed, since nothing is ever stretched. Bars relabel it instead.
 				for _, tr := range s.Tracks {

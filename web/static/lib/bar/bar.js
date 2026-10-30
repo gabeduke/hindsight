@@ -243,7 +243,7 @@ export class NowPlaying {
     const tempo = $('np-tempo');
     const tempoMenu = s.kind === 'tape' && document.body.classList.contains('tape-page');
     if (tempo.disabled !== !tempoMenu) tempo.disabled = !tempoMenu;
-    setAttr(tempo, 'aria-label', tempoMenu ? `${d.said.tempo}: change the bars` : d.said.tempo);
+    setAttr(tempo, 'aria-label', tempoMenu ? `${d.said.tempo}: change it` : d.said.tempo);
     setAttr($('np-source'), 'aria-label', d.said.source);
     const out = $('np-output');
     const sends = !!this.canOutput();

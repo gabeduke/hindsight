@@ -146,6 +146,18 @@ func GridFor(bpm float64, bars, sampleRate int) Grid {
 	return Grid{Frames: frames, Bars: bars}
 }
 
+// Retempo is the grid moved to bpm, keeping its bar count: a re-grid. The
+// bar lines move, bar 1 stays at frame 0, and nothing that holds frames --
+// a clip, the loop, the cycle log -- moves with them (docs/plan/tempo.md).
+// A tape with no grid gets one bar at bpm.
+func (g *Grid) Retempo(bpm float64, sampleRate int) Grid {
+	bars := 1
+	if g != nil && g.Bars > 0 {
+		bars = g.Bars
+	}
+	return GridFor(bpm, bars, sampleRate)
+}
+
 // Loop is the selection and whether playback wraps inside it: the OP-1's In,
 // Out and loop keys.
 type Loop struct {
