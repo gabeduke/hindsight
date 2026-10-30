@@ -102,16 +102,19 @@ and still looks it:
   roll forward", so a reviewed, green PR merges without waiting for him.
   Start each session fresh from this file and `components.md`. The queue:
   0. **Left from 2026-10-30**, if not merged yet (`gh pr list`):
-     - setting the tempo at any time (#223);
-     - the component harness and fixture models;
-     - phone checks, which run every flow on the phone and dock the cue
-       drawer above the mini player;
-     - Export offering Download from the tape's track export;
-     - ▶ in the Studio playing the tape when the bar held a take, with
-       the counter fixed for a take (it read "BAR -1.4");
-     - **push over HTTPS**: on a real kit's HTTPS address the socket to
-       `/api/tapes/changes` fails, so pages fall back to polling. The
-       demo and the flows run on plain HTTP and never see it.
+     - setting the tempo at any time (#223): held, since its flow
+       (J1.20) has no phone path and fails there, where the tempo is in
+       the player pulled up; the PR says what is needed;
+     - the flows' phone profile can't see a page wider than the phone:
+       with `isMobile` an overflowing page zooms out, so `checkLayout`'s
+       offscreen misses it; check `clientWidth` too (found by the
+       harness, #238);
+     - a flaky Go test: `TestTheTakesRevisionMovesTheMomentAWriteChangesTheList`
+       (`internal/api/takes_rev_test.go`, from #225) failed in CI on
+       main's code with "no message within 300ms: i/o timeout" (run
+       41103214833, a docs-only PR). It looks like a race between the
+       socket subscribing and the write: wait for the socket's first
+       message before the write, and don't widen the 300 ms.
   1. **Transport** (the bar): `components.md` §6, row 1. It amends
      AGENTS.md and decision 0047 (call 1).
   2. **Library: the List.**
