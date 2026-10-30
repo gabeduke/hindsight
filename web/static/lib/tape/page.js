@@ -316,7 +316,8 @@ const POLL_TIMEOUT_MS = 4000;
 // revision polls at once, through the gate, so a nudge that lands while a
 // poll is out polls once more after it rather than beside it. The 200 ms
 // poll stays as the fallback, for a socket that is down.
-// What the bar's tape source hands the Studio while it is shown.
+// What the Studio lends the page's transport (lib/models/transport.js,
+// delegate) while it is shown: its ▶ ■, locate, loop and poll.
 const barHands = {
   play: () => transport('play'),
   stop: () => transport('stop'),
@@ -332,16 +333,16 @@ function nudged() {
 // A press on the keyboard heard on it is the bar's note's (handed on), and
 // lights the head of the track it changed here, for the note's second.
 function heardPress(p) {
-  engine.tape.heardPress(p);
+  engine.transport.heardPress(p);
   lightTrackHead(lanes, p);
 }
 function followTheTape() {
-  engine.tape.delegate(barHands);
-  const changes = watchChanges({ onNudge: nudged, onPress: heardPress, onTakes: (m) => engine.tape.heardTakes(m) });
+  engine.transport.delegate(barHands);
+  const changes = watchChanges({ onNudge: nudged, onPress: heardPress, onTakes: (m) => engine.transport.heardTakes(m) });
   return {
     close() {
       changes.close();
-      engine.tape.delegate(null);
+      engine.transport.delegate(null);
     },
   };
 }
@@ -595,7 +596,7 @@ function feedReels() {
   const peaksOf = (f) => peaks.get(f);
   engine.tape.setLevels(tracks.map((tr) => trackColor(tr.n, col)),
     (frame) => tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)));
-  engine.tape.ingest({ tape: t, live });
+  engine.transport.ingest({ tape: t, live });
 }
 
 // laneView is the span of tape the lanes and the ruler show: where a pinch,
@@ -743,7 +744,7 @@ function render() {
   const md = live && live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
   const mixing = !!(md && (md.state === 'playing' || md.state === 'tail'));
   const counting = !!(live && live.count_in > 0);
-  engine?.tape?.ingest({ tape: t, live });
+  if (engine?.tape) engine.transport.ingest({ tape: t, live });
   const ov = $('tape-overview');
   setIf(ov, 'aria-valuemax', String(t.length));
   setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
