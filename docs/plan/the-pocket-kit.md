@@ -44,7 +44,7 @@ flowchart TB
     objs[("objects by hash<br/>takes, cached tapes")]
     core --- objs
   end
-  subgraph pi["Pi: home of Gabe's tapes and takes"]
+  subgraph pi["Pi: home of Gabe's tapes and takes<br/>(unless shared)"]
     engine["engine<br/>(feed, takes, tape)"]
   end
   subgraph hub["Hub"]
@@ -266,12 +266,13 @@ A take keeps its form on the Pi; the portable form is the same idea:
 `{id, object, meta}`, with the meta as `.meta.json` has it, plus `by`, the
 device it was kept on, and its own version for its meta edits. Most
 already go one field at a time with a before and an after (`audio.Op`);
-the star doesn't (`DiffMeta`: *"Star, created, source and version are
-not operations"*), so it gets an operation of its own in slice 1. A
-take's `.meta.json` `version` stays its schema's. Takes and
-tapes share the objects store, so a bounce and the parts it was made from
-are found from one another, the walkthrough's *Projects*: a bounce's meta
-already names its tape (`tape_id`).
+the star and the colour tag don't (`DiffMeta`: *"Star, created, source
+and version are not operations"*, and `Tag` isn't one either), so each
+gets an operation of its own in slice 1, and so becomes undoable. A
+take's `.meta.json` `version` stays its schema's. Takes and tapes share
+the objects store, so a bounce and the parts it was made from are found
+from one another, the walkthrough's *Projects*: a bounce's meta already
+names its tape (`tape_id`).
 
 ## 2. Sync
 
@@ -279,10 +280,12 @@ already names its tape (`tape_id`).
 
 **Recommended: one engine orders each tape's edits, its home, and every
 other copy is a replica that works offline and sends its edits there.**
-Gabe's tapes and takes live on his Pi, as now. A shared tape's home is the
-hub (*What the hub does*). A tape made on the phone with no Pi in reach is
-homed on the phone until its first sync, when the Pi adopts it, edits and
-all: nobody else has it, so there is nothing to merge.
+Gabe's tapes and takes live on his Pi, as now. Sharing a tape moves its
+home to the hub (*What the hub does*): one edit to `home`, made while the
+Pi and the hub can both be reached, after which the Pi is a replica. A
+tape made on the phone with no Pi in reach is homed on the phone until
+its first sync, when the Pi adopts it, edits and all: nobody else has
+it, so there is nothing to merge.
 
 Why a home, and not a peer-to-peer merge (a CRDT such as Automerge, where
 every copy converges with no one in charge): a tape is small and coarse,
@@ -375,7 +378,8 @@ moves to per person in the same change, so there is one rule. Until the
 Pi's other routes have access control, an edit with no device token (a
 page, the keyboard, a controller) counts as the kit's owner. This changes
 the Pi's Undo, so it waits for slice 2, the first time two engines edit
-one tape.
+one tape; only the star and the tag become undoable sooner, in slice 1.
+When it lands, `docs/architecture/takes.md` (*Undo*) says so.
 
 ### What the hub does
 
@@ -450,11 +454,12 @@ Both platforms let an app keep recording with the screen off once the
 recording has started from a tap, and both show the user that it is
 happening. Android never lets an app turn the mic on by itself, from the
 background or at boot, and iOS is read the same way (its rule rests on
-an archived guide: *What this spec couldn't verify*). So the design is
+an archived guide: *Appendix: the platforms*, and *What this spec
+couldn't verify*). So the design is
 the same on both: **Listen is a key in the app; once on, it keeps going
 in the pocket, with a notification (Android) or the recording indicator
-(iOS) saying so, and KEEP and Stop on it.** What follows from the platforms (the sources are
-in *Appendix: the platforms*):
+(iOS) saying so, and KEEP and Stop on it.** What follows from the
+platforms (the sources are in *Appendix: the platforms*):
 
 - **Android**: a foreground service of type `microphone`, which has no
   time limit, and audio through AAudio and Oboe. Android 17 silences an
@@ -500,8 +505,8 @@ in *Appendix: the platforms*):
 - **A note** (the ecosystem's NOTE) from the notification marks a moment
   in the feed, and a reach-back can start from it, as a span from a note
   can on the Pi (`docs/architecture/takes.md`, *Saving any span*).
-- **Silence is kept.** The feed doesn't stop for quiet; Listen can be set
-  to switch itself off after a long silence, to save the battery.
+- **Silence is kept.** The feed doesn't stop for quiet; Listen can switch
+  itself off after a long silence (an hour, Q4), to save the battery.
 
 ### Overdubs and latency
 
@@ -569,8 +574,8 @@ The sizes are arithmetic: stereo 32-bit at 48 kHz is 384 KB a second.
 | A 5-minute take, sent once | 115 MB (about 10 s on home Wi-Fi at 100 Mbit/s) |
 
 - **Storage**: the feed's file is fixed; takes grow until synced, and are
-  then kept on the phone or dropped to their peaks and preview, by a
-  setting (*Questions*). Listening a few hours a day writes tens of GB a
+  then kept on the phone until it needs the room, and dropped to their
+  peaks and preview (Q6). Listening a few hours a day writes tens of GB a
   week; what that does to a phone's flash over years wasn't checked for
   this spec, and is a reason for Listen to be a key, not always on.
 - **Battery**: not measured, and no source was found that measures a
@@ -705,7 +710,9 @@ prompts go to Google, and it may not use a few high-risk permissions
 (accessibility, SMS, call log, notification listeners, installing
 packages), a list the mic isn't on ([Play Console help](https://support.google.com/googleplay/android-developer/answer/18765789)).
 AI Studio's page says the project can be downloaded as a ZIP to carry on
-in Android Studio ([the same docs](https://ai.google.dev/gemini-api/docs/aistudio-android)), which makes it an ordinary app, outside this route.
+in Android Studio
+([AI Studio's docs](https://ai.google.dev/gemini-api/docs/aistudio-android)),
+which makes it an ordinary app, outside this route.
 
 | The pocket kit needs | What Google says |
 |---|---|
@@ -750,8 +757,8 @@ wherever you were.
   token for the phone, which belongs to Gabe (*Identity*).
 - Objects: `have`, a resumable upload, a download.
 - Takes: import a take (its id, its object, its meta, `by`, the device);
-  meta edits as `audio.Op`s, the rules takes already have, and one for
-  the star, which has none yet.
+  meta edits as `audio.Op`s, the rules takes already have, and one each
+  for the star and the tag, which have none yet.
 - The takes model and its push (#225): the tablet sees a phone's take
   land as it sees a KEEP at the Pi.
 - The canonical hash, and the conformance suite's *Objects* and
@@ -791,7 +798,7 @@ back in their colour, with their name. The piece becomes a collaboration.
 - The hub as the home of a shared tape, running the same core.
 - An object store, signed uploads, share links.
 - The conflict rules for real, with every row in the suite.
-- A friend with an iPhone hears the tape through its share link's page
+- A friend with an iPhone hears the mix through its share link's page
   until there is an iOS app (Q16).
 
 ## Build order
@@ -810,7 +817,8 @@ this spec.
    core's build (*Sharing code*); the canonical hash and an index of the
    pool by hash; the suite's *Objects* rows. No behaviour changes.
 4. **Slice 1's protocol on the Pi**: `/api/kit`, people, devices and
-   pairing, objects, take import, and their suite rows; then the Android
+   pairing, objects, take import, operations for a take's star and tag,
+   and their suite rows; then the Android
    app's slice 1.
 5. **The tape document and edits as named edits** on the Pi: the
    tape document, exported and imported (the suite's *Documents*
@@ -818,7 +826,7 @@ this spec.
    Undo per person. Then slice 2's protocol and app, whose web view needs
    the Studio's components from `components.md`'s build order.
 6. **The hub's object store and share links**, then shared tapes (slice
-   3), then iOS if it is wanted.
+   3), then iOS when Hindsight is a product (Q16).
 
 ## What this spec couldn't verify
 
