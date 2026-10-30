@@ -27,7 +27,8 @@ request. Why things are the way they are is in `docs/decisions/`.
   editing, mixdown, export, the MIDI clock, the cue lane, the feed strip,
   the track heads and the Studio's budget on a tablet.
 - [push.md](architecture/push.md): the tape's revision, the
-  `/api/tapes/changes` socket and the keyboard's press on it.
+  `/api/tapes/changes` socket, the take list's revision (`takes_rev`) and
+  the page's takes model it feeds, and the keyboard's press on it.
 - [shell.md](architecture/shell.md): the UI and the shell: views and
   `ctx`, the router, moving between rooms, one way to close things, menus,
   the bar's engine, the frame (the header), waking up.

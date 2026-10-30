@@ -99,13 +99,16 @@ rewriting the cue chunk on a flag edit made an old take look new.
 
 ## The list is cached
 
-`/api/jams` is polled every five seconds by every open page. It now costs one
-directory listing: each take's signature is the size and modification time of
+`/api/jams` is asked by each open page's takes model (`lib/models/takes.js`)
+when the take list's revision moves (`push.md`, *The takes' revision*), and
+on its fallback poll: every five seconds with no push, every thirty with
+it. It costs one directory listing: each take's signature is the size and modification time of
 its WAV and sidecar, the sidecar's inode (every sidecar write is a new file,
 so two same-size edits within one clock tick still differ), and which other
 sidecars exist, all from that one listing. Takes are cached by signature, and the ETag is a hash of the
 signatures, so an unchanged list answers 304 without opening a file, and a
-changed one re-reads only the takes that changed.
+changed one re-reads only the takes that changed. The same listing, without
+the takes (`TakeList.ETag`), is what the take list's revision watches.
 
 ## The peaks pyramid
 

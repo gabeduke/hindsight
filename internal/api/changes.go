@@ -12,10 +12,11 @@ import (
 // polls /api/tapes/state at once instead of at its next tick
 // (docs/architecture/push.md). It sends a nudge, not the state:
 //
-//	{"rev":N,"at_ms":…}
+//	{"rev":N,"takes_rev":M,"at_ms":…}
 //
-// rev is the engine's revision (tape.Changes), at_ms the Pi's clock as it
-// was sent, so a page can time the push. One goes out when the socket
+// rev is the engine's revision (tape.Changes), takes_rev the take list's
+// (takes_rev.go), at_ms the Pi's clock as it was sent, so a page can time
+// the push. One goes out when the socket
 // opens, one after each change (taps coalesce, so a burst of changes is one
 // or two), and one every changesBeat whether anything changed or not: a
 // nudge socket is otherwise silent while nothing happens, and lib/socket.js
@@ -29,6 +30,10 @@ import (
 //
 // so a page that hears one hears a nudge too when the revision moved.
 //
+// A move of the take list's revision is said the same way, as a message
+// whose takes_rev is new; the socket holds the list's scan open while it
+// is (takes_rev.go).
+//
 // The page never writes to it; the reader is there for close frames and the
 // pong deadline, as /api/live's is.
 
@@ -36,9 +41,10 @@ import (
 const changesBeat = time.Second
 
 type changesMsg struct {
-	Rev   uint64    `json:"rev"`
-	AtMS  int64     `json:"at_ms"`
-	Press *keyPress `json:"press,omitempty"`
+	Rev      uint64    `json:"rev"`
+	TakesRev uint64    `json:"takes_rev"`
+	AtMS     int64     `json:"at_ms"`
+	Press    *keyPress `json:"press,omitempty"`
 }
 
 func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +63,9 @@ func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	presses, unpress := a.presses.subscribe()
 	defer unpress()
+	takes, untakes := a.takesRev.Subscribe()
+	defer untakes()
+	defer a.takesRev.hold()()
 
 	gone := make(chan struct{})
 	go func() {
@@ -73,14 +82,14 @@ func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// last is the revision last said. A tap whose revision that already
-	// was (a bump between Subscribe and the hello) says nothing: a nudge is
-	// always news, and only the beat repeats.
-	var last uint64
+	// last and lastTakes are the revisions last said. A tap whose revision
+	// that already was (a bump between Subscribe and the hello) says
+	// nothing: a nudge is always news, and only the beat repeats.
+	var last, lastTakes uint64
 	send := func(p *keyPress) error {
-		last = changes.Rev()
+		last, lastTakes = changes.Rev(), a.takesRev.Rev()
 		_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
-		return conn.WriteJSON(changesMsg{Rev: last, AtMS: time.Now().UnixMilli(), Press: p})
+		return conn.WriteJSON(changesMsg{Rev: last, TakesRev: lastTakes, AtMS: time.Now().UnixMilli(), Press: p})
 	}
 	if send(nil) != nil {
 		return
@@ -104,6 +113,14 @@ func (a *API) handleTapeChanges(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// A change has just been said: the next beat is a second from now.
+			beat.Reset(changesBeat)
+		case <-takes:
+			if a.takesRev.Rev() == lastTakes {
+				continue
+			}
+			if send(nil) != nil {
+				return
+			}
 			beat.Reset(changesBeat)
 		case p := <-presses:
 			if send(&p) != nil {

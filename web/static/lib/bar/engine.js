@@ -26,6 +26,7 @@ import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
 import { wireOutput, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
 import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
+import { createTakes } from '../models/takes.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,7 +55,10 @@ export function pageBar(opts) {
  * #np; and `tape`, `stream` and `feed`, the sources it has made so far (null
  * until then).
  */
-export function createEngine({ tapes, onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
+export function createEngine({ tapes, takes: pageTakes = null, onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
+  // The page's takes (lib/models/takes.js): the shell's, handed in, which the
+  // tape's changes socket feeds; a page with none gets its own, unfed.
+  const takes = pageTakes || createTakes();
   let find = initFind, onNote = initOnNote, go = initGo;
   let feed = null, tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
@@ -140,6 +144,8 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     // A press on the keyboard, over the display for its second (press-note.js).
     let note = null;
     tape.onPress((p) => { note ??= barPressNote(document); note.show(p); });
+    // The take list's revision, from whichever changes socket is open.
+    tape.onTakes((m) => takes.heard(m));
     const paintOut = () => {
       paintOutSheet(tape.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
     };
@@ -239,19 +245,17 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     eject();
   }
   /**
-   * findTakeByName resolves take `name` from /api/jams and /api/peaks with the
-   * engine's own Audio, for a room or a reload where no TakesList holds it.
+   * findTakeByName resolves take `name` from the page's takes and /api/peaks
+   * with the engine's own Audio, for a room or a reload where no TakesList
+   * holds it.
    */
   async function findTakeByName(name) {
     if (!name) return null;
     try {
-      const [jamsRes, peaksRes] = await Promise.all([
-        fetch('/api/jams', { cache: 'no-store' }),
+      const [t, peaksRes] = await Promise.all([
+        takes.find(name),
         fetch(`/api/peaks?file=${encodeURIComponent(name)}`),
       ]);
-      if (!jamsRes.ok) return null;
-      const jams = await jamsRes.json();
-      const t = Array.isArray(jams) ? jams.find((x) => x.name === name) : null;
       if (!t) return 'missing';
       if (!t.has_preview || !peaksRes.ok) return null;
       const peaks = await peaksRes.json();
@@ -267,7 +271,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     }
   }
   /**
-   * loadTakeByName loads take `name` from /api/jams and /api/peaks with the
+   * loadTakeByName loads take `name` from the page's takes and /api/peaks with the
    * engine's own Audio, for a room or a reload where no TakesList holds it.
    */
   async function loadTakeByName(name) {
@@ -289,7 +293,7 @@ export function createEngine({ tapes, onToast, find: initFind = null, onNote: in
     sourceMenu({
       doc: document, button: sourceKey, panel: $('np-source-menu'), layers: layersOf(document),
       now: () => ({ kind: bar.src ? bar.src.kind : null, takeName: take ? take.name : null, tape: tape && tape.ready ? tape.title : (tape ? 'the tape' : null) }),
-      list: async () => { const r = await fetch('/api/jams', { cache: 'no-store' }); return r.ok ? r.json() : []; },
+      list: () => takes.get(),
       pick: (id) => pickSource(id),
     });
   }

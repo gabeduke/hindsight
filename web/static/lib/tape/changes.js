@@ -18,6 +18,11 @@
 // comes on it too, the moment it is made, under `press`: the banner's
 // words, its role, what it lit and when its second began, by the Pi's
 // clock. pressOf reads one; the bar shows it (lib/bar/press-note.js).
+//
+// Each message carries the take list's revision too, as takes_rev
+// (docs/architecture/push.md, *The takes' revision*): onTakes hears every
+// message that has one, beats included, and the page's takes model
+// (lib/models/takes.js) says what is news and asks /api/jams.
 
 import { connectSocket } from '../socket.js';
 
@@ -70,8 +75,10 @@ export function revisions({ firstSeen = false } = {}) {
 }
 
 /**
- * watchChanges calls onNudge({rev, at_ms}) on each new revision, and
- * onPress(press) (pressOf's) on each press on the keyboard. The first
+ * watchChanges calls onNudge({rev, at_ms}) on each new revision,
+ * onPress(press) (pressOf's) on each press on the keyboard, and onTakes(m)
+ * on each message with a takes_rev, new or not (the beat is how the takes
+ * model knows the push is there). The first
  * the socket says is taken as seen: whoever opens it polls as they do (the
  * Studio on show, the bar as it takes the tape back), and counting it as
  * news would ask the Pi twice. A change in the moment between that poll
@@ -79,12 +86,13 @@ export function revisions({ firstSeen = false } = {}) {
  * After a reconnect, a revision that moved while the socket was down is
  * news. Returns { close() }. The env is lib/socket.js's, for tests.
  */
-export function watchChanges({ onNudge, onPress = null }, env = {}) {
+export function watchChanges({ onNudge, onPress = null, onTakes = null }, env = {}) {
   const fresh = revisions({ firstSeen: true });
   return connectSocket(CHANGES_PATH, {
     onMessage: (m) => {
       const p = onPress ? pressOf(m) : null;
       if (p) onPress(p);
+      if (onTakes && m && typeof m.takes_rev === 'number') onTakes(m);
       if (fresh(m)) onNudge(m);
     },
   }, env);

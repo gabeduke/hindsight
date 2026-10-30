@@ -87,7 +87,8 @@ import { Loop, ticker, report } from '../objects/motion.js';
 
 /**
  * The context a view is mounted with. Frozen. Besides what the shell shares
- * with every view (spread in from `shared`: engine, go, tapes, toast …):
+ * with every view (spread in from `shared`: engine, go, tapes, takes (the
+ * page's, lib/models/takes.js), toast …):
  *
  *   id           the view's id
  *   root         its <section>, filled from its template
@@ -234,7 +235,7 @@ function makeSlot(spec, isShown, name, parked = () => null) {
  *              slot's nodes go. #np-dock's is {parent: #np-dock, before:
  *              #np}: a place, not a wrapper element (spike D: a wrapper
  *              breaks the .np-dock > .clip-editor selectors).
- *   shared     what every view's ctx carries: engine, go, tapes, toast …
+ *   shared     what every view's ctx carries: engine, go, tapes, takes, toast …
  *   doc        for document.title, visibilityState and visibilitychange
  *   timers     {setInterval, clearInterval}
  *   clock      the ticker the loops run on (the shared one)
