@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.30.1 — 2026-10-30
+
+- The notes drawer keeps a name typed before Back, says when a note's time can't play, and follows the bar (92abfc4c)
+- ✎ opens one notes drawer, the same in the Studio, the Listening Room and on Open; the Sketchbook is gone (0ab9baa3)
+- The bar can put a take at a moment by its name, for the notes drawer's times and ▶ (811e4951)
+- Docs only: strike the red Go tests from Known bugs; they pass, 100+ runs, idle and loaded (bc122037)
+
+
 ## v2026.10.29.13 — 2026-10-29
 
 - A GRAB pressed as the Studio opens lands on the loaded tape's cue lane, and the cue pads' two layout findings leave the baseline (5db9dcf2)
