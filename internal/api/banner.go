@@ -24,13 +24,14 @@ import (
 
 // The verbs' own refusals, so the banner can name them.
 var (
-	errNotArmed      = errors.New("arm a track first")
-	errNothingToKeep = errors.New("nothing to keep from")
-	errTapeOff       = errors.New("the tape is off")
-	errNoAudioOut    = errors.New("nothing plays the tape: this build has no audio output")
-	errNoRoom        = errors.New("no room on track")
-	errNothingToDrop = errors.New("nothing on the cue lane to drop: GRAB first")
-	errBusy          = errors.New("the verbs before it haven't finished")
+	errNotArmed       = errors.New("arm a track first")
+	errNothingToKeep  = errors.New("nothing to keep from")
+	errTapeOff        = errors.New("the tape is off")
+	errNoAudioOut     = errors.New("nothing plays the tape: this build has no audio output")
+	errNothingToDrop  = errors.New("nothing on the cue lane to drop: GRAB first")
+	errTooManyLanes   = errors.New("more lanes than the tape has tracks")
+	errLongerThanTape = errors.New("longer than the tape: trim it shorter with IN and OUT")
+	errBusy           = errors.New("the verbs before it haven't finished")
 )
 
 // The words of the verbs that went through (piVerbs), each well inside the
@@ -93,7 +94,8 @@ var refusals = []struct {
 	{tape.ErrSlipped, "SLIPPED: TRY AGAIN"},
 	{tape.ErrEmptyClipboard, "BUFFER IS EMPTY"},
 	{errNothingToDrop, "CUE LANE IS EMPTY"},
-	{errNoRoom, "NO ROOM ON TRACK"},
+	{errTooManyLanes, "TOO MANY LANES"},
+	{errLongerThanTape, "LONGER THAN TAPE"},
 	{tape.ErrMixingDown, "MIXDOWN PLAYING"},
 	{errBusy, "STILL BUSY"},
 }

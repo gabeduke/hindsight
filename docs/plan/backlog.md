@@ -71,7 +71,8 @@ short spec in this folder when it is next.
   setting those tests up with a range Copy, and then the engine's `Grab`,
   `GrabTake`, `CopyRing`, `TossClipboard`, `RestoreClipboard`,
   `TrimClipboard`, `ShapeClipboard`, `KeepClipboardTake`, `ClipboardAudio`,
-  `CueFromClipboard` and `CueFromTake` (tests only now) can go too.
+  `CueFromClipboard` and `CueFromTake` (tests only now) can go too, with
+  `Catch`, whose last caller was the controller's CATCH.
 - **Remote branches awaiting a decision** (the merged ones were deleted
   2026-10-18):
   `rooms/r2-shelf-to-deck` (R2, the cassette flies to the

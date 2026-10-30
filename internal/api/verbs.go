@@ -35,13 +35,6 @@ type badVerb string
 func (e badVerb) Error() string { return string(e) }
 func (e badVerb) Unwrap() error { return tape.ErrBadParameter }
 
-// The refusals only a pressed verb has: a page asks for what it shows, and a
-// pad takes what's there.
-var (
-	errTooManyLanes   = errors.New("more lanes than the tape has tracks")
-	errLongerThanTape = errors.New("longer than the tape: trim it shorter with IN and OUT")
-)
-
 // --- KEEP ----------------------------------------------------------------------
 
 // Keep saves the last seconds of the ring as a take (0: all of it).

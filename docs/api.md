@@ -1340,10 +1340,12 @@ the Pi's copy is held to it by a test.
   `midi:<name>`, and its holds are let go when it's unplugged. A sustain
   pedal latches what's let go until it lifts. The verbs run on the Pi, GRAB
   and DROP one after the other, CATCH, KEEP and the transport without waiting
-  for a GRAB's bar: CATCH the last pass onto the armed track, GRAB the last 4
-  bars into the clipboard (8 s with no tempo; pages open the buffer on their
-  next poll), DROP the clipboard on the armed track at the next free span,
-  KEEP the last 30 s as a take. Amounts and mods do nothing until P4.
+  for a GRAB's bar, through the same code as the tablet's routes, so they
+  refuse alike: CATCH the last pass onto every armed track, each from its
+  input; GRAB the last 4 bars onto the cue lane (8 s with no tempo); DROP the
+  cue lane's newest clip on the first armed track at the next bar line inside
+  the loop, over what is there (where the Studio's DROP key says); KEEP the
+  last 30 s as a take. Amounts and mods do nothing until P4.
 
 `catch` is how a controller's CATCH lands on audio already there, `layer`
 (the default) or `replace`: the page's Layer / Replace switch is each
