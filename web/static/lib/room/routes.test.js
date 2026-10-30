@@ -83,8 +83,8 @@ const ROUTES = {
   'detail-flag': {
     // The chair's notes are built by the chair as the page opens (F6 rebuilds
     // them as Open's): its own tests and the browser look cover it.
-    where: 'Open’s notes (▶ from a note), and the take page’s flags',
-    check: () => idsOf(takePage, ['flag-label']),
+    where: 'Open’s notes drawer (▶ from a note), docked beside the waveform',
+    check: () => idsOf(takePage, ['notes-dock']),
   },
   'detail-up': { where: 'the List: a spine’s folded takes are rows under it', check: () => foldedRowsShow() },
   'detail-member': { where: 'the List: a spine’s cuts and earlier bounces are rows, each plays on a tap', check: () => foldedRowsShow() },

@@ -151,13 +151,40 @@ test('a second finger during a held select rolls it back', (t) => {
   assert.equal(v.gesture.kind, 'pinch');
 });
 
-test('a tap moves the playhead, snapped; two taps add a flag', (t) => {
+test('a tap moves the playhead, snapped; two taps zoom in there, and add no note', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const { v, log } = harness();
   v.down(at(200)); v.up(at(200));
   assert.deepEqual(log.at(-1), ['seek', { frame: 7000 }]);
   v.down(at(202)); v.up(at(202));
-  assert.deepEqual(log.at(-1), ['addFlag', { frame: 7020 }]);
+  assert.deepEqual(only(log, 'addFlag'), [], 'a note comes from ✎ alone');
+  assert.equal(v.view.fpp, 10 / 4, 'four times closer');
+  assert.equal(Math.round(v.view.start + 202 * v.view.fpp), 7020, 'about the tap');
+  assert.equal(log.at(-1)[0], 'viewChange');
+});
+
+test('two taps as close as it goes show the whole take', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { v } = harness();
+  v.view.fpp = 1 / 8;
+  v.down(at(200)); v.up(at(200));
+  v.down(at(202)); v.up(at(202));
+  assert.equal(v.view.start, 0);
+  assert.equal(v.view.fpp, 100000 / 390);
+});
+
+test('on a touch screen a pin and a grip take a finger: 44 px', () => {
+  const flag = { id: 'r1', frame: 7000 }; // x 200, its tag 200..216
+  const { v } = harness({ flags: [flag], region: { start: 6000, end: 10000 } }); // grips at x 100 and 500
+  const touch = (x, y) => ({ ...at(x, y), pointerType: 'touch' });
+  assert.equal(v.hit(224, 8).kind, 'ruler', 'a mouse needs the pin itself');
+  v.down(touch(224, 8)); v.up(touch(224, 8));
+  assert.equal(v.pinTapped?.id, 'r1', 'a finger beside it has it');
+  v.coarse = false;
+  assert.equal(v.hit(70, GRIP_Y).kind, 'body', 'a mouse needs the grip');
+  v.coarse = true;
+  assert.deepEqual(v.hit(70, GRIP_Y), { kind: 'grip', grab: true, edge: 'start' }, 'a finger 30 px out has it');
+  assert.equal(v.hit(530, GRIP_Y).edge, 'end');
 });
 
 test('two taps on the ruler only seek', (t) => {
@@ -245,11 +272,17 @@ test('a grip drag interrupted by a lost capture goes back', () => {
 
 // --- pins, the playhead and the downbeat ------------------------------------
 
-test('a tap on a pin opens its flag; a drag moves it', () => {
+test('a tap on a pin opens its note, on the tap’s click; a drag moves it', () => {
   const flag = { id: 'r1', frame: 7000 };
   const { v, log } = harness({ flags: [flag] });
   v.down(at(201, 8)); v.up(at(201, 8));
+  // A touch screen's mouse down comes after the lift, and would take the
+  // focus back from the note's words: the pin is said on the click.
+  assert.equal(log.some(([ev]) => ev === 'selectFlag'), false, 'not on the lift');
+  v.clicked();
   assert.deepEqual(log.at(-1), ['selectFlag', { flag }]);
+  v.clicked();
+  assert.equal(log.filter(([ev]) => ev === 'selectFlag').length, 1, 'said once');
   v.down(at(201, 8));
   v.move(at(251, 8));
   assert.deepEqual(log.at(-1), ['flagMove', { flag, frame: 7500, final: false }]);

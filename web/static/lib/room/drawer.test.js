@@ -17,7 +17,7 @@ import { notesOf, barNotes } from './notes.js';
 const SR = 48000;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-function stage({ head = true, flags = [] } = {}) {
+function stage({ head = true, flags = [], dock = null } = {}) {
   const doc = fakeDoc();
   globalThis.document = doc;
   globalThis.CSS = { escape: (s) => String(s) };
@@ -25,7 +25,9 @@ function stage({ head = true, flags = [] } = {}) {
   // Less motion: the sheet is where it goes at once.
   const clock = new Ticker({ raf: () => 1, cancel() {}, now: () => 0, reduced: true });
   const toasts = [];
-  const drawer = createNotesDrawer({ doc, layers, toast: (m) => toasts.push(m), head, clock, reduced: () => true });
+  const into = dock ? doc.createElement('aside') : null;
+  if (into) doc.body.append(into);
+  const drawer = createNotesDrawer({ doc, layers, toast: (m) => toasts.push(m), head, clock, reduced: () => true, dock: dock && { into, when: dock } });
   const calls = [];
   const fns = new Set();
   const changed = () => fns.forEach((f) => f());
@@ -47,7 +49,7 @@ function stage({ head = true, flags = [] } = {}) {
     onChange(fn) { fns.add(fn); return () => fns.delete(fn); },
   };
   return {
-    doc, layers, drawer, source, calls, toasts,
+    doc, layers, drawer, source, calls, toasts, into,
     $: (id) => doc.getElementById(id),
     rows: () => doc.querySelectorAll('.notes-row'),
     setNow: (f) => { now = f; },
@@ -277,4 +279,55 @@ test('barNotes: the bar holding another take hears none of it; one that can’t 
   assert.equal(p.sent.filter((x) => x.startsWith('GET')).length, 2);
   assert.equal(told, 1);
   await assert.rejects(barNotes('jam_z.wav', { fetchImpl: async () => ({ ok: false, status: 404, json: async () => ({ error: 'no such take' }) }), bar: {}, go() {} }), /no such take/);
+});
+
+// A stand-in MediaQueryList: matches, and says when it changes.
+function screen(matches) {
+  const fns = new Set();
+  return {
+    matches,
+    addEventListener: (_, fn) => fns.add(fn),
+    removeEventListener: (_, fn) => fns.delete(fn),
+    set(m) { this.matches = m; fns.forEach((fn) => fn()); },
+  };
+}
+
+test('docked, it stands in the dock, shown, with no drag; its ✎ follows the take until the words are begun', async () => {
+  const wide = screen(true);
+  const s = stage({ head: false, dock: wide });
+  assert.ok(s.drawer.el.parentElement === s.into, 'in the dock');
+  assert.equal(s.drawer.el.hidden, false);
+  assert.ok(s.drawer.el.classList.contains('notes-docked'));
+  assert.equal(s.drawer.el.getAttribute('role'), 'complementary', 'a part of the page, not a dialog');
+  s.drawer.open(s.source, { focus: false });
+  assert.equal(s.drawer.isOpen, true);
+  assert.notEqual(s.doc.activeElement, s.$('notes-words'), 'focus: false leaves the keys alone');
+  assert.match(s.$('notes-at').textContent, /at 0:09$/);
+  s.setNow(20 * SR);
+  s.drawer.refresh();
+  assert.match(s.$('notes-at').textContent, /at 0:20$/, 'it follows the take');
+  s.$('notes-words').focus();
+  s.$('notes-words').dispatchEvent({ type: 'focus' });
+  s.setNow(25 * SR);
+  s.drawer.refresh();
+  assert.match(s.$('notes-at').textContent, /at 0:20$/, 'begun, it stays where the words began');
+  await s.write('here');
+  assert.deepEqual(s.calls, [`add ${20 * SR} here`]);
+  assert.equal(s.layers.top(), null, 'docked, it is not on the stack: Back and Escape are the page’s');
+});
+
+test('the screen narrowing puts the docked drawer back as a sheet, away; widening docks it again with its take', () => {
+  const wide = screen(true);
+  const s = stage({ head: false, dock: wide });
+  s.drawer.open(s.source, { focus: false });
+  wide.set(false);
+  assert.ok(s.drawer.el.parentElement === s.doc.body, 'back at the end of the page');
+  assert.equal(s.drawer.el.hidden, true, 'put away until ✎');
+  assert.equal(s.drawer.el.getAttribute('role'), 'dialog');
+  s.drawer.open(s.source);
+  assert.equal(s.drawer.el.hidden, false, '✎ brings it up as a sheet');
+  wide.set(true);
+  assert.ok(s.drawer.el.parentElement === s.into, 'docked again');
+  assert.equal(s.drawer.el.hidden, false);
+  assert.ok(s.drawer.source === s.source, 'with its take');
 });

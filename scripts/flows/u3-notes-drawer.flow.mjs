@@ -43,8 +43,9 @@ export default {
     t.expect('Done puts it away', await away());
 
     await t.step('open the take’s page', () => page.goto(`${t.base}/wave.html?file=${encodeURIComponent(take.name)}`));
-    await t.poll(() => !!document.getElementById('room-open-note'), null, 10_000);
-    await t.step('tap ✎ Note', () => t.tap(page.locator('.room-open-note-btn')));
+    await t.poll(() => !!document.getElementById('notes-drawer'), null, 10_000);
+    // A phone's ✎ is the mini player's; wider, the bar's own.
+    await t.step('tap ✎', () => t.tap(page.locator('#note-now')));
     t.expect('the drawer comes up on Open', await up());
     t.expect('with the same note', JSON.stringify(await rows()) === '["verse"]', await rows());
     await t.step('write “chorus”, Enter', async () => { await page.keyboard.type('chorus'); await page.keyboard.press('Enter'); });
