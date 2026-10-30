@@ -5,7 +5,9 @@
 // the drawer's own drawWindow (lib/buffer/draw.js), fed the demo's feed.
 // A mockup, not a feature: nothing here is in the app.
 //
-//   RING_SECONDS=900 PORT=15287 CGO_ENABLED=0 go run ./cmd/hindsight --demo &
+//   D=$(mktemp -d); RING_SECONDS=900 PORT=15287 OUTPUT_DIR=$D/takes \
+//     TAPE_DIR=$D/tapes SETTINGS_FILE=$D/settings.env CGO_ENABLED=0 \
+//     go run ./cmd/hindsight --demo &
 //   (wait ten minutes: the jam wants 8:30 of feed)
 //   node docs/plan/reach-back/mockups.mjs http://127.0.0.1:15287
 //
@@ -86,7 +88,7 @@ async function feed(seconds, buckets) {
 
 // dress re-dresses the open cue drawer as the reach-back. Runs in the page.
 async function dress(m) {
-  const { drawWindow, RULER_H } = await import('/lib/buffer/draw.js');
+  const { drawWindow, RULER_H, FADE_BOX } = await import('/lib/buffer/draw.js');
   const { token } = await import('/lib/theme.js');
   const src = document.getElementById('buffer');
   const d = src.cloneNode(true);
@@ -163,7 +165,11 @@ async function dress(m) {
     levels[c] = v;
   }
   const lines = m.lines.map((l) => ({ frame: f(l.at - m.span.in), label: '' }));
+  // The feed has no fades: their squares, the only FADE_BOX-square fills, are left out.
+  const fill = ctx.fillRect.bind(ctx);
+  ctx.fillRect = (x0, y0, w, h) => (w === FADE_BOX && h === FADE_BOX ? undefined : fill(x0, y0, w, h));
   drawWindow(ctx, { W: r.width, H: r.height, lo, hi, frames, lanes: [{ levels, name: '', gain: 0.9 }], lines, win: { in: 0, out: frames }, colors });
+  ctx.fillRect = fill;
   // The ruler again, in the feed's words: bars or minutes, and NOW.
   const x = (s) => ((s - m.view.from) / span) * r.width;
   ctx.fillStyle = colors.ruler;
@@ -191,7 +197,8 @@ async function dress(m) {
   const wrap = document.getElementById('viz-wrap');
   if (wrap && m.ribbon) {
     const st = document.createElement('style');
-    st.textContent = '#viz-wrap .buffer-mark:not(.reach-mark), #viz-wrap .rb-layer .rb-band { visibility: hidden; }';
+    // KEEP's lengths go (D1), so their pills, marks, band and readout do.
+    st.textContent = '#viz-wrap .buffer-mark:not(.reach-mark), #viz-wrap .rb-layer .rb-band, #viz-wrap .rb-label, #viz-wrap .rb-mark, #viz-wrap .rb-readout { visibility: hidden; }';
     document.head.append(st);
     const mark = document.createElement('div');
     mark.className = 'buffer-mark reach-mark';
@@ -287,7 +294,7 @@ const phone = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile:
   };
   await shoot(browser, 'tablet-pass', tablet, m);
   await shoot(browser, 'tablet-pass-dark', { ...tablet, colorScheme: 'dark' }, m);
-  await shoot(browser, 'phone-pass', phone, { ...m, phone: true, meta: 'the last pass · 4 bars', catchWord: 'Catch onto 2', footLabel: '', passes: m.passes.map((p) => ({ ...p, label: p.label.replace('PASS ', '') })) });
+  await shoot(browser, 'phone-pass', phone, { ...m, phone: true, meta: 'the last pass · 4 bars · from main', catchWord: 'Catch onto 2', footLabel: '', passes: m.passes.map((p) => ({ ...p, label: p.label.replace('PASS ', '') })) });
 }
 
 // The jam: the tape stopped at bar 1; IN where the playing began, 6:12 ago;
@@ -311,7 +318,7 @@ const phone = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile:
     ribbon: { left: ribbonAt(JAM), right: 100, label: '6:12' },
   };
   await shoot(browser, 'tablet-jam', tablet, m);
-  await shoot(browser, 'phone-jam', phone, { ...m, phone: true, meta: 'since you started · 6:12', catchWord: 'Catch onto 2' });
+  await shoot(browser, 'phone-jam', phone, { ...m, phone: true, meta: 'since you started · 6:12 · main', catchWord: 'Catch onto 2' });
   await call('POST', `/api/tapes/transport?${q}`, { action: 'play' });
 }
 
