@@ -142,8 +142,8 @@ heard, and the Pi keeps the figures, never sending them anywhere.
   press, set and release once it has one. The stream's player says on the
   same clock which output frame its speaker plays.
 - *Not timed yet.* A controller's transport keys (PLAY, STOP) go through
-  the verb queue (`api/controls.go`, `queueVerb`), not the engine's
-  inbox: they carry no stamp.
+  the verb queue (`api/controls.go`, `queueVerb`) to `Verbs.Transport`,
+  not the engine's inbox: they carry no stamp.
 
 The revision, the changes socket and the keyboard's press, which tell a
 page the tape has changed, are in `push.md`.
@@ -254,11 +254,11 @@ action starts the transport as if the loop had been going round since the
 second tap, using Δ to turn that ring frame into an output frame.
 
 **The crate** (`crate.go`) is `TAPE_DIR/crate.json`: kept clips, each a
-window onto a pool file with a name and where it came from. Keeping a span of
-a take or the ring writes the pool first (`copyTake`, `ringClip`); keeping a
-tape clip or the clipboard keeps a reference. It's a clean-up root, its
-deleted clips too for a week, and an unreadable one stops the clean-up. A
-drop from it is a drop of a one-clip clipboard (`dropBoard`).
+window onto a pool file with a name and where it came from. Nothing shows it
+(decision 0009): a buffer replaced unused still goes there (`keepBoard`, by
+reference), and a range's Insert can still take a kept clip. It's a clean-up
+root, its deleted clips too for a week, and an unreadable one stops the
+clean-up.
 
 **The clipboard** (`clipboard.go`) is `TAPE_DIR/clipboard.json`: clips in
 the pool, laid out from frame 0, one track's worth or more. Copying from a
@@ -327,17 +327,89 @@ On shutdown the engine waits for the scheduler, whose Stop goes out at once,
 ahead of anything queued.
 
 **The cue lane** stages clips beside the tape: they're in the tape's state
-(`State.Cue`, so undoable and seen by every device), each a pool file of its
-own (a GRAB's lanes summed, or a copied span of a take). Launching one is a
+(`State.Cue`, so undoable and seen by every device). A clip GRAB put there,
+or a take's span, keeps what the buffer kept (`cuegrab.go`): `Lanes`, one
+clip per input it was grabbed from, each over the window `Grab` says in a
+pool file with the grab's handles either side (a bar at the tempo, or
+`TAPE_HANDLE_S`), and the clip's own gain, fades and curves applied to every
+lane alike; `File` and `Src` are the first lane's. A clip from before then
+is one summed file, with no handles: it launches and drops, but its window
+and Reverse are a track's job. `GrabToCue` (`POST /api/tapes/cue/grab`)
+copies off the ring as `Grab` does, then takes the place of the lane's
+newest clip while that one is an untouched GRAB (`Source` "grab", never a
+take's or the buffer's; never trimmed, shaped,
+renamed or dropped, `Touched` in the state; never launched or kept,
+`Engine.cueUsed`, which isn't undone and starts empty), so a run of presses
+doesn't fill the lane, or else is added; the tape's Undo brings the one it
+replaced back, as a GRAB is one edit of its own. With `clip`, it takes that
+clip's span again from other inputs, its window and shape carrying on. The
+drawer's edits (`PATCH /api/tapes/cue/clip`: `CueTrim`, inside the handles
+as the buffer's trim is; `CueShape`: level, fades, Normalize, Reverse) are
+edits of the tape, a run of trims or of levels one Undo; Reverse and
+Normalize do their file work first, and they and a GRAB taken again are
+refused (409) if the clip moved meanwhile; a window and a shape go in one
+request each. `CueDrop` (`POST /api/tapes/cue/drop`) lays the clip as a drop lays the
+clipboard, a lane a track from the one given (`merge`: all on that one),
+handles and all, over what was there, and marks it touched in the same
+edit; a drag (`cue-to-track`) of a clip with lanes is a merged drop on the
+track it points at;
+`CueKeep` (`POST /api/tapes/cue/keep`) saves it as a take of its window
+summed; `CueAudio` (`GET /api/tapes/cue/audio`) is its Audition. All of
+them read the clip as a board (`CueClip.boardOf`), so they are the buffer's
+own code, and none of them touches the clipboard, which is left to a
+range's Cut, Copy and Paste, unseen (`POST /api/clipboard` still takes the
+old buffer's GRAB, which nothing in the web sends; `docs/plan/backlog.md`).
+Launching one is a
 performance, like Play mode's pads, so it stays out of the state and out of
 undo (`cuelive.go`): a launch or stop rides the transport's action queue
 with quantum `bar` (`now` for Shift), and the render goroutine keeps the
-voices, rendering each from the output frame it started at, looped, into bus
-A after the tape, the click and the FX. A voice stops with a 3 ms fade; the
+voices, rendering each from the output frame it started at, looped, its
+lanes summed, into bus A after the tape, the click and the FX. A voice stops with a 3 ms fade; the
 transport's Stop and a mixdown's pass stop them all, and the lane's Solo
 leaves the tracks out of the output. What plays is `live.cue`. The lane is
 not in the mix or its exports: a clip reaches them only once it is dragged
 onto a track.
+
+**The verbs** -- KEEP, GRAB, DROP, CATCH and the transport -- are one set
+on the Pi, whatever surface presses them (`internal/api/verbs.go`, `Verbs`,
+`a.Verbs()`). The tablet's routes (`POST /api/trigger`,
+`/api/tapes/transport`, `/api/tapes/catch`, `/api/tapes/cue/grab`, `drop`
+and `keep`) and a controller's pads (`piVerbs` in `controls.go`, the
+SMK-37's included) call the same methods, so a press refuses for the same
+reasons with the same errors: the routes answer them as statuses
+(`verbErr`), the keyboard's banner names them (`banner.go`, `refusals`).
+The tablet says what it wants in full: which clip, which track, where. A
+pad presses its verb bare, and Verbs works it out as the Studio's keys do:
+`CatchArmed` catches the last pass onto every armed track, each from its
+own input (`armedPairs`), layered or replacing as `controls.json` says;
+`GrabArmed` takes the last N bars (2N seconds with no tempo) from the first
+armed track's input; `DropArmed` lays the cue lane's newest clip on the
+first armed track (moved up so all its lanes fit) at `tape.DropPlace`: the
+next bar line inside the loop, over what is there, never refused for room.
+The page's DROP key shows where before it is pressed, so it works that out
+too (`lib/buffer/model.js`, `dropPlace`); `dropplace_test.go` holds that
+file's cases, and the two must agree. A change to a verb goes in `Verbs`,
+never in a route or in `piVerbs`.
+
+**On screen** the lane's clips are pads (`lib/tape/cuelane.js`, on
+`CUE_PRESS`, `lib/ui/press.js`): a tap launches, ⇧-tap at once, a hold (a
+mouse's too, or a right click) says `hindsight:cue-select`, and a drag puts
+the clip on a track; a pad has no keys on it. While a pad waits for its bar
+line the hand on its dial goes round the bar, turned on the shared ticker
+from the playhead (`heardNow`) and parked when nothing waits; a pad new to
+the lane comes in peeled off the feed above it (`cue-peel`, a fade with
+reduced motion). The drawer is the buffer's code (`lib/buffer/buffer.js`)
+reading the open clip as a board (`lib/buffer/cueclip.js` `boardOf`):
+mounted in the dock above the bar (`ctx.dockSlot`; a sheet over the lanes on
+a phone), opened by GRAB on the clip it made and by a held pad, on the
+page's stack as a drawer (Escape, Back and ✕ close it), and gone when its
+clip leaves the lane. It says which clip it is open on with
+`hindsight:cue-selected`, which lights the pad, and every change it sends
+(`lib/buffer/api.js`) answers the tape's state and asks the page to poll
+(`hindsight:tape-changed`). GRAB made away from the Studio (a take's page, a
+note, the bar's feed) leaves the clip's id in sessionStorage
+(`lib/buffer/replaced.js` `remember`), and the Studio opens on it once
+(`recallNote`), with its Undo when it took an untouched clip's place.
 
 **The feed strip** in the Studio is the ribbon with GRAB, KEEP and Flag in
 one row. A tap on GRAB or KEEP takes the last length and its ▾ picks

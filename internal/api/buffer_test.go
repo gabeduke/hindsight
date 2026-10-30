@@ -3,8 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,13 +49,17 @@ func newBufferAPI(t *testing.T) (*mux.Router, string) {
 	r := mux.NewRouter()
 	a.SetupRoutes(r)
 	bufferEngines[r] = eng
-	t.Cleanup(func() { delete(bufferEngines, r) })
+	bufferAPIs[r] = a
+	t.Cleanup(func() { delete(bufferEngines, r); delete(bufferAPIs, r) })
 	return r, dir
 }
 
 // bufferEngines is each newBufferAPI router's tape engine, for reading what
 // the HTTP API no longer shows (the crate).
 var bufferEngines = map[*mux.Router]*tape.Engine{}
+
+// bufferAPIs is each newBufferAPI router's API, for the verbs a controller runs.
+var bufferAPIs = map[*mux.Router]*API{}
 
 type boardBody struct {
 	Clipboard *struct {
@@ -92,7 +95,7 @@ func boardOf(t *testing.T, w interface{ Bytes() []byte }) boardBody {
 }
 
 func TestTheBufferOverTheAPI(t *testing.T) {
-	r, dir := newBufferAPI(t)
+	r, _ := newBufferAPI(t)
 	id := makeLoadedTape(t, r)
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":120,"bars":4}}`), http.StatusOK, "a tempo")
 
@@ -111,39 +114,6 @@ func TestTheBufferOverTheAPI(t *testing.T) {
 		t.Fatalf("grab = %+v", c.Grab)
 	}
 
-	// The window, in frames from the grab's start.
-	w = send(t, r, http.MethodPatch, "/api/clipboard", `{"in":-48000,"out":96000}`)
-	want(t, w, http.StatusOK, "trim")
-	if c := boardOf(t, w.Body).Clipboard; c.Frames != 144000 || c.Grab.In != -48000 || c.Tracks[0][0].Src != 48000 || c.Tracks[0][0].Frames != 144000 {
-		t.Fatalf("trim = %s", w.Body.String())
-	}
-	want(t, send(t, r, http.MethodPatch, "/api/clipboard", `{"in":0}`), http.StatusBadRequest, "half a window")
-	want(t, send(t, r, http.MethodPatch, "/api/clipboard", `{}`), http.StatusBadRequest, "nothing to change")
-	w = send(t, r, http.MethodPatch, "/api/clipboard", `{"gain_db":-3}`)
-	want(t, w, http.StatusOK, "gain")
-	if c := boardOf(t, w.Body).Clipboard; c.Tracks[1][0].GainDB != -3 {
-		t.Fatalf("gain = %s", w.Body.String())
-	}
-
-	// KEEP AS TAKE: a take on the shelf, its two lanes summed.
-	w = send(t, r, http.MethodPost, "/api/clipboard/keep", "")
-	want(t, w, http.StatusOK, "keep")
-	var k struct {
-		Name    string  `json:"name"`
-		Label   string  `json:"label"`
-		Seconds float64 `json:"seconds"`
-	}
-	json.Unmarshal(w.Body.Bytes(), &k)
-	if k.Label != "Buffer · ch1 + aux" || k.Seconds != 3 {
-		t.Fatalf("keep = %s", w.Body.String())
-	}
-	if _, err := os.Stat(filepath.Join(dir, k.Name)); err != nil {
-		t.Fatalf("the take isn't on the shelf: %v", err)
-	}
-	if m := audio.ReadMeta(filepath.Join(dir, k.Name)); m.Origin != "buffer" || m.BPM == nil || *m.BPM != 120 {
-		t.Fatalf("meta = %+v", m)
-	}
-
 	// TOSS, and its Undo.
 	want(t, send(t, r, http.MethodDelete, "/api/clipboard?toss=1", ""), http.StatusOK, "toss")
 	if !strings.Contains(send(t, r, http.MethodGet, "/api/clipboard", "").Body.String(), `"clipboard":null`) {
@@ -151,26 +121,24 @@ func TestTheBufferOverTheAPI(t *testing.T) {
 	}
 	w = send(t, r, http.MethodPost, "/api/clipboard/restore", "")
 	want(t, w, http.StatusOK, "restore")
-	if c := boardOf(t, w.Body).Clipboard; c == nil || c.Grab == nil || c.Frames != 144000 {
+	if c := boardOf(t, w.Body).Clipboard; c == nil || c.Grab == nil || c.Frames != 192000 {
 		t.Fatalf("restored = %s", w.Body.String())
 	}
 	want(t, send(t, r, http.MethodPost, "/api/clipboard/restore", ""), http.StatusConflict, "nothing tossed")
 
-	// A span of the feed, its sources named. The last grab was kept as a
-	// take, so replacing it keeps nothing in the crate.
+	// A span of the feed, its sources named. The last grab was never used,
+	// so replacing it puts it in the crate, a clip a lane.
 	w = send(t, r, http.MethodPost, "/api/clipboard", `{"ring_from":240000,"ring_to":288000,"sources":["ch2"]}`)
 	want(t, w, http.StatusOK, "grab a span")
-	if b := boardOf(t, w.Body); len(b.Crated) != 0 || b.Clipboard.Grab.Frames != 48000 || b.Clipboard.Grab.Sources[0] != "ch2" {
+	if b := boardOf(t, w.Body); len(b.Crated) != 2 || b.Clipboard.Grab.Frames != 48000 || b.Clipboard.Grab.Sources[0] != "ch2" {
 		t.Fatalf("grab a span = %s", w.Body.String())
 	}
 	// That one wasn't used: Copy on the tape page puts it in the crate.
 	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"ring_from":240000,"ring_to":288000,"source":"main"}`), http.StatusOK, "copy")
 	clips, err := bufferEngines[r].CrateList("", "")
-	if err != nil || len(clips) != 1 || clips[0].Name != "The feed (ch2) · 0:01" {
+	if err != nil || len(clips) != 3 || !slices.ContainsFunc(clips, func(k tape.CrateClip) bool { return k.Name == "The feed (ch2) · 0:01" }) {
 		t.Fatalf("the crate = %+v (%v)", clips, err)
 	}
-	// A copy is not a grab: no window to trim.
-	want(t, send(t, r, http.MethodPatch, "/api/clipboard", `{"in":0,"out":100}`), http.StatusBadRequest, "trim a copy")
 
 	// Refusals: a source there isn't, nothing named, too many seconds.
 	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"bars":2,"sources":["ch9"]}`), http.StatusBadRequest, "no such source")
@@ -193,8 +161,6 @@ func TestGrabbingBarsNeedsATempo(t *testing.T) {
 func TestTheBufferNeedsACapture(t *testing.T) {
 	r, _ := newTapeAPI(t)
 	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"seconds":8,"sources":["main"]}`), http.StatusConflict, "no capture")
-	want(t, send(t, r, http.MethodPatch, "/api/clipboard", `{"gain_db":1}`), http.StatusConflict, "nothing in the buffer")
-	want(t, send(t, r, http.MethodPost, "/api/clipboard/keep", ""), http.StatusConflict, "nothing to keep")
 }
 
 // The Listening Room's "to the studio": a note's span of a take, copied as
@@ -214,7 +180,6 @@ func TestATakesSpanCopiedAsAGrab(t *testing.T) {
 	if b := boardOf(t, w.Body); b.Clipboard.Grab != nil || strings.Contains(w.Body.String(), `"grab"`) || b.Clipboard.From != "jam_2026-10-15_09-00-00.wav" {
 		t.Fatalf("a plain take copy = %s", w.Body.String())
 	}
-	want(t, send(t, r, http.MethodPatch, "/api/clipboard", `{"in":0,"out":1000}`), http.StatusBadRequest, "trim a plain copy")
 
 	// With grab: true, it's the buffer: handles of a bar at the take's tempo.
 	w = send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-15_09-00-00.wav","from":192000,"to":384000,"grab":true}`)
@@ -238,12 +203,6 @@ func TestATakesSpanCopiedAsAGrab(t *testing.T) {
 	if g == nil || g.Take != "jam_2026-10-15_09-00-00.wav" || g.Before != 96000 || g.After != 96000 || g.Stale || g.Used ||
 		len(g.Sources) != 1 || g.Sources[0] != "Tuesday jam" || got.Clipboard.Frames != 192000 {
 		t.Fatalf("a take's grab = %s", w.Body.String())
-	}
-	// It trims inside those handles.
-	w = send(t, r, http.MethodPatch, "/api/clipboard", `{"in":-96000,"out":288000}`)
-	want(t, w, http.StatusOK, "trim a take's grab")
-	if c := boardOf(t, w.Body).Clipboard; c.Grab.In != -96000+480 || c.Frames != 288000+96000-480*2 {
-		t.Fatalf("trimmed = %s", w.Body.String())
 	}
 	// Its sources are the take's own: they can't change.
 	w = send(t, r, http.MethodPost, "/api/clipboard", `{"again":true,"sources":["ch1"]}`)

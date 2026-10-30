@@ -1,18 +1,22 @@
 // web/static/lib/room/notes.js
-// The sketchbook's notes (docs/superpowers/specs/2026-10-15-listening-room-design.md,
-// "The chair: the sketchbook"). A note is a take flag with words: the model
-// and the per-flag endpoints exist (lib/flags.js), and a label travels in
-// the WAV's cue chunk, so a note made here shows up in a DAW. Pure, but for
-// the one request that sends a span to the Studio.
+// A take's notes (docs/architecture/rooms.md, "The notes drawer"). A note is
+// a take flag with words: the model and the per-flag endpoints exist
+// (lib/flags.js), and a label travels in the WAV's cue chunk, so a note made
+// here shows up in a DAW. Pure, but for the requests: the one that sends a
+// span to the Studio, and barNotes, the take in the bar as the notes
+// drawer's source.
 
-import { replacedLine, remember, forget } from '../buffer/replaced.js';
+import { remember, forget } from '../buffer/replaced.js';
+import { replacedNote } from '../buffer/cueclip.js';
 import { forTheTape } from '../bar/carry.js';
+import { flagRequest, asFlags } from '../flags.js';
+import { withClient } from '../client.js';
 
 /** SPAN_BARS is how far a note reaches at most, with a tempo; SPAN_SECONDS without one. */
 export const SPAN_BARS = 8;
 export const SPAN_SECONDS = 16;
 
-/** fmtAt is a frame as the sketchbook writes it: "0:42", "12:05". */
+/** fmtAt is a frame as a note writes it: "0:42", "12:05". */
 export function fmtAt(frame, sampleRate = 48000) {
   const s = Math.max(0, Math.floor(frame / sampleRate));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -62,7 +66,7 @@ export function freeFrame(notes, at, total = Infinity) {
 }
 
 /**
- * fieldEnter is what Enter in the sketchbook's note field does. Writing the
+ * fieldEnter is what Enter in the notes drawer's words does. Writing the
  * words of a note NOTE HERE made (`current`) edits that note. With none, the
  * words make a new note at the playhead -- a new one, a frame on if a note
  * is already there: Enter never writes over another note's words.
@@ -75,36 +79,31 @@ export function fieldEnter({ current = null, words = '', cursor = 0, notes = [],
   return frame == null ? { kind: 'none' } : { kind: 'new', frame, words: w };
 }
 
-/**
- * clipboardBody is POST /api/clipboard's body for a span of a take: a grab,
- * which the Studio's buffer opens on (P2). A server without the buffer
- * ignores `grab` and copies the span, as before.
- */
-export function clipboardBody(file, span) {
-  // crate: false -- the rooms show no crate: a buffer this replaces is held
-  // for GRAB's Undo only (lib/buffer/replaced.js).
-  return { take: file, from: span.from, to: span.to, grab: true, crate: false };
+/** grabBody is POST /api/tapes/cue/grab's body for a span of a take. */
+export function grabBody(file, span) {
+  return { take: file, from: span.from, to: span.to };
 }
 
 /**
- * sendToStudio puts a span of a take in the Studio's buffer (the clipboard,
- * which the buffer shows) and answers where to go next: the Studio. It
- * throws with the Pi's words when the copy is refused -- the tape off, a
+ * sendToStudio GRABs a span of a take onto the loaded tape's cue lane, and
+ * answers where to go next: the Studio, whose drawer opens on the clip. It
+ * throws with the Pi's words when the grab is refused -- the tape off, a
  * span too long -- so nothing navigates away from a note that didn't go.
  */
 export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, storage = pageStorage(), forTape = forTheTape } = {}) {
-  const res = await fetchImpl('/api/clipboard', {
+  const res = await fetchImpl('/api/tapes/cue/grab', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(clipboardBody(file, span)),
+    body: JSON.stringify(grabBody(file, span)),
   });
   const b = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(b.error || `HTTP ${res.status}`);
   }
-  // A GRAB over a buffer nobody dropped or kept says so, with Undo -- on the
-  // page this opens, where the buffer is: it is left there to say.
-  if (b.replaced && b.clipboard) remember(storage, { by: b.clipboard.created, line: replacedLine(b.replaced, b.replaced_seconds) });
+  // The Studio opens the clip's drawer, and says what it took the place of,
+  // with Undo: it is left there to say (lib/buffer/replaced.js).
+  const clip = b.edit?.cue_clip;
+  if (clip) remember(storage, { by: clip.id, line: replacedNote(b.edit) });
   // Going for the tape: the bar's take doesn't go along (lib/bar/carry.js).
   forTape();
   return '/tape.html';
@@ -117,3 +116,63 @@ export async function sendToStudio(file, span, { fetchImpl = globalThis.fetch, s
 export function forgetNote({ storage = pageStorage() } = {}) { forget(storage); }
 
 const pageStorage = () => { try { return globalThis.sessionStorage || null; } catch { return null; } };
+
+/**
+ * barNotes is the take `name` as the notes drawer's source (drawer.js): the
+ * Pi's record of it (GET /api/take), its notes by the take's flags, and the
+ * bar (`bar`, the engine's: frameNow, seekTake) for where it is heard and
+ * where a time or ▶ sends it. `go` is where GRAB goes next (the router's);
+ * `onChanged(take)` hears every change it makes, for the room's list.
+ * Answers the source, or throws with the Pi's words.
+ */
+export async function barNotes(name, { bar, go, onChanged = () => {}, fetchImpl = globalThis.fetch } = {}) {
+  const url = `/api/take?file=${encodeURIComponent(name)}`;
+  const res = await fetchImpl(url, { cache: 'no-store', headers: withClient() });
+  const got = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(got.error || `HTTP ${res.status}`);
+  let take = { ...got, flags: asFlags(got.flags) };
+  const fns = new Set();
+  const changed = () => { for (const fn of fns) fn(); onChanged(take); };
+  const sr = take.sample_rate || 48000;
+  const flags = async (op, args) => {
+    const b = await flagRequest(name, op, args, fetchImpl);
+    take = { ...take, flags: asFlags(b.flags) };
+    changed();
+  };
+  return {
+    name,
+    sampleRate: sr,
+    total: Math.max(1, Math.round((take.duration_seconds || 0) * sr)),
+    take: () => take,
+    notes: () => notesOf(take.flags, sr),
+    bpm: () => take.bpm || 0,
+    // Null while the bar holds something else: nothing of this take is heard.
+    frame() {
+      const f = bar.frameNow?.();
+      return f && f.take === name ? f.frame : null;
+    },
+    /** reload fetches the take again, for a drawer opened on it once more: a ★ or a name may have changed elsewhere. */
+    async reload() {
+      const r = await fetchImpl(url, { cache: 'no-store', headers: withClient() });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(b.error || `HTTP ${r.status}`);
+      take = { ...b, flags: asFlags(b.flags) };
+      for (const fn of fns) fn();
+    },
+    add: (frame, label) => flags('add', { frame, label }),
+    edit: (id, label) => flags('edit', { id, label }),
+    remove: (id) => flags('remove', { id }),
+    async patch(fields) {
+      const r = await fetchImpl(url, { method: 'PATCH', headers: withClient({ 'Content-Type': 'application/json' }), body: JSON.stringify(fields) });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(b.error || `HTTP ${r.status}`);
+      take = { ...take, ...fields };
+      changed();
+    },
+    async seek(frame, opts) {
+      if (!(await bar.seekTake(name, frame, opts))) throw new Error('it can’t play yet');
+    },
+    async grab(span) { go(await sendToStudio(name, span, { fetchImpl })); },
+    onChange(fn) { fns.add(fn); return () => fns.delete(fn); },
+  };
+}

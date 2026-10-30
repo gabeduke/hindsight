@@ -215,7 +215,11 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/tap", a.handleTapeTapCancel).Methods(http.MethodDelete)
 	r.HandleFunc("/api/tapes/drop", a.handleTapeDrop).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/cue", a.handleTapeCue).Methods(http.MethodPost)
-	r.HandleFunc("/api/tapes/cue/add", a.handleTapeCueAdd).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/cue/grab", a.handleCueGrab).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/cue/clip", a.handleCueClip).Methods(http.MethodPatch)
+	r.HandleFunc("/api/tapes/cue/drop", a.handleCueDrop).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/cue/keep", a.handleCueKeep).Methods(http.MethodPost)
+	r.HandleFunc("/api/tapes/cue/audio", a.handleCueAudio).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/send", a.handleTapeSend).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/edit", a.handleTapeEdit).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/mixdown", a.handleTapeMixdown).Methods(http.MethodPost)
@@ -236,11 +240,8 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/peaks", a.handleTapePeaks).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/tapes/slice", a.handleTapeSlice).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/clipboard", a.handleClipboard).Methods(http.MethodGet, http.MethodHead)
-	r.HandleFunc("/api/clipboard/audio", a.handleClipboardAudio).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/clipboard", a.handleClipboardCopy).Methods(http.MethodPost)
 	r.HandleFunc("/api/clipboard", a.handleClipboardClear).Methods(http.MethodDelete)
-	r.HandleFunc("/api/clipboard", a.handleClipboardPatch).Methods(http.MethodPatch)
-	r.HandleFunc("/api/clipboard/keep", a.handleClipboardKeep).Methods(http.MethodPost)
 	r.HandleFunc("/api/clipboard/restore", a.handleClipboardRestore).Methods(http.MethodPost)
 }
 
@@ -405,16 +406,9 @@ func (a *API) handleTrigger(w http.ResponseWriter, r *http.Request) {
 		seconds = f
 	}
 
-	name, err := a.saver.Save(seconds)
-	switch {
-	case errors.Is(err, audio.ErrLowDisk):
-		writeErr(w, http.StatusInsufficientStorage, err.Error())
-		return
-	case errors.Is(err, audio.ErrNoAudio):
-		writeErr(w, http.StatusConflict, err.Error())
-		return
-	case err != nil:
-		writeErr(w, http.StatusInternalServerError, err.Error())
+	name, err := a.Verbs().Keep(seconds)
+	if err != nil {
+		verbErr(w, err)
 		return
 	}
 
@@ -444,16 +438,9 @@ func (a *API) handleTriggerRange(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	got, err := a.saver.SaveRange(from, to)
-	switch {
-	case errors.Is(err, audio.ErrLowDisk):
-		writeErr(w, http.StatusInsufficientStorage, err.Error())
-		return
-	case errors.Is(err, audio.ErrNoAudio), errors.Is(err, audio.ErrRangeGone):
-		writeErr(w, http.StatusConflict, err.Error())
-		return
-	case err != nil:
-		writeErr(w, http.StatusInternalServerError, err.Error())
+	got, err := a.Verbs().KeepRange(from, to)
+	if err != nil {
+		verbErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{

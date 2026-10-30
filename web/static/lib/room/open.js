@@ -21,6 +21,8 @@ import { fold, familyOf } from '../shelf.js';
 import { takeTitle } from '../rooms/takename.js';
 import { takeHref } from '../bar/take-source.js';
 import { icon } from '../ui/icons.js';
+import { layersOf } from '../ui/layers.js';
+import { createNotesDrawer } from './drawer.js';
 
 function el(tag, cls, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -87,6 +89,29 @@ export function mount(h) {
   if (flagNow) { flagNow.hidden = true; flagNow.before(noteKey); }
   for (const k of [noteKey, noteHead]) k.addEventListener('click', () => writeAt(h.state().cursor));
 
+  // --- the notes drawer (lib/room/drawer.js), as in the rooms ---------------------
+  // ✎ opens it at the playhead. Open's header has the take's name, ★ and
+  // tag, so the drawer leaves them out. Docked beside the waveform, and the
+  // list above going, are Open's pass (the-studio-space.md, step 10).
+  const drawer = createNotesDrawer({ doc: document, layers: layersOf(document), toast: h.toast, head: false });
+  const source = {
+    name: h.file,
+    sampleRate: sr,
+    total: h.total,
+    take: () => take,
+    notes,
+    bpm: () => h.state().grid.bpm || 0,
+    frame: () => h.state().cursor,
+    // The page's own: optimistic, each sent in order (lib/flags.js), and
+    // its Undo for a note taken out.
+    async add(frame, words) { const id = h.addNote(frame); if (id) h.editNote(id, words); },
+    async edit(id, words) { h.editNote(id, words); },
+    async remove(id) { h.removeNote(id); },
+    async seek(frame, { play = false } = {}) { h.seek(frame); if (play && !h.playing()) await h.togglePlay(); },
+    async grab(span) { location.href = await sendToStudio(h.file, span); },
+    onChange: (fn) => h.onRedraw(fn),
+  };
+
   // --- the notes: number, time, words, ▶, GRAB, ✕ -----------------------------
   let notesSig = '';
   function renderNotes() {
@@ -109,7 +134,7 @@ export function mount(h) {
       const play = el('button', 'icon-btn room-open-play', { type: 'button', 'aria-label': `Play from note ${n.n}, at ${n.at}` }, '▶');
       play.addEventListener('click', async () => { h.seek(n.frame); if (!h.playing()) await h.togglePlay(); });
       const span = noteSpan(ns, n.id, spanOpts());
-      const go = el('button', 'icon-btn room-open-grab-note', { type: 'button', 'aria-label': `GRAB from note ${n.n} into the Studio’s buffer`, 'data-tip': 'room-open-grab-note', disabled: !span }, 'GRAB');
+      const go = el('button', 'icon-btn room-open-grab-note', { type: 'button', 'aria-label': `GRAB from note ${n.n} onto the Studio’s cue lane`, 'data-tip': 'room-open-grab-note', disabled: !span }, 'GRAB');
       go.addEventListener('click', () => noteToStudio(n.id));
       const out = el('button', 'icon-btn room-open-out', { type: 'button', 'aria-label': `Take note ${n.n} out` }, '✕');
       out.addEventListener('click', () => h.removeNote(n.id));
@@ -125,14 +150,9 @@ export function mount(h) {
     try { location.href = await sendToStudio(h.file, span); } catch (e) { h.toast(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad'); }
   }
 
-  // ✎ Note: a note at the frame (or the one already there), its words ready.
+  // ✎ Note: the drawer, its words ready to go at the frame.
   function writeAt(frameAt) {
-    const id = h.addNote(frameAt);
-    if (!id) return;
-    renderNotes();
-    const row = list.querySelector(`li[data-id="${CSS.escape(id)}"] .room-open-words`);
-    row?.focus();
-    row?.scrollIntoView?.({ block: 'nearest' });
+    drawer.open(source, { at: frameAt });
   }
 
   // --- the tag: the take's one tag, beside its star ------------------------------
@@ -204,7 +224,7 @@ export function mount(h) {
     grabSig = words;
     grabKey.textContent = words;
     const what = st.region ? 'the selection' : st.grid.bpm > 0 ? `the ${grabN} bar${grabN === 1 ? '' : 's'} before the playhead` : `the ${2 * grabN} seconds before the playhead`;
-    grabKey.setAttribute('aria-label', `${words}: ${what}, into the Studio’s buffer`);
+    grabKey.setAttribute('aria-label', `${words}: ${what}, onto the Studio’s cue lane`);
   }
   loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); renderGrab(); });
 
@@ -238,7 +258,7 @@ export function mount(h) {
   h.onRedraw(onRedraw);
   renderTag();
   onRedraw();
-  // ✎ on the bar arrives with a note started at the frame that was heard.
+  // ✎ on the bar arrives with the drawer open at the frame that was heard.
   if (h.arrivalNote != null) writeAt(h.arrivalNote);
-  return { section };
+  return { section, drawer };
 }

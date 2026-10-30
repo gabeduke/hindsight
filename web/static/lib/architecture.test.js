@@ -39,7 +39,7 @@ test('Guardrail 2b: no stylesheet turns a reel or a hub by @keyframes: they turn
   // The cassette's hubs went round by a CSS spin, at one speed whatever the
   // packs, until they were rendered (lib/objects/spin.js) and turned by
   // lib/scene/cassette.js.
-  for (const file of ['styles.css', 'objects.css', 'css/bar.css', 'css/chrome.css', 'css/rooms-motion.css']) {
+  for (const file of ['styles.css', 'objects.css', 'css/bar.css', 'css/chrome.css', 'css/notes.css', 'css/rooms-motion.css']) {
     const css = fileCss(file);
     for (const [, name, body] of css.matchAll(/@keyframes\s+([\w-]+)\s*\{([\s\S]*?\})\s*\}/g)) {
       assert.ok(!/rotate\(\s*360deg|turn\)/.test(body), `${file}: @keyframes ${name} spins something`);
@@ -135,10 +135,10 @@ test('Guardrail 8: FeedSource polls live envelope, draws waveform trace on #np-s
           }),
         };
       }
-      if (url === '/api/clipboard') {
+      if (url === '/api/tapes/cue/grab') {
         return {
           ok: true,
-          json: async () => ({ status: 'ok' }),
+          json: async () => ({ edit: { op: 'cue-grab', cue_clip: { id: 'c1' } } }),
         };
       }
       return { ok: false };
@@ -156,19 +156,20 @@ test('Guardrail 8: FeedSource polls live envelope, draws waveform trace on #np-s
 
   const href = await src.grabToStudio({ seconds: 15 });
   assert.equal(href, '/tape.html');
-  const clipCall = calls.find((c) => c.url === '/api/clipboard');
-  assert.ok(clipCall, 'grabToStudio must POST to /api/clipboard');
+  const grabCall = calls.find((c) => c.url === '/api/tapes/cue/grab');
+  assert.ok(grabCall, 'grabToStudio must POST to /api/tapes/cue/grab: the loaded tape’s cue lane');
   src.destroy();
 });
 
-test('Guardrail 9: Listening Room inline Sketchbook supports renaming, starring, and tagging without leaving the room', () => {
-  const doorway = read('lib/room/doorway.js');
-  assert.ok(
-    doorway.includes('room-book-star') &&
-      doorway.includes('room-book-tag') &&
-      doorway.includes('room-book-name-input'),
-    'doorway.js must provide inline star, tag, and name controls inside #room-sketchbook',
-  );
+test('Guardrail 9: one notes drawer, the shell’s and Open’s, renames, stars and tags a take without leaving the room; no room has notes of its own', () => {
+  const drawer = read('lib/room/drawer.js');
+  for (const id of ['notes-name', 'notes-star', 'notes-tag', 'notes-words']) assert.ok(drawer.includes(`'${id}'`), `drawer.js makes #${id}`);
+  assert.match(drawer, /createSheet\(/, 'the drawer is a sheet (lib/ui/sheet.js), not a drag of its own');
+  assert.match(read('lib/shell/boot.js'), /createNotesDrawer\(/, 'the shell mounts it');
+  assert.match(read('lib/room/open.js'), /createNotesDrawer\(/, 'and Open does');
+  for (const f of ['lib/room/doorway.js', 'lib/shell/views/room.js', 'lib/shell/views/studio.js']) {
+    assert.doesNotMatch(read(f), /setOnNote|room-book|Sketchbook/, `${f}: ✎ is the shell’s drawer`);
+  }
 });
 
 test('Guardrail 10: Studio swimlane collapse state persists in sessionStorage and auto-unfolds on hindsight:tape-changed', () => {

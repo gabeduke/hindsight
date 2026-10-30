@@ -1,11 +1,17 @@
 // web/static/lib/tape/cuelane.js
 // The Cue Lane (docs/architecture/tape.md, The cue lane):
-// Staging swimlane above track 1 in the Studio. A tap on a clip launches it
-// on the next bar line (⇧: at once) and a second tap stops it, on the Pi
-// (internal/tape/cuelive.go); a drag puts it down on tracks 1-4. Solo leaves
-// the lane alone in the output; ⟲ loops a clip.
+// Staging swimlane above track 1 in the Studio, where GRAB lands. Its clips
+// are pads: a tap launches one on the next bar line (⇧: at once) and a
+// second tap stops it, on the Pi (internal/tape/cuelive.go), its ring
+// counting to the bar line meanwhile; a hold (or a right click) opens its
+// drawer above the bar (lib/buffer/buffer.js), where Loop, Toss and the rest
+// are; a drag puts it down on tracks 1-4. Solo leaves the lane alone in the
+// output.
 
 import { say, named } from '../rooms/words.js';
+import { pressMachine, CUE_PRESS } from '../ui/press.js';
+import { Loop } from '../objects/motion.js';
+import { ringOf } from '../buffer/cueclip.js';
 
 /**
  * frameAtX computes the timeline frame for an x coordinate given the viewport bounds.
@@ -38,9 +44,12 @@ export function formatClipLen(frames, sampleRate = 48000) {
 }
 
 /**
- * mountCueLane mounts the cue lane into the given container.
+ * mountCueLane mounts the cue lane into the given container. getPos is
+ * where the tape is heard now, for the ring of a clip waiting for its bar
+ * line; a hold on a clip says `hindsight:cue-select`, and the drawer says
+ * which is open with `hindsight:cue-selected`.
  */
-export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch, onToast, signal }) {
+export function mountCueLane({ container, getTape, getLaneView, getPos = () => NaN, active = () => true, onEdit, onLaunch, onToast, signal }) {
   if (!container) return { update: () => {}, destroy: () => {} };
 
   container.innerHTML = `
@@ -71,39 +80,38 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
   }, signal ? { signal } : undefined);
 
   let activeDrag = null;
-  // A press on a clip: a tap if it lets go where it went down, a drag once
-  // it has moved further than a finger wobbles.
+  // A press on a clip (CUE_PRESS): a tap launches it, a hold opens its
+  // drawer, and once it has moved further than a finger wobbles it is a
+  // drag. The click a drag ends on, back over its clip, is no tap.
   let press = null;
-  const DRAG_PX = 8;
+  let dragged = false;
+  const DRAG_PX = CUE_PRESS.slop;
+  const select = (clip) => document.dispatchEvent(new CustomEvent('hindsight:cue-select', { detail: { id: clip.id } }));
 
-  function onPointerDown(e, clip) {
-    if (e.target.closest('button')) return; // let buttons handle their own clicks
+  function onPointerDown(e, clip, machine) {
+    if (e.button > 0) return; // a right button is the drawer's (contextmenu), never a drag
     e.preventDefault();
-    press = { clip, chip: e.currentTarget, x: e.clientX, y: e.clientY };
+    dragged = false;
+    press = { clip, chip: e.currentTarget, x: e.clientX, y: e.clientY, machine };
     window.addEventListener('pointermove', onPressMove, signal ? { signal } : undefined);
-    window.addEventListener('pointerup', onPressUp, signal ? { signal } : undefined);
+    window.addEventListener('pointerup', endPress, signal ? { signal } : undefined);
     window.addEventListener('pointercancel', endPress, signal ? { signal } : undefined);
   }
 
   function endPress() {
     press = null;
     window.removeEventListener('pointermove', onPressMove);
-    window.removeEventListener('pointerup', onPressUp);
+    window.removeEventListener('pointerup', endPress);
     window.removeEventListener('pointercancel', endPress);
   }
 
   function onPressMove(e) {
     if (!press || Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_PX) return;
-    const { clip, chip } = press;
+    const { clip, chip, machine } = press;
+    machine.cancel();
     endPress();
+    dragged = true;
     startDrag(e, clip, chip);
-  }
-
-  function onPressUp(e) {
-    if (!press) return;
-    const { clip } = press;
-    endPress();
-    onLaunch?.(clip, { now: !!e.shiftKey });
   }
 
   function startDrag(e, clip, chip) {
@@ -186,17 +194,34 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
     activeDrag = null;
   }
 
-  // The chips are built when the lane's parts change, not on every poll:
-  // a press or a drag keeps the element it went down on. What plays only
-  // lights them (mark).
+  // The pads are built when the lane's parts change, not on every poll:
+  // a press or a drag keeps the element it went down on. What plays, what
+  // waits and which is open only light them (mark).
   let built = null;
+  let open = '';
+  let waiting = false;
   function mark(chip, clip, playing, queued) {
     const on = playing.has(clip.id);
+    const wait = queued.has(clip.id);
     chip.classList.toggle('playing', on);
-    chip.classList.toggle('queued', queued.has(clip.id));
+    chip.classList.toggle('queued', wait);
+    chip.classList.toggle('open', clip.id === open);
     chip.setAttribute('aria-pressed', String(on));
-    chip.setAttribute('aria-label', `${clip.name || clip.file}: ${on ? 'playing; tap to stop it on the next bar' : 'tap to launch it on the next bar'}`);
+    chip.setAttribute('aria-expanded', String(clip.id === open));
+    const what = clip.name || clip.file;
+    chip.setAttribute('aria-label', `${what}: ${on ? 'playing; tap to stop it on the next bar' : 'tap to launch it on the next bar'}; hold to open it`);
   }
+
+  // The ring: while a pad waits for its bar line, its hand goes round the
+  // bar, on the shared ticker, and parks when nothing waits or the Studio
+  // is out of sight (the next poll that shows one waiting starts it again).
+  const ring = new Loop(() => {
+    const f = ringOf(getPos(), getTape?.()?.grid);
+    for (const hand of listEl.querySelectorAll('.cue-pad.queued .cue-dial-hand')) {
+      hand.style.transform = `rotate(${f == null ? 0 : (f * 360).toFixed(1)}deg)`;
+    }
+    return waiting && active();
+  });
 
   // live is the Pi's live.cue: {playing: [ids], queued: [ids]}, or null.
   function update(cue = { solo: false, clips: [] }, live = null) {
@@ -204,11 +229,13 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
     const playing = new Set(live?.playing || []);
     const queued = new Set(live?.queued || []);
     const clips = currentCue.clips || [];
+    waiting = clips.some((c) => queued.has(c.id));
+    if (waiting) ring.start();
 
     soloBtn.setAttribute('aria-pressed', String(!!currentCue.solo));
     countEl.textContent = String(clips.length);
 
-    const key = JSON.stringify([clips, getTape?.()?.sample_rate]);
+    const key = JSON.stringify([clips.map((c) => [c.id, c.name, c.frames]), getTape?.()?.sample_rate]);
     if (key === built) {
       for (const clip of clips) {
         const chip = listEl.querySelector(`.cue-clip-chip[data-id="${CSS.escape(clip.id)}"]`);
@@ -216,6 +243,7 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
       }
       return;
     }
+    const first = built === null;
     built = key;
 
     if (clips.length === 0) {
@@ -225,6 +253,7 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
     }
 
     emptyEl.hidden = true;
+    const had = new Set([...listEl.children].map((c) => c.dataset.id));
     listEl.innerHTML = '';
 
     const sr = getTape?.()?.sample_rate || 48000;
@@ -232,42 +261,67 @@ export function mountCueLane({ container, getTape, getLaneView, onEdit, onLaunch
     for (const clip of clips) {
       const chip = document.createElement('div');
       chip.className = 'cue-clip-chip';
-      chip.classList.add('sinks'); // it sinks under a finger (lib/ui/keys.js)
+      chip.classList.add('cue-pad', 'sinks'); // a pad; it sinks under a finger (lib/ui/keys.js)
+      // A clip that wasn't here a moment ago -- a GRAB -- comes in peeled
+      // off the feed above it (styles.css, the cue lane).
+      if (!first && !had.has(clip.id)) chip.classList.add('arriving');
       chip.dataset.id = clip.id;
       chip.setAttribute('role', 'button');
+      chip.tabIndex = 0;
       mark(chip, clip, playing, queued);
 
       chip.innerHTML = `
-        <span class="cue-clip-grip" aria-hidden="true">⋮⋮</span>
-        <span class="cue-clip-name" title="${clip.name || clip.file}">${clip.name || clip.file}</span>
+        <span class="cue-dial" aria-hidden="true"><span class="cue-dial-hand"></span></span>
+        <span class="cue-clip-name"></span>
         <span class="cue-clip-len">${formatClipLen(clip.frames, sr)}</span>
-        <button class="chip cue-clip-loop" type="button" aria-pressed="${clip.loop ? 'true' : 'false'}" title="Toggle loop" aria-label="Toggle loop">⟲</button>
-        <button class="cue-clip-remove" type="button" title="Remove" aria-label="Remove">×</button>
       `;
+      chip.querySelector('.cue-clip-name').textContent = clip.name || clip.file;
+      chip.addEventListener('animationend', () => chip.classList.remove('arriving'));
 
-      chip.addEventListener('pointerdown', (e) => onPointerDown(e, clip));
-
-      const loopBtn = chip.querySelector('.cue-clip-loop');
-      loopBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        // cue-set writes every field it's given: send the clip whole.
-        onEdit?.('cue-set', { cue_clip: { ...clip, loop: !clip.loop } });
+      // Each press asks for the clip as it is now: the lane is rebuilt
+      // only when its parts change.
+      const now = () => (currentCue.clips || []).find((c) => c.id === clip.id) || clip;
+      const machine = pressMachine({
+        ...CUE_PRESS,
+        onTap: () => onLaunch?.(now(), { now: !!lastShift }),
+        onHold: () => select(now()),
       });
-
-      const removeBtn = chip.querySelector('.cue-clip-remove');
-      removeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onEdit?.('cue-remove', { clip: clip.id });
+      let lastShift = false;
+      chip.addEventListener('pointerdown', (e) => { machine.down(e); onPointerDown(e, clip, machine); });
+      chip.addEventListener('pointermove', machine.move);
+      chip.addEventListener('pointerup', machine.up);
+      for (const ev of ['pointercancel', 'pointerleave']) chip.addEventListener(ev, machine.cancel);
+      chip.addEventListener('click', (e) => {
+        if (dragged) { dragged = false; e.preventDefault(); return; }
+        lastShift = !!e.shiftKey;
+        machine.click(e);
       });
+      chip.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.dispatchEvent(new MouseEvent('click', { shiftKey: e.shiftKey })); }
+      });
+      // A right click, or the keyboard's menu key: the drawer.
+      chip.addEventListener('contextmenu', (e) => { e.preventDefault(); select(now()); });
 
       listEl.appendChild(chip);
     }
   }
 
+  // Which clip the drawer is open on.
+  const onSelected = (e) => {
+    open = e.detail?.id || '';
+    for (const chip of listEl.children) {
+      chip.classList.toggle('open', chip.dataset.id === open);
+      chip.setAttribute('aria-expanded', String(chip.dataset.id === open));
+    }
+  };
+  document.addEventListener('hindsight:cue-selected', onSelected, signal ? { signal } : undefined);
+
   function destroy() {
     built = null;
+    ring.stop();
     endPress();
     cleanupDrag();
+    document.removeEventListener('hindsight:cue-selected', onSelected);
     container.innerHTML = '';
   }
 

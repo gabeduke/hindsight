@@ -90,7 +90,7 @@ func tapeErr(w http.ResponseWriter, err error) {
 		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
 		errors.Is(err, tape.ErrEmptyClipboard), errors.Is(err, tape.ErrNoOutput), errors.Is(err, tape.ErrMixingDown),
 		errors.Is(err, tape.ErrNoSaver), errors.Is(err, tape.ErrExporting), errors.Is(err, tape.ErrLoopMoved),
-		errors.Is(err, tape.ErrNeedsJamRoom), errors.Is(err, tape.ErrNoStream):
+		errors.Is(err, tape.ErrNeedsJamRoom), errors.Is(err, tape.ErrNoStream), errors.Is(err, tape.ErrCueChanged):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, tape.ErrBadParameter), errors.Is(err, tape.ErrPastTheEnd), errors.Is(err, tape.ErrBadLoop),
 		errors.Is(err, tape.ErrNoSuchTrack), errors.Is(err, tape.ErrNoSuchClip), errors.Is(err, tape.ErrNoGrid),
@@ -634,26 +634,9 @@ func (a *API) handleTapeTransport(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &act) {
 		return
 	}
-	switch act.Kind {
-	case "play", "stop", "locate":
-	default:
-		writeErr(w, http.StatusBadRequest, "action is play, stop or locate")
-		return
-	}
-	switch act.Quantum {
-	case "", tape.QuantumNow, tape.QuantumBeat, tape.QuantumBar, tape.QuantumLoop:
-	default:
-		writeErr(w, http.StatusBadRequest, "quantum is now, beat, bar or loop")
-		return
-	}
-	if act.Kind == "play" && !a.tape.HasOutput() {
-		writeErr(w, http.StatusConflict, "nothing plays the tape: this build has no audio output")
-		return
-	}
-	// ▶ with a track armed counts in and records; ■ during a punch keeps it.
-	kept, err := a.tape.Transport(id, act)
+	kept, err := a.Verbs().Transport(id, act)
 	if err != nil {
-		tapeErr(w, err)
+		verbErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "queued", "kept": kept})
@@ -742,9 +725,9 @@ func (a *API) handleTapeCatch(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	res, err := a.tape.CatchPairs(r.URL.Query().Get("id"), req)
+	res, err := a.Verbs().Catch(r.URL.Query().Get("id"), req)
 	if err != nil {
-		tapeErr(w, err)
+		verbErr(w, err)
 		return
 	}
 	// clip is the first, as before; clips and tracks are everything a
@@ -779,50 +762,6 @@ func (a *API) handleTapeCue(w http.ResponseWriter, r *http.Request) {
 		live = &tape.CueLive{Playing: []string{}, Queued: []string{}, Starts: map[string]int64{}}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"cue": live})
-}
-
-// handleTapeCueAdd puts a clip on the cue lane: the buffer, with an empty
-// body, or a span of a take, {"take", "from", "to"}. It answers the tape's
-// state, with the new clip as edit.cue_clip.
-func (a *API) handleTapeCueAdd(w http.ResponseWriter, r *http.Request) {
-	if a.tapeOff(w) {
-		return
-	}
-	var b struct {
-		Take string `json:"take"`
-		From int64  `json:"from"`
-		To   int64  `json:"to"`
-	}
-	if r.ContentLength != 0 && !decodeBody(w, r, &b) {
-		return
-	}
-	id := r.URL.Query().Get("id")
-	var added tape.CueClip
-	var err error
-	if b.Take == "" {
-		added, err = a.tape.CueFromClipboard(id)
-	} else {
-		name, nerr := a.safeTakeName(b.Take)
-		if nerr != nil {
-			writeErr(w, http.StatusBadRequest, nerr.Error())
-			return
-		}
-		path := filepath.Join(a.cfg.OutputDir, name)
-		info, serr := audio.ReadWAVInfo(path)
-		if serr != nil {
-			writeErr(w, http.StatusNotFound, "no such take")
-			return
-		}
-		if b.To <= b.From {
-			b.From, b.To = 0, info.Frames()
-		}
-		added, err = a.tape.CueFromTake(id, path, takeTitle(name, path), b.From, b.To, a.takePair(info.Channels))
-	}
-	if err != nil {
-		tapeErr(w, err)
-		return
-	}
-	a.writeTapeStateWith(w, id, &tape.EditResult{Op: "cue-add", Clips: 1, CueClip: &added}, false)
 }
 
 func (a *API) handleTapeDrop(w http.ResponseWriter, r *http.Request) {
@@ -1262,14 +1201,10 @@ func (a *API) takePair(channels int) []int {
 // --- the clipboard -----------------------------------------------------------
 
 //	GET    /api/clipboard        what's on it
-//	GET    /api/clipboard/audio  its tracks summed, as a WAV, to audition
 //	POST   /api/clipboard        copy {take, from, to} or {ring_from, ring_to, source};
 //	                             {take, from, to, grab: true}: a take's span as the buffer;
 //	                             or the Studio's GRAB: {bars | seconds | ring_from, ring_to,
 //	                             sources: [...]}, or {again, sources} (internal/tape grab.go)
-//	PATCH  /api/clipboard        the buffer: {in, out} its window; {gain_db}, {fade_in,
-//	                             fade_out, fade_in_shape, fade_out_shape}, {normalize}, {reverse}
-//	POST   /api/clipboard/keep   KEEP AS TAKE: the clipboard as a take, its tracks summed
 //	DELETE /api/clipboard        clear it (?toss=1: keep it aside for /restore, a toss's Undo)
 //	POST   /api/clipboard/restore  bring the last tossed one back
 //	                             ?replaced=1[&by=<created>]: GRAB's Undo instead -- the buffer the
@@ -1469,83 +1404,9 @@ func (a *API) handleClipboardRestore(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleClipboardPatch changes the Studio's buffer: its window ({in, out},
-// frames from the grab's start, kept inside its handles), and its lanes'
-// level, fades, Normalize and Reverse. Outside undo, as the buffer is.
-func (a *API) handleClipboardPatch(w http.ResponseWriter, r *http.Request) {
-	if a.tapeOff(w) {
-		return
-	}
-	var b struct {
-		In  *int64 `json:"in"`
-		Out *int64 `json:"out"`
-		tape.BoardShape
-	}
-	if !decodeBody(w, r, &b) {
-		return
-	}
-	if (b.In == nil) != (b.Out == nil) {
-		writeErr(w, http.StatusBadRequest, "a window is both its in and its out")
-		return
-	}
-	if b.In == nil && b.BoardShape.Empty() {
-		writeErr(w, http.StatusBadRequest, "change the buffer's {in, out}, gain_db, fades, normalize or reverse")
-		return
-	}
-	var c *tape.Clipboard
-	var err error
-	if b.In != nil {
-		c, err = a.tape.TrimClipboard(*b.In, *b.Out)
-	}
-	if err == nil && !b.BoardShape.Empty() {
-		c, err = a.tape.ShapeClipboard(b.BoardShape)
-	}
-	if err != nil {
-		tapeErr(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"clipboard": c, "seconds": float64(c.Frames) / float64(a.tape.Store().SampleRate())})
-}
-
-// handleClipboardKeep is the buffer's KEEP AS TAKE: the clipboard saved as a
-// take on the shelf, from its own audio, its tracks summed to stereo. A take
-// like a cut: its preview made after, and MAX_SAVES applied, never to it.
-func (a *API) handleClipboardKeep(w http.ResponseWriter, r *http.Request) {
-	if a.tapeOff(w) {
-		return
-	}
-	if free := audio.EnsureFree(a.cfg.OutputDir, a.cfg.MinFreeGB); free < a.cfg.MinFreeGB {
-		writeErr(w, http.StatusInsufficientStorage, fmt.Sprintf("low disk: %.2f GB free, need %.2f GB", free, a.cfg.MinFreeGB))
-		return
-	}
-	k, err := a.tape.KeepClipboardTake(a.cfg.OutputDir, time.Now())
-	if err != nil {
-		tapeErr(w, err)
-		return
-	}
-	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, k.Name), 2) })
-	if a.saver != nil {
-		a.background(func() { a.saver.Prune(k.Name) })
-	}
-	writeJSON(w, http.StatusOK, k)
-}
-
-// handleClipboardAudio serves the clipboard's first minute, its tracks
-// summed, as a 16-bit WAV, with ranges and HEAD, as a phone's audio element
-// wants.
-func (a *API) handleClipboardAudio(w http.ResponseWriter, r *http.Request) {
-	if a.tapeOff(w) {
-		return
-	}
-	pcm, err := a.tape.ClipboardAudio()
-	if errors.Is(err, tape.ErrEmptyClipboard) {
-		writeErr(w, http.StatusNotFound, err.Error())
-		return
-	}
-	if err != nil {
-		tapeErr(w, err)
-		return
-	}
+// serveWAV16 serves interleaved stereo as a 16-bit WAV, with ranges and
+// HEAD, as a phone's audio element wants.
+func (a *API) serveWAV16(w http.ResponseWriter, r *http.Request, name string, pcm []float32) {
 	b := wav16Header(len(pcm)/2, 2, a.tape.Store().SampleRate())
 	for _, v := range pcm {
 		x := int32(math.Round(float64(v) * 32767))
@@ -1554,7 +1415,7 @@ func (a *API) handleClipboardAudio(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Cache-Control", "no-store")
-	http.ServeContent(w, r, "clipboard.wav", time.Time{}, bytes.NewReader(b))
+	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(b))
 }
 
 // wav16Header is a 44-byte RIFF header for 16-bit PCM.

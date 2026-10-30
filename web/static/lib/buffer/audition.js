@@ -1,15 +1,17 @@
 // web/static/lib/buffer/audition.js
-// AUDITION: the buffer's window, looped on this device -- never through the
+// AUDITION: a cue clip's window, looped on this device -- never through the
 // Pi, so the jam carries on (docs/superpowers/specs/2026-10-15-studio-buffer-design.md).
-// The audio is the clipboard's own (GET /api/clipboard/audio: its tracks
-// summed, levels and fades as a drop plays them), looped by Web Audio, so
-// the seam is sample-exact, not the gap an <audio loop> leaves.
+// The audio is the Pi's (GET /api/tapes/cue/audio: its lanes summed, levels
+// and fades as a drop plays them), looped by Web Audio, so the seam is
+// sample-exact, not the gap an <audio loop> leaves.
 
 export class Audition {
   /**
-   * @param {{onChange?: () => void, fetchImpl?: typeof fetch, Ctx?: typeof AudioContext}} [o]
+   * url(key) is where the audio of what plays is: what plays names it.
+   * @param {{url: (key: string) => string, onChange?: () => void, fetchImpl?: typeof fetch, Ctx?: typeof AudioContext}} o
    */
-  constructor({ onChange = () => {}, fetchImpl = (...a) => globalThis.fetch(...a), Ctx = globalThis.AudioContext || globalThis.webkitAudioContext } = {}) {
+  constructor({ url, onChange = () => {}, fetchImpl = (...a) => globalThis.fetch(...a), Ctx = globalThis.AudioContext || globalThis.webkitAudioContext }) {
+    this.url = url;
     this.onChange = onChange;
     this.fetchImpl = fetchImpl;
     this.Ctx = Ctx;
@@ -30,8 +32,8 @@ export class Audition {
   }
 
   /**
-   * play loops the buffer's audio from its start. key names the buffer as
-   * it is (model.js boardKey): a play with the same key as the one playing
+   * play loops the clip's audio from its start. key names the clip as it
+   * is (model.js boardKey): a play with the same key as the one playing
    * leaves it be; another starts the new audio from its top.
    */
   async play(key) {
@@ -42,8 +44,8 @@ export class Audition {
     // A phone's context starts suspended until a touch resumes it: this
     // runs inside the AUDITION press.
     if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
-    const res = await this.fetchImpl(`/api/clipboard/audio?k=${encodeURIComponent(key)}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(res.status === 404 ? 'the buffer is empty' : `HTTP ${res.status}`);
+    const res = await this.fetchImpl(this.url(key), { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status === 404 || res.status === 400 ? 'that part has left the cue lane' : `HTTP ${res.status}`);
     const buf = await this.ctx.decodeAudioData(await res.arrayBuffer());
     if (ticket !== this.ticket) return; // stopped, or asked again, meanwhile
     this.stopSource();

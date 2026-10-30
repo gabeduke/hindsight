@@ -112,6 +112,9 @@ type EditResult struct {
 	// Replaced is the unused buffer a lift or copy replaced, held for Undo.
 	Replaced *Clipboard `json:"replaced,omitempty"`
 	CueClip  *CueClip   `json:"cue_clip,omitempty"`
+	// CueReplaced is the untouched clip a GRAB onto the lane took the place
+	// of (cuegrab.go): the tape's Undo brings it back.
+	CueReplaced *CueClip `json:"cue_replaced,omitempty"`
 }
 
 // EditOp carries out an edit on the loaded tape.
@@ -243,6 +246,13 @@ func (e *Engine) EditOp(id string, req EditRequest) (EditResult, error) {
 	case "cue-to-track":
 		if req.Clip == "" || req.Track <= 0 || req.At == nil {
 			return EditResult{}, fmt.Errorf("%w: cue-to-track needs clip, track and at", ErrBadParameter)
+		}
+		if c, err := e.cueClip(id, req.Clip); err == nil && len(c.Lanes) > 0 {
+			// A clip with lanes lands as a drop does, with its handles,
+			// over what was there (cuegrab.go): every lane on the track it
+			// was dragged to, as one track is what a drag points at.
+			d, err := e.CueDrop(id, req.Clip, req.Track, true, req.At)
+			return EditResult{Op: "cue-to-track", Clips: d.Tracks, Clip: &d.Clip, At: *req.At}, err
 		}
 		var placed Clip
 		err := e.Edit(id, "cue:to-track", func(_ *Tape, s *State) error {

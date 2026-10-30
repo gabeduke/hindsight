@@ -1,6 +1,6 @@
 # State of Hindsight
 
-**As of 2026-10-29.** What is open, one or two lines each, with a pointer to
+**As of 2026-10-30.** What is open, one or two lines each, with a pointer to
 where its detail lives. Keep it current and short; when an item closes,
 delete it. How things work is in `docs/architecture.md` (an index of
 `docs/architecture/`); why, and what Gabe has decided, in
@@ -21,8 +21,6 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 - Open (`wave.html`), the rig (`rig.html`) and the guide are still pages of
   their own, outside the shell ([decision 0011](../decisions/0011-open-is-its-own-page.md)).
-- Notes on a take are still the Sketchbook's dialog (✎ on the bar), until
-  the notes drawer (`listening-back.md`).
 - Open still titles a take by its date stamp, not `takeTitle`, until Open's
   pass.
 - The cue lane takes GRABs only; adding from the shelf and from a track is
@@ -30,16 +28,10 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Known bugs
 
-- **Layout** (the flows' baseline, `scripts/flows/layout-known.json`;
-  `docs/flows.md`, *What a run says*): the cue clip's × (12×14 px) and loop
-  toggle (22 px) are under 24 px.
 - **The first turn to the Listening Room freezes the Studio** about
   0.6–0.9 s at 4× CPU in headless Chromium (later turns 0.25–0.5 s),
   measured before the shelf wall replaced the stage. Re-measure, on the
   tablet.
-- Red Go tests not seen since mid-October, and never fixed:
-  `TestAMixdownPlaysTheLoopOnceAndSavesItWithItsTail` and the MIDI clock's
-  tempo tests.
 - **Flow flakes not yet explained** (both 2026-10-19, neither seen
   locally): J1.9 on the tablet once tapped ↶ right after dragging a
   section's edge and the Pi kept the new edge (look at
@@ -86,19 +78,43 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
-- **`the-studio-space.md` is the build order**: steps 1–8 have landed; 9
-  (the notes drawer, on `lib/ui/sheet.js`), 10 (Open), 11 (the buffer into
-  the cue lane) and 12 (polish) are open.
+- **The walkthrough has begun** (2026-10-30): `walkthrough.md` holds Gabe's
+  stories and what is decided so far. Specs come out of it: reaching back
+  (Catch and Keep as one move), song sections and templates, the pocket
+  kit (a phone that records on its own and syncs the tape), and retiring
+  Play mode's flag.
+- **`the-ecosystem.md` comes first** (2026-10-30, not yet agreed): Gabe
+  finds the UX chaotic and wants an ecosystem of components reached from
+  every surface. Its walkthrough settles what is kept, merged or cut, and
+  the instrument's shape; nothing user-visible merges before it, so Open's
+  rebuild (#220) and the play look (#218) wait. Its steps 2 (one verb set)
+  and 4 (models per noun) change no behaviour and may go ahead, unmerged
+  until Gabe reviews them.
+- **`the-studio-space.md` is the build order**: steps 1–9 and 11 have
+  landed (9, the notes drawer: `docs/architecture/rooms.md`, *The notes
+  drawer*; 11, GRAB onto the cue lane, a clip's drawer above the bar;
+  decision 0061); 10 (Open, which docks the drawer beside its waveform)
+  and 12 (polish) are open.
   The phone's player as a sheet and its ● want a look on a real phone:
   the mini player's display is narrow on a 360 px phone (`bar.md`). They
-  take in the open steps of `listening-back.md` and
-  `the-studio-on-one-screen.md`, which hold their details.
-- **`the-play-look.md`** (not agreed yet): the UI made simpler and more
-  fun, after Gabe's OP-1 field note. An audit, three directions on the
+  take in the open steps of `listening-back.md`, which holds their details.
+  Decision 0061's three choices were built as recommended; Gabe to try
+  them on the tablet and overrule any.
+- **The Pi's buffer routes are dead code** since step 11: `/api/clipboard`'s
+  GRAB (bars, seconds, again, a take's grab), its PATCH, keep, toss, toss's
+  restore and audio, `/api/tapes/cue/add`, and `Engine.Grab`,
+  `GrabTake(Opt)`, `TrimClipboard`, `ShapeClipboard`, `KeepClipboardTake`,
+  `TossClipboard`, `RestoreClipboard(Opt)`, `ClipboardAudio`,
+  `CueFromClipboard`, `CueFromTake`. Nothing in the UI or on a controller
+  calls them. Retire them, moving the tests that use them to the cue lane
+  (`grab_test.go`, `replaced*_test.go`, `internal/api/buffer_test.go`);
+  a range's Cut, Copy, Paste and their Undo (`RestoreReplaced`) stay.
+- **`the-play-look.md`** (not agreed yet): the look made simpler and more
+  fun, after Gabe's OP-1 field note. An audit, and three directions on the
   canvas `DHqPaBAGJyqDz4PErR4Qir` (A tidied, B Signal recommended, C
-  Toybox), shipped as a theme beside today's Reel. **Gabe picks a
-  direction** before any code. Its motion steps are `the-studio-space.md`
-  step 12's.
+  Toybox), shipped as a theme beside today's Reel and applied per
+  component. It is `the-ecosystem.md`'s step 7, after the walkthrough.
+  **Gabe picks a direction** before any code.
 - **`the-instrument.md`** (agreed 2026-10-26), in tracks of its own:
   Hindsight as something you play. Its step 1 is built: latency
   measured in use, every control timed to the ear, kept on the Pi

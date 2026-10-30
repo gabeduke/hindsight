@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { GESTURE, SPINE_PRESS, ARM_PRESS, pressMachine, bindPress } from './press.js';
+import { GESTURE, SPINE_PRESS, ARM_PRESS, CUE_PRESS, pressMachine, bindPress } from './press.js';
 
 // The keys that hold today, with their callers' options: a spine
 // (lib/room/doorway.js) and a track's ● (lib/tape/page.js), which never had a
@@ -461,6 +461,26 @@ for (const k of KINDS) {
     assert.equal(c.pending(), 0, 'no hold is left waiting');
   });
 }
+
+// A cue clip: a mouse holds as a finger does, and ⇧ is the tap's (launch at
+// once), never a hold.
+test('a cue clip holds under a mouse too, and its ⇧-click is a tap', () => {
+  const { m, c, log } = rig({ name: 'a cue clip', ...CUE_PRESS });
+  m.down(mouse());
+  c.advance(CUE_PRESS.hold);
+  m.up();
+  m.click(click());
+  assert.deepEqual(log, ['hold'], 'a mouse held still is a hold, and its lift no tap');
+  m.down(mouse({ shiftKey: true }));
+  m.up();
+  m.click(click({ shiftKey: true }));
+  m.click(click({ shiftKey: true, detail: 0 }));
+  assert.deepEqual(log, ['hold', 'tap', 'tap']);
+  m.down(touch());
+  m.move(touch(10 + GESTURE.SLOP_PX + 1, 10));
+  c.advance(CUE_PRESS.hold);
+  assert.deepEqual(log, ['hold', 'tap', 'tap'], 'moved, it is a drag, not a hold');
+});
 
 test('bindPress with the ● key’s options never lets the browser’s menu open on it', () => {
   const { el, fire } = element();

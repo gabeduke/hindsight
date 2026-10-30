@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { notesOf, noteSpan, clipboardBody, sendToStudio, fmtAt, SPAN_SECONDS, freeFrame, fieldEnter } from './notes.js';
-import { recall } from '../buffer/replaced.js';
+import { notesOf, noteSpan, grabBody, sendToStudio, fmtAt, SPAN_SECONDS, freeFrame, fieldEnter } from './notes.js';
+import { recallNote } from '../buffer/replaced.js';
 
 const SR = 48000;
 
@@ -48,18 +48,15 @@ test('nothing left after the mark, or no such note: no span', () => {
   assert.equal(noteSpan(notes, 'nope', { sampleRate: SR, total: 10 * SR }), null);
 });
 
-// grab: the Studio's buffer (P2) takes a take's span as a grab and opens on
-// it, where a plain copy would go to the crate. A server without the buffer
-// reads it as a plain copy: unknown fields are ignored. crate: false -- the
-// rooms show no crate, so a buffer this replaces is held for GRAB's Undo only
-// (F3).
-test('to the studio posts {take, from, to, grab} to the clipboard and goes to the Studio', async () => {
+// A take's GRAB lands on the loaded tape's cue lane, as the Studio's own
+// does, and the Studio opens the clip's drawer (P2).
+test('to the studio posts {take, from, to} to the cue lane and goes to the Studio', async () => {
   const calls = [];
   const fetchImpl = async (url, init) => { calls.push([url, init.method, JSON.parse(init.body)]); return { ok: true, json: async () => ({}) }; };
   const to = await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl });
   assert.equal(to, '/tape.html');
-  assert.deepEqual(calls, [['/api/clipboard', 'POST', { take: 'jam_a.wav', from: 1, to: 9, grab: true, crate: false }]]);
-  assert.deepEqual(clipboardBody('x.wav', { from: 2, to: 3 }), { take: 'x.wav', from: 2, to: 3, grab: true, crate: false });
+  assert.deepEqual(calls, [['/api/tapes/cue/grab', 'POST', { take: 'jam_a.wav', from: 1, to: 9 }]]);
+  assert.deepEqual(grabBody('x.wav', { from: 2, to: 3 }), { take: 'x.wav', from: 2, to: 3 });
 });
 
 test('a GRAB says it is going to the Studio for the tape, so the bar\'s take does not go along; a refused one does not', async () => {
@@ -71,16 +68,16 @@ test('a GRAB says it is going to the Studio for the tape, so the bar\'s take doe
   assert.equal(said, 1, 'nothing navigates away from a note that didn\'t go');
 });
 
-test('a take’s GRAB over a buffer nobody used leaves the Studio a line to say, under the new buffer’s name', async () => {
+test('a take’s GRAB leaves the Studio the clip to open on, and what it took the place of', async () => {
   const store = new Map();
   const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
-  const old = { created: 'old', frames: 4 * 96000, grab: { bar_frames: 96000, sources: ['main'] } };
-  const fetchImpl = async () => ({ ok: true, json: async () => ({ clipboard: { created: 'new' }, replaced: old, replaced_seconds: 8 }) });
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ edit: { cue_clip: { id: 'new' }, cue_replaced: { id: 'old', name: 'aux' } } }) });
   await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl, storage });
-  assert.equal(recall(storage, 'new'), 'Replaced the buffer’s 4 BARS from the feed, never dropped or kept');
-  // Over nothing, it leaves nothing.
-  await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl: async () => ({ ok: true, json: async () => ({ clipboard: { created: 'n2' } }) }), storage });
-  assert.equal(store.size, 0);
+  assert.deepEqual(recallNote(storage), { by: 'new', line: 'In place of “aux”, which you hadn’t used' });
+  // Over nothing, it still says which clip to open, and nothing else.
+  await sendToStudio('jam_a.wav', { from: 1, to: 9 }, { fetchImpl: async () => ({ ok: true, json: async () => ({ edit: { cue_clip: { id: 'n2' } } }) }), storage });
+  assert.deepEqual(recallNote(storage), { by: 'n2', line: '' });
+  assert.equal(store.size, 0, 'read once');
 });
 
 test('a refused copy says why, and goes nowhere', async () => {

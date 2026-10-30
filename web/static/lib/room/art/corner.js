@@ -1,6 +1,6 @@
 // web/static/lib/room/art/corner.js
 // The reading corner: the floor lamp (the room's key light is its bulb), the
-// side table, the sketchbook on it and a glass of something. Each is drawn
+// side table and a glass of something on it. Each is drawn
 // from its box in the room, projected, and lit from where the lamp is.
 
 import { f, d, fill, ring } from './kit.js';
@@ -88,44 +88,6 @@ export function table(o, ctx) {
   const n = Math.hypot(toward.x, toward.z) || 1;
   const hl = P(cx + (toward.x / n) * r * 0.45, h, cz + (toward.z / n) * r * 0.45);
   s += `<ellipse cx="${f(hl.x)}" cy="${f(hl.y)}" rx="${f(r * 0.35 * hl.k)}" ry="${f(r * 0.07 * hl.k)}" ${fill('--room-glint', 0.18)} filter="url(#${id}-soft-m)"/>`;
-  return s;
-}
-
-/** book: the sketchbook, closed, a little askew, an elastic round it and a pencil on it. */
-export function book(o, ctx) {
-  const { defs, P, id } = ctx;
-  const { x, y, z } = o.at, { w, h, d: dd } = o.size;
-  const cx = x + w / 2, cz = z + dd / 2, a = -0.32;
-  const rot = (u, v) => ({ x: cx + u * Math.cos(a) - v * Math.sin(a), z: cz + u * Math.sin(a) + v * Math.cos(a) });
-  const corner = [[-w / 2, -dd / 2], [w / 2, -dd / 2], [w / 2, dd / 2], [-w / 2, dd / 2]].map(([u, v]) => rot(u, v));
-  const at = (yy) => corner.map((p) => P(p.x, yy, p.z));
-  const t = at(y + h), b = at(y);
-  let s = `<path d="${d(at(y).map((p) => ({ x: p.x + 1.5, y: p.y + 0.8 })))}" ${fill('--room-shadow', 0.6)} filter="url(#${id}-soft-m)"/>`;
-  // The page block's edges where they face the eye (the front and right sides).
-  s += `<path d="${d([t[3], t[2], b[2], b[3]])}" ${fill('--room-paper')}/>`;
-  s += `<path d="${d([t[2], t[1], b[1], b[2]])}" ${fill('--room-paper-rule')}/>`;
-  for (let i = 1; i < 3; i++) {
-    const yy = y + (h * i) / 3;
-    const l = at(yy);
-    s += `<path d="M${f(l[3].x)},${f(l[3].y)}L${f(l[2].x)},${f(l[2].y)}L${f(l[1].x)},${f(l[1].y)}" fill="none" style="stroke:var(--room-paper-dim)" stroke-opacity=".35" stroke-width=".25"/>`;
-  }
-  // The cover, a hair larger than the pages.
-  const cov = at(y + h).map((p, i) => ({ x: p.x + (i === 1 || i === 2 ? 0.4 : -0.4), y: p.y }));
-  const cg = defs.linear([[0, '--room-book-cover-hi'], [1, '--room-book-cover']], { x1: cov[0].x, y1: cov[0].y, x2: cov[2].x, y2: cov[2].y, user: true });
-  s += `<path d="${d(cov)}" fill="${cg}" filter="url(#${id}-grain)"/>`;
-  s += wash(ctx, d(cov), { x: 0, y: 1, z: 0 }, { x: corner[0].x, y: y + h, z: corner[0].z }, { x: corner[2].x, y: y + h, z: corner[2].z }, cov[0], cov[2], { warm: 0.5, dark: 0.2 });
-  // The elastic, across near the right edge.
-  const e1 = rot(w * 0.36, -dd / 2), e2 = rot(w * 0.36, dd / 2);
-  const E1 = P(e1.x, y + h + 0.05, e1.z), E2 = P(e2.x, y + h + 0.05, e2.z), E3 = P(e2.x, y, e2.z);
-  s += `<path d="M${f(E1.x)},${f(E1.y)}L${f(E2.x)},${f(E2.y)}L${f(E3.x)},${f(E3.y)}" fill="none" style="stroke:var(--room-book-band)" stroke-width="1.1"/>`;
-  // The pencil, lying across the cover.
-  const q1 = rot(-w * 0.42, dd * 0.05), q2 = rot(w * 0.18, dd * 0.42);
-  const Q1 = P(q1.x, y + h + 0.8, q1.z), Q2 = P(q2.x, y + h + 0.8, q2.z);
-  s += `<path d="M${f(Q1.x + 0.6)},${f(Q1.y + 1.4)}L${f(Q2.x + 0.6)},${f(Q2.y + 1.4)}" style="stroke:var(--room-shadow)" stroke-opacity=".5" stroke-width="1.4" filter="url(#${id}-soft-s)"/>`;
-  s += `<path d="M${f(Q1.x)},${f(Q1.y)}L${f(Q2.x)},${f(Q2.y)}" style="stroke:var(--room-pencil)" stroke-width="1.3" stroke-linecap="round"/>`;
-  const tip = { x: Q2.x + (Q2.x - Q1.x) * 0.08, y: Q2.y + (Q2.y - Q1.y) * 0.08 };
-  s += `<path d="M${f(Q2.x)},${f(Q2.y)}L${f(tip.x)},${f(tip.y)}" style="stroke:var(--room-paper)" stroke-width="1.2" stroke-linecap="round"/>`;
-  s += `<path d="M${f(Q1.x)},${f(Q1.y - 0.4)}L${f(Q2.x)},${f(Q2.y - 0.4)}" style="stroke:var(--room-glint)" stroke-opacity=".35" stroke-width=".3"/>`;
   return s;
 }
 

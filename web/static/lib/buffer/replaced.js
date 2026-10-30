@@ -94,6 +94,23 @@ export function recall(storage, created, now = Date.now()) {
   return said;
 }
 
+/**
+ * recallNote answers the note left by a GRAB made away from the Studio --
+ * {by, line}: the cue clip it made, which the Studio opens on, and what it
+ * says ('' when it replaced nothing) -- once, if it is under a minute old.
+ */
+export function recallNote(storage, now = Date.now()) {
+  let got = null;
+  try {
+    const raw = storage?.getItem(KEY);
+    if (!raw) return null;
+    const note = JSON.parse(raw);
+    if (note && typeof note.by === 'string' && typeof note.line === 'string' && now - note.at <= NOTE_MS) got = { by: note.by, line: note.line };
+    storage.removeItem(KEY);
+  } catch { /* nothing to open */ }
+  return got;
+}
+
 /** forget lets the note go: a page that is not the Studio opened instead. */
 export function forget(storage) {
   try { storage?.removeItem(KEY); } catch { /* nothing to forget */ }

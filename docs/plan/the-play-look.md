@@ -15,6 +15,18 @@ parts, the same way `listen/` and `transport/` do. Each direction is
 nothing but a token set and a few material rules, which is how it would
 be built (decision 2).
 
+**The look goes on per component, not per page.** This spec is step 7 of
+`the-ecosystem.md`, after the walkthrough. By then the app is a handful of
+components (Transport, Tempo, Capture, Pads, Tape, Library, Take, Rig; the
+kit canvas `4fJSP7iBAvLS2uMuBJ4xhg`), each mounted on a surface: the
+tablet's workspaces, the laptop, the phone, the SMK-37's screen. So each
+build step below restyles one component wherever it is mounted, never one
+page. A component reads only tokens: its colours, its type sizes, its
+materials. A theme is the set of values for those tokens, so the same
+Capture looks the same docked on the tablet, floating on the laptop, and
+in a sheet on the phone. The component contract that makes this possible
+is `docs/plan/components.md`; this spec adds only the theme's tokens to it.
+
 This spec sits beside `the-studio-space.md`, not in place of it: its step 12
 (polish: the reels' inertia, lamps in tempo, the room listening with you)
 is where several of the steps below land. It leaves room for the two looks
@@ -37,8 +49,8 @@ a seeded demo and from the flows' storyboard (`node scripts/flows.mjs
   itself in full sentences (*copying it off the feed: the bar after it is
   still being played*, *Grab copied it, with room either side…*).
 - **Too many keys at once.** GRAB opens a buffer of about twenty controls
-  over the tape and pushes the tracks under the bar (already in hand as
-  step 11). The Studio on a tablet shows about forty keys.
+  over the tape and pushes the tracks under the bar (since replaced by the
+  cue lane, `the-studio-space.md` step 11). The Studio on a tablet shows about forty keys.
 - **Five type families**: Barlow Condensed, Plex Sans, Plex Mono, Permanent
   Marker, and Caveat, which is declared and never used.
 - **Empty rooms.** The Listening Room's shelf wall is mostly dark, empty
@@ -140,8 +152,7 @@ My recommendation first in each.
    whitespace, not from its keys.
 6. **Words off the screen.** A key says what it does in two or three words.
    An explanation goes in help mode (`?`), never in a caption beside the
-   key. The buffer's sentences go first. That waits for the clip drawer
-   (step 11), so this spec doesn't touch code that session is writing.
+   key. Each component's captions go when that component is restyled.
 7. **Things move with the music, on the ticker.** The Loop and metronome
    lamps light on the beat. An armed ● breathes on the beat. A cue pad's
    ring fills to the bar line. Reels keep turning at tape speed (Signal
@@ -182,9 +193,11 @@ My recommendation first in each.
 Each step is its own small PR. Each is looked at in a browser at 1280×800,
 1024×768, phone and desktop, in both schemes and both themes once there
 are two. Each runs `node scripts/flows.mjs` and puts the table in the PR,
-and none grows `css-budget` or the layout baseline.
+and none grows `css-budget` or the layout baseline. From step 5 on, a step
+takes one component at a time (Transport first, since it is on every
+surface), on every surface it is mounted on.
 
-1. **This spec**, and Gabe's choice of direction.
+1. **This spec**, and Gabe's choice of direction, after the walkthrough.
 2. **The colour jobs, in Reel** (decision 3): track 3 to violet, sections as
    stripes, orange only for keeping, amber only for time. It shows in
    today's look, so everyone sees whether the jobs read right before any
@@ -195,15 +208,16 @@ and none grows `css-budget` or the layout baseline.
    `data-theme` at frame zero, `tokenCache` reset, the theme-file test. No
    visible change.
 5. **Signal's tokens**, light and dark, behind the device pref: body, flat
-   keys, black displays, solid clips.
+   keys, black displays, solid clips; then each component switched to
+   read them, one PR per component.
 6. **Signal's objects**: flat reels on the ticker, the flat VU face.
-7. **In time with the music** (decision 7), after the cue lane (step 11)
-   lands, since the ring is drawn on its pads.
-8. **The phone's player**: the tape's mini-map, the section line, the cue
-   pads under the thumb.
-9. **The Listening Room in Signal**: the light shelf wall, labels on the
-   planks, the lamp following the take.
-10. **Words off the screen** (decision 6), once the clip drawer has landed.
+7. **In time with the music** (decision 7): the lamps on Transport, the ●
+   on Tape, the rings on Pads.
+8. **The phone's arrangement**: the tape's mini-map, the section line, the
+   cue pads under the thumb.
+9. **Library in Signal**: the light shelf wall, labels on the planks, the
+   lamp following the take.
+10. **Words off the screen** (decision 6), component by component.
 11. **Signal as the default**, if Gabe wants it after a week on the tablet.
     Reel stays one tap away.
 

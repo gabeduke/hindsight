@@ -1,7 +1,7 @@
 // J2.3 Choose what the bar plays from its display: the source on the LCD
 // says what plays (TAPE, FEED or the take's name), and a tap on it opens a
 // menu of the tape, the live feed, the last few takes and the shelf. The
-// feed brings GRAB to the bar (the feed into the Studio's buffer); the shelf
+// feed brings GRAB to the bar (the feed onto the Studio's cue lane); the shelf
 // is the Listening Room. One bar, three things it can hold, and ▶ in one
 // place for all three. docs/flows.md#j23
 const bar = () => {
@@ -60,8 +60,8 @@ export default {
     t.expect('▶ has not moved', Math.abs(b.play - play) <= 2, { play, now: b.play });
 
     await t.step('GRAB from the feed', () => t.tap(page.locator('#np-feed-grab')));
-    const grabbed = await api.until(async () => (await api.get('/api/clipboard'))?.clipboard, 'the feed GRAB in the buffer', 8000).catch(() => null);
-    t.expect('the feed GRAB lands in the buffer', grabbed?.frames > 0, grabbed);
+    const grabbed = await api.until(async () => (await api.tapeState()).cue?.clips?.at(-1), 'the feed GRAB on the cue lane', 8000).catch(() => null);
+    t.expect('the feed GRAB lands on the cue lane', grabbed?.frames > 0 && grabbed?.grab, grabbed);
     await page.waitForURL(/tape\.html/, { timeout: 5000 }).catch(() => {});
 
     await t.step('tap the source again', () => t.tap(source));

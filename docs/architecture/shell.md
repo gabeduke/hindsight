@@ -224,8 +224,9 @@ way out, it is open again. The click a drag's lift sends is swallowed.
 With less motion it doesn't travel: it is there at once and fades in and
 out (`T.touch`, `T.exit`). The owner lays it out (`onShow`) and puts it
 away (`onHide`); the sheet only moves it. Its first user is the phone's
-player (`lib/bar/player.js`, `bar.md`); the notes drawer is meant to be
-the second, with a half-way detent.
+player (`lib/bar/player.js`, `bar.md`); the notes drawer is the second
+(`lib/room/drawer.js`, `rooms.md`, *The notes drawer*), with a half-way
+detent.
 
 **Recording from this phone** (`lib/phone/recorder.js`). One recorder per
 page, `phoneRecorder(doc)`, on the page's `#phone-sheet`: Capture's and the

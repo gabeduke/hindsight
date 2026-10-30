@@ -161,3 +161,13 @@ test('a clicked button gives ↵ to DROP; one reached by Tab keeps it', () => {
   press('Enter', link);
   assert.deepEqual(ran, ['drop']);
 });
+
+// A cue clip's pad is a key like a button: ↵ launches it only when the
+// keyboard went to it. Held with a mouse to open its drawer (which focuses
+// it), ↵ is the drawer's DROP: it once launched the pad instead.
+test('↵ on a cue pad is the pad’s only when the keyboard went to it', () => {
+  const doc = fakeDoc();
+  const pad = { tagName: 'DIV', type: '', id: '', isContentEditable: false, closest: (sel) => (sel.split(', ').includes('.cue-pad') ? pad : null) };
+  assert.equal(blocked({ code: 'Enter', target: pad }, doc, () => true), true, 'tabbed to: ↵ launches it');
+  assert.equal(blocked({ code: 'Enter', target: pad }, doc, () => false), false, 'pressed with a mouse: ↵ drops');
+});

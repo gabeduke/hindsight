@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { keyState, windowFrames, takesPoll, HELD_MS, pulledTo } from './state.js';
+import { keyState, windowFrames, HELD_MS, pulledTo } from './state.js';
 
 const grab = { in: 0, out: 4, frames: 4 };
 const board = (o = {}) => ({ created: 'b1', frames: 4, tracks: [[{}]], grab: { ...grab, ...o } });
@@ -29,14 +29,6 @@ test('the length DROP works with is the window as it stands now', () => {
   assert.equal(windowFrames(st), 6);
   assert.equal(windowFrames({ board: { ...board({ in: 1, out: 3 }), frames: 2 }, local: null }), 2);
   assert.equal(windowFrames({ board: null }), 0);
-});
-
-test('a fetch begun while a grab is on its way is dropped', () => {
-  // The 2 s poll's old clipboard closed the bench mid-grab.
-  assert.equal(takesPoll({ gen: 3, local: null, grabbing: true }, 3), false);
-  assert.equal(takesPoll({ gen: 3, local: null, grabbing: false }, 3), true);
-  assert.equal(takesPoll({ gen: 4, local: null, grabbing: false }, 3), false);
-  assert.equal(takesPoll({ gen: 3, local: { in: 0, out: 1 }, grabbing: false }, 3), false);
 });
 
 // Pulling the phone's sheet down closed the buffer (below 12% of the screen):

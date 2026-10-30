@@ -41,6 +41,12 @@ export const SPINE_PRESS = Object.freeze({ hold: GESTURE.HOLD.select, slop: GEST
  * A long press on a phone is its hold, never the browser's menu.
  */
 export const ARM_PRESS = Object.freeze({ hold: GESTURE.HOLD.tape, slop: Infinity, menu: false });
+/**
+ * CUE_PRESS is a clip on the Studio's cue lane (lib/tape/cuelane.js): a tap
+ * launches it, a hold opens its drawer. A mouse holds too, as the drawer has
+ * no other way in by pointer, and ⇧ is not a hold: ⇧-tap launches at once.
+ */
+export const CUE_PRESS = Object.freeze({ hold: GESTURE.HOLD.tape, slop: GESTURE.SLOP_PX, holdBy: Object.freeze(['touch', 'pen', 'mouse']), shiftHolds: false });
 
 /**
  * pressMachine is a key that taps, double taps and holds. It answers {down,
@@ -59,12 +65,15 @@ export const ARM_PRESS = Object.freeze({ hold: GESTURE.HOLD.tape, slop: Infinity
  *             swallowed, so it does not also tap.
  *   holdBy    the pointers that hold. A mouse's press would catch a slow
  *             click, so it never holds unless a caller lets it.
+ *   shiftHolds false: a ⇧-click is a tap, for a key whose ⇧ means
+ *             something else (a cue clip's: launch at once), so it holds
+ *             only by a hold.
  *   selecting () -> a selection is on: a tap picks, so there is no hold to
  *             wait for, and two quick taps are two picks, not a double.
  *   now, setTimer, clearTimer   the clock, handed in for the tests.
  */
 export function pressMachine({
-  onTap, onDouble = null, onHold = null, hold = null, holdBy = ['touch', 'pen'], slop = GESTURE.SLOP_PX,
+  onTap, onDouble = null, onHold = null, hold = null, holdBy = ['touch', 'pen'], slop = GESTURE.SLOP_PX, shiftHolds = true,
   selecting = () => false, now = () => performance.now(), setTimer = setTimeout, clearTimer = clearTimeout,
 }) {
   if (onHold && !(hold > 0)) throw new TypeError('pressMachine: a hold needs its time, one of GESTURE.HOLD');
@@ -125,7 +134,7 @@ export function pressMachine({
         return;
       }
       held = false;
-      if (e.shiftKey && onHold) { last = null; onHold(); return; }
+      if (e.shiftKey && onHold && shiftHolds) { last = null; onHold(); return; }
       // A keyboard's click, or a tap that picks, is never half of a double.
       if (!onDouble || e.detail === 0 || selecting()) { last = null; onTap(); return; }
       // When the finger came down, by the event's own clock where it has one:

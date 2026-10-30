@@ -16,6 +16,8 @@ import { studioView } from '/lib/shell/views/studio.js';
 import { captureView } from '/lib/shell/views/capture.js';
 import { ensureStudioSheets } from '/lib/rooms/sheets.js';
 import { layersOf } from '/lib/ui/layers.js';
+import { createNotesDrawer } from '/lib/room/drawer.js';
+import { barNotes } from '/lib/room/notes.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -35,6 +37,39 @@ let router = null;
 const engine = createEngine({ tapes, onToast: toast, go: (url, opts) => router?.go(url, opts) });
 const link = watchLink(() => {});
 
+// The notes drawer (lib/room/drawer.js), the shell's one, the same in every
+// room: ✎ on the bar opens it on the take in the bar at the frame being
+// heard; the take plays on and the URL stays. A room that lists takes hears
+// what changed through notes.onChange.
+const drawer = createNotesDrawer({ doc: document, layers, toast });
+const noteHooks = new Set();
+const notes = {
+  /** onChange calls fn(take) when the drawer changes a take; answers a way off. */
+  onChange(fn) { noteHooks.add(fn); return () => noteHooks.delete(fn); },
+};
+// A second ✎ before the first one's take has come back wins: only the
+// newest press opens.
+let presses = 0;
+engine.setOnNote(async (f) => {
+  const press = ++presses;
+  const open = drawer.source;
+  try {
+    let src = open;
+    if (open && open.name === f.take) await open.reload();
+    else {
+      src = await barNotes(f.take, {
+        bar: engine.bar,
+        go: (url) => router.go(url),
+        onChanged: (t) => { for (const fn of noteHooks) fn(t); },
+      });
+    }
+    if (press !== presses) return;
+    drawer.open(src, { at: f.frame });
+  } catch (e) {
+    toast(`Couldn’t open the notes: ${e.message}`, 'bad');
+  }
+});
+
 const tapeOn = () => {
   try {
     const v = localStorage.getItem('hindsight.tapeOn');
@@ -52,7 +87,7 @@ const slots = {
   bar: { parent: () => $('np') },
 };
 
-const shared = { engine, tapes, toast, link, layers, go: (url, opts) => router.go(url, opts) };
+const shared = { engine, tapes, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
 
 const views = [];
 const studioRoot = $('view-studio');

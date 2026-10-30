@@ -7,12 +7,12 @@
 import { wall, floor } from './shell.js';
 import { sash, curtain, poster } from './window.js';
 import { credenza, speaker, deck, shelves } from './hifi.js';
-import { lamp, table, book, glass } from './corner.js';
+import { lamp, table, glass } from './corner.js';
 import { rug, amp } from './floor.js';
 import { chair } from './chair.js';
 
 export const ART = Object.freeze({
   wall, floor, window: sash, curtain, poster,
   console: credenza, speaker, deck, shelves,
-  lamp, table, book, glass, rug, amp, chair,
+  lamp, table, glass, rug, amp, chair,
 });

@@ -249,8 +249,8 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
 - **A sheet or a drawer that follows the finger** is `createSheet`
   (`lib/ui/sheet.js`; `docs/architecture/shell.md`, *Sheets*): detents, a
   flick, the lid spring, and its layer on the stack the one way out; never
-  a drag of its own. The phone's player is the first; the notes drawer is
-  meant to be the second. Recording from a phone is the page's one
+  a drag of its own. The phone's player is the first; the notes drawer
+  (`lib/room/drawer.js`) is the second. Recording from a phone is the page's one
   recorder (`phoneRecorder`), whatever key starts it.
 - **Moving between rooms** is the router's View Transition
   (`docs/architecture/shell.md`, *Moving between rooms*), drawn by
@@ -274,6 +274,13 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   on a tablet the Studio holds `STUDIO_BUDGET` (`scripts/flows/layout.mjs`,
   J1.16), which only goes down.
   ([0059](docs/decisions/0059-the-studio-on-one-screen.md))
+- **GRAB lands on the cue lane**, as a clip with a lane per input and its
+  handles (`docs/architecture/tape.md`, *The cue lane*). A clip there is a
+  pad: a tap launches it, a hold opens its drawer, docked above the bar,
+  where everything that acts on it is (IN/OUT, its inputs, gain, Loop,
+  DROP, KEEP, Toss); a new key for a cue clip goes in the drawer, never on
+  the pad. The clipboard is a range's Cut, Copy and Paste's, and nothing
+  shows it. ([0061](docs/decisions/0061-grab-lands-on-the-cue-lane.md))
 - **A take is named by `takeTitle`** (`lib/rooms/takename.js`), wherever a
   person reads it: its name, or the time on its spine. Never a take's file
   or its date stamp on screen (Open's page is the one still to move, in

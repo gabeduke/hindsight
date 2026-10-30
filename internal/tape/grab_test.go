@@ -425,21 +425,6 @@ func TestATossCanBeUndone(t *testing.T) {
 	}
 }
 
-func TestKeepingTheClipboardKeepsEachLane(t *testing.T) {
-	e, _, _ := barLoop(t)
-	from, to := int64(100000), int64(148000)
-	if _, err := e.Grab(GrabRequest{RingFrom: &from, RingTo: &to, Sources: []string{"ch1", "aux"}}); err != nil {
-		t.Fatal(err)
-	}
-	ks, err := e.KeepClipboardLanes()
-	if err != nil || len(ks) != 2 || ks[0].Name != "The feed (ch1) · 0:01" || ks[1].Name != "The feed (aux) · 0:01" {
-		t.Fatalf("kept %+v: %v", ks, err)
-	}
-	if c, _ := e.Clipboard(); !c.Grab.Used {
-		t.Fatal("kept in the crate, it isn't marked used")
-	}
-}
-
 func TestNormalizeBringsTheLanesSumUp(t *testing.T) {
 	e, sink, _ := barLoop(t)
 	from, to := int64(100000), int64(148000)

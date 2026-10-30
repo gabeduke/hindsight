@@ -1,8 +1,10 @@
 # Listening back
 
-> Its open steps are steps 9 and 10 of `the-studio-space.md`. Step 1, the
-> way in (Open › and ✎ at the bar's end, a double tap on a spine, the
-> deck's caption), landed with that spec's step 4: `docs/architecture/bar.md`.
+> Its open step is step 10 of `the-studio-space.md`. Step 1, the way in
+> (Open › and ✎ at the bar's end, a double tap on a spine, the deck's
+> caption), landed with that spec's step 4: `docs/architecture/bar.md`;
+> step 2, the notes drawer, with its step 9: `docs/architecture/rooms.md`,
+> *The notes drawer*.
 
 Agreed with Gabe on 2026-10-23, after he tried the Listening Room on the
 rig: getting from a take into its page was awkward, the page's keys were
@@ -39,7 +41,7 @@ make notes."*
 | | |
 |---|---|
 | The way in | Landed (above). |
-| One notes drawer | The bookmark drawer, built now: one module, the same in both rooms and on Open. It holds the take's name, ★ and tag; *✎ at 0:09* with the words (Enter adds); then the notes, each its number, time (a tap goes there), words (edited in place), ▶, GRAB and ✕. ✎ on the bar opens it at the frame being heard; the take plays on and the URL stays. **✎ is the only pencil, and it means a note here, now.** **The Sketchbook leaves the room**: the object, its dialog, its caption, and a phone's *Sketchbook* band. |
+| One notes drawer | Landed (step 2). The bookmark drawer, built now: one module, the same in both rooms and on Open. It holds the take's name, ★ and tag; *✎ at 0:09* with the words (Enter adds); then the notes, each its number, time (a tap goes there), words (edited in place), ▶, GRAB and ✕. ✎ on the bar opens it at the frame being heard; the take plays on and the URL stays. **✎ is the only pencil, and it means a note here, now.** **The Sketchbook leaves the room**: the object, its dialog, its caption, and a phone's *Sketchbook* band. |
 | Open, on a tablet and wider | One-row header: ‹ Takes, the name, ★, tag, then ↶ (the previous and next take and Delete are in the take name's menu, landed with the frame). **The notes drawer is docked beside the waveform**, open, without its own name, ★ and tag (the header has them). Under the waveform: **GRAB 4 BARS** as the primary key, KEEP, and More (Download goes in it); then **Fine tune ▸** (the downbeat, snap, speed and level); then **MIDI ▸**, only when the take has MIDI, holding the lanes and the piano roll. |
 | Open, on a phone | The same order in one column, the header in one row. ✎ opens the drawer as a sheet; the list sits under the keys. |
 | Marks and words | A note on the waveform is a **numbered pin** that matches its row. A dropout keeps its ⚠ mark, and is a row of its own in the list that can't be edited. The MIDI's button and section say **MIDI**, so *notes* only ever means yours. The ⟲ says **Repeat** for a take on Open as in the bar (*Vocabulary*, `docs/architecture/rooms.md`). Undo says *adding a note*. *Three things worth knowing* moves into help mode. |
@@ -48,15 +50,13 @@ make notes."*
 What stays: a tap plays and pauses anywhere; holding selects; Open is its
 own page (`wave.html`), for now.
 
-### To settle while building it
+### Settled while building it
 
-My recommendation comes first in each.
-
-- **With the tape in the bar, ✎ stays hidden,** as now. Notes on tapes are in
-  `backlog.md`, and the cue clip's drawer (`the-studio-on-one-screen.md`,
-  step 5) is a separate one that can share the drawer's frame. (The double
-  tap that plays as well as opens, and the deck's caption, were settled
-  with step 1.)
+- **With the tape in the bar, ✎ stays hidden,** as before (step 2 took the
+  recommendation). Notes on tapes are in `backlog.md`, and the cue clip's
+  drawer (`the-studio-on-one-screen.md`, step 5) is a separate one that can
+  share the drawer's frame. (The double tap that plays as well as opens,
+  and the deck's caption, were settled with step 1.)
 
 ## Build order
 
@@ -65,11 +65,8 @@ Each step is its own PR, with its flows updated in `docs/flows.md` and
 both schemes. All three are static, and each merge releases.
 
 1. ~~The way in.~~ Landed with `the-studio-space.md`'s step 4 (the bar).
-2. **The notes drawer.** The module, mounted by the shell and by Open; ✎
-   opens it in either room; the Sketchbook goes (`lib/room/space.js`,
-   `art/corner.js`, the `--room-book-*` tokens, `openSketchbook` in
-   `lib/room/doorway.js`). J2.4 becomes the drawer, and U3 is written and
-   made core.
+2. ~~The notes drawer.~~ Landed: `docs/architecture/rooms.md`, *The notes
+   drawer*; J2.4 and U3.
 3. **Open.** The header, the docked drawer, the keys and their order, Fine
    tune, MIDI, the pins, the words, *Three things* into help mode. Updates
    J2.5 and J3.1, and adds J2.9: write notes on a take as it plays (✎,

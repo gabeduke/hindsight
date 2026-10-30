@@ -319,27 +319,31 @@ tape state (and unfold the lanes if folded via `#tracks-fold-btn`).
   `Tape` · `Shelf`) plus seamless continuation of a carried Shelf take.
 - `keep.js` — KEEP's request and its Undo, and Flag now's.
 
-### The buffer
+### GRAB and a cue clip's drawer
 
-`web/static/lib/buffer/` is the Studio's buffer: the clipboard, made
-visible. `studio.js` mounts it; its markup is `shell.html`'s `buffer-`
-templates. On the Pi it is the clipboard
-with a `grab` on it (`internal/tape/grab.go`): GRAB copies a span of the
-ring there at once, by Catch's own arithmetic for the last N bars, with
-handles of a bar either side; the window is trimmed in place; a grab never
-dropped or kept goes to the crate before anything replaces it.
+`web/static/lib/buffer/` is GRAB and a cue clip's drawer (it was the
+Studio's buffer, the clipboard made visible; the directory kept its name).
+`studio.js` mounts it; its markup is `shell.html`'s `buffer-` templates, the
+drawer in the dock above the bar. On the Pi a GRAB is a cue clip with lanes
+and a grab (`internal/tape/cuegrab.go`): it copies a span of the ring at
+once, by Catch's own arithmetic for the last N bars, with handles of a bar
+either side, and the window is trimmed in place. `docs/architecture/tape.md`,
+*The cue lane*, has the rest.
 
-It speaks to the tape page in events too: it reads `hindsight:tape-state`
+It speaks to the tape page in events: it reads `hindsight:tape-state`
 (which carries the tape, the armed track and its input, the sources, the
-snap and the lanes' view), and sends `hindsight:tape-changed` after a drop,
-and `hindsight:clipboard` after any change to the clipboard. It draws
-over the lanes only in a layer of its own (`lanes.js`); folding them is a
-class on the body (`fold.js`), which changes heights and nothing else.
+snap and the lanes' view), hears `hindsight:cue-select` from a held pad,
+says `hindsight:cue-selected`, and sends `hindsight:tape-changed` after any
+change. It draws over the lanes only in a layer of its own (`lanes.js`);
+folding them is a class on the body (`fold.js`), which changes heights and
+nothing else.
 
-- `buffer.js` — mounts it and drives it: GRAB, the bench or the sheet, DROP,
-  KEEP AS TAKE, TOSS.
-- `model.js` — the numbers, tested: the next free span, the window's steps.
-- `keys.js` — the buffer's keys, as a table for P3's control bus to fold in.
+- `buffer.js` — mounts it and drives it: GRAB, the drawer or the sheet,
+  DROP, KEEP, TOSS.
+- `cueclip.js` — a cue clip as a board (`boardOf`), the dial's arithmetic,
+  GRAB's words.
+- `model.js` — the numbers, tested: where DROP lands, the window's steps.
+- `keys.js` — the drawer's keys, as a table for P3's control bus to fold in.
 - `draw.js`, `lanes.js`, `fold.js`, `audition.js`, `api.js`.
 
 ## The Listening Room
@@ -355,11 +359,10 @@ rack's list, its selection and Play all, and the bar; a take, its flags and its
 clock — and the room draws itself around them:
 
 - `doorway.js` — the shelves (this month's takes, the archive by month), the
-  deck (`ReelWindow` driven at 60fps from `NowPlaying.onChange`), the inline
-  Sketchbook sheet (`#room-sketchbook` for adding/editing notes, renaming,
-  starring, tagging, and grabbing a note's span to the Studio buffer without
-  leaving the room or interrupting playback), and the dock (`#np` with its
-  3-way `Feed` · `Tape` · `Shelf` source switcher).
+  deck (`ReelWindow` driven at 60fps from `NowPlaying.onChange`), and the
+  dock (`#np` with its 3-way `Feed` · `Tape` · `Shelf` source switcher).
+  A take's notes are the notes drawer's (`drawer.js`, the shell's and
+  Open's: `docs/architecture/rooms.md`, *The notes drawer*).
 - `open.js` — the take page (`wave.html`) with the rooms' words laid over it:
   `✎ Note`, `GRAB` beside `KEEP`, the take's notes one line each with `▶` and
   `GRAB`, its tag beside its star, and its family lines (`Made from`, `From
@@ -696,6 +699,10 @@ claude.ai artifacts, private to Gabe:
 - The wireframes (every view at tablet, phone and desktop size):
   `9VDEexPH2bUo1vVzxZBSQx`
 - The SMK-37's surface: `WrryAkACiz1AgNHGBMYAWV`
+- The kit (eight components on every surface; `the-ecosystem.md`):
+  `4fJSP7iBAvLS2uMuBJ4xhg`
+- The ecosystem review (the architecture today, the directions, the
+  walkthrough's questions): `XTWpyKFHcn14cCzBE2cdCo`
 - The play look (the audit and three directions; `the-play-look.md`):
   `DHqPaBAGJyqDz4PErR4Qir`, built by `play/gen.py` in the design
   generators' folder

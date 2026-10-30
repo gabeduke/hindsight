@@ -74,11 +74,11 @@ export const CONTROLS = [
   // The Studio's verbs: the rooms'. Commands, on the press.
   { id: 'catch', kind: COMMAND, group: 'verbs', face: 'CATCH', play: ['KeyC'], edit: ['KeyC'], midi: [note(50)], needs: 'rooms', what: 'The last pass onto the armed track' },
   { id: 'grab', kind: COMMAND, group: 'verbs', face: 'GRAB', play: ['KeyG'], edit: ['KeyG'], midi: [note(51)], needs: 'rooms',
-    buffer: { when: 'studio', what: 'Grab the last bars into the buffer' }, what: 'The last bars into the buffer' },
+    buffer: { when: 'studio', what: 'Grab the last bars onto the cue lane' }, what: 'The last bars onto the cue lane' },
   { id: 'drop', kind: COMMAND, group: 'verbs', face: 'DROP', play: ['Enter', 'NumpadEnter'], edit: ['Enter', 'NumpadEnter'], midi: [note(52)], needs: 'rooms',
-    buffer: { when: 'held', what: 'Drop it on the armed track, at the next free span' }, what: 'The buffer onto the armed track' },
+    buffer: { when: 'held', what: 'Drop it on the armed track, at the next free span' }, what: 'The open cue part onto the armed track' },
   { id: 'keep', kind: COMMAND, group: 'verbs', face: 'KEEP', play: ['KeyK'], edit: ['KeyK'], midi: [note(53)], needs: 'rooms',
-    buffer: { when: 'open', what: 'Keep it as a take' }, what: 'The feed, or the open buffer, as a take' },
+    buffer: { when: 'open', what: 'Keep it as a take' }, what: 'The feed, or the open cue part, as a take' },
   // The click's key with the rooms on: K is KEEP there.
   { id: 'click', kind: COMMAND, group: 'studio', face: '♩', play: [], edit: ['KeyM'], midi: [], needs: 'rooms', what: 'The click on or off' },
   // The buffer's edit keys (lib/buffer/keys.js), only while it's open.

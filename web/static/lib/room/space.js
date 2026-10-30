@@ -58,7 +58,6 @@ export const ROOM = Object.freeze({
     { id: 'amp', art: 'amp', at: { x: 452, y: 0, z: 266 }, size: { w: 58, h: 34, d: 24 }, mount: 'floor', material: { base: '--room-tweed', grille: '--room-amp-grille' } },
     { id: 'lamp', art: 'lamp', at: { x: 182, y: 0, z: 70 }, size: { w: 36, h: 166, d: 36 }, mount: 'floor', material: { shade: '--room-shade-hi', shadeLo: '--room-shade-lo', pole: '--room-pole' } },
     { id: 'table', art: 'table', at: { x: 204, y: 0, z: 158 }, size: { w: 54, h: 56, d: 54 }, mount: 'floor', material: { base: '--room-walnut', hi: '--room-walnut-hi', lo: '--room-walnut-lo' } },
-    { id: 'book', art: 'book', twin: 'book', at: { x: 212, y: 56, z: 168 }, size: { w: 30, h: 3, d: 22 }, mount: 'on:table', material: { cover: '--room-book-cover', paper: '--room-paper' } },
     { id: 'glass', art: 'glass', at: { x: 240, y: 56, z: 176 }, size: { w: 8, h: 10, d: 8 }, mount: 'on:table', material: { glass: '--room-glass', drink: '--room-whisky' } },
     { id: 'chair', art: 'chair', at: { x: 72, y: 0, z: 138 }, size: { w: 112, h: 98, d: 92 }, mount: 'floor', material: { base: '--room-leather', hi: '--room-leather-hi', lo: '--room-leather-lo', piping: '--room-leather-edge', throw: '--room-throw' } },
   ],

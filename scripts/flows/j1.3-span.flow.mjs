@@ -1,5 +1,5 @@
 // J1.3 Select a span of the feed: hold on the ribbon and drag, then KEEP
-// just that span as a take, or GRAB it into the buffer. docs/flows.md#j13
+// just that span as a take, or GRAB it onto the cue lane. docs/flows.md#j13
 
 // holdDrag is the ribbon's select gesture: a press held past the hold time,
 // then a drag. A finger on a touch profile (real touch events), the mouse
@@ -73,10 +73,10 @@ export default {
     const grab = page.locator('#rb-sel .buffer-grab-sel');
     t.expect('the selection offers GRAB', await grab.isVisible(), `"${text2}"`);
     await t.step('tap the selection’s GRAB', () => t.tap(grab));
-    t.expect('the buffer opens', await t.poll(() => !document.getElementById('buffer')?.hidden, null, 8000));
-    const clip = await api.until(async () => (await api.get('/api/clipboard')).clipboard, 'the grab in the buffer', 8000).catch(() => null);
+    t.expect('its drawer opens', await t.poll(() => !document.getElementById('buffer')?.hidden, null, 8000));
+    const clip = await api.until(async () => (await api.tapeState()).cue?.clips?.at(-1), 'the grab on the cue lane', 8000).catch(() => null);
     const secs = clip ? clip.frames / 48000 : NaN; // the tape's rate
-    t.expect('the buffer holds that span', Math.abs(secs - len2) <= 1.5,
-      `selected ${len2} s, buffer ${secs.toFixed(2)} s`);
+    t.expect('the cue lane holds that span', Math.abs(secs - len2) <= 1.5,
+      `selected ${len2} s, on the lane ${secs.toFixed(2)} s`);
   },
 };
