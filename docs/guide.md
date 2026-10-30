@@ -660,8 +660,8 @@ From the top:
   its tempo and its parts, this one ticked: tap another to open it) and
   **New tape**; **Rename…** and **Duplicate**; **Download the mix** and
   **Share the mix…**, **Bounce the loop**, **Bounce the whole tape**,
-  **Export stems** and **Play the last bounce** (§8.6); **Record from this phone…** (§7); and last, in red,
-  **Delete this tape…**.
+  **Export stems** and **Play the last bounce** (§8.6); **Record from this
+  phone…** (§7); and last, in red, **Delete this tape…**.
 - **↶ ↷** undo and redo every change to the tape except its name. 100 steps
   are kept, with the tape, so they survive a restart and every device shares
   them. On a phone, ↷ shows once there is something to redo.

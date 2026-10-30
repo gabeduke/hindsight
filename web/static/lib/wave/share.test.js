@@ -175,17 +175,31 @@ test('exportWays asks the browser: can it share files, and is its pointer a mous
   try { assert.deepEqual(exportWays(), ['share', 'download']); } finally { for (const u of touch.reverse()) u(); }
 });
 
-// Two keys in a parent, by name, for orderExportKeys' before().
+// Two keys in a parent, by name, for orderExportKeys' before(); moves
+// counts the times one was moved (a move drops the keyboard's focus).
 function keys() {
   const list = [];
+  let moves = 0;
   const key = (name) => ({
     name, hidden: false,
-    before(other) { list.splice(list.indexOf(other), 1); list.splice(list.indexOf(this), 0, other); },
+    get nextElementSibling() { return list[list.indexOf(this) + 1] ?? null; },
+    before(other) { moves++; list.splice(list.indexOf(other), 1); list.splice(list.indexOf(this), 0, other); },
   });
   const download = key('download'), share = key('share');
   list.push(share, download); // the wrong way round, to see it put right
-  return { download, share, names: () => list.filter((k) => !k.hidden).map((k) => k.name) };
+  return { download, share, moves: () => moves, names: () => list.filter((k) => !k.hidden).map((k) => k.name) };
 }
+
+test('orderExportKeys leaves keys already in order where they are', () => {
+  const k = keys();
+  orderExportKeys(k.download, k.share, ['download', 'share']);
+  orderExportKeys(k.download, k.share, ['download', 'share']);
+  orderExportKeys(k.download, k.share, ['download']);
+  assert.equal(k.moves(), 1);
+  orderExportKeys(k.download, k.share, ['share', 'download']);
+  orderExportKeys(k.download, k.share, ['share', 'download']);
+  assert.equal(k.moves(), 2);
+});
 
 test('orderExportKeys shows the keys in exportWays order, Share hidden where it cannot share', () => {
   let k = keys();

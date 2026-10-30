@@ -66,8 +66,10 @@ export function exportWays({ share = canShareFiles(), fine = finePointer() } = {
 export function orderExportKeys(download, share, ways = exportWays()) {
   if (!download || !share) return;
   share.hidden = !ways.includes('share');
-  if (ways[0] === 'share') download.before(share);
-  else share.before(download);
+  // Moved only when out of order: moving a key drops the keyboard's focus
+  // off it, and the clip's inspector puts these in order each time it fills.
+  if (ways[0] === 'share') { if (share.nextElementSibling !== download) download.before(share); }
+  else if (download.nextElementSibling !== share) share.before(download);
 }
 
 /**

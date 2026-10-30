@@ -52,7 +52,7 @@ export default {
     const day = new Date().toLocaleDateString('en-CA'); // the Pi's day, as YYYY-MM-DD
     t.expect('the browser downloads it, named after the tape and the day', got?.suggestedFilename() === `Laptop mix ${day}.mp3`, got?.suggestedFilename());
     const bytes = got ? readFileSync(await got.path()) : Buffer.alloc(0);
-    t.expect('and it is an MP3', mp3(bytes), { size: bytes.length, head: [...bytes.subarray(0, 4)] });
+    t.expect('it is an MP3', mp3(bytes), { size: bytes.length, head: [...bytes.subarray(0, 4)] });
     t.expect('nothing went to the share sheet', (await page.evaluate(() => window.__shared.length)) === 0);
 
     // A clip, from its inspector: Download as WAV, and Share as WAV… beside it.
