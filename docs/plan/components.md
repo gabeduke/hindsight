@@ -1,10 +1,11 @@
 # Components, models and the protocol
 
-> A spec, not yet agreed. It works out the ecosystem's steps 4 and 5
-> (`the-ecosystem.md`, Direction B) and the protocol under them. Nothing in
-> it is built but the verbs (#224) and the takes model (#225). Gabe,
-> 2026-10-30: *"get to a point where we're not trying to make changes to the
-> entire app but to small individual components in a more targeted way."*
+> A spec, agreed 2026-10-30 (*For Gabe*, at the end). It works out the
+> ecosystem's steps 4 and 5 (`the-ecosystem.md`, Direction B) and the
+> protocol under them. Built so far: the verbs (#224), the takes model
+> (#225) and the transport model (#231). Gabe, 2026-10-30: *"get to a
+> point where we're not trying to make changes to the entire app but to
+> small individual components in a more targeted way."*
 
 Each decision has a recommendation. *For Gabe*, at the end, lists the ones
 that change a rule he made.
@@ -463,6 +464,11 @@ built new on the contract (`tempo.md`), not extracted: the first component
 that never lived in a page.
 
 ## For Gabe
+
+Agreed 2026-10-30: Gabe took the recommendation on all six ("Yes, go
+ahead"), to be revisited as they are built. 1 and 2 amend AGENTS.md and
+decision 0047 in the PR that builds them, not before. 5 keeps today's rate.
+6 stays open, and nothing waits on it.
 
 1. **The bar's keys in the Transport's template**, not in `shell.html` and
    `wave.html`: decision 0047's *in the markup* moves from the pages'
