@@ -239,6 +239,14 @@ player (`lib/bar/player.js`, `bar.md`); the notes drawer is the second
 (`lib/room/drawer.js`, `rooms.md`, *The notes drawer*), with a half-way
 detent.
 
+**A height the CSS reads** (`lib/ui/measure.js`) is measured, never
+written into a stylesheet: `measureInto(el, prop, {root, RO})` writes
+`el`'s height, as drawn, into the custom property `prop` on the page's
+`<html>`, once per change (0 hidden), and answers its disconnect. The bar's
+`--np-h` (`measureBar`, `bar.md`) and help mode's tip, `--tip-h`
+(`lib/help/help.js`, `take-page.md`), are its; every reader has a `0px`
+fallback.
+
 **Recording from this phone** (`lib/phone/recorder.js`). One recorder per
 page, `phoneRecorder(doc)`, on the page's `#phone-sheet`: Capture's and the
 Studio's ● Phone (`initPhone` wires a room's key to it), the tape's menu's

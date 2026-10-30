@@ -31,7 +31,7 @@ web/static/lib/scene   the scene contract the renderers follow
 web/static/lib/wave    the take page (wave.html): view, geometry, draw, tiles, clock, lanes
 web/static/lib/edit    the gestures and curves every editing surface shares
 web/static/lib/ui      the shared parts: one press (GESTURE), a key's tap, double tap and hold, and its down pose;
-                       one stack of open things, one menu, one sheet you drag;
+                       one stack of open things, one menu, one sheet you drag; a height measured for the CSS;
                        one icon set: icons.js, drawing from web/static/icons/ui.svg
 web/static/lib/help    tips, help mode, and the guide renderer
 web/static/lib/phone   the phone recorder (one per page: phoneRecorder)
