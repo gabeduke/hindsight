@@ -109,6 +109,12 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   calls them. Retire them, moving the tests that use them to the cue lane
   (`grab_test.go`, `replaced*_test.go`, `internal/api/buffer_test.go`);
   a range's Cut, Copy, Paste and their Undo (`RestoreReplaced`) stay.
+- **`the-play-look.md`** (not agreed yet): the look made simpler and more
+  fun, after Gabe's OP-1 field note. An audit, and three directions on the
+  canvas `DHqPaBAGJyqDz4PErR4Qir` (A tidied, B Signal recommended, C
+  Toybox), shipped as a theme beside today's Reel and applied per
+  component. It is `the-ecosystem.md`'s step 7, after the walkthrough.
+  **Gabe picks a direction** before any code.
 - **`the-instrument.md`** (agreed 2026-10-26), in tracks of its own:
   Hindsight as something you play. Its step 1 is built: latency
   measured in use, every control timed to the ear, kept on the Pi
