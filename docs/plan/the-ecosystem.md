@@ -190,7 +190,8 @@ what is on the list.
    `feed`, `transport`, `rig`) owning polling and push; takes and capture
    get push.
 5. **Components out of the big files**: Transport and the take browser
-   first, the tape editor last.
+   first, the tape editor last. Steps 4 and 5, the component contract and
+   the protocol under them: `components.md`.
 6. **Workspaces**: Jam, Build and Listen on the tablet; the laptop and the
    phone as other arrangements.
 7. **The look** (the play look, PR #218, unmerged) on components, not
