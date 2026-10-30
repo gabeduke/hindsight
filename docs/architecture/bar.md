@@ -54,7 +54,10 @@ sideways scroll).
   `0px` fallback.
 - **The display says what plays** (`lib/bar/display.js`): where it is, then
   three keys on the LCD, each a value over its legend: the tempo (in the
-  Studio, with the tape, the tempo menu; elsewhere a readout), the source
+  Studio, with the tape, the tempo's panel, `renderTempo`: a dialog with
+  the tempo to type, −1 and +1, TAP (`tappedBpm`, `SLOWEST_BEAT_MS` in
+  `lib/tape/geometry.js`) and the grid's bars counted half or twice;
+  elsewhere a readout), the source
   (TAPE, FEED or the take's name; `source-menu.js`: the tape, the live
   feed, the last few takes, Go to the shelf) and where it plays (JAM ROOM,
   PHONE, BOTH for the tape; THIS TABLET, THIS PHONE or THIS COMPUTER for a

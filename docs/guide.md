@@ -869,7 +869,7 @@ A track holds `TAPE_LENGTH_S` seconds, 20 minutes by default.
 tempo you were last playing: the clipboard's or your newest take's, whichever
 is newer.
 
-The tempo is fixed once the tape has audio, because nothing is ever stretched.
+Once the tape has audio, the tempo on the bar still changes it: type a BPM, nudge it with −1 and +1, or TAP it. The bar lines, the click and the clock move to the new tempo; the audio, the parts and the loop stay where they are, because nothing is ever stretched.
 
 ### 8.4 Building it up
 

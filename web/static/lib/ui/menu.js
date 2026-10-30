@@ -201,6 +201,9 @@ export function menu(button, panel, {
     // The keyboard is in the menu, on its button, or nowhere (Safari
     // doesn't focus a button it clicks): not in a field elsewhere.
     if (!inside && at && at !== button && at !== doc.body && at !== doc.documentElement) return;
+    // A field in it (the tempo's) keeps the keys that move along its text.
+    const typing = inside && (at.tagName === 'INPUT' || at.tagName === 'TEXTAREA');
+    if (typing && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
     const list = items();
     if (!list.length) return;
     const i = inside ? list.indexOf(at) : -1;

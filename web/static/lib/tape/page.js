@@ -4147,20 +4147,22 @@ async function tap() {
 }
 
 // renderTempo fills the tempo's panel, from the bar's display: the tempo
-// to type, −1 and +1, TAP, and under a line the other bar counts the loop
-// could be. A new tempo re-grids the tape (docs/plan/tempo.md): the bar
-// lines, the click and the clock move, and the audio, the clips and the
-// loop stay where they are. A bar count relabels the same frames. Each is a
-// step of undo; nudges and taps in a row are one (the Pi's "tempo" kind).
+// to type, −1 and +1, TAP, and under a line the grid's bars counted half or
+// twice as many. A new tempo re-grids the tape (docs/plan/tempo.md): the
+// bar lines, the click and the clock move, and the audio, the clips and the
+// loop stay where they are. A bar count relabels the grid's frames, which
+// are the loop's until a re-grid. Each is a step of undo; nudges and taps
+// in a row are one (the Pi's "tempo" kind).
 const tempoTaps = [];
 function renderTempo(panel) {
   const doc = panel.ownerDocument;
   const t = state.tape;
   const now = t && t.grid ? bpmOf(t.grid, t.sample_rate) : 0;
   const tenth = (n) => Math.round(n * 10) / 10;
-  // The empty tape's form's row and field (styles.css, .tape-tempo-row).
+  // The empty tape's form's row and field: its styling, reused
+  // (styles.css, .tape-tempo-row).
   const row = doc.createElement('div');
-  row.className = 'tape-tempo-row tempo-set';
+  row.className = 'tape-tempo-row';
   const field = doc.createElement('input');
   Object.assign(field, { id: 'tempo-bpm', type: 'number', min: 20, max: 400, step: 0.1, inputMode: 'decimal', value: now ? String(tenth(now)) : '' });
   field.setAttribute('aria-label', 'Tempo in BPM');
@@ -4186,7 +4188,8 @@ function renderTempo(panel) {
       }
     }
     return opts.map((o) => {
-      const r = menuItem(doc, { word: `${o.n} bar${o.n === 1 ? '' : 's'} at ${o.b.toFixed(1)} BPM`, className: o.n === tp.grid.bars ? 'on' : '' });
+      // A button, not a menuitem: the panel is a dialog, for its field.
+      const r = menuItem(doc, { role: 'button', word: `${o.n} bar${o.n === 1 ? '' : 's'} at ${o.b.toFixed(1)} BPM`, className: o.n === tp.grid.bars ? 'on' : '' });
       r.addEventListener('click', () => {
         menus.tempoBar.close();
         if (o.n !== tp.grid.bars) patch({ bars: o.n });
@@ -4198,13 +4201,16 @@ function renderTempo(panel) {
   const showBars = () => {
     while (row.nextSibling) row.nextSibling.remove();
     const rows = bars();
-    if (rows.length) panel.append(menuDivider(doc), menuGroup(doc, 'Call the loop'), ...rows);
+    if (rows.length) panel.append(menuDivider(doc), menuGroup(doc, 'Count the bars'), ...rows);
   };
   const set = async (bpm) => {
     bpm = tenth(bpm);
     if (!(bpm >= 20 && bpm <= 400)) { toast('A tempo is 20 to 400 BPM', 'warn'); return; }
     field.value = String(bpm);
     if (await patch({ tempo: { bpm } })) showBars();
+    // Refused (a punch, say): back to the tape's, so the next +1 counts
+    // from what the Pi has.
+    else if (state.tape?.grid) field.value = String(tenth(bpmOf(state.tape.grid, state.tape.sample_rate)));
   };
   field.addEventListener('change', () => set(Number(field.value)));
   // ↑ ↓ nudge a tenth (with Shift, a whole BPM), not the menu's focus.
@@ -4213,12 +4219,12 @@ function renderTempo(panel) {
     e.preventDefault();
     set(Number(field.value) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 1 : 0.1));
   });
-  const tap = key('TAP', 'Tap the tempo', () => {
+  const tapKey = key('TAP', 'Tap the tempo', () => {
     const at = performance.now();
     if (tempoTaps.length && at - tempoTaps[tempoTaps.length - 1] > SLOWEST_BEAT_MS) tempoTaps.length = 0;
     tempoTaps.push(at);
     const b = tappedBpm(tempoTaps);
-    tap.textContent = b ? 'TAP' : `TAP ${tempoTaps.length}`;
+    tapKey.textContent = b ? 'TAP' : `TAP ${tempoTaps.length}`;
     if (b) set(b);
   }, 'tempo-tap');
   tempoTaps.length = 0;
@@ -4226,7 +4232,7 @@ function renderTempo(panel) {
     key('−1', 'Slower by one BPM', () => set(Number(field.value) - 1), 'tempo-down'),
     field,
     key('+1', 'Faster by one BPM', () => set(Number(field.value) + 1), 'tempo-up'),
-    tap,
+    tapKey,
   );
   panel.replaceChildren(row);
   showBars();

@@ -397,6 +397,11 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 				if tm.BPM < 20 || tm.BPM > 400 {
 					return fmt.Errorf("%w: tempo 20–400 BPM", tape.ErrBadParameter)
 				}
+				if b.Bars != nil {
+					// Bars after it would relabel the new frames: a tempo
+					// nobody typed.
+					return fmt.Errorf("%w: a new tempo or new bars, not both", tape.ErrBadParameter)
+				}
 				g := s.Grid.Retempo(tm.BPM, sr)
 				s.Grid = &g
 			} else if tm != nil {

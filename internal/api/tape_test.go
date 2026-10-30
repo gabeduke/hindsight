@@ -1153,7 +1153,13 @@ func TestATempoReGridsATapeWithAudio(t *testing.T) {
 		t.Fatalf("undo: bpm %v, want 240", s.BPM)
 	}
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":500}}`), http.StatusBadRequest, "silly tempo")
+	// A tempo and bars at once would relabel the re-grid's frames: 120 and
+	// 8 bars of a 1-bar grid is 960 BPM. It's one or the other.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":120},"bars":2}`), http.StatusBadRequest, "tempo and bars")
 
 	a.recordingHook = func() *tape.Recording { return &tape.Recording{Tape: id, Track: 2, State: "on"} }
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":100}}`), http.StatusConflict, "mid-punch")
+	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); s.BPM != 240 {
+		t.Fatalf("after the refusals: bpm %v, want 240 still", s.BPM)
+	}
 }

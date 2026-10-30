@@ -14,7 +14,12 @@ API ─edit─▶ Tape (model, undo) ─save─▶ tapes/<id>/tape.json
 
 **The model.** A tape is one `tape.json`: tracks of clips, the grid (the
 first loop's exact length in frames, and how many bars it is), the loop,
-and each track's mix. A clip points into a pool WAV: `src` and `frames` in
+and each track's mix. A new tempo re-grids it (`Grid.Retempo`, `PATCH
+/api/tapes {tempo:{bpm}}` with no bars, at any time but during a punch):
+the bar count stays, the frames follow the tempo, bar 1 stays at frame 0,
+and the clips, the loop and the cycle log keep their frames, so after one
+the grid is no longer the loop's length. Re-grids within 2 s are one step
+of undo (kind `tempo`), a tap and a typed tempo after it too. A clip points into a pool WAV: `src` and `frames` in
 the file, `at` on the tape, a `layer`. Undo is a list of earlier versions of
 the whole state, 100 deep, saved in the file; an edit of the same kind
 within 2 s extends the last step. Every edit goes through `Tape.Change`,
