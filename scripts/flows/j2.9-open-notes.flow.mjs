@@ -65,5 +65,14 @@ export default {
     t.expect('Undo brings it back', await t.poll(() => [...document.querySelectorAll('#notes-list .notes-row-words')].some((w) => w.value === 'the turnaround'), null, 5000));
     const back = await api.until(async () => (await api.takes()).find((x) => x.name === take.name)?.flags?.some((f) => f.label === 'the turnaround'), 'the note back on the Pi', 5000).catch(() => false);
     t.expect('and the Pi has it again', back);
+
+    // F is ✎ from a keyboard: the words, and no "f" typed into them.
+    if (t.profile === 'desktop') {
+      await page.evaluate(() => document.activeElement?.blur?.());
+      await t.step('press F', () => page.keyboard.press('f'));
+      await t.poll(() => document.activeElement?.id === 'notes-words');
+      const typed = await page.evaluate(() => document.activeElement?.id === 'notes-words' && document.activeElement.value);
+      t.expect('F puts the cursor in the words, and types nothing into them', typed === '', typed);
+    }
   },
 };

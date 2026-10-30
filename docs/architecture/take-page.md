@@ -12,7 +12,7 @@ it shares with the Studio. The pure parts of each are node-tested.
 | `edit/gestures` | The pointer machinery any editing surface extends: a drag pans, a hold then a drag selects (with the view scrolling under a finger held at an edge), taps and double-taps, pinch and wheel, and rollback on a cancel or a second finger |
 | `edit/editor-bar` | The editor bar's gesture core: the ZOOM and POSITION pads, the ◂ ▸ steps, their arrow keys and the wheel move a point, and a whole gesture (a drag, a held key, a burst of notches) is saved once, so it is one undo step. The page says what the point is, where a move lands and how it is saved |
 | `wave/view` | The take's editing canvas, in three zones. The ruler: the notes' pins on top (a tap is its note, said on the tap's click; a drag moves it), bar numbers below, the playhead handle ▾ (drag to scrub silently) and bar 1 (drag the downbeat). The body: the waveform. The grips: In and Out at the selection's ends and the move handle between them |
-| `wave/geometry` | Pixel and frame math, the bar grid and ruler ticks, Snap, In/Out with a pending point, flag stepping |
+| `wave/geometry` | Pixel and frame math, the bar grid and ruler ticks, Snap, In/Out with a pending point |
 | `wave/draw` | Waveform drawing: `levelsFor`/`levelsOfColumns`, `takeGain`, `lift`, `smooth` and `drawBars` -- every view of a take (cassette, spine, tape block, take page, overview) draws on the take's own scale (one gain per take). `drawColumns`, on the meters' dB scale, draws a list row only |
 | `wave/tape-strip` | Trace on tape: `paintOxide` paints the brown strip, `drawTrace` the glowing line along a take's envelope (one glow pass per call; blur in CSS px, scaled to device pixels) |
 | `wave/rowwave` | A list row's waveform and its playback, with the selection's bracket |
@@ -23,7 +23,7 @@ it shares with the Studio. The pure parts of each are node-tested.
 | `wave/share` | Getting a rendered MP3 or bundle off the phone |
 | `wave/page` | Owns the take's editable state and wires the rest together; hands Open (`room/open.js`) a handle on it |
 | `room/open` | Open's words over the page: the notes drawer docked (or a sheet, with the list under the keys on a phone), GRAB, KEEP's length, the tag, and what was made from the take |
-| `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, first-run hints |
+| `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, opening with a page's `HINTS` |
 | `help/markdown` | Renders the guide for `/guide.html`, from `/guide.md`, which the binary serves compiled in (`docs/embed.go`) |
 | `link`, `socket`, `live`, `tape/poll-gate`, `tape/changes` | Reads that time out, the wake-up refetch, the *Reconnecting…* note; a socket that replaces itself (`socket.js`'s `connectSocket`), for the live meters (`live.js`) and the tape's changes (`tape/changes.js`, see *The revision*, `push.md`); one poll at a time, and a nudge's poll after it (see *Waking up*, `shell.md`) |
 | `toast` | Both pages' toasts, with an optional action ("Flag deleted · Undo"), and one carried to the next page |
@@ -71,7 +71,7 @@ J3.1):
   Share or Download, the DAW bundle, the WAV and MIDI, Delete); then
   **Fine tune ▸** (`#fine-tune`: the downbeat row, Snap, practice speed,
   Level) and **MIDI ▸** (`#midi`: the lanes and the piano roll), each a
-  `.fold-key` folding out a `.fold`, closed on every open. MIDI ▸ shows
+  `.fold-key` folding out a `.take-fold`, closed on every open. MIDI ▸ shows
   from the take's first paint (`take.has_midi`), so nothing moves when
   the MIDI loads; the piano roll draws only while MIDI ▸ is open.
 - **The notes drawer** is `#notes-dock`, the grid's second column from 860
@@ -81,7 +81,14 @@ J3.1):
   notes under the keys (`docs/architecture/rooms.md`, *The notes drawer*).
 - **✎ is the only pencil:** `#note-now` in the bar's own keys (and the
   phone's mini player), F, and a tap on a pin. A double tap on the
-  waveform still puts a note there.
+  waveform zooms in four times about it (as close as it goes, out to the
+  whole take), and **− Fit +** (`.wave-zoom`, over the waveform's corner)
+  zoom by twos about the middle.
+- **A note's pin** is a numbered tag (`objects/pennant.js` `drawPin`), its
+  number its row's (`notes.js` `notesOf`: by frame, then id). On a touch
+  screen (a finger or a pen, `GestureSurface.coarse`) a pin and a grip
+  take 44 px across. A dropout is a ⚠ row among the notes (the source's
+  `dropouts()`), with ▶ from a second before, and nothing to edit.
 - **Words:** the MIDI's fold says MIDI and its lanes count what was played
   (*6 played*, *60 hits*), so *notes* means only yours; ⟲ says Repeat; Undo
   says *adding a note*. *Three things worth knowing* is help mode's opening

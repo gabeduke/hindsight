@@ -361,8 +361,10 @@ things added and a few taken away: §4.1 says which.
 **Getting around:**
 
 - **One-finger drag moves along the take,** even inside the selection.
-- **Pinch** (or the mouse wheel) zooms.
-- **Tap** moves the playhead; **tap twice** puts a note there.
+- **Pinch** (or the mouse wheel) zooms, and so do **− Fit +** in the
+  waveform's corner (and - 0 + on a keyboard).
+- **Tap** moves the playhead; **tap twice** zooms in there, and twice
+  again, as close as it goes, shows the whole take. Notes come from ✎.
 - **Drag the playhead's handle** ▾ in the ruler to move it silently; the take
   carries on from where you let go. **Drag the downbeat** — the yellow "1"
   just right of its line — to say where bar 1 starts.
@@ -446,14 +448,17 @@ and the editor bar takes the place of the toolbar.
 **Notes:**
 
 - **✎** (or **F**) writes a note at the playhead, in the notes drawer
-  (§4.1). On the ruler a note is a pin; **tap a pin** to write in its
-  words, **drag a pin** to move it.
+  (§4.1). On the ruler a note is a pin with its number, its row's in the
+  list; **tap a pin** to write in its words, **drag a pin** to move it. On
+  a touch screen a pin, like a grip, takes a finger's width.
 - **⚠ Dropouts.** Where the capture lost audio while the take was recorded
   (the interface overran because the Pi fell behind, the ring's writer
   did, or the stream stalled and was restarted), the take has a ⚠ in the ruler and a dashed line through the
   waveform. The header says *⚠ 2 dropouts*. They aren't notes: they can't
   be moved, named or deleted, and they don't count against the 512 a take
-  can carry. A cut of the take keeps the ones inside it. In the Listening
+  can carry. The notes list them among the notes, in time, each a ⚠ row
+  whose ▶ plays from a second before it, to hear what was lost. A cut of
+  the take keeps the ones inside it. In the Listening
   Room the cassette wears a *⚠ 2 dropouts* sticker, and the pane's line
   says so too.
 
@@ -1717,6 +1722,7 @@ has no tip.
 | Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
 | Level | Normalize: play and share the selection with its loudest moment just under full scale |
+| − Fit + | Zoom out, see the whole take, or zoom in. A double tap on the waveform zooms in there. Keys: - 0 + |
 | Fine tune ▸ | The downbeat, the snap, the practice speed and the level, folded away until you want them |
 | KEEP | Make a new take of just the selection |
 | Name (Save as take) | Name the new take, then Save. On the Listening Room’s shelf it folds in with this take. Cancel saves nothing |

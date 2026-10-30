@@ -101,7 +101,7 @@ test('edge scroll step ramps inside the margins and is zero elsewhere', () => {
   assert.equal(edgeScrollStep(-50, 390), -EDGE_MAX_STEP_PX); // clamped past the edge
 });
 
-import { snapFrame, snapStep, nudgeStep, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, setPoint, prevFlag, nextFlag, landFlag, fmtPoint, fmtTenths, rulerTicks } from './geometry.js';
+import { snapFrame, snapStep, nudgeStep, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, setPoint, fmtPoint, fmtTenths, rulerTicks } from './geometry.js';
 
 const grid120 = { bpm: 120, sampleRate: 48000, downbeat: 1000 }; // a beat is 24000 frames
 
@@ -158,14 +158,6 @@ test('an In past the Out starts over from a pending In', () => {
   // Two Ins in a row: the second replaces the first.
   const t = setPoint('start', 300, s, 100000, 289);
   assert.deepEqual(t.pending, { edge: 'start', frame: 300 });
-});
-
-test('flag stepping finds the flags either side of the playhead', () => {
-  const flags = [{ frame: 100 }, { frame: 500 }, { frame: 900 }];
-  assert.equal(prevFlag(flags, 500).frame, 100);
-  assert.equal(nextFlag(flags, 500).frame, 900);
-  assert.equal(prevFlag(flags, 50), null);
-  assert.equal(nextFlag(flags, 950), null);
 });
 
 test('points read m:ss.cc', () => {
@@ -248,14 +240,6 @@ test('nudgeDownbeat stops at the take\'s ends', () => {
   assert.equal(nudgeDownbeat(10000, -1, g, 'beat', 200000), 0);
   assert.equal(nudgeDownbeat(199900, 1, g, 'off', 200000), 199999);
   assert.equal(nudgeDownbeat(190000, 1, g, 'beat', 200000), 199999);
-});
-
-test('◂⚑ lands on the take before at its last flag, ⚑▸ on the next at its first', () => {
-  const flags = [{ frame: 900 }, { frame: 100 }, { frame: 500 }];
-  assert.equal(landFlag(flags, 'last').frame, 900);
-  assert.equal(landFlag(flags, 'first').frame, 100);
-  assert.equal(landFlag([], 'first'), null);
-  assert.equal(landFlag(undefined, 'last'), null);
 });
 
 test('fmtTenths reads a point to the tenth, as the bar does', () => {

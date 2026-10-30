@@ -298,6 +298,7 @@ test('docked, it stands in the dock, shown, with no drag; its ✎ follows the ta
   assert.ok(s.drawer.el.parentElement === s.into, 'in the dock');
   assert.equal(s.drawer.el.hidden, false);
   assert.ok(s.drawer.el.classList.contains('notes-docked'));
+  assert.equal(s.drawer.el.getAttribute('role'), 'complementary', 'a part of the page, not a dialog');
   s.drawer.open(s.source, { focus: false });
   assert.equal(s.drawer.isOpen, true);
   assert.notEqual(s.doc.activeElement, s.$('notes-words'), 'focus: false leaves the keys alone');
@@ -322,6 +323,7 @@ test('the screen narrowing puts the docked drawer back as a sheet, away; widenin
   wide.set(false);
   assert.ok(s.drawer.el.parentElement === s.doc.body, 'back at the end of the page');
   assert.equal(s.drawer.el.hidden, true, 'put away until ✎');
+  assert.equal(s.drawer.el.getAttribute('role'), 'dialog');
   s.drawer.open(s.source);
   assert.equal(s.drawer.el.hidden, false, '✎ brings it up as a sheet');
   wide.set(true);

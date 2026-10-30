@@ -1445,6 +1445,11 @@ dialog.sheet::backdrop { background: var(--scrim); }
   -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
 }
 .wave-error { padding: 24px; color: var(--danger); }
+/* − Fit + over the waveform's lower right, above the grips (30 px): small
+   keys on the oxide, out of the way of a finger moving along the take. */
+.wave-wrap { position: relative; }
+.wave-zoom { position: absolute; right: 6px; bottom: 36px; display: flex; gap: 4px; }
+.wave-zoom .icon-btn { min-width: var(--tap); min-height: var(--tap); padding: 0 8px; font: 600 13px var(--font); opacity: .85; }
 
 /* The toolbar, in rows that fit a 320px phone. */
 .toolbar { display: flex; flex-direction: column; gap: 8px; }
@@ -1497,8 +1502,8 @@ dialog.sheet::backdrop { background: var(--scrim); }
 .fold-key[hidden] { display: none; }
 .fold-key .i { transition: transform var(--t-release) var(--ease-out); }
 .fold-key[aria-expanded="true"] .i { transform: rotate(90deg); }
-.fold { display: flex; flex-direction: column; gap: 8px; }
-.fold[hidden] { display: none; }
+.take-fold { display: flex; flex-direction: column; gap: 8px; }
+.take-fold[hidden] { display: none; }
 .tb-row.fine-keys { flex-wrap: wrap; }
 .speed-seg { margin-left: auto; }
 .speed-seg button { min-height: 32px; min-width: 40px; }
@@ -1911,7 +1916,9 @@ body.help-mode [data-tip] { outline: 1px dashed color-mix(in srgb, var(--accent)
   /* The waveform takes the width; its keys keep a hand's span. */
   .wave-main .toolbar { max-width: 820px; }
   .notes-here { display: none; }
-  .notes-dock { display: flex; flex-direction: column; min-height: 0; }
+  /* A block, not a flex box: a flex item's z-index counts even unpositioned,
+     and the drawer's (a sheet's, over the page) would lift it over ☰'s menu. */
+  .notes-dock { display: block; min-height: 0; }
 }
 
 /* ---------- the tape page ---------- */

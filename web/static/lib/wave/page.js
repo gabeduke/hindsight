@@ -16,7 +16,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload, gainText } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, 
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint,
 } from './geometry.js';
 import {
   viewAbout, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
@@ -511,13 +511,15 @@ async function main() {
   function emit(ev, p) {
     switch (ev) {
       case 'seek':
+        state.selectedFlag = null;
         seekTo(p.frame);
         break;
-      case 'addFlag':
-        addFlagAt(p.frame);
-        break;
       // A pin is its note: Open puts the cursor in its words.
-      case 'selectFlag': for (const f of pinHooks) f(p.flag); break;
+      case 'selectFlag':
+        state.selectedFlag = p.flag; // its line drawn thicker
+        redraw();
+        for (const f of pinHooks) f(p.flag);
+        break;
       case 'flagMove': {
         const f = state.flags.find((x) => x.id === p.flag.id);
         if (!f) break;
@@ -1236,6 +1238,12 @@ async function main() {
     if (fromList && history.length > 1) { e.preventDefault(); history.back(); }
   });
 
+  // − Fit + on the waveform: a step out, the whole take, a step in, about
+  // the middle (as the keys -, 0 and + are).
+  $('zoom-out').addEventListener('click', () => view.zoomTo(view.view.fpp * 2, view.view.width / 2));
+  $('zoom-fit').addEventListener('click', () => view.fitAll());
+  $('zoom-in').addEventListener('click', () => view.zoomTo(view.view.fpp / 2, view.view.width / 2));
+
   // --- menus ------------------------------------------------------------------
   // The take's menu, from its name (lib/ui/menu.js): under the name, on the
   // page's stack, so Escape, Back or a press elsewhere closes it. Rename…
@@ -1245,7 +1253,7 @@ async function main() {
   $('take-rename').addEventListener('click', () => rename());
   $('take-tag-row').addEventListener('click', () => $('take-tag')?.click());
   // More, beside KEEP: Share (or Download), the bundle, the files, Delete.
-  menu($('more-btn'), $('more-menu'), { layers: layersOf(document), align: 'end' });
+  menu($('more-btn'), $('more-menu'), { layers: layersOf(document), align: 'end', floor: barTop(document) });
 
   // Fine tune ▸ and MIDI ▸ fold out under the keys, closed on every open.
   function fold(button, panel, onToggle = () => {}) {
@@ -1591,7 +1599,8 @@ async function main() {
     switch (e.key) {
       case ' ': e.preventDefault(); togglePlay(); break;
       // F is ✎ from the keyboard: Open's notes, at the playhead.
-      case 'f': case 'F': for (const f of noteKeyHooks) f(); break;
+      // Its press only: the letter isn't typed into the words it opens.
+      case 'f': case 'F': e.preventDefault(); for (const f of noteKeyHooks) f(); break;
       case '[': setPointAt('start'); break;
       case ']': setPointAt('end'); break;
       case 'b': case 'B': barOneAtPlayhead(); break;

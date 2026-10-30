@@ -86,6 +86,7 @@ export function mount(h) {
     notes,
     bpm: () => h.state().grid.bpm || 0,
     frame: () => h.state().cursor,
+    dropouts: () => h.state().dropouts || [],
     // The page's own: optimistic, each sent in order (lib/flags.js), and
     // its Undo for a note taken out.
     async add(frame, words) { h.addNote(frame, words); },
@@ -96,7 +97,8 @@ export function mount(h) {
     onChange: (fn) => h.onRedraw(fn),
   };
   if (drawer.docked) drawer.open(source, { focus: false });
-  matchMedia(WIDE).addEventListener?.('change', () => { if (drawer.docked) drawer.open(source, { focus: false }); });
+  // Narrowed, the list under the keys is drawn afresh: it slept while docked.
+  matchMedia(WIDE).addEventListener?.('change', () => { if (drawer.docked) drawer.open(source, { focus: false }); else list.draw(source, { force: true }); });
 
   // ✎: the drawer, its words ready to go at the frame. In the bar's own
   // keys, and F from the keyboard.

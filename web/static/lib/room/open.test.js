@@ -15,7 +15,7 @@ const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
 
 const jam = (n, extra = {}) => ({ name: `jam_${n}.wav`, label: n, created: '2026-10-15T20:00:00Z', duration_seconds: 90, ...extra });
 
-async function open({ file = 'jam_a.wav', arrivalNote = null, jams = [], region = null, bpm = null, wide = false } = {}) {
+async function open({ file = 'jam_a.wav', arrivalNote = null, jams = [], region = null, bpm = null, wide = false, dropouts = [] } = {}) {
   const doc = fakeDoc();
   globalThis.document = doc;
   doc.body.append(...parseHTML(doc, waveHtml.slice(waveHtml.indexOf('<body'))).children);
@@ -27,7 +27,7 @@ async function open({ file = 'jam_a.wav', arrivalNote = null, jams = [], region 
   globalThis.location = { href: '', search: '' };
   globalThis.fetch = async (u) => (String(u).startsWith('/api/jams') ? { ok: true, json: async () => jams } : { ok: false, status: 404, json: async () => ({}) });
   const calls = [];
-  const state = { cursor: 7 * SR, region, grid: { bpm, sampleRate: SR, downbeat: 0 }, flags: [] };
+  const state = { cursor: 7 * SR, region, grid: { bpm, sampleRate: SR, downbeat: 0 }, flags: [], dropouts };
   let hooks = [];
   const pins = [];
   const keys = [];
@@ -240,4 +240,20 @@ test('the chair, TOOLS and the swap question are gone from the app', () => {
   assert.doesNotMatch(css, /\.chair\b|chair-on|chair-tools|chair-of-tape|\.book-(page|left|right|notes|rings|title)|room-ask-text/, 'no rule for what is gone');
   const tips = read('../help/tips.js');
   assert.doesNotMatch(tips, /room-tools|room-stand|room-put|room-note-here|room-sticker/);
+});
+
+test('a dropout is a row among the notes, in time: ⚠, its time, what happened and ▶ from a second before; nothing to edit', async () => {
+  const p = await open({ arrivalNote: 20 * SR, dropouts: [12 * SR] });
+  await write(p, 'after it');
+  const rows = p.$('notes-here').querySelectorAll('.notes-row');
+  assert.equal(rows.length, 2);
+  assert.ok(rows[0].classList.contains('notes-drop'), 'the dropout first: 0:12 before 0:20');
+  assert.equal(rows[0].querySelector('.notes-time').textContent, '0:12');
+  assert.equal(rows[0].querySelector('input'), null, 'no words to edit');
+  assert.equal(rows[0].querySelector('.notes-out'), null, 'nothing to take out');
+  assert.equal(rows[1].querySelector('.notes-n').textContent, '1', 'a dropout takes no number');
+  rows[0].querySelector('.notes-play').dispatchEvent({ type: 'click' });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok(p.calls.includes(`seek ${11 * SR}`) && p.calls.includes('play'), '▶ plays from a second before');
+  assert.equal(p.$('notes-here').querySelector('.notes-none').hidden, true);
 });

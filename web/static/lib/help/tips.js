@@ -125,6 +125,7 @@ export const TIPS = [
   { control: 'Snap', ids: ['snap'], tip: 'Make the selection, In, Out and the nudges land on bars, beats or 8ths' },
   { control: 'Practice speed', ids: ['speed'], tip: 'Slow down or speed up without changing pitch' },
   { control: 'Level', ids: ['level'], tip: 'Normalize: play and share the selection with its loudest moment just under full scale' },
+  { control: '− Fit +', ids: ['zoom-out', 'zoom-fit', 'zoom-in'], tip: 'Zoom out, see the whole take, or zoom in. A double tap on the waveform zooms in there. Keys: - 0 +' },
   { control: 'Fine tune ▸', ids: ['fine-tune'], tip: 'The downbeat, the snap, the practice speed and the level, folded away until you want them' },
   { control: 'KEEP', ids: ['save-take'], tip: 'Make a new take of just the selection' },
   { control: 'Name (Save as take)', ids: ['save-name'], tip: 'Name the new take, then Save. On the Listening Room’s shelf it folds in with this take. Cancel saves nothing' },

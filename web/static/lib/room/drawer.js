@@ -41,6 +41,8 @@ import { takeTitle } from '../rooms/takename.js';
  *   seek(frame, {play}) the take to a frame, and playing, if asked: a promise
  *   grab(span)          { from, to } onto the Studio's cue lane: a promise
  *   onChange(fn)        fn() whenever the take changes; answers a way off
+ *   dropouts()          (optional) where the capture lost audio, frames: a
+ *                       row each among the notes, that can't be edited
  */
 
 /** atLine is what the drawer says over the words: where they will go. */
@@ -74,7 +76,9 @@ function maker(doc) {
  * createNotesList makes a take's notes as the drawer lists them, each its
  * number, its time (a tap goes there), its words (edited in place), ▶,
  * GRAB and ✕: the drawer's own list, and the one under a phone's keys on
- * Open. Answers { list, none, draw(source, {force}) }; `draw` redraws only
+ * Open. A source's dropouts are rows among them, in time: ⚠, the time, what
+ * happened and ▶, from a second before, to hear what was lost; nothing to
+ * edit. Answers { list, none, draw(source, {force}) }; `draw` redraws only
  * when the notes have changed, and a row being written in keeps its focus.
  */
 export function createNotesList({ doc = globalThis.document, toast = () => {}, id = null } = {}) {
@@ -107,17 +111,31 @@ export function createNotesList({ doc = globalThis.document, toast = () => {}, i
     out.addEventListener('click', () => s.remove(n.id).catch(fail('take the note out')));
     return mk('li', 'notes-row', { 'data-id': n.id }, num, time, w, play, grab, out);
   }
+  function dropRow(s, frame) {
+    const at = fmtAt(frame, s.sampleRate);
+    const from = Math.max(0, frame - s.sampleRate);
+    const time = mk('button', 'notes-time mono', { type: 'button', 'aria-label': `Go to a second before the dropout at ${at}`, text: at });
+    time.addEventListener('click', () => Promise.resolve(s.seek(from)).catch(fail('go there')));
+    const play = keyWith('play', 'notes-play', { 'aria-label': `Play from a second before the dropout at ${at}` });
+    play.addEventListener('click', () => Promise.resolve(s.seek(from, { play: true })).catch(fail('play it')));
+    return mk('li', 'notes-row notes-drop', {},
+      mk('span', 'notes-n notes-n-drop', { 'aria-hidden': 'true', text: '⚠' }),
+      time, mk('span', 'notes-drop-words', { text: 'Dropout: the capture lost audio here' }), play);
+  }
   return {
     list, none,
     draw(s, { force = false } = {}) {
       if (!s) return;
       const ns = s.notes();
-      none.hidden = ns.length > 0;
-      const next = JSON.stringify([ns.map((n) => [n.id, n.frame, n.label]), s.bpm()]);
+      const drops = s.dropouts?.() || [];
+      none.hidden = ns.length + drops.length > 0;
+      const next = JSON.stringify([ns.map((n) => [n.id, n.frame, n.label]), drops, s.bpm()]);
       if (next === sig && !force) return;
       sig = next;
       const focused = doc.activeElement?.closest?.('.notes-row')?.dataset.id;
-      list.replaceChildren(...ns.map((n) => row(s, n, ns)));
+      const rows = [...ns.map((n) => ({ frame: n.frame, el: () => row(s, n, ns) })), ...drops.map((f) => ({ frame: f, el: () => dropRow(s, f) }))]
+        .sort((a, b) => a.frame - b.frame);
+      list.replaceChildren(...rows.map((r) => r.el()));
       if (focused) list.querySelector(`li[data-id="${globalThis.CSS?.escape ? CSS.escape(focused) : focused}"] .notes-row-words`)?.focus();
     },
     /** focus puts the cursor in a note's words. */
@@ -207,6 +225,8 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
     if (!dock) return;
     const on = docked();
     el.classList.toggle('notes-docked', on);
+    // Docked, it is a part of the page beside the take, not a dialog over it.
+    el.setAttribute('role', on ? 'complementary' : 'dialog');
     if (on) {
       if (sheet.isOpen) sheet.close('program');
       if (el.parentElement !== dock.into) dock.into.append(el);
