@@ -174,8 +174,8 @@
   since only the keyboard knows it).
 
 **The SMK-37's lights** on protocol version 2 (`internal/surface`'s
-`lights.go`; `keyboardLandings`, Play mode asked on its loop, in `internal/api/
-keyboard_screen.go`). Version 1 answers LED unknown, so there nothing is
+`lights.go`; `keyboardLandings`, the tape's pads asked on its loop, in
+`internal/api/keyboard_screen.go`). Version 1 answers LED unknown, so there nothing is
 sent.
 
 - **What is lit** is `surface.Lamps(State, stages)`: LED (command 08) for
@@ -204,14 +204,15 @@ sent.
     is heard, even when let go first (`PadUp`): a quantised press waits
     for its line, and stays half for it, at most `AwaitFor` (4 s, a bar
     at 60 BPM) if nothing of it is ever heard;
-  - full from its press's landing until its release's, from any holder: a
-    phone's BREAK lights the keyboard's too, since it is what is heard;
+  - full from its press's landing until its release's, from any holder:
+    another controller's BREAK lights the keyboard's too, since it is what
+    is heard;
   - a command pad (CATCH, GRAB) is half from its press (`queueVerb`) until
     its verb is done, then flashes full once for `FlashFor` (150 ms) if
     it went through (`PadDone`, from `runVerb`), or goes dim if refused.
     Presses are counted, so a second CATCH queued is half again after the
     first one's flash.
-- **The landing time** is Play mode's, as a page's `at` gets it. The
+- **The landing time** is the tape's (`tape.md`, *When a pad lands*). The
   Keyboard's loop asks for it every `Tick`, as its own step before the
   screen (`Keyboard.Landings(a.keyboardLandings)`; the screen's getter
   has no side effects): the pads the tape holds (`HeldPads`, read
@@ -250,7 +251,7 @@ sent.
   target) go after the screen's changes. A CLEAR keeps the lights, as the
   firmware does, so a screen drawn again whole sends none of them. HOME,
   a RELEASE or a keyboard forgotten empties `lit` and starts the pads
-  again (`lostScreen`): the screen taken again asks Play mode afresh,
+  again (`lostScreen`): the screen taken again asks the tape afresh,
   reading the trick log from then on (what landed while the screen was
   the keyboard's is not replayed), lights a pad the tape still holds
   full, and only then sends every light.

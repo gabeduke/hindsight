@@ -50,7 +50,7 @@ internet.
 | `DELETE /api/tapes?id=` | Delete a tape that isn't loaded, and free the audio only it used |
 | `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
 | `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
-| `GET /api/tapes/play` | WebSocket: Play mode's pads, pressed and let go, quantised on the Pi |
+| `GET /api/tapes/play` | WebSocket: the tape's pads, pressed and let go, quantised on the Pi (no page opens it now) |
 | `GET /api/tapes/controls`, `PUT /api/tapes/controls` | The controllers in the Pi (`TAPE_CONTROLLER`) and what their notes play |
 | `POST /api/tapes/catch?id=` | Put the last pass, or the last N bars, from an input onto a track |
 | `POST /api/tapes/record?id=` | Arm a track (stopped) or punch in at the next bar (playing) |
@@ -1232,9 +1232,11 @@ passes played, so a pass of one tape is never caught onto another.
 
 ### `GET /api/tapes/play` (WebSocket)
 
-Play mode's pads, held. The page sends a press the moment a pad is touched and
+The tape's pads, held. A client sends a press the moment a pad is touched and
 a release the moment it's let go. The Pi quantises both on its render head, so
-a phone's Wi-Fi delay lands on the grid rather than late.
+a phone's Wi-Fi delay lands on the grid rather than late. No page opens it
+since Play mode's instrument strip went (2026-10-30); a controller in the Pi
+plays the same pads through the bus, and a script can hold them here.
 
 Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
 `chop`, `half`, `double`, and the punch-in FX `roll`, `filter`, `echo`,

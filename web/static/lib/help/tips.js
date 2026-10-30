@@ -264,16 +264,6 @@ export const TIPS = [
   { control: 'Normalize (cue)', ids: ['buffer-normalize'], tip: 'Bring the loudest lane\'s loudest moment to just under full scale, the lanes kept in balance' },
   { control: 'Reverse (cue)', ids: ['buffer-reverse'], tip: 'Play the clip backwards, or forwards again' },
   { control: 'Fades (cue)', ids: ['buffer-fades'], tip: 'The fades\' curve: equal power, linear, S-curve or exponential. Drag the corners for their length' },
-  // The instrument strip (lib/play), with Play mode on
-  { control: 'Instrument ▴', ids: ['play-fold'], tip: 'Play mode as a drawer. Folded: the track keys and the tricks as small pads, still live. Unfolded: the reel and every pad, and the computer\'s keys play it' },
-  { control: 'Keys (instrument)', ids: ['play-keys'], tip: 'Lit while the computer\'s keys play the instrument: R is STOP then, not ● Rec, and 1 drops track 1 out. A tap on the lanes, or on this, gives them back to editing' },
-  { control: 'A pad', ids: ['play-pad'], tip: 'Hold it: dim when touched, bright when it\'s heard, on the next grid line. Let go and it stops, in time. Bright with a ring: another hand is playing it' },
-  { control: 'Playing from', ids: ['play-from'], tip: 'Touch, the keys and every controller play at once; this picks which legends the pads show, and the controller MIDI learn binds' },
-  { control: '⌗ (instrument)', ids: ['play-quant'], tip: 'Where this device\'s presses land: at once, or the next 16th, 8th, beat or bar' },
-  { control: 'Lead', ids: ['play-lead'], tip: 'How long a press takes to be heard from the Pi: play that far ahead of the beat' },
-  { control: 'MIDI learn', ids: ['play-learn'], tip: 'Every pad shows its key on the controller (– for none). Tap a pad, then play a key or turn a knob on the controller. Esc cancels' },
-  { control: 'Catch, Grab, Drop, Keep (instrument)', ids: ['play-verb'], tip: 'The Studio\'s verbs from the instrument: the last pass onto the armed track, the last bars onto the cue lane, the open cue clip onto the armed track, and the feed (or the open cue clip) as a take. C, G, ↵, K' },
-  { control: 'Edit / Play (phone)', ids: ['play-toggle'], tip: 'On a phone: Play makes the bottom panel the instrument; Edit gives the drawers back. Play\'s lamp lights while a pad sounds' },
   // The rig (rig.html)
   { control: 'Studio (rig)', ids: ['rig-back'], tip: 'Back to the Studio' },
   { control: 'Socket', ids: ['rig-socket'], tip: 'Drag from it to another socket to plug a cable in, or choose it and then where it goes. A pull on a plug unplugs it. Choose it to see what it carries' },
@@ -287,11 +277,6 @@ export const TIPS = [
   { control: 'Label it', ids: ['rig-label'], tip: "Name what's plugged into this jack: it shows on the tap and the track's input. A label routes nothing" },
   { control: 'Restart (rig)', ids: ['rig-restart'], tip: 'Restart Hindsight so the dashed amber cables take effect. The ring starts empty, so capture anything you want to keep first' },
   { control: 'Done (rig)', ids: ['rig-done'], tip: 'Close the inspector and let go of the chosen socket' },
-  { control: 'Punch-in FX', ids: ['play-fx'], tip: 'ROLL, FILTER, ECHO, CRUSH: hold, like a trick. Slide your finger up or down on one to move its amount, which every screen shows; a controller\'s velocity, mod wheel and aftertouch move it too. T Y U I' },
-  { control: 'Bend', ids: ['play-bend'], tip: 'Drag left or right to nudge the tape\'s speed, up to 8 % either way; let go and it springs back to the tape. A controller\'s pitch wheel does the same' },
-  { control: 'Formula (tape mods)', ids: ['play-formula'], tip: 'A starting point for the tape\'s sound: each sets WOW, FLUTTER, DRIVE and AGE. Saved with the tape, and ↶ undoes it. Program change 0–3 on a controller' },
-  { control: 'A tape mod\'s knob', ids: ['play-knob'], tip: 'Drag up or down, or use the arrow keys: heard as it moves, saved with the tape when you let go, one step of undo. CC 21–24 on a controller' },
-  { control: 'Tape mods (phone)', ids: ['play-pager'], tip: 'On a phone the tape mods are the instrument\'s second page: swipe across the panel, or tap here' },
 ];
 
 const byId = new Map();

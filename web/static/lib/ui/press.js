@@ -27,7 +27,6 @@ export const GESTURE = Object.freeze({
   DOUBLE_WIDE_PX: 24, // ...or this near, sideways, on the Studio's overview strip
   GRACE_MS: 600, // a click this soon after a drag on the tape ends the drag: it is no tap
   LIFT_GRACE_MS: 400, // how long the click a hold's or a drag's lift leaves behind is waited for (the Takes list, the rig)
-  OUTRANK_MS: 400, // a hand's own move of a knob outranks the Pi's echo of it this long (lib/play/amounts.js)
 });
 
 // The keys bound with bindPress, by their options: their callers spread

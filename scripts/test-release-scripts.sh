@@ -112,7 +112,7 @@ releases() {
 check "a code change releases" \
   "yes" "$(releases internal/tape/crate.go)"
 check "a UI change releases" \
-  "yes" "$(releases web/static/lib/play/clock.js)"
+  "yes" "$(releases web/static/lib/play/piclock.js)"
 check "a dependency bump releases" \
   "yes" "$(releases go.sum)"
 # docs/guide.md is embedded by docs/embed.go, so it ships inside the binary.

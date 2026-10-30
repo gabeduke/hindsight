@@ -5,6 +5,27 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.30.3 — 2026-10-30
+
+- Spec: reaching back, after the re-check: bare presses first, audio for the audition (5e570143)
+- Spec: reaching back, after review: the SMK-37's pads, each ▾ still a menu (8d921966)
+- Docs only: song sections keep the MPC a clock follower when it also takes programs (eb90ad4b)
+- Docs only: song sections send the Program Change only while the tape leads the clock (fc442ac9)
+- The transport tells its listeners as the bar's tape source did, in the set's own order (1e0273cf)
+- Docs only: song sections keep the sequence device off the clock, and offer only takes at the tape's tempo (a82822c3)
+- Docs only: song sections send the Program Change to one device by a new SendTo, and the picker is the Take component (72bbcee5)
+- The tape's ▶, place, loop and tempo are one model per page, which the bar draws and the Studio lends its poll to; nothing on screen changes (616b0ac1)
+- Docs only: song sections after review: what comes first, who hears the Program Change, the stems, and the picker's bars (61005c7b)
+- Spec: reaching back, Catch and Keep as one move (279178e0)
+- Docs only: song sections in the tape model's terms, and the component each part belongs to (4e6e967c)
+- Spec: song sections, templates you fill in (9e2cc1a9)
+- Docs only: the play look says where the theme's rules live, and that the component contract is still being written (9e64a0e2)
+- The takes' fallback poll is the shown room's tick: the Studio asks for the list only when the Pi says it moved (26fceb6c)
+- Every room, the bar and Open read one list of takes, asked for when the Pi says it moved (79bf5d4a)
+- Tell an open page the moment the take list changes, so it asks for it then (194ee459)
+- Docs only: the play look, a spec with three directions for a simpler, more playful UI (A tidied, B Signal recommended, C Toybox) for Gabe to choose from (e806df20)
+
+
 ## v2026.10.30.2 — 2026-10-30
 
 - Docs only: the walkthrough's notes say Play mode is still to be retired, and where the worksheet lives (11f040e9)

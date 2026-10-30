@@ -4,15 +4,18 @@
 // Latency is measured in use (docs/plan/the-instrument.md, step 1): every
 // press, set and release carries the moment it was touched and the moment
 // it was sent, on the Pi's clock, so the Pi can time it to the ear
-// (internal/tape/latency.go). The page learns the Pi's clock from the Play
-// socket's round trips (link.js): it sends its own time, the Pi answers
-// with the moment it read it and the moment it answered, and the offset is
-// taken from the trip that came back quickest, whose two legs are nearest
-// even. A few dozen seconds of trips are kept, so the two clocks' drift
-// never builds up in it.
+// (internal/tape/latency.go). A page learns the Pi's clock from the round
+// trips of GET /api/tapes/play: it sends its own time, the Pi answers with
+// the moment it read it and the moment it answered, and the offset is taken
+// from the trip that came back quickest, whose two legs are nearest even. A
+// few dozen seconds of trips are kept, so the two clocks' drift never builds
+// up in it.
 //
 // There is one on a page (piClock): the stream (tape/stream-player.js) says
-// on it when this phone hears a frame.
+// on it when this phone hears a frame. Since the instrument strip went
+// (2026-10-30) no page opens that socket, so nothing takes a trip and toPi
+// answers undefined: the stream reports its delay alone, as it always did on
+// a device without the strip (docs/architecture/tape.md, *Latency, in use*).
 
 export class PiClock {
   constructor({ keep = 16 } = {}) {
