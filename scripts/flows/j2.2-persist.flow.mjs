@@ -7,6 +7,7 @@
 // docs/flows.md#j22
 // ▶ says it plays by its .playing, whatever it draws (❚❚ for a take).
 import { watchDesk, desk, rects, same, during } from './desk.mjs';
+import { SPINES, aTake } from './room.mjs';
 
 const bar = () => ({
   playing: !!document.getElementById('np-play')?.classList.contains('playing'),
@@ -31,10 +32,10 @@ export default {
     await watchDesk(page);
     await t.step('open the Listening Room', () => page.goto(`${t.base}/takes.html`));
     await page.evaluate(() => { window.__flowMarker = true; }); // gone if the page reloads
-    const cassette = page.locator('#view-room .room-cassette').first();
-    await cassette.waitFor({ state: 'visible' });
+    const take = aTake(page);
+    await take.waitFor({ state: 'visible' });
 
-    await t.step('tap a take', () => t.tap(cassette));
+    await t.step('tap a take', () => t.tap(take));
     const playing = await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
     t.expect('the bar plays it', playing, await page.evaluate(bar));
     t.expect('the bar holds a take', (await page.evaluate(bar)).source === 'take', await page.evaluate(bar));
@@ -104,13 +105,13 @@ export default {
     const held = await page.evaluate(bar);
     await t.step('go to the Listening Room, and tap a take on the shelf as the camera turns', async () => {
       await page.locator('.appnav a[data-tab="room"]').click();
-      const at = await (await page.waitForFunction(() => {
+      const at = await (await page.waitForFunction((spines) => {
         if (!document.documentElement.getAttribute('data-turn') || document.getElementById('view-room')?.hidden) return null;
-        const c = [...document.querySelectorAll('#view-room .room-cassette')].find((e) => e.getBoundingClientRect().width > 0);
+        const c = [...document.querySelectorAll(spines)].find((e) => e.getBoundingClientRect().width > 0);
         if (!c) return null;
         const r = c.getBoundingClientRect();
         return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-      }, null, { polling: 'raf', timeout: 5000 })).jsonValue();
+      }, SPINES, { polling: 'raf', timeout: 5000 })).jsonValue();
       if (t.profile === 'desktop') await page.mouse.click(at.x, at.y);
       else await page.touchscreen.tap(at.x, at.y);
     });

@@ -78,6 +78,8 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
   const bar = new NowPlaying({
     onEject: () => backToTape({ byHand: true }),
     onTouch: () => { touches++; handoff.touch(); },
+    // A take or the feed stopped by ▶ in the Studio: the tape takes the bar.
+    onPause: () => tapeUnlessPlaying(),
     // ✎: the page's notes drawer (setOnNote, the shell's boot.js), else stash the frame and open the take.
     onNote: () => {
       if (typeof onNote === 'function') {
@@ -184,6 +186,19 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
       bar.load(null);
     }
     eject();
+  }
+  // In the Studio the bar is the tape's when nothing else in it plays
+  // (docs/architecture/bar.md, *In the Studio, the tape*): a take or the live
+  // feed left in it stopped -- played in the Listening Room and stopped
+  // there, carried from the last page, or stopped by ▶ here -- gives way to
+  // the tape, so ▶ there plays the tape. One still playing stays and plays
+  // on (J2.2). The Studio asks as it is shown; the hand-off, as it settles;
+  // the bar, as ▶ stops what it holds. A take that stops by itself (its end,
+  // its selection's Out, Play all moving on) is left be until the next.
+  function tapeUnlessPlaying() {
+    if (!tape || !isStudio(location.pathname)) return;
+    if (!bar.src || bar.src === tape || bar.src.playing()) return;
+    backToTape();
   }
   function setSource(kind, { byHand = false } = {}) {
     if (byHand) { touches++; handoff.touch(); }
@@ -325,7 +340,9 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     if (take && !take.src.playing()) take.src.play();
     bar.kick();
   }
-  handoff.start();
+  // A take carried from the last page that isn't playing here (it was
+  // paused, or the browser held its sound back) leaves a Studio the tape's.
+  handoff.start().then(() => tapeUnlessPlaying());
   const api = {
     ready,
     /** frameNow: the take in the bar and its frame at this moment ({take, frame, sr, playing, at}), or null. ✎ takes it before the page changes. */
@@ -368,6 +385,13 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     setFind: (fn) => { find = fn; if (fn) findWait?.(); },
     setOnNote: (fn) => { onNote = fn; },
     backToTape,
+    /**
+     * tapeUnlessPlaying puts the tape back in the bar, in the Studio, when
+     * what the bar holds instead (a take, the feed) isn't playing: the
+     * Studio's view says so each time it is shown. The engine asks too, as
+     * the hand-off settles and as ▶ stops what the bar holds (onPause).
+     */
+    tapeUnlessPlaying,
     setSource,
     onChange: (fn) => bar.onChange(fn),
     snapshot: () => bar.snapshot(),

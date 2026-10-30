@@ -474,6 +474,29 @@ test('a scope closes only what it opened, by kind or all of it', () => {
   assert.equal(shell.open, true);
 });
 
+test('a scope’s scope is a share of it: its closeAll closes its own, newest first, and the parent’s closes them too', () => {
+  const w = aWindow({ watchers: true });
+  const view = w.layers.scope();
+  const part = view.scope();
+  const log = [];
+  const viewsSheet = view.open({ el: w.el(), kind: 'sheet', onClose: (r) => log.push(`view sheet ${r}`) });
+  part.open({ el: w.el(), kind: 'sheet', onClose: (r) => log.push(`part sheet ${r}`) });
+  const menuEl = w.el();
+  part.open({ el: menuEl, kind: 'menu', onClose: (r) => log.push(`part menu ${r}`) });
+  assert.deepEqual([part.size, view.size], [2, 3]);
+  part.closeAll({ kinds: ['menu'] });
+  assert.deepEqual(log, ['part menu program'], 'only its menu, not its sheet');
+  part.open({ el: menuEl, kind: 'menu', onClose: (r) => log.push(`part menu ${r}`) });
+  part.closeAll({ reason: 'navigate' });
+  assert.deepEqual(log.slice(1), ['part menu navigate', 'part sheet navigate'], 'newest first');
+  assert.equal(viewsSheet.open, true, 'the view’s own stays open');
+  assert.deepEqual([part.size, view.size], [0, 1]);
+  part.open({ el: w.el(), kind: 'menu', onClose: (r) => log.push(`part menu again ${r}`) });
+  view.closeAll({ reason: 'navigate' });
+  assert.deepEqual(log.slice(3), ['part menu again navigate', 'view sheet navigate'], 'the view’s closeAll closes its parts’ too');
+  assert.equal(part.size, 0);
+});
+
 test('ownsKeys: a menu or a modal layer has the keys, and so has any layer for a key pressed in it', () => {
   const w = aWindow({ watchers: true });
   const page = w.el();

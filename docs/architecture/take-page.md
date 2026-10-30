@@ -20,7 +20,7 @@ it shares with the Studio. The pure parts of each are node-tested.
 | `wave/overview` | The whole-take strip: drag, tap and double-tap-to-fit navigation |
 | `wave/clock` | The one playback position: the preview MP3, or with Loop on, `/api/slice` looped in Web Audio, sample-exact |
 | `wave/lanes`, `wave/rising` | The MIDI lanes (with a menu per lane) and the rising-notes view |
-| `wave/share` | Getting a rendered MP3 or bundle off the phone |
+| `wave/share` | How a file leaves the device, for the take page and the Studio alike: `saveFile` (every download the pages start, a Blob or the Pi's address), `shareFile` (the share sheet, a download if it fails), and `exportWays`, the order to offer them in: Download always, Share beside it where the browser can share files, Download first with a mouse (`finePointer`, `(pointer: fine)`) and Share first on a touch screen. `orderExportKeys` puts a Download key and a Share key in that order; `exportActions` is a toast's. A computer's share sheet has no folder: Chrome on a Mac over the kit's HTTPS address can share, so offering only the sheet there left no way to keep the file. Callers: `wave/page` (its Share and bundle keys, which still share where they can: `shareOrDownload`), `tape/page` (Download the mix, Share the mix…, a clip's WAV, Export stems) and `takes` (the Listening Room's Export of several takes) |
 | `wave/page` | Owns the take's editable state and wires the rest together; hands Open (`room/open.js`) a handle on it |
 | `room/open` | Open's words over the page: the notes drawer docked (or a sheet, with the list under the keys on a phone), GRAB, KEEP's length, the tag, and what was made from the take |
 | `help/tips`, `help/help` | Every control's tip; titles on a computer, help mode on a phone, opening with a page's `HINTS` |
@@ -52,6 +52,11 @@ A few rules hold the page together:
   list keeps its scroll; the list also restores it when the browser reloads
   it instead. The take menu's *Previous take* and *Next take* step through
   the takes in the order the list last showed.
+- **Help mode's tip floats over the foot of the page**, in both rooms and
+  on Open: its height is measured into `--tip-h` (`lib/ui/measure.js`), and
+  while help mode is on the page's `<main>` keeps that much room (and 24 px)
+  at its end, before the bar, so whatever is under the tip scrolls clear of
+  it. A phone's List once had its last takes under it for good (J5.1).
 - **Tips live in one file,** `lib/help/tips.js`, and the guide's §9 table is
   the same list; a node test fails if they differ or if any `data-tip` in the
   UI has no tip.

@@ -225,23 +225,34 @@ test('a nudge from the Pi asks at once, not at the next tick', async () => {
   assert.equal(r.w.open, 0, 'destroy lets the socket go');
 });
 
-test('lent to the Studio, its socket shuts; handed back, it watches and asks; with a take in the bar, it hears only presses', async () => {
+test('one socket for the page: lent to the Studio it stays open and a nudge is the Studio\'s; handed back, it asks; with a take in the bar, a nudge waits', async () => {
   const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
   r.m.load('t1');
   await settle();
-  r.m.delegate({ poll() {} });
-  assert.equal(r.w.open, 0, 'the Studio\'s own socket feeds it while it is shown');
-  const before = r.polls.length;
-  r.m.delegate(null);
-  assert.equal(r.w.open, 1, 'back in its own hands, it watches again');
+  assert.equal(r.w.open, 1);
+  const studio = [];
+  r.m.delegate({ poll() {}, nudge: (m) => studio.push(m.rev) });
+  assert.equal(r.w.open, 1, 'lent to the Studio, the socket stays: no second one, no gap');
+  let before = r.polls.length;
+  r.w.nudge({ rev: 4 });
   await settle();
-  assert.equal(r.polls.length, before + 1, 'and asks the Pi at once, for what changed meanwhile');
+  assert.deepEqual(studio, [4], 'the Studio acts on the nudge');
+  assert.equal(r.polls.length, before, 'and the transport asks nothing of its own');
+  r.m.delegate(null);
+  assert.equal(r.w.open, 1, 'handed back: still the one socket');
+  await settle();
+  assert.equal(r.polls.length, before + 1, 'and it asks the Pi at once, for what changed meanwhile');
+  r.w.nudge({ rev: 5 });
+  await settle();
+  assert.deepEqual(studio, [4], 'the Studio hears no more once it has handed it back');
   r.m.setActive(false);
-  assert.equal(r.w.open, 1, 'a take in the bar: it still hears the keyboard\'s presses');
-  const before2 = r.polls.length;
+  before = r.polls.length;
   r.w.nudge({ rev: 9 });
   await settle();
-  assert.equal(r.polls.length, before2, 'but a nudge asks nothing until the tape is back');
+  assert.equal(r.polls.length, before, 'a take in the bar: a nudge asks nothing until the tape is back');
+  assert.equal(r.w.open, 1);
+  r.m.destroy();
+  assert.equal(r.w.open, 0, 'destroy closes it');
 });
 
 test('a nudge while a poll is out asks once more after it, never two at once', async () => {
@@ -270,39 +281,49 @@ test('a nudge while a poll is out asks once more after it, never two at once', a
   assert.equal(most, 1);
 });
 
-test('a press on the keyboard is heard on its socket, or handed on from the Studio\'s, with a take in the bar too', async () => {
+test('a press on the keyboard and the take list\'s revision are heard on the one socket, lent or not, with a take in the bar too', async () => {
   const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
   r.m.load('t1');
   await settle();
-  const heard = [];
-  const off = r.m.onPress((p) => heard.push(p.words));
+  const presses = [], takes = [];
+  const offPress = r.m.onPress((p) => presses.push(p.words));
+  const offTakes = r.m.onTakes((m) => takes.push(m.takes_rev));
   r.w.press({ words: 'PLAY', role: 'play', lit: ['play'], track: 0, ms: 1000 });
-  r.m.setActive(false);
-  r.w.press({ words: 'REC', role: 'rec', lit: ['rec'], track: 0, ms: 1000 });
-  r.m.setActive(true);
-  r.m.delegate({ poll() {} });
-  r.m.heardPress({ words: 'STOP', role: 'stop', lit: ['play'], track: 0, ms: 1000 });
-  off();
-  r.m.heardPress({ words: 'KEPT 30 S', role: 'rec', lit: ['rec'], track: 0, ms: 1000 });
-  assert.deepEqual(heard, ['PLAY', 'REC', 'STOP']);
-});
-
-test('the take list\'s revision is heard on its socket, or handed on from the Studio\'s, with a take in the bar too', async () => {
-  const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
-  r.m.load('t1');
-  await settle();
-  const heard = [];
-  const off = r.m.onTakes((m) => heard.push(m.takes_rev));
   r.w.takes({ rev: 1, takes_rev: 4 });
   r.m.setActive(false);
+  r.w.press({ words: 'REC', role: 'rec', lit: ['rec'], track: 0, ms: 1000 });
   r.w.takes({ rev: 1, takes_rev: 5 });
   r.m.setActive(true);
   r.m.delegate({ poll() {} });
-  assert.equal(r.w.takes, null, 'lent to the Studio, its socket is shut');
-  r.m.heardTakes({ rev: 2, takes_rev: 6 });
-  off();
-  r.m.heardTakes({ rev: 2, takes_rev: 7 });
-  assert.deepEqual(heard, [4, 5, 6]);
+  r.w.press({ words: 'STOP', role: 'stop', lit: ['play'], track: 0, ms: 1000 });
+  r.w.takes({ rev: 2, takes_rev: 6 });
+  offPress();
+  offTakes();
+  r.w.press({ words: 'KEPT 30 S', role: 'rec', lit: ['rec'], track: 0, ms: 1000 });
+  r.w.takes({ rev: 2, takes_rev: 7 });
+  assert.deepEqual(presses, ['PLAY', 'REC', 'STOP']);
+  assert.deepEqual(takes, [4, 5, 6]);
+});
+
+test('snapshot is the tape and its live state, frozen, the same object until one of them moves', async () => {
+  let live = stopped();
+  const r = rig(() => ({ tape: tapeJSON(), loaded: true, live }));
+  const none = r.m.snapshot();
+  assert.deepEqual(none, { v: 1, id: null, tape: null, live: null });
+  assert.ok(Object.isFrozen(none));
+  assert.equal(r.m.snapshot(), none, 'asked again with nothing moved: the same object');
+  r.m.load('t1');
+  await settle();
+  const s = r.m.snapshot();
+  assert.notEqual(s, none);
+  assert.equal(s.id, 't1');
+  assert.equal(s.tape, r.m.tape);
+  assert.equal(s.live, r.m.live);
+  assert.ok(s.v > none.v);
+  assert.equal(r.m.snapshot(), s);
+  r.m.locate(BAR);
+  assert.notEqual(r.m.snapshot(), s, 'a locate shows at once');
+  assert.equal(r.m.snapshot().live.heard, BAR);
 });
 
 test('a tape the Studio ingests before load does not keep load from asking', async () => {

@@ -88,6 +88,73 @@ test('a take in the bar quiets the tape’s player here, and ⏏ gives the tape 
   assert.equal($('np-eject').hidden, true);
 });
 
+// On a Mac, a take played in the Listening Room and stopped there was still
+// in the bar in the Studio: ▶ played it ("BAR -1.4 · SOURCE: TAKE"), and the
+// tape, never moving, showed no playhead (J1.17).
+test('in the Studio a take that isn’t playing gives the bar back to the tape, so ▶ plays the tape', async () => {
+  const { bar } = await open();
+  const take = aTake();
+  bar.loadTake(take.t, take.player);
+  await take.player.toggle(); // played in the Listening Room
+  await take.player.toggle(); // and stopped there
+  assert.equal(bar.sourceKind, 'take', 'in the Listening Room a stopped take stays in the bar');
+  location.pathname = '/tape.html'; // the Studio is shown
+  bar.tapeUnlessPlaying();
+  assert.equal(bar.sourceKind, 'tape');
+  assert.equal(bar.takeName, null);
+  assert.equal(bar.ejected, false, 'not ⏏: a take picked later still goes in the bar');
+});
+
+test('a take still playing in the Studio stays and plays on; ▶ stopping it there gives the bar back to the tape', async () => {
+  const { bar, $, click } = await open();
+  const take = aTake();
+  bar.loadTake(take.t, take.player);
+  await take.player.toggle(); // playing, as the rooms change
+  location.pathname = '/tape.html';
+  bar.tapeUnlessPlaying();
+  assert.equal(bar.sourceKind, 'take', 'a take still playing keeps playing (J2.2)');
+  assert.equal(take.audio.paused, false);
+  click($('np-play')); // ❚❚, in the Studio
+  assert.equal(take.audio.paused, true);
+  assert.equal(bar.sourceKind, 'tape', 'the next ▶ plays the tape');
+});
+
+test('▶ stopping a take in the Listening Room leaves it in the bar', async () => {
+  const { bar, $, click } = await open();
+  const take = aTake();
+  bar.loadTake(take.t, take.player);
+  await take.player.toggle();
+  click($('np-play'));
+  assert.equal(take.audio.paused, true);
+  assert.equal(bar.sourceKind, 'take');
+});
+
+// Play all moves from take to take by itself, in any room: a take that stops
+// by itself in the Studio (its end, Play all moving on) is left be.
+test('a take that stops by itself in the Studio stays until the Studio is shown again', async () => {
+  const { bar } = await open();
+  const take = aTake();
+  bar.loadTake(take.t, take.player);
+  location.pathname = '/tape.html';
+  await take.player.toggle();
+  take.audio.paused = true;
+  take.audio.ended = true;
+  take.audio.emit('pause');
+  take.audio.emit('ended');
+  assert.equal(bar.sourceKind, 'take');
+  bar.tapeUnlessPlaying(); // the Studio shown again
+  assert.equal(bar.sourceKind, 'tape');
+});
+
+test('the live feed stopped by ▶ in the Studio gives the bar back to the tape too', async () => {
+  const { bar, $, click } = await open();
+  location.pathname = '/tape.html';
+  bar.setSource('feed');
+  assert.equal(bar.sourceKind, 'feed');
+  click($('np-play'));
+  assert.equal(bar.sourceKind, 'tape');
+});
+
 // The feed's continuity in the shell is its own state, so it must be one feed.
 test('the feed is made the first time it is chosen, and keeps its place over a trip to the tape and back', async () => {
   const { engine, bar, $, frames } = await open();

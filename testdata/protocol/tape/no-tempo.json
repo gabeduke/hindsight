@@ -1,0 +1,38 @@
+{
+  "tape": {
+    "version": 2,
+    "id": "tape-3",
+    "name": "Tape 3",
+    "sample_rate": 48000,
+    "length": 5760000,
+    "created": "2026-10-30T09:00:00Z",
+    "rec_tracks": [],
+    "grid": null,
+    "loop": { "in": 0, "out": 0, "on": false },
+    "tracks": [
+      { "n": 1, "bus": "a", "gain_db": 0, "pan": 0, "clips": [] },
+      { "n": 2, "bus": "a", "gain_db": 0, "pan": 0, "clips": [] },
+      { "n": 3, "bus": "a", "gain_db": 0, "pan": 0, "clips": [] },
+      { "n": 4, "bus": "a", "gain_db": 0, "pan": 0, "clips": [] }
+    ]
+  },
+  "loaded": true,
+  "live": {
+    "playing": false,
+    "pos": 0,
+    "out": 0,
+    "pending": 0,
+    "heard": 0,
+    "delivered": 0,
+    "late": 0,
+    "output": "demo",
+    "delta": 0,
+    "aligned": "exact",
+    "cycles": [],
+    "failed": [],
+    "output_mode": "both"
+  },
+  "undo": 0,
+  "redo": 0,
+  "sources": []
+}

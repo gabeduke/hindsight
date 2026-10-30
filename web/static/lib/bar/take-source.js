@@ -25,6 +25,17 @@ export const playheadOf = (take) => (take && take.audio && Number.isFinite(take.
 /** takeHref is a take's own page: where its name in the bar opens, and where ✎ goes. */
 export const takeHref = (name) => `/wave.html?file=${encodeURIComponent(name)}`;
 
+/**
+ * takeBar is the bar and beat the counter shows for a take at `frame`, by
+ * its own tempo from its own downbeat (`grid`: {bpm, sampleRate, downbeat});
+ * '' -- the counter shows the time instead -- with no tempo, or before the
+ * downbeat, where the bars would count down from below zero (*BAR -1.4*).
+ */
+export function takeBar(frame, grid) {
+  if (!grid.bpm || frame < grid.downbeat) return '';
+  return barBeat(frame, grid);
+}
+
 /** takeLength is a take's length in frames, as the bar counts it. */
 export function takeLength(t, peaks) {
   const sr = t.sample_rate || 48000;
@@ -100,7 +111,7 @@ export function takeSource(t, player, { onGone } = {}) {
       const a = region ? region.start : 0, b = region ? region.end : length;
       if (pos() >= b - Math.round(sr / 50)) seek(a);
     },
-    lcd: () => takeCounter({ pos: pos(), length, sampleRate: sr, bar: barBeat(pos(), grid), playing: playing() }),
+    lcd: () => takeCounter({ pos: pos(), length, sampleRate: sr, bar: takeBar(pos(), grid), playing: playing() }),
     // The display: its tempo, its name as its spine says it, and here (display.js).
     display: (here) => takeDisplay({ title: takeTitle(t), bpm: t.bpm }, here),
     levels: {

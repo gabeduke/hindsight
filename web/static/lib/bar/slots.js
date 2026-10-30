@@ -13,6 +13,8 @@
 // pages that keep clear of it -- never a number written into the CSS for each
 // state and device, as thirteen were.
 
+import { measureInto } from '../ui/measure.js';
+
 /**
  * SLOTS are the bar's places, in order along it: the zones, then the strip,
  * then the foot (where it plays, shown in the phone's player alone).
@@ -75,19 +77,6 @@ export function deviceOf(win = globalThis) {
  * its top, the phone's mini player, a row of Play's. Hidden, it is 0. One
  * observer, whatever changed its height. Answers its disconnect.
  */
-export function measureBar(np, { root = np?.ownerDocument?.documentElement, RO = globalThis.ResizeObserver } = {}) {
-  if (!np || !root || typeof RO !== 'function') return () => {};
-  let last = null;
-  const write = (h) => {
-    const v = `${Math.round(h)}px`;
-    if (v === last) return;
-    last = v;
-    root.style.setProperty('--np-h', v);
-  };
-  const ro = new RO(([e]) => {
-    const b = e?.borderBoxSize?.[0];
-    write(b ? b.blockSize : (np.getBoundingClientRect?.().height || 0));
-  });
-  ro.observe(np);
-  return () => ro.disconnect();
+export function measureBar(np, opts = {}) {
+  return measureInto(np, '--np-h', opts);
 }

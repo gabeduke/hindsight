@@ -16,8 +16,12 @@ All of it is in `docs/architecture/`: the shell and its two rooms
 (`shell.md`, *The shell*, *Moving between rooms*), the frame (`shell.md`,
 *The frame*), the bar (`bar.md`), the Listening Room as a library
 (`rooms.md`, *The library*), the cue lane and the tape's changes socket
-(`tape.md`, *The cue lane*; `push.md`), and the SMK-37 on Hindsight's
-firmware (`keyboard.md`). What is not built yet, and still looks it:
+(`tape.md`, *The cue lane*; `push.md`), the SMK-37 on Hindsight's
+firmware (`keyboard.md`), and the components' foundations (`components.md`:
+the contract and Guardrail 15, the protocol client and fixtures, the
+harness, `node scripts/components.mjs`, and `display`, mounted by the
+harness only until the Transport's extraction). What is not built yet,
+and still looks it:
 
 - Open (`wave.html`), the rig (`rig.html`) and the guide are still pages of
   their own, outside the shell ([decision 0011](../decisions/0011-open-is-its-own-page.md)).
@@ -37,9 +41,24 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   handlers in `lib/tape/page.js` before blaming the flow); J1.3's second
   hold-drag on the feed ribbon once didn't open the selection at
   `FLOWS_CPU=4`.
+- **The flows' phone runs can't see a page wider than the phone.** On the
+  phone profile (`isMobile`) a page that overflows is zoomed out, and
+  `innerWidth`, which `layout.mjs`'s offscreen check measures against,
+  grows with it: in the components' harness a 480 px root on the 390 px
+  phone measured 496 and passed. The harness measures against the
+  screen's `clientWidth` as well (its `screen` check); `checkLayout`
+  should too, and then the flows' phone runs may find what they missed.
+- **Two copies of the display's keys** until the Transport's extraction:
+  the bar's (`shell.html`, `css/bar.css` `.np-lcd-*`) and the `display`
+  component's (`lib/components/display`, `css/display.css`), which only
+  the harness mounts. The extraction keeps one and deletes the other.
 
 ## Open, needs Gabe at the rig
 
+- **Decided for Gabe while he was away, his to overrule** (2026-10-30): in
+  the Studio a take or the feed that isn't playing gives the bar back to
+  the tape, so ▶ there plays the tape (`docs/architecture/bar.md`, *In the
+  Studio, the tape*; J1.17).
 - The instrument's DRIVE make-up by ear with the SMK-37 (about 10 dB
   quieter on a loud loop at full drive). At the rig on 2026-10-29 the
   encoders reached the tape (DRIVE 0 to 1 as K3 turned) but Gabe heard no
