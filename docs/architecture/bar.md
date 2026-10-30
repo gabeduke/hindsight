@@ -91,7 +91,8 @@ What the bar shows of the tape, and what its keys send, is the page's
 transport (`lib/models/transport.js`), one per page, made by the engine
 (`engine.transport`, `shell.md`) and loaded with the Pi's tape. It has no
 DOM: the tape and its `live` state as `/api/tapes/state` last answered,
-`playing()` (through a count-in and a mixdown's tail, a press held
+`snapshot()` of them (`{v, id, tape, live}`, frozen, the same object until
+one moves; what a component draws from, `components.md`), `playing()` (through a count-in and a mixdown's tail, a press held
 `HOLD_MS` over answers already on their way, nothing on an answer
 `STALE_MS` old), `pos()` (run on at its rate, round the loop at its Out),
 the loop, |◂'s `start()`, a bar's `step()` and `tempo()` (`{bpm, bars,

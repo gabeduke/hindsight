@@ -97,6 +97,20 @@ The JavaScript under `web/static/lib/` has tests under node's built-in
 runner — no package.json, no dependencies. The globs name each directory, so
 the full command is in `AGENTS.md`, kept in step with `ci.yml`.
 
+### One component, in the harness
+
+```sh
+node scripts/components.mjs display    # or no id, for every component
+```
+
+Mounts the component alone on its fixtures (`testdata/protocol/`), at the
+phone's, the tablets' and the desktop's sizes in both schemes, and runs
+the flows' layout checks on its root: about a second a run, no demo and no
+Go. It needs Playwright and axe-core as the flows do (`docs/flows.md`).
+`--profile=phone`, `--scheme=dark` narrow it; `--storyboard=dir` keeps a
+picture of each. What it checks: `docs/architecture/components.md`, *The
+harness*. A component change runs this first, then the flows.
+
 ### On a Mac
 
 - `go test ./...` builds the capture path, which is cgo against PortAudio:

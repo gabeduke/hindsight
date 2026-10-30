@@ -53,7 +53,7 @@ node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' \
   'web/static/lib/rooms/*.test.js' 'web/static/lib/buffer/*.test.js' \
   'web/static/lib/room/*.test.js' 'web/static/lib/rig/*.test.js' \
   'web/static/lib/shell/*.test.js' 'web/static/lib/ui/*.test.js' \
-  'web/static/lib/models/*.test.js'
+  'web/static/lib/models/*.test.js' 'web/static/lib/components/*.test.js'
 ./scripts/test-release-scripts.sh
 gofmt -l . && go vet ./... && go test -race ./...
 ```
@@ -357,6 +357,15 @@ proof-of-concept shortcuts don't come back
   rows are `menuItem`s. The test fails on an `aria-haspopup` a script sets
   up outside `menu.js`, and lists the ones still their own, with why, in
   `OWN_MENUS`. ([0056](docs/decisions/0056-one-menu.md))
+- **Components** (`docs/architecture/components.md`): a module under
+  `lib/components/` draws inside the root it is given, from its models'
+  snapshots, and reaches the page only through `cx` (`mountComponent`,
+  `lib/components/mount.js`): no fetch or route, no `document.` look-ups,
+  no window or document listener but `cx.on`, no `setInterval`, no
+  `hindsight:` event, no id but `cx.id()`'s. Its stylesheet starts every
+  selector at its root, and no other reaches inside it. Guardrail 15 has
+  no list of exceptions: a module moves in once it keeps every rule. Each
+  component has a harness check: `node scripts/components.mjs <id>`.
 
 ## Getting code onto a Pi
 

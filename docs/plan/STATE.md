@@ -16,8 +16,12 @@ All of it is in `docs/architecture/`: the shell and its two rooms
 (`shell.md`, *The shell*, *Moving between rooms*), the frame (`shell.md`,
 *The frame*), the bar (`bar.md`), the Listening Room as a library
 (`rooms.md`, *The library*), the cue lane and the tape's changes socket
-(`tape.md`, *The cue lane*; `push.md`), and the SMK-37 on Hindsight's
-firmware (`keyboard.md`). What is not built yet, and still looks it:
+(`tape.md`, *The cue lane*; `push.md`), the SMK-37 on Hindsight's
+firmware (`keyboard.md`), and the components' foundations (`components.md`:
+the contract and Guardrail 15, the protocol client and fixtures, the
+harness, `node scripts/components.mjs`, and `display`, mounted by the
+harness only until the Transport's extraction). What is not built yet,
+and still looks it:
 
 - Open (`wave.html`), the rig (`rig.html`) and the guide are still pages of
   their own, outside the shell ([decision 0011](../decisions/0011-open-is-its-own-page.md)).
