@@ -139,13 +139,13 @@ never appended by a script; it is named in the template (`data-part="play"`)
 and given its id at mount (`cx.id('play')`).
 
 **The flows keep finding it.** A root given the id `np` makes `#np-play`,
-`#np-grabber` and the rest as they are now, so the nineteen `#np…` ids the
-flows select stay. About a dozen of the bar's 45 ids don't start with `np`
-(`#position`, `#rec`, `#catch-pass`, `#catch-more`, `#click`,
-`#tape-overview`, `#out-strip` and its parts). They are renamed in the
-extraction (`#np-position`…), with each flow's selector and the LCD ids in
-the guardrail *Step 5a* moved to the new names in the same PR: the
-selectors change, never what a flow expects.
+`#np-grabber` and the rest as they are now, so the `#np…` ids the flows
+select (at least nineteen) stay. About a dozen of the bar's 45 ids don't
+start with `np` (`#position`, `#clock-out`, `#rec`, `#catch-pass`,
+`#catch-more`, `#click`, `#tape-overview`, `#out-strip` and its parts).
+They are renamed in the extraction (`#np-position`…), with each flow's
+selector and the LCD ids in the guardrail *Step 5a* moved to the new names
+in the same PR: the selectors change, never what a flow expects.
 
 **1.4 Its stylesheet.** A component is a place, so decision 0033 holds as it
 is: one file in `css/` per component (the Transport's is today's
