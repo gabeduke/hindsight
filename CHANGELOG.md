@@ -5,6 +5,15 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.30.8 — 2026-10-30
+
+- Nothing changes on screen: a part's menus close inside its room's, and the components' guardrail reads more of what it forbids (db3df84d)
+- Docs only: the components' foundations, how to check one component, and where the spec met the code (f089dfb1)
+- Nothing changes on screen: a part of the app can now be checked on its own, at every size, without a Pi (9f6b8b6f)
+- J1.15 hears the page's one push socket in the Listening Room, and the comments say the socket is the page's (e028b859)
+- The page keeps one push socket open across rooms, so moving between the Studio and the Listening Room no longer drops what the Pi says, and the console stops warning about a closed WebSocket (5bffed88)
+
+
 ## v2026.10.30.7 — 2026-10-30
 
 - Review fixes for ▶ in the Studio: it is ▶ stopping a take or the feed that gives the bar back to the tape, not any stop, so Play all carries on in the Studio (25528645)
