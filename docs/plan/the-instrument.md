@@ -437,8 +437,10 @@ My recommendation first in each.
        (`confirm_ms`) 12 ms; the link's round trip 0.5–0.9 ms.
      - The pads on `now` (decision 0060).
      - Found: the encoders reach the tape (DRIVE went 0 to 1 as K3 turned)
-       but Gabe heard no difference in the jam room, which goes with
-       DRIVE's make-up in `STATE.md`. Still to check by ear: that the
+       but Gabe heard no difference in the jam room. Traced afterwards:
+       the engine applies it (the rig's tape: hits 7.5 dB down at DRIVE
+       1, the level within a dB, as its make-up means), so it is to
+       hear again with the tape soloed (`STATE.md`). Still to check by ear: that the
        knobs' numbers follow the hand (local echo), and the map's
        decisions.
 

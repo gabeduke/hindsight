@@ -42,11 +42,34 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Open, needs Gabe at the rig
 
-- The instrument's DRIVE make-up by ear with the SMK-37 (about 10 dB
-  quieter on a loud loop at full drive). At the rig on 2026-10-29 the
-  encoders reached the tape (DRIVE 0 to 1 as K3 turned) but Gabe heard no
-  difference in the jam room: find why the tape's FX aren't heard there
-  first.
+- **DRIVE by ear, then Gabe decides what DRIVE should sound like.** At the
+  rig on 2026-10-29 K3 moved DRIVE 0 to 1 but Gabe heard no difference in
+  the jam room. Traced on 2026-10-29 (no code changed): DRIVE is heard. The
+  rig's own tape (Oct 23 15:06, copied off the Pi) was run locally through
+  `ControlMIDI` on the keyboard's port, CC 23 on channel 16, the real
+  engine and the device's pull, with WOW, FLUTTER and AGE at 0. Its output
+  at DRIVE 0 → 0.6 → 1 measured:
+
+  | DRIVE | RMS | peak | above ~3 kHz |
+  |---|---|---|---|
+  | 0 | −21.9 dBFS | −8.3 | |
+  | 0.6 (the tape's saved) | +0.2 dB | −11.3 | −0.4 dB |
+  | 1 | +0.9 dB | −15.8 | +1.3 dB |
+
+  So the make-up works as designed (`fx.go`: *"the room hears its
+  saturation, not a louder tape"*). The tape stays just as loud and its
+  hits come down 7.5 dB. What changes is how punchy it is, not how loud,
+  and the tape sat at −22 dBFS RMS under channel 1's live input (the
+  EP-136's CH1 tap read −19.6 dBFS with the tape stopped). At the rig:
+  solo the tape (CH1's jack unplugged, or its source quiet), play the
+  loop, and turn K3 0 → 1 → 0 with WOW, FLUTTER and AGE at 0. Listen for
+  the drums losing their snap and a grain on the sustained parts, not a
+  level change. If he hears it there, **Gabe decides** whether DRIVE
+  should be more obvious (a spec: let some of the level through, a higher
+  `driveMaxGain`, a knee set from the tape's own level). The make-up's
+  other half, about 10 dB quieter on a loud loop at full drive (−6 dBFS
+  RMS), is the same design squeezing a hot tape. Check it by ear on a
+  loud loop.
 - `BenchmarkRenderABlock` on the Pi 4B.
 - **The push, timed** (the last step of pushing the tape's state): the
   SMK-37's PLAY, from its log line to the tablet's paint. Expected 30–50 ms
