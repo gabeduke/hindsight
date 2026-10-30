@@ -224,10 +224,11 @@ yet agreed, and is on the `claude/components-spec` branch.
      device. So:
      - `midi.Out` gains `SendTo(name, at, msg)`;
      - its match list takes the device named for sequences, beside the
-       clock's followers. That device's port is for programs only:
-       `Send`, `SendNow` and `Devices()` skip it. So it hears no clock,
-       Start or Stop, isn't listed as a follower, and its coming and going
-       doesn't move `gen`;
+       clock's followers. The usual rig has the MPC in both lists: it is a
+       follower that also takes programs. A device in `TAPE_PROGRAM_OUT`
+       alone is for programs only: `Send`, `SendNow` and `Devices()` skip
+       it, so it hears no clock, Start or Stop, isn't listed as a
+       follower, and its coming and going doesn't move `gen`;
      - `ClockOut` gains an optional part for it, as `ClockFollower` is
        one.
    - **Only with `TAPE_CLOCK=lead`:** a program lands on a section's bar
@@ -422,8 +423,9 @@ Two things come first:
    `ClockOut`'s part for it; the send in `clock.go`, after a locate and at
    the wrap; `TAPE_PROGRAM_OUT` and `TAPE_PROGRAM_CHANNEL`. Go tests with
    the clock's fake out: only the named device hears it, on its channel,
-   on the beat before; that device hears no clock; and without `lead`
-   nothing is sent.
+   on the beat before; a device in both lists still hears the clock, one
+   in `TAPE_PROGRAM_OUT` alone doesn't; and without `lead` nothing is
+   sent.
 7. **A jam into a song.** *Make it a song…*, *From a take…* and the
    picker. Flow J2.12, *make last night's jam a song*.
 
