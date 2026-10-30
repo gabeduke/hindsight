@@ -44,12 +44,16 @@ BPM and no `.mid`.
 ## Controllers
 
 A port that `TAPE_CONTROLLER` names is a controller: its notes and CCs
-go to Play mode's bus on the Pi (`internal/api/controls.go`), a
-`midi.ControlSink`, whatever page is open. Each one is looked up in that
+go to the tape's bus on the Pi (`internal/api/controls.go`), a
+`midi.ControlSink`, whatever page is open, or none. Each one is looked up in that
 controller's bindings: `controls.json`, keyed by the controller's name, or
 a known controller's profile, or the defaults. The bus presses a pad, moves
-an amount or runs a verb (CATCH, the transport, GRAB, DROP, KEEP). MIDI
-LEARN binds the next message.
+an amount or runs a verb (CATCH, the transport, GRAB, DROP, KEEP): the
+tablet's own verbs, `Verbs` in `internal/api/verbs.go` (`tape.md`, *The
+verbs*), pressed bare. MIDI LEARN binds the next message; it is asked for
+over `GET /api/tapes/play`, which no page opens since the instrument strip
+went (`tape.md`, *When a pad lands*), so for now bindings change by
+`PUT /api/tapes/controls`.
 
 A controller can also talk back in SysEx. The parser hands a controller's
 complete SysEx messages, up to `midi.MaxSysEx` bytes, to the sink if it

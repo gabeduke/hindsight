@@ -46,10 +46,11 @@ export function heardIndex({ rd, at }, now, rate, latencyS) {
 }
 
 // fillReport is what the page tells the stream every 500 ms: its delay,
-// and, once the Play socket knows the Pi's clock (play/piclock.js; toPi
-// answers undefined until then), the output frame its speaker plays now and
-// when, its jitter buffer and its output's latency, and its underruns:
-// what times a control to this phone's ear (internal/tape/latency.go).
+// and, once the page knows the Pi's clock (play/piclock.js; toPi answers
+// undefined until then: since the instrument strip went, always), the
+// output frame its speaker plays now and when, its jitter buffer and its
+// output's latency, and its underruns: what times a control to this phone's
+// ear (internal/tape/latency.go).
 export function fillReport({ delayMs, heard, nowMs, toPi, bufMs, outMs, underruns }) {
   const m = { type: 'fill', ms: delayMs };
   const at = toPi(nowMs);

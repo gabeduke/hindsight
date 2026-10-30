@@ -82,3 +82,24 @@ test('☰ is on the page’s stack: a close request shuts it and gives its butto
   btn.dispatchEvent({ type: 'click' });
   assert.ok(open());
 });
+
+// Play mode went on 2026-10-30, but a phone that had it on kept
+// `hindsight.play` = '1', and a release older than that, picked from
+// Releases, would read it and draw the strip and EDIT | PLAY again over the
+// mini player. Every page forgets the retired keys as it loads.
+test('a page forgets Play mode’s retired keys as it loads, and keeps this device’s others', async () => {
+  const { fakeDoc, parseHTML } = await import('./play/fake-dom.js');
+  const { initNav } = await import('./nav.js');
+  const doc = fakeDoc();
+  doc.body.append(...parseHTML(doc, '<header class="appbar"><nav class="appnav"></nav></header><main id="page"></main>').nodes);
+  const kept = {
+    'hindsight.play': '1', 'hindsight.play.strip': 'open', 'hindsight.play.from': 'keys',
+    'hindsight.play.webmidi': '1', 'hindsight.play.midi': '{}', 'hindsight.latency': '0', 'hindsight.library': 'list',
+  };
+  const localStorage = { getItem: (k) => kept[k] ?? null, setItem: (k, v) => { kept[k] = String(v); }, removeItem: (k) => { delete kept[k]; } };
+  await initNav(doc, {
+    localStorage, location: { pathname: '/tape.html' }, setInterval: () => 0,
+    fetch: async () => ({ ok: false, status: 503, json: async () => ({}) }),
+  });
+  assert.deepEqual(Object.keys(kept).sort(), ['hindsight.latency', 'hindsight.library']);
+});

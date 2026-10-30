@@ -23,10 +23,11 @@ const pi = (url) => {
 };
 
 let page = null;
-// The tape asks the Pi every half second and the feed every two: neither may
-// outlive its test.
+// The transport asks the Pi every half second and the feed every two:
+// neither may outlive its test.
 afterEach(() => {
   page?.engine?.tape?.destroy();
+  page?.engine?.transport?.destroy();
   page?.engine?.feed?.destroy();
   page = null;
 });
@@ -52,7 +53,7 @@ test('a tape made after the engine was (a Pi'+"'"+'s first) is mounted by setTap
   assert.equal(engine.tape, null);
   engine.setTapes({ loaded: 't1' });
   assert.equal(engine.tape.kind, 'tape');
-  assert.equal(typeof engine.tape.delegate, 'function');
+  assert.equal(engine.transport.id, 't1', 'and the transport asks about it');
   const held = engine.tape;
   engine.setTapes({ loaded: 't1' });
   assert.equal(engine.tape, held, 'asking again keeps the tape it has');
@@ -253,18 +254,20 @@ test('loadTakeByName loads and plays a take from the Pi without a TakesList', as
   assert.equal(await bar.loadTakeByName('jam_missing.wav'), null);
 });
 
-// Step 5a: the Studio feeds engine.tape with ingest/setLevels and delegates
-// ▶/■, Loop and |◂ through its own transport() so stopping while recording
-// toasts the kept take.
+// Step 5a: the Studio feeds the page's transport (engine.transport) with
+// ingest, the bar's tape source with setLevels, and lends the transport ▶/■,
+// Loop and |◂ through its own transport() so stopping while recording toasts
+// the kept take.
 test('■ in the Studio while recording goes through the delegated transport() and toasts the kept take', async () => {
   const { engine, $, click, frames, w } = await open();
   const tape = engine.tape;
-  assert.equal(typeof tape.ingest, 'function', 'tape.ingest exists');
-  assert.equal(typeof tape.delegate, 'function', 'tape.delegate exists');
+  const transport = engine.transport;
+  assert.equal(typeof transport.ingest, 'function', 'transport.ingest exists');
+  assert.equal(typeof transport.delegate, 'function', 'transport.delegate exists');
   assert.equal(typeof tape.setLevels, 'function', 'tape.setLevels exists');
 
   const calls = [];
-  tape.delegate({
+  transport.delegate({
     play: () => calls.push(['play']),
     stop: () => {
       calls.push(['stop']);
@@ -277,7 +280,7 @@ test('■ in the Studio while recording goes through the delegated transport() a
 
   // The Studio's 200 ms poll feeds the tape state while recording bar 2.
   const recTape = { ...TAPE, loop: { in: BAR, out: 5 * BAR, on: true } };
-  tape.ingest({
+  transport.ingest({
     tape: recTape,
     live: {
       playing: true,

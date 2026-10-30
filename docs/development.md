@@ -229,39 +229,19 @@ throwaway ssh config. `HINDSIGHT_SSH_KEY` picks the key.
 The older `DASHCAM_*` spellings of these variables still work, so an existing
 `deploy.local.env` keeps working after the rename.
 
-## Play mode
+## The tape's pads
 
-`web/static/lib/play/` is the performance surface — momentary pads rather
-than edits, quantised to the tape's grid. It is behind a per-device flag:
-
-```js
-localStorage.setItem('hindsight.play', '1')   // on, this device only
-localStorage.removeItem('hindsight.play')     // off
-```
-
-With the flag off nothing is built: no button, no listeners, no markup. That
-is what lets it ship in every release while the kits are being used.
-
-- `surface.js` — the event bus. `press`/`release` in, `arm`/`fire`/`end`/`idle`
-  out, on the grid. Pure logic; no DOM, no network.
-- `clock.js` — the tape's time in the surface's: the grid the pads land on and
-  the ring's sweep, from the frame the poll says is being heard. Pure.
-- `keymap.js` — the PC keyboard and touch adapters. Keys are read by physical
-  `code`, so the layout stays under the same fingers on any keyboard. Web MIDI
-  will be a third adapter over the same bus, which is the point of the split.
-- `screen.js` — the surface itself.
-- `mount.js` — the flag, and the entry button it creates.
-
-The coupling to the tape page is two events: `hindsight:tape-state`, which
-`lib/tape/page.js` dispatches after each poll, and `hindsight:play-transport`,
-Play mode's Space, which the page answers exactly as it would ▶. Play mode
-imports nothing from the page. While it is open it owns the keyboard: it
-listens in the capture phase and stops every key, because the page's own keys
-(R is ● Rec, 1–4 arm a track) would otherwise fire underneath a jam.
-
-The surface is drawn in its own materials (`--pad-*` in `objects.css`), so it
-is the same dark instrument in both schemes; `styles.test.js` keeps its rules
-off the scheme's tokens and its classes off everything else.
+The pads are momentary: held rather than edited, quantised to the tape's
+grid, and out of undo. They are the Pi's (`internal/tape/trick.go`, the bus
+in `internal/api/controls.go`), played by a controller plugged into the Pi
+(`TAPE_CONTROLLER`), the SMK-37's FX page, or anything that opens
+`GET /api/tapes/play`. The web's instrument strip, behind the per-device
+`hindsight.play` flag, went in the walkthrough of 2026-10-30: its twelve
+folded controls didn't fit the Studio's budget (`STUDIO_BUDGET`, J1.16),
+and the instrument's shape is still to settle. It is in git
+(`lib/play/strip.js` and its neighbours, before that date) for when the
+Pads come back as a component (`docs/architecture/tape.md`, *When a pad
+lands*).
 
 **The pads are audible.** The sound is in `internal/tape/trick.go`
 (the play-mode sound design is in git history).
@@ -270,16 +250,17 @@ off the scheme's tokens and its classes off everything else.
 while a pad is held. The transport keeps counting underneath, so on release
 the tape is back in time with nothing resynchronised.
 
-**How a press reaches the Pi.** `lib/play/link.js` sends each press and
-release over `GET /api/tapes/play` the moment it happens, and the Pi
-quantises it on its own render head. Sending on the grid line instead would
-add the Wi-Fi trip on top, and the press would land late.
+**How a press reaches the Pi.** A client of `GET /api/tapes/play` sends
+each press and release the moment it happens, and the Pi quantises it on its
+own render head. Sending on the grid line instead would add the Wi-Fi trip
+on top, and the press would land late. A controller in the Pi presses the
+same pads through the bus, with no Wi-Fi in the way.
 
 **What comes back.** The Pi sends back two things:
-- **The lead:** how long a press takes to be heard. The surface draws it as
-  the gap between a pad going dim and going bright.
-- **When each press will be heard.** This moves the pad's bright moment to
-  match.
+- **The lead:** how long a press takes to be heard (a pad's gap between
+  going dim and going bright, on a screen that draws one).
+- **When each press will be heard.** The SMK-37's lights take it from the
+  trick log (`keyboard.md`, *The landing time*).
 
 **Undo.** None of it touches the tape's State, so a jam leaves undo and
 `tape.json` exactly as they were.
@@ -289,7 +270,8 @@ add the Wi-Fi trip on top, and the press would land late.
   sample.
 - `play_test.go` checks the socket. A pad sounds while any connection holds
   it, and a connection that drops lets go of what it held.
-- `link.test.js` checks the page's side.
+- `controls_test.go` checks the bus, and holds its defaults to
+  `web/static/lib/play/controls.js`.
 
 `BenchmarkRenderABlock` is the number to watch on a Pi: one 21 ms block with
 four tracks, plain and under each trick.
@@ -307,9 +289,10 @@ help mode, the guide and Releases are the header's one menu (☰,
 line has the version, Releases, the guide and the rig too.
 
 `lib/shell/views/studio.js` mounts the tape page (`lib/tape/page.js`,
-`mountTapePage(ctx)`), the feed, KEEP and the buffer (`lib/rooms/mount.js`),
-and Play mode, all gated on its `ctx`. The feed and the buffer still speak to
-the tape page in events, as Play mode does: `hindsight:clipboard` tells the
+`mountTapePage(ctx)`) and the feed, KEEP and the buffer (`lib/rooms/mount.js`),
+all gated on its `ctx`. The feed and the buffer still speak to the tape page
+in events: `hindsight:tape-state` carries the tape to the buffer after each
+poll, `hindsight:clipboard` tells the
 page the buffer changed, and `hindsight:tape-changed` asks it to reload its
 tape state (and unfold the lanes if folded via `#tracks-fold-btn`).
 
@@ -342,8 +325,9 @@ nothing else.
   DROP, KEEP, TOSS.
 - `cueclip.js` — a cue clip as a board (`boardOf`), the dial's arithmetic,
   GRAB's words.
-- `model.js` — the numbers, tested: the next free span, the window's steps.
-- `keys.js` — the drawer's keys, as a table for P3's control bus to fold in.
+- `model.js` — the numbers, tested: where DROP lands, the window's steps.
+- `keys.js` — the drawer's keys, a table from the control bus's one list
+  (`lib/play/controls.js`).
 - `draw.js`, `lanes.js`, `fold.js`, `audition.js`, `api.js`.
 
 ## The Listening Room
@@ -703,6 +687,9 @@ claude.ai artifacts, private to Gabe:
   `4fJSP7iBAvLS2uMuBJ4xhg`
 - The ecosystem review (the architecture today, the directions, the
   walkthrough's questions): `XTWpyKFHcn14cCzBE2cdCo`
+- The play look (the audit and three directions; `the-play-look.md`):
+  `DHqPaBAGJyqDz4PErR4Qir`, built by `play/gen.py` in the design
+  generators' folder
 
 ## Conventions
 

@@ -140,7 +140,7 @@ test('tokens: light is :root outside any at-rule; dark is the cascade with the d
 test('the real stylesheets read whole: every rule closed, none inside another, and the tokens of both schemes', () => {
   for (const name of ['styles.css', 'objects.css', 'css/chrome.css', 'css/bar.css']) {
     const rs = rules(fileCss(name));
-    assert.ok(rs.length > (name === 'styles.css' ? 1800 : 3), `${name}: only ${rs.length} rules`);
+    assert.ok(rs.length > (name === 'styles.css' ? 1600 : 2), `${name}: only ${rs.length} rules`);
     for (const r of rs) {
       assert.ok(r.sel.length > 0, `${name}:${r.line} has no selector`);
       assert.ok(!/[{}]/.test(r.body.replace(/(["'])(?:\\.|(?!\1).)*\1/g, '')), `${name}:${r.line} ${r.sel[0]} holds a block`);

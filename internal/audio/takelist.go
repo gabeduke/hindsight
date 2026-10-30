@@ -58,9 +58,47 @@ func NewTakeList(dir string) *TakeList {
 
 // List returns the takes in list order and an ETag for them.
 func (l *TakeList) List() ([]Take, string, error) {
-	entries, err := os.ReadDir(l.dir)
+	wavs, infos, sigs, etag, err := l.scan()
 	if err != nil {
 		return nil, "", err
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	out := make([]Take, 0, len(wavs))
+	for _, name := range wavs {
+		s := sigs[name]
+		if c, ok := l.cache[name]; ok && c.sig == s {
+			out = append(out, c.take)
+			continue
+		}
+		t := takeFromFile(l.dir, name, infos[name])
+		l.cache[name] = cachedTake{sig: s, take: t}
+		out = append(out, t)
+	}
+	for name := range l.cache {
+		if _, ok := sigs[name]; !ok {
+			delete(l.cache, name)
+		}
+	}
+	SortTakes(out)
+	return out, etag, nil
+}
+
+// ETag is the list's ETag alone, from the same one directory listing,
+// without building a take: what the takes' revision watches
+// (internal/api/takes_rev.go).
+func (l *TakeList) ETag() (string, error) {
+	_, _, _, etag, err := l.scan()
+	return etag, err
+}
+
+// scan lists the directory once: the takes' WAVs in name order, each
+// entry's lstat, each take's signature and the ETag they make.
+func (l *TakeList) scan() ([]string, map[string]fs.FileInfo, map[string]takeSig, string, error) {
+	entries, err := os.ReadDir(l.dir)
+	if err != nil {
+		return nil, nil, nil, "", err
 	}
 	infos := make(map[string]fs.FileInfo, len(entries))
 	var wavs []string
@@ -86,28 +124,7 @@ func (l *TakeList) List() ([]Take, string, error) {
 		sigs[name] = s
 		fmt.Fprintf(h, "%s|%v\n", name, s)
 	}
-	etag := hex.EncodeToString(h.Sum(nil)[:8])
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	out := make([]Take, 0, len(wavs))
-	for _, name := range wavs {
-		s := sigs[name]
-		if c, ok := l.cache[name]; ok && c.sig == s {
-			out = append(out, c.take)
-			continue
-		}
-		t := takeFromFile(l.dir, name, infos[name])
-		l.cache[name] = cachedTake{sig: s, take: t}
-		out = append(out, t)
-	}
-	for name := range l.cache {
-		if _, ok := sigs[name]; !ok {
-			delete(l.cache, name)
-		}
-	}
-	SortTakes(out)
-	return out, etag, nil
+	return wavs, infos, sigs, hex.EncodeToString(h.Sum(nil)[:8]), nil
 }
 
 func sigFor(wav string, infos map[string]fs.FileInfo) takeSig {

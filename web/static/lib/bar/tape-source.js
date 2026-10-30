@@ -1,156 +1,40 @@
 // web/static/lib/bar/tape-source.js
-// The loaded tape in the now-playing bar on Takes and Capture. Its state is
-// polled from the Pi while the page is visible, twice a second (the tape
-// page asks five times a second), and the bar runs the playhead on between
-// polls. ▶ ■, |◂, Loop and the scrubber drive its transport; Rec and Catch
-// stay on the tape page. Played on this phone (`stream`, a StreamPlayer the
-// bar joined again from the page before), the LCD says how that's going and
-// ▶ is the tap its sound waits for.
+// The loaded tape in the now-playing bar: the bar's view of the page's
+// transport (lib/models/transport.js), which polls the Pi, hears its push,
+// runs the playhead on and sends ▶ ■, |◂, Loop and the scrubber's locate;
+// Rec and Catch stay on the tape page. This draws it: the LCD, the display,
+// the overview, the levels. Played on this phone (`stream`, a StreamPlayer
+// the bar joined again from the page before), the LCD says how that's going,
+// where it is is what this phone hears, and ▶ is the tap its sound waits for.
 
 import { tapeCounter } from '../objects/lcd.js';
 import { tapeDisplay } from './display.js';
 import { paintTapeOverview } from '../tape/overview.js';
-import { refusal } from '../tape/refusal.js';
-import { watchChanges } from '../tape/changes.js';
-import { pollGate } from '../tape/poll-gate.js';
-import { timedFetch } from '../link.js';
-
-const POLL_MS = 500;
-const AHEAD_S = 0.5; // the furthest the playhead is run on past a poll
-const POLL_TIMEOUT_MS = 4000; // a poll lost in a sleep gives up, so the gate opens again
-const STALE_MS = 2000; // no answer for this long: shown stopped, not run on forever
-const HOLD_MS = 1000; // a locate is shown where it was asked, over polls already on their way
-const AWAY_EVERY = 10; // out of the bar, every 10th tick (5 s): the header's output button stays true
 
 /**
- * tapeSource is the bar's source for the tape loaded on the Pi (`id`).
- * onError(message) hears of a press the Pi refused; stream() is the tape's
- * player on this phone, if there is one; watch is changes.js's
- * watchChanges, for tests.
+ * tapeSource is the bar's source for `transport` (createTransport's, loaded
+ * with the Pi's tape). stream() is the tape's player on this phone, if there
+ * is one.
  */
-export function tapeSource(loadedId, { onError, stream = () => null, watch = watchChanges } = {}) {
-  let id = loadedId;
-  let t = null, live = null, at = 0, timer = 0, gen = 0, stopped = false, active = true, holdUntil = 0, ticks = 0;
-  let want = null; // a press not yet in a poll: {playing, until}
-  // A poll that came after the press and agrees with it ends the hold.
-  const agreed = () => { if (want && !!(live && live.playing) === want.playing) want = null; };
-  let del = null, levels = null;
-  const listeners = new Set();
-  const fire = () => { for (const f of listeners) f(); };
-
-  // One poll at a time, as the Studio's (lib/tape/poll-gate.js): a tick
-  // while one is out is skipped, a wake-up goes ahead of one that may be
-  // lost, and ask() -- a nudge, a press, the tape handed back -- polls now,
-  // or once more when the one out ends, never beside it.
-  const gate = pollGate();
-  const ask = () => (gate.nudge() ? poll() : undefined);
-  async function poll(force = false) {
-    const mine = gate.begin(force === true);
-    if (!mine) return;
-    const g = ++gen;
-    try {
-      const res = await timedFetch(`/api/tapes/state?id=${encodeURIComponent(id)}`, { cache: 'no-store' }, POLL_TIMEOUT_MS);
-      if (!res.ok || g !== gen || del) return;
-      const s = await res.json();
-      if (g !== gen || del) return;
-      t = s.tape;
-      // Another device loaded another tape: follow it.
-      if (!s.loaded) { follow(); return; }
-      // Just located: keep showing where it was asked until the Pi has it.
-      if (performance.now() >= holdUntil) { live = s.live; at = performance.now(); agreed(); }
-      fire();
-    } catch { /* the next tick asks again */ } finally {
-      if (gate.end(mine)) poll();
-    }
-  }
-  async function follow() {
-    try {
-      const list = await (await fetch('/api/tapes', { cache: 'no-store' })).json();
-      if (list.loaded && list.loaded !== id) { id = list.loaded; live = null; ask(); }
-    } catch { /* the next tick asks again */ }
-  }
-  const tick = () => {
-    if (stopped) return;
-    // While it's in the bar and the page is in view (unless the Studio's own
-    // 200 ms poll is feeding it); out of the bar, now and then, for where it plays.
-    ticks++;
-    if (!document.hidden && !del && (active || ticks % AWAY_EVERY === 0)) poll();
-    timer = setTimeout(tick, POLL_MS);
-  };
-  const onVisible = () => { if (active && !del && !document.hidden) poll(true); };
+export function tapeSource(transport, { stream = () => null } = {}) {
+  const tr = transport;
+  let levels = null;
+  // Back in view: the transport asks the Pi at once (it has no document).
+  const onVisible = () => tr.wake();
   document.addEventListener('visibilitychange', onVisible);
-  // The Pi's word that the tape changed (lib/tape/changes.js), heard while
-  // the bar polls the tape itself: in the bar, and not handed to the
-  // Studio, whose own socket feeds it then. A new revision polls now, not
-  // at the next tick, so a press made at the Pi shows in tens of
-  // milliseconds; the tick stays as the fallback.
-  // A press on the keyboard comes on the same socket (changes.js pressOf),
-  // or the Studio's while it is shown, which hands it on (heardPress): the
-  // bar's note hears it either way (onPress). The keyboard plays the tape
-  // whatever is in the bar, so the socket stays open with a take in it too,
-  // for the presses: only its nudges wait for the tape to be back.
-  let changes = null;
-  const pressListeners = new Set();
-  const heardPress = (p) => { for (const f of pressListeners) f(p); };
-  const syncChanges = () => {
-    const on = !stopped && !del;
-    if (on && !changes) {
-      changes = watch({ onNudge: () => { if (active && !del && !document.hidden) ask(); }, onPress: heardPress });
-    } else if (!on && changes) { changes.close(); changes = null; }
-  };
-  tick();
-  syncChanges();
 
-  async function send(path, method, body) {
-    try {
-      const res = await fetch(`${path}?id=${encodeURIComponent(id)}`, {
-        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const why = refusal(res.status, await res.json().catch(() => ({})));
-        onError?.(why.recording ? `${why.message}. ${why.detail}` : why.message);
-      }
-    } catch (e) {
-      onError?.(e.message);
-    }
-    if (!del) setTimeout(ask, 150);
-  }
-
-  const sr = () => (t ? t.sample_rate : 48000);
-  const fresh = () => performance.now() - at < STALE_MS;
-  const counting = () => !!(live && live.count_in > 0);
-  const mixdown = () => (live && live.mixdown && t && live.mixdown.tape === t.id ? live.mixdown : null);
-  // Playing, as the tape page reads it: through a count-in, and through a
-  // mixdown and its tail (■ cancels it). Not on a poll gone quiet.
-  const playing = () => {
-    // A ▶ or ■ just pressed is what's playing until the Pi says so, or for
-    // HOLD_MS: a second press before the next poll toggles from it, not
-    // from the poll before the first.
-    if (want && performance.now() < want.until) return want.playing;
-    want = null;
-    const md = mixdown();
-    return fresh() && (!!(live && (live.playing || counting())) || !!(md && (md.state === 'playing' || md.state === 'tail')));
-  };
   // On this phone: its sound held back until a tap, or on its way.
   const here = () => { const p = stream(); return p && p.active ? p : null; };
   // Where the tape is now: when streaming here, what this device hears; else
-  // the last poll's, run on at its rate while it plays -- round the loop at
-  // its Out, as the tape does.
+  // the transport's, run on at its rate while it plays.
   const pos = () => {
-    if (!live || !t) return 0;
-    if (live.output_mode !== 'jam') {
+    if (!tr.live || !tr.tape) return 0;
+    if (tr.live.output_mode !== 'jam') {
       const h = here()?.heard?.();
       if (h) return h.pos;
     }
-    let p = live.heard;
-    if (live.playing && !counting() && fresh()) {
-      p += Math.min(AHEAD_S, (performance.now() - at) / 1000) * sr();
-      const { in: a, out: b, on } = t.loop;
-      if (on && b > a && live.heard < b && p >= b) p = a + ((p - a) % (b - a));
-    }
-    return Math.min(p, t.length);
+    return tr.pos();
   };
-  const loopable = () => !!(t && t.loop.out > t.loop.in);
   const waiting = () => here()?.state === 'locked';
   const streamNote = () => {
     const p = here();
@@ -161,117 +45,62 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
 
   return {
     kind: 'tape',
-    get ready() { return !!t; },
-    get title() { return t ? t.name : 'the tape'; },
+    get ready() { return tr.ready; },
+    get title() { return tr.tape ? tr.tape.name : 'the tape'; },
     href: '/tape.html',
-    get sampleRate() { return sr(); },
-    get length() { return t ? t.length : 1; },
+    get sampleRate() { return tr.sampleRate; },
+    get length() { return tr.length; },
     pos,
     // heardHere is where this device is hearing the tape: behind pos() when
     // it plays here, by the stream's buffer and the output's latency.
     heardHere: () => { const h = here()?.heard?.(); return h ? h.pos : pos(); },
-    playing,
-    // ▶ needs a device to play out of; the Pi refuses it otherwise.
-    canPlay: () => !!(live && live.output),
-    canStart: () => !!live,
+    playing: () => tr.playing(),
+    canPlay: () => tr.canPlay(),
+    canStart: () => tr.canStart(),
     waiting,
     // ▶ while the sound waits for a tap: the tap wakes it, and starts the
     // tape if it's stopped -- it never stops what it's waking.
     press() {
       if (!waiting()) return false;
       here().resume();
-      if (!playing()) this.play();
+      if (!tr.playing()) tr.play();
       return true;
     },
-    play: () => {
-      want = { playing: true, until: performance.now() + HOLD_MS };
-      fire();
-      return del?.play ? del.play() : send('/api/tapes/transport', 'POST', { action: 'play' });
-    },
-    pause: () => {
-      want = { playing: false, until: performance.now() + HOLD_MS };
-      fire();
-      return del?.stop ? del.stop() : send('/api/tapes/transport', 'POST', { action: 'stop' });
-    },
-    seek(frame) {
-      if (!t) return;
-      const p = Math.max(0, Math.min(t.length, Math.round(frame)));
-      if (del?.locate) {
-        if (live) { live = { ...live, heard: p }; at = performance.now(); fire(); }
-        return del.locate(p);
-      }
-      // Shown at once and held a moment; a poll already on its way with
-      // the old place is dropped.
-      gen++;
-      holdUntil = performance.now() + HOLD_MS;
-      if (live) { live = { ...live, heard: p }; at = performance.now(); fire(); }
-      send('/api/tapes/transport', 'POST', { action: 'locate', pos: p });
-    },
-    // |◂: the loop's start while looping, else the top of the tape.
-    start: () => (t && t.loop.on && loopable() ? t.loop.in : 0),
-    startLabel: () => (t && t.loop.on && loopable() ? 'Back to the loop’s start' : 'Back to the top of the tape'),
-    step: () => (t && t.grid ? t.grid.frames / t.grid.bars : sr()),
-    get loop() { return !!(t && t.loop.on); },
-    loopSpec: () => (t ? t.loop : null),
-    canLoop: loopable,
-    setLoop(on) {
-      if (del?.setLoop) return del.setLoop(on);
-      send('/api/tapes', 'PATCH', { loop: { on } });
-    },
+    play: () => tr.play(),
+    pause: () => tr.stop(),
+    seek: (frame) => tr.locate(frame),
+    start: () => tr.start(),
+    startLabel: () => (tr.loop && tr.canLoop() ? 'Back to the loop’s start' : 'Back to the top of the tape'),
+    step: () => tr.step(),
+    get loop() { return tr.loop; },
+    loopSpec: () => tr.loopSpec(),
+    canLoop: () => tr.canLoop(),
+    setLoop: (on) => tr.setLoop(on),
     tick() {},
-    // The bar holding a take instead: no polling until it's back.
-    setActive(on) { active = on; syncChanges(); if (on && !del) ask(); },
+    // The bar holding a take instead: the transport asks only now and then.
+    setActive: (on) => tr.setActive(on),
     lcd: () => {
-      const c = t ? tapeCounter(t, live ? { ...live, heard: pos() } : null, mixdown()) : { big: '', small: '', note: '', status: 'stop', unit: '' };
+      const t = tr.tape, live = tr.live;
+      const c = t ? tapeCounter(t, live ? { ...live, heard: pos() } : null, tr.mixdown()) : { big: '', small: '', note: '', status: 'stop', unit: '' };
       const n = streamNote();
       return n ? { ...c, note: n } : c;
     },
     // The display's tempo, source and where it plays (display.js).
-    display: () => tapeDisplay(t, live && live.output_mode),
+    display: () => tapeDisplay(tr.tape, tr.live && tr.live.output_mode),
     get levels() { return levels; },
     setLevels(colors, atFn) {
       levels = colors && atFn ? { colors, at: atFn } : null;
     },
-    ingest({ tape: nextTape, live: nextLive } = {}) {
-      if (nextTape) { t = nextTape; id = nextTape.id || id; }
-      if (nextLive !== undefined) { live = nextLive; at = performance.now(); agreed(); }
-      fire();
-    },
-    // The Studio, while it is shown, polls and plays the tape for the bar;
-    // null hands both back to the bar.
-    delegate(d = null) {
-      const was = del;
-      del = d;
-      if (d) gen++;
-      syncChanges();
-      if (was && !d && active && !document.hidden) ask();
-    },
-    // Where it plays, for the header's output button: null before the Pi
-    // says, or from one that doesn't.
-    mode: () => (live && live.output_mode) || null,
-    // How late a phone hears it, as the Pi measured it.
-    streamDelayMs: () => (live && live.stream && live.stream.delay_ms) || 0,
-    /** refresh asks the Pi now, after a change made elsewhere. */
-    refresh: () => (del?.poll ? del.poll() : ask()),
     paint(ctx, W, H, col) {
-      if (!t) { ctx.clearRect(0, 0, W, H); return; }
-      paintTapeOverview(ctx, W, H, t, live ? pos() : null, { col });
+      if (!tr.tape) { ctx.clearRect(0, 0, W, H); return; }
+      paintTapeOverview(ctx, W, H, tr.tape, tr.live ? pos() : null, { col });
     },
-    /** heardPress is a press on the keyboard heard on the Studio's socket, handed on. */
-    heardPress,
-    /** onPress hears each press on the keyboard (changes.js pressOf), and answers its off. */
-    onPress(fn) { pressListeners.add(fn); return () => pressListeners.delete(fn); },
     /** on hears every change to what the bar shows of the tape, and answers its off. */
-    on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    on: (fn) => tr.onChange(fn),
     /** changed: something the LCD shows changed (the stream's state). */
-    changed: fire,
+    changed: () => tr.changed(),
     destroy() {
-      stopped = true;
-      syncChanges();
-      clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
-      listeners.clear();
-      pressListeners.clear();
     },
   };
 }

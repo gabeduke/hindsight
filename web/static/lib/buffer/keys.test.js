@@ -52,7 +52,7 @@ function fakeDoc({ dialogs = [] } = {}) {
       removeEventListener: (type, fn) => { const i = listeners.findIndex((l) => l.fn === fn); if (i >= 0) listeners.splice(i, 1); },
     },
     querySelectorAll: (sel) => (sel === 'dialog[open]' ? dialogs : []),
-    addEventListener: () => { throw new Error('on the document, Play mode’s keys come after these, not before'); },
+    addEventListener: () => { throw new Error('on the root element, not the document'); },
     listeners,
   };
 }
@@ -102,7 +102,7 @@ test('bound, a key it takes stops there, ahead of the tape page’s, and one it 
   let open = true;
   const unbind = bindBufferKeys(doc, { state: () => ({ open, held: false }), run: (a) => ran.push(a) });
   const l = doc.listeners.find((x) => x.type === 'keydown');
-  assert.equal(l.capture, true, 'in the capture phase on the root, before the page’s K (the click) and ⌫ (remove), after Play mode’s');
+  assert.equal(l.capture, true, 'in the capture phase on the root, before the page’s K (the click) and ⌫ (remove)');
   const press = (code, more) => {
     const e = { ...key(code, more), target: el('body'), stopped: false, prevented: false };
     e.stopPropagation = () => { e.stopped = true; };

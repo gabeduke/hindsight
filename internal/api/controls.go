@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -227,7 +228,7 @@ type controlsFile struct {
 	Controllers map[string]Bindings `json:"controllers"`
 }
 
-// midiMsg is one message, decoded as controls.js's midi.js decodes it.
+// midiMsg is one message, decoded.
 type midiMsg struct {
 	typ   string // on, off, cc, bend, program, rt
 	ch    int
@@ -1080,7 +1081,8 @@ func (a *API) runVerb(j verbJob) {
 	a.keyboardDone(j.port, j.id, true) // a command pad flashes when done
 }
 
-// piVerbs are the verbs on this Pi's tape, its cue lane and the capture.
+// piVerbs are a controller's presses as the Pi's verbs (verbs.go): each pad
+// is its verb pressed bare, so it refuses as the tablet's key would.
 type piVerbs struct{ a *API }
 
 // keepSeconds is what KEEP from a controller keeps: the Studio's default.
@@ -1091,82 +1093,48 @@ const keepSeconds = 30
 const grabBars = 4
 
 func (v piVerbs) Verb(id, rt string) (verbDone, error) {
-	a := v.a
-	if id == "keep" {
-		if a.saver == nil {
-			return verbDone{}, errNothingToKeep
-		}
-		name, err := a.saver.Save(keepSeconds)
+	a, vs := v.a, v.a.Verbs()
+	switch id {
+	case "keep":
+		name, err := vs.Keep(keepSeconds)
 		if err != nil {
 			return verbDone{}, err
 		}
 		return verbDone{log: fmt.Sprintf("kept the last %d s as %s", keepSeconds, name), says: keptWords(keepSeconds)}, nil
-	}
-	if a.tape == nil {
-		return verbDone{}, errTapeOff
-	}
-	t := a.tape.Loaded()
-	if t == nil {
-		return verbDone{}, tape.ErrNoTape
-	}
-	track, src, armed := a.armedOf(t)
-	switch id {
 	case "transport":
+		t, err := vs.loaded()
+		if err != nil {
+			return verbDone{}, err
+		}
 		kind := "play"
 		if rt == "stop" || (rt == "" && a.tape.Live().Playing) {
 			kind = "stop"
 		}
-		if kind == "play" && !a.tape.HasOutput() {
-			return verbDone{}, errNoAudioOut
-		}
-		if _, err := a.tape.Transport(t.ID, tape.Action{Kind: kind}); err != nil {
+		if _, err := vs.Transport(t.ID, tape.Action{Kind: kind}); err != nil {
 			return verbDone{}, err
 		}
 		return verbDone{log: kind, says: strings.ToUpper(kind)}, nil
 	case "catch":
-		req, err := a.catchRequest(t)
+		res, t, err := vs.CatchArmed(a.catchReplaces())
 		if err != nil {
 			return verbDone{}, err
 		}
-		// Engine.Catch is the page's path: it refuses while the tape plays
-		// on a phone (jamOnly), as the page's Catch does.
-		c, err := a.tape.Catch(t.ID, req)
-		if err != nil {
-			return verbDone{}, err
-		}
-		secs := float64(c.Frames) / float64(t.SampleRate)
-		return verbDone{log: fmt.Sprintf("caught %.1f s from %s onto track %d", secs, req.Source, req.Track),
-			says: caughtWords(secs), track: req.Track}, nil
+		secs := float64(res.Clip.Frames) / float64(t.SampleRate)
+		return verbDone{log: fmt.Sprintf("caught %.1f s onto %s", secs, tracksLog(res.Tracks)),
+			says: caughtWords(secs), track: res.Tracks[0]}, nil
 	case "grab":
-		req := tape.GrabRequest{Sources: []string{src}}
-		says := grabbedWords(grabBars, "BARS")
-		if t.Grid != nil && t.Grid.Bars > 0 {
-			req.Bars = grabBars
-		} else {
-			req.Seconds = 2 * grabBars
-			says = grabbedWords(2*grabBars, "S")
-		}
-		// Onto the cue lane, as the Studio's GRAB: every tablet shows it.
-		if _, err := a.tape.GrabToCue(t.ID, req, ""); err != nil {
+		src, inBars, err := vs.GrabArmed(grabBars)
+		if err != nil {
 			return verbDone{}, err
+		}
+		says := grabbedWords(grabBars, "BARS")
+		if !inBars {
+			says = grabbedWords(2*grabBars, "S")
 		}
 		return verbDone{log: fmt.Sprintf("grabbed the last %d bars of %s onto the cue lane", grabBars, src), says: says}, nil
 	case "drop":
-		if !armed {
-			return verbDone{}, errNotArmed
-		}
-		// The cue lane's newest clip -- the last GRAB, from here or a
-		// tablet -- at the next free span on the armed track, a lane a track.
-		if t.State.Cue == nil || len(t.State.Cue.Clips) == 0 {
-			return verbDone{}, errNothingToDrop
-		}
-		c := t.State.Cue.Clips[len(t.State.Cue.Clips)-1]
-		lanes := max(1, len(c.Lanes))
-		at, ok := tape.NextFreeSpan(t.State, t.Length, track, lanes, c.Frames, a.tape.Live().Heard)
-		if !ok {
-			return verbDone{}, fmt.Errorf("%w %d", errNoRoom, track)
-		}
-		if _, err := a.tape.CueDrop(t.ID, c.ID, track, false, &at); err != nil {
+		c, track, err := vs.DropArmed()
+		if err != nil {
 			return verbDone{}, err
 		}
 		return verbDone{log: fmt.Sprintf("dropped %q from the cue lane on track %d", c.Name, track), says: droppedWords(track), track: track}, nil
@@ -1174,34 +1142,43 @@ func (v piVerbs) Verb(id, rt string) (verbDone, error) {
 	return verbDone{}, fmt.Errorf("%s isn't a verb the Pi runs", id)
 }
 
-// catchRequest is the controller's CATCH, as the page's Catch asks it: the
-// last pass, onto the armed track, from its input, layered or replacing as
-// controls.json says.
-func (a *API) catchRequest(t *tape.Tape) (tape.CatchRequest, error) {
-	track, src, armed := a.armedOf(t)
-	if !armed {
-		return tape.CatchRequest{}, errNotArmed
-	}
+// catchReplaces is the controllers' CATCH mode, the Pi's own in
+// controls.json, as the page's Layer / Replace is each device's.
+func (a *API) catchReplaces() bool {
 	a.controls.mu.Lock()
-	replace := a.controlsLocked().Catch == "replace"
-	a.controls.mu.Unlock()
-	return tape.CatchRequest{Track: track, Source: src, Pass: 1, Replace: replace}, nil
+	defer a.controls.mu.Unlock()
+	return a.controlsLocked().Catch == "replace"
 }
 
-// armedOf is the record track (0 in tape.json is track 1) and its input,
-// or the first source when it has none of its own.
+// tracksLog is "track 2", or "tracks 2, 3", for the log.
+func tracksLog(ns []int) string {
+	s := make([]string, len(ns))
+	for i, n := range ns {
+		s[i] = strconv.Itoa(n)
+	}
+	if len(ns) == 1 {
+		return "track " + s[0]
+	}
+	return "tracks " + strings.Join(s, ", ")
+}
+
+// armedOf is the first armed track and its input, or the first source when
+// no track is armed.
 func (a *API) armedOf(t *tape.Tape) (track int, src string, armed bool) {
-	track = t.RecTrack
-	if track == tape.NoRecTrack {
+	ns := t.Armed()
+	if len(ns) == 0 {
 		return 0, a.firstSource(), false
 	}
-	if track == 0 {
-		track = 1
+	return ns[0], a.inputOf(t, ns[0]), true
+}
+
+// inputOf is track n's input, or the first source when it has none of its
+// own.
+func (a *API) inputOf(t *tape.Tape, n int) string {
+	if n >= 1 && n-1 < len(t.Inputs) && t.Inputs[n-1] != "" {
+		return t.Inputs[n-1]
 	}
-	if track-1 < len(t.Inputs) && t.Inputs[track-1] != "" {
-		return track, t.Inputs[track-1], true
-	}
-	return track, a.firstSource(), true
+	return a.firstSource()
 }
 
 func (a *API) firstSource() string {

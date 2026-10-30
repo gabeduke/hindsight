@@ -52,23 +52,21 @@ test('the real list is well formed', () => {
   }
 });
 
-test('Play mode is in the list, and reading it needs no localStorage', () => {
-  // device-prefs.js must not import lib/play/mount.js, which starts Play mode
-  // on load. Importing this module in node, with no DOM and no storage, is
-  // the test: it got here.
-  const play = DEVICE_PREFS.find((p) => p.id === 'play');
-  assert.ok(play, 'Play mode should be switchable from Settings');
-  assert.ok(play.reload, 'the flag is read once at page load, so say so');
-  assert.equal(play.get(), false, 'no storage in node: off, not a throw');
+test('reading the list needs no localStorage', () => {
+  // Importing this module in node, with no DOM and no storage, is the test:
+  // it got here. A flag reads as off, not a throw.
+  for (const p of DEVICE_PREFS) assert.equal(p.get(), false, p.id);
 });
 
 test('the two rooms are not a switch any more: they are the only layout', () => {
   assert.equal(DEVICE_PREFS.find((p) => p.id === 'rooms'), undefined);
 });
 
-test('a preview is drawn in the open Preview features section; a switch that is not one is in This device', () => {
-  assert.ok(DEVICE_PREFS.length > 0);
-  assert.equal(DEVICE_PREFS.find((p) => p.id === 'play').feature, true, 'Play mode is drawn up front, not under a fold');
+test('Play mode is not a switch any more: its strip is gone (the Pads may come back as a component)', () => {
+  assert.equal(DEVICE_PREFS.find((p) => p.id === 'play'), undefined);
+});
+
+test('a switch that is not a preview is in This device', () => {
   // The Listening Room's Shelf | List (lib/room/library.js) is how this device
   // likes it, not a preview: it is in the room itself, and in This device.
   const list = DEVICE_PREFS.find((p) => p.id === 'library-list');
@@ -82,7 +80,7 @@ test('a flag whose storage refuses reports failure, so the sheet does not claim 
   const throws = { getItem: () => { throw new Error('denied'); }, setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
   try {
     for (const mod of ['./play/flag.js']) {
-      const { setOn, on } = await import(mod);
+      const { setLatencyOn: setOn, latencyOn: on } = await import(mod);
       for (const store of [deaf, throws]) {
         globalThis.localStorage = store;
         assert.equal(setOn(true), false, `${mod} ${store === deaf ? 'drops' : 'throws'}`);

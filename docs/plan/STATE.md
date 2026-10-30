@@ -78,6 +78,12 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
+- **The walkthrough has begun** (2026-10-30): `walkthrough.md` holds Gabe's
+  stories and what is decided so far. Specs come out of it: reaching back
+  (Catch and Keep as one move), song sections and templates, the pocket
+  kit (a phone that records on its own and syncs the tape). Play mode's
+  flag is retired (its strip deleted; `architecture/tape.md`, *When a pad
+  lands*).
 - **`the-ecosystem.md` comes first** (2026-10-30, not yet agreed): Gabe
   finds the UX chaotic and wants an ecosystem of components reached from
   every surface. Its walkthrough settles what is kept, merged or cut, and
@@ -104,13 +110,22 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   calls them. Retire them, moving the tests that use them to the cue lane
   (`grab_test.go`, `replaced*_test.go`, `internal/api/buffer_test.go`);
   a range's Cut, Copy, Paste and their Undo (`RestoreReplaced`) stay.
+- **`the-play-look.md`** (not agreed yet): the look made simpler and more
+  fun, after Gabe's OP-1 field note. An audit, and three directions on the
+  canvas `DHqPaBAGJyqDz4PErR4Qir` (A tidied, B Signal recommended, C
+  Toybox), shipped as a theme beside today's Reel and applied per
+  component. It is `the-ecosystem.md`'s step 7, after the walkthrough.
+  **Gabe picks a direction** before any code.
 - **`the-instrument.md`** (agreed 2026-10-26), in tracks of its own:
   Hindsight as something you play. Its step 1 is built: latency
   measured in use, every control timed to the ear, kept on the Pi
   ([decision 0016](../decisions/0016-measure-latency-in-use.md);
   `GET /api/latency`, the rig's line). Next, Gabe at the rig reads the
   numbers on the Pi 5, which choose step 2's buffers. Its step 7, the
-  SMK-37, is above.
+  SMK-37, is above. Since Play mode's strip went (2026-10-30) no page plays
+  the pads, so a touch is no longer timed (`page→room`, `page→phone`; a
+  controller's `midi→room` is), and no page shows the tape mods: both wait
+  for the instrument's shape (`tape.md`, *When a pad lands*).
 - **An auto-install trigger** for releases ([decision 0012](../decisions/0012-agents-install-releases.md); `backlog.md`).
 
 Leftovers, to fold in as each is touched:
@@ -118,9 +133,8 @@ Leftovers, to fold in as each is touched:
 1. **What is still on its own path** is listed, with why, by the
    ratchets: `OWN_HISTORY` and `OWN_MENUS` in `lib/architecture.test.js`,
    `TYPED` in `lib/ui/icons.test.js`. Also off the stack: the Listening
-   Room's select mode (`lib/takes.js`), the buffer's lift and Play's learn
-   mode (they claim their Escape), and a previewed Insert, Delete time or
-   Paste.
+   Room's select mode (`lib/takes.js`), the buffer's lift (it claims its
+   Escape), and a previewed Insert, Delete time or Paste.
 2. **The presses still their own machines**, with only their numbers in
    `GESTURE` (`lib/ui/press.js`; most hold, then drag, which
    `pressMachine` doesn't do yet): the Takes list's two holds, the tape's

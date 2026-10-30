@@ -27,12 +27,14 @@ request. Why things are the way they are is in `docs/decisions/`.
   editing, mixdown, export, the MIDI clock, the cue lane, the feed strip,
   the track heads and the Studio's budget on a tablet.
 - [push.md](architecture/push.md): the tape's revision, the
-  `/api/tapes/changes` socket and the keyboard's press on it.
+  `/api/tapes/changes` socket, the take list's revision (`takes_rev`) and
+  the page's takes model it feeds, and the keyboard's press on it.
 - [shell.md](architecture/shell.md): the UI and the shell: views and
   `ctx`, the router, moving between rooms, one way to close things, menus,
   the bar's engine, the frame (the header), waking up.
 - [bar.md](architecture/bar.md): the bar: its zones, what shows for each
-  source, its widths, its display, its fold.
+  source, its widths, its display, its fold, and the page's transport
+  model it draws.
 - [rooms.md](architecture/rooms.md): the rooms' words (the vocabulary,
   the verbs, a take's one name) and the Listening Room as a library.
 - [css-and-motion.md](architecture/css-and-motion.md): the stylesheets

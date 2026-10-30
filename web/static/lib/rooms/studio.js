@@ -215,8 +215,6 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     el.len.textContent = len;
     if (len) el.keep.setAttribute('aria-label', keepAria(len));
     else el.keep.removeAttribute('aria-label');
-    // And the instrument's pad: what K keeps (lib/play/strip.js listens).
-    doc.dispatchEvent(new CustomEvent('hindsight:keeps', { detail: { feed: len } }));
     el.sub.textContent = status ? tierPhrase(seconds, status.ring_seconds) : '';
     el.sub.hidden = !healthy || busy;
   }
@@ -362,10 +360,9 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     feed: main.querySelector('.studio-feed'), keysRow: main.querySelector('.studio-keys'), ribbon, toast, ctx,
   });
 
-  // The Studio's verbs, after the buffer's (which claims KEEP while it's
-  // open): CATCH presses the bar's Catch, KEEP keeps the feed. They come as
-  // `hindsight:verb` from the instrument strip (lib/play), and from the
-  // keys below.
+  // The Studio's verbs: CATCH presses the bar's Catch, KEEP keeps the feed.
+  // They come as `hindsight:verb` from the keys below, which leave a key the
+  // buffer's own took first (its K, while it's open: lib/buffer/keys.js).
   onDoc('hindsight:verb', (e) => {
     if (e.defaultPrevented) return;
     const v = e.detail?.verb;

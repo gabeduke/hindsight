@@ -50,7 +50,7 @@ internet.
 | `DELETE /api/tapes?id=` | Delete a tape that isn't loaded, and free the audio only it used |
 | `POST /api/tapes/load?id=` | Make a tape the loaded one: the one the transport plays |
 | `POST /api/tapes/transport?id=` | Play, stop or locate, now or on the next beat, bar or loop |
-| `GET /api/tapes/play` | WebSocket: Play mode's pads, pressed and let go, quantised on the Pi |
+| `GET /api/tapes/play` | WebSocket: the tape's pads, pressed and let go, quantised on the Pi (no page opens it now) |
 | `GET /api/tapes/controls`, `PUT /api/tapes/controls` | The controllers in the Pi (`TAPE_CONTROLLER`) and what their notes play |
 | `POST /api/tapes/catch?id=` | Put the last pass, or the last N bars, from an input onto a track |
 | `POST /api/tapes/record?id=` | Arm a track (stopped) or punch in at the next bar (playing) |
@@ -70,14 +70,12 @@ internet.
 | `GET /api/tapes/peaks?file=` | A pool file's whole-file waveform, or with `from`, `to` and `buckets` just a range of it |
 | `GET /api/tapes/slice?file=&from=&to=` | A 16-bit WAV of a range of a pool file |
 | `POST /api/tapes/cue?id=` | Launch or stop a cue clip: `{clip, op: launch\|stop\|toggle, now}`, on the next bar line or at once |
-| `POST /api/tapes/cue/add?id=` | Put the buffer, or a take's `{take, from, to}`, on the cue lane |
 | `POST /api/tapes/cue/grab?id=` | GRAB onto the cue lane (no `id`: the loaded tape's): `{bars}`, `{seconds}` or `{ring_from, ring_to}` from `sources`; `{clip, sources}` takes that clip again from other inputs; `{take, from, to}` a take's span. The tape's state, with `edit.cue_clip`, and `edit.cue_replaced` when it took the place of an untouched clip (the tape's Undo brings that back) |
 | `PATCH /api/tapes/cue/clip?id=` | A cue clip's drawer: `{clip, in, out}` its window inside its handles; `{clip, gain_db}`, fades and their curves, `normalize`, `reverse`. Each an Undo of the tape's |
 | `POST /api/tapes/cue/drop?id=` | A cue clip onto the tape, `{clip, track, at?, merge?}`: a lane a track, with its handles; answers as `/api/tapes/drop` |
 | `POST /api/tapes/cue/keep?id=` | KEEP a cue clip as a take, its lanes summed: `{name, label, seconds}` |
 | `GET /api/tapes/cue/audio?id=&clip=` | A cue clip's first minute, its lanes summed, as a WAV to audition |
 | `GET /api/clipboard` | What's on the clipboard |
-| `GET /api/clipboard/audio` | The clipboard, its tracks summed, as a WAV to audition |
 | `POST /api/clipboard` | Copy a take's span or a span of the ring onto it |
 | `DELETE /api/clipboard` | Empty it |
 
@@ -518,7 +516,7 @@ on.
 | Status | When |
 |---|---|
 | 400 | `seconds` is not a non-negative number |
-| 409 | Nothing is buffered yet |
+| 409 | Nothing is buffered yet, or there is no ring to keep from |
 | 507 | Free space is below `MIN_FREE_GB` |
 | 500 | The write itself failed |
 
@@ -1229,14 +1227,16 @@ The action takes effect on the exact output frame its quantum falls on
 (`now`, the default, at the next block). Answers 200 `{"status":"queued"}`,
 with `kept` when a stop ended a punch (below).
 `play` is 409 when the tape has no output (a build without PortAudio);
-`locate` still moves it. Loading a tape stops the transport and forgets the
+`locate` still moves it. An `action` or `quantum` it doesn't know is 400. Loading a tape stops the transport and forgets the
 passes played, so a pass of one tape is never caught onto another.
 
 ### `GET /api/tapes/play` (WebSocket)
 
-Play mode's pads, held. The page sends a press the moment a pad is touched and
+The tape's pads, held. A client sends a press the moment a pad is touched and
 a release the moment it's let go. The Pi quantises both on its render head, so
-a phone's Wi-Fi delay lands on the grid rather than late.
+a phone's Wi-Fi delay lands on the grid rather than late. No page opens it
+since Play mode's instrument strip went (2026-10-30); a controller in the Pi
+plays the same pads through the bus, and a script can hold them here.
 
 Pads: `track1`–`track4` (that track drops out), `break`, `stop`, `reverse`,
 `chop`, `half`, `double`, and the punch-in FX `roll`, `filter`, `echo`,
@@ -1342,10 +1342,12 @@ the Pi's copy is held to it by a test.
   `midi:<name>`, and its holds are let go when it's unplugged. A sustain
   pedal latches what's let go until it lifts. The verbs run on the Pi, GRAB
   and DROP one after the other, CATCH, KEEP and the transport without waiting
-  for a GRAB's bar: CATCH the last pass onto the armed track, GRAB the last 4
-  bars into the clipboard (8 s with no tempo; pages open the buffer on their
-  next poll), DROP the clipboard on the armed track at the next free span,
-  KEEP the last 30 s as a take. Amounts and mods do nothing until P4.
+  for a GRAB's bar, through the same code as the tablet's routes, so they
+  refuse alike: CATCH the last pass onto every armed track, each from its
+  input; GRAB the last 4 bars onto the cue lane (8 s with no tempo); DROP the
+  cue lane's newest clip on the first armed track at the next bar line inside
+  the loop, over what is there (where the Studio's DROP key says); KEEP the
+  last 30 s as a take. Amounts and mods do nothing until P4.
 
 `catch` is how a controller's CATCH lands on audio already there, `layer`
 (the default) or `replace`: the page's Layer / Replace switch is each
@@ -1369,7 +1371,8 @@ In either form, `pass` 1 is the last complete one. `{"out": F}` instead names a 
 frame it began at (a `cycles` entry's `out`), so a tap catches the pass that
 was on screen even if another has finished since. `{"track": 2, "source": "aux", "bars": 4}` catches
 the last 4 bars up to the last bar line the ring has heard. `replace: true`
-clears what's under it instead of adding a layer.
+clears what's under it instead of adding a layer. A body with neither a
+`track` nor `pairs` is 409, *arm a track first*.
 
 The span is the range of the ring that heard what the tape played then, by
 `delta`, written once into the pool with handles either side (as much of
@@ -1685,22 +1688,6 @@ restart; 404 when the tape is off.
   toss's restore.
 - Both answer the new clipboard; 400 for a copy longer than a track; 507 for
   low disk.
-- `PATCH` changes the buffer (a grab only; 400 for a copy, 409 when it's
-  empty), outside undo: `{"in": I, "out": O}` moves its window, kept inside
-  its handles less the crossfades' overhang; `{"gain_db"}`, `{"fade_in",
-  "fade_out", "fade_in_shape", "fade_out_shape"}`, `{"normalize": true}` (the
-  tracks' sum to −1.5 dBFS at its loudest, one gain for all, at most +24 dB)
-  and `{"reverse": true}`
-  apply to every track. It answers the clipboard.
-- `POST /api/clipboard/keep` is KEEP AS TAKE: the clipboard as a take, its
-  tracks summed to stereo with their levels and fades, from its own audio;
-  a sum that would go over full scale is brought down as a whole, never
-  clipped (the buffer's audition too).
-  Its label names its sources (*Buffer · ch1 + ch2*), its `origin` is
-  `buffer`, and a grab's tempo and downbeat are the tape's. It answers
-  `{"name", "label", "seconds"}`; the buffer is then marked used.
-- `GET /api/clipboard/audio` is its first minute, every track summed, as a
-  16-bit stereo WAV, with `Range` and `HEAD`. 404 when it's empty.
 - `DELETE` empties it. Its audio stays until a clean-up finds nothing using
   it; the clean-up keeps whatever the clipboard holds. `DELETE ?toss=1` (the
   buffer's TOSS) keeps what it held aside, a root for the clean-up until the

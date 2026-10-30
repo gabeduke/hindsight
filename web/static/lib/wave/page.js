@@ -54,6 +54,7 @@ import { menu, barTop } from '../ui/menu.js';
 import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom } from '../room/mount.js';
+import { createTakes } from '../models/takes.js';
 
 // Mirrors audio.MaxRenderSeconds: the server's cap on a share render.
 const MAX_SHARE_SECONDS = 600;
@@ -61,6 +62,10 @@ const SPEEDS = [0.5, 1, 2];
 
 const $ = (id) => document.getElementById(id);
 const file = new URLSearchParams(location.search).get('file');
+// The page's takes (lib/models/takes.js), for ◂ ▸, the spine a save sits
+// under and Open's family lines: asked for as they are needed, since this
+// page has no changes socket to say when the list moved.
+const takes = createTakes();
 
 
 function fail(msg) {
@@ -1317,10 +1322,7 @@ async function main() {
     let list = null;
     try { order = JSON.parse(sessionStorage.getItem('hindsight.order') || 'null'); } catch {}
     orderListed = Array.isArray(order) && order.includes(file);
-    try {
-      const res = await fetch('/api/jams');
-      if (res.ok) list = await res.json();
-    } catch {}
+    try { list = await takes.get(); } catch {}
     if (!orderListed && Array.isArray(list)) order = list.map((t) => t.name);
     if (!Array.isArray(order)) return null;
     const i = order.indexOf(file);
@@ -1565,7 +1567,7 @@ async function main() {
   // is further up the line when this take is itself a cut or an earlier mix.
   async function spineName(name) {
     try {
-      const list = await fetch('/api/jams', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : []));
+      const list = await takes.refresh();
       const s = familyOf(fold(Array.isArray(list) ? list : []), name).spine;
       return s && s.name !== name ? s.label || stampOf(s.name) : '';
     } catch { return ''; }
@@ -1951,7 +1953,7 @@ async function main() {
     });
   }
   startRoom('open', {
-    file, take, sampleRate: sr, total, peaks: filePeaks, toast,
+    file, take, takes, sampleRate: sr, total, peaks: filePeaks, toast,
     arrivalNote: arrival ? arrival.note : null,
     state: () => state,
     playing: () => clock.playing,

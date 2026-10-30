@@ -7,7 +7,6 @@ import {
   BUFFER_KEYS, STUDIO_KEYS, TRACK_PADS, TRICK_PADS, VERBS, noteName, bindingLabel, defaultBindings,
   matches, actionFor, learned, bind, legendFor, FX_PADS, MODS, FORMULAS, amountText, styleField,
 } from './controls.js';
-import { KEYMAP, COMMANDS } from './keymap.js';
 import { BUFFER_KEYS as BUFFER_TABLE } from '../buffer/keys.js';
 
 const rooms = (n) => n === 'rooms';
@@ -23,15 +22,15 @@ test('every action has an id once, a kind, and a key or a MIDI default', () => {
 });
 
 test('the keyboard’s tables and the buffer’s keys come from this list, and nowhere else', () => {
-  // KEYMAP: each play key of a live held pad, and nothing besides.
+  // keyTables: each play key of a live held pad, and nothing besides.
   const want = {};
   const cmds = {};
   for (const c of CONTROLS) {
     if (!live(c, () => true)) continue;
     for (const k of c.play || []) (c.kind === HELD ? want : cmds)[k] = c.id;
   }
-  assert.deepEqual(KEYMAP, want);
-  assert.deepEqual(COMMANDS, cmds);
+  assert.deepEqual(keyTables(() => true).pads, want);
+  assert.deepEqual(keyTables(() => true).commands, cmds);
   // The buffer's table is the list's edit keys for the buffer.
   assert.equal(BUFFER_TABLE, BUFFER_KEYS);
   assert.deepEqual(BUFFER_KEYS.map((k) => `${k.shift ? '⇧' : ''}${k.code}:${k.action}:${k.when}`).sort(), [

@@ -4,11 +4,10 @@
 // buffer is open -- [ ] move IN, ⇧[ ⇧] move OUT, K keeps it as a take, ⌫
 // tosses it -- and ↵ drops it while it's open, or again further on just
 // after a drop. The table is the control bus's (lib/play/controls.js, the
-// one list of actions), and bindBufferKeys listens for it while the page
-// has the keyboard.
+// one list of actions), and bindBufferKeys listens for it.
 //
 // By physical key (`code`), so they're where the fingers are on any layout,
-// as the tape page's and Play mode's are.
+// as the tape page's are.
 
 /**
  * BUFFER_KEYS: `when` is 'studio' (always), 'open' (the buffer is open) or
@@ -57,8 +56,6 @@ const BUTTON = 'button:not(#np-play), .cue-pad';
  * keys inside the inspector; or ↵ where the focus has a use for it.
  * byKeyboard(el) says whether the keyboard brought the focus to el (a
  * clicked button gives ↵ up); without it, every focused button keeps it.
- * (Play mode, which owns the keyboard while it's open, stops every key at
- * the document before it gets here: see bindBufferKeys.)
  */
 export function blocked(e, doc, byKeyboard = () => true) {
   const t = e.target;
@@ -75,10 +72,8 @@ export function blocked(e, doc, byKeyboard = () => true) {
 
 /**
  * bindBufferKeys listens for the table on the page's root element, in the
- * capture phase. That puts it after Play mode's keys, which listen on the
- * document in the capture phase and stop every key there while Play mode is
- * open; and before the tape page's own, which listen on the document as the
- * key bubbles back up: K is the click there and ⌫ removes clips, so while
+ * capture phase. That puts it before the tape page's own, which listen on
+ * the document as the key bubbles back up: K is the click there and ⌫ removes clips, so while
  * the buffer is open they must be its, and stop here. `state()` says whether
  * it's open or held; `run(action)` does it. It returns the unbinder.
  *

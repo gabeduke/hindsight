@@ -1,7 +1,7 @@
 // web/static/lib/play/fake-dom.js
-// A stand-in document, just big enough to build the instrument strip in a
-// test (startStrip, mountStrip): elements with children, attributes, classes,
-// listeners, and the few selectors the strip uses. Not shipped (nothing in
+// A stand-in document, just big enough to build a page's parts in a test
+// (it was the instrument strip's first): elements with children, attributes,
+// classes, listeners, and the few selectors they use. Not shipped (nothing in
 // the app imports it); the tests do.
 
 class ClassList {

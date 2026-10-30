@@ -89,12 +89,7 @@ test('Guardrail 5: Unified Media Player provides FeedSource and 3-way source sel
   );
 });
 
-test('Guardrail 6: Instrument strip mounts inside #np Media Player and Studio swimlanes have a collapse toggle', () => {
-  const stripJs = read('lib/play/strip.js');
-  assert.ok(
-    stripJs.includes('np.prepend(') || stripJs.includes('np.insertBefore('),
-    'lib/play/strip.js must mount #play-strip inside #np as part of the Media Player object',
-  );
+test('Guardrail 6: Studio swimlanes have a collapse toggle', () => {
   const tapeHtml = read('shell.html');
   assert.ok(
     tapeHtml.includes('id="tracks-fold-btn"'),
@@ -247,7 +242,7 @@ const NOT_GESTURES = [
   // [where: what, how many, why it is no gesture]
   ['lib/meter.js: CAPTURE_ERR_HOLD_MS = 3500', 1, 'how long a capture error stays on screen'],
   ['lib/bar/handoff.js: HOLD_MS = 4000', 1, 'how long the bar stays blank for a carried take'],
-  ['lib/bar/tape-source.js: HOLD_MS = 1000', 1, 'how long a locate is shown over polls already on their way'],
+  ['lib/models/transport.js: HOLD_MS = 1000', 1, 'how long a press or a locate is shown over polls already on their way'],
   ['lib/tape/overview.js: GRAB_SLOP = 8', 1, 'a hit margin either side of the window, not a finger’s travel'],
   ['lib/wave/page.js: setTimeout(…, 300)', 4, 'saves and fetches after a pause (debounces)'],
   ['lib/settings.js: setTimeout(…, 600)', 1, 'a reload once a restart is under way'],
@@ -379,4 +374,17 @@ test('Guardrail 13: a menu or a ▾ panel is lib/ui/menu.js’s', () => {
   assert.deepEqual(extra, [], 'a menu of its own: make it with menu() or splitKey() (lib/ui/menu.js) instead');
   const gone = [...allowed].filter(([f, n]) => (found.get(f) || 0) < n).map(([f, n]) => `${f} (×${n}, found ${found.get(f) || 0})`);
   assert.deepEqual(gone, [], 'these are on OWN_MENUS but no longer set up a menu of their own: take them off');
+});
+
+test('Guardrail 14: only the takes model (lib/models/takes.js) asks /api/jams; every list of takes is the page’s', () => {
+  // docs/architecture/push.md, *The takes' revision*: one list a page, asked
+  // for when the Pi says it moved. A module with a fetch of its own asks the
+  // Pi again for what the page already holds.
+  const found = [];
+  for (const [f, raw] of gestureLiterals()) {
+    if (f === 'lib/models/takes.js') continue;
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    if (/['"`]\/api\/jams\b/.test(src)) found.push(f);
+  }
+  assert.deepEqual(found, [], 'asks /api/jams itself: take the page’s takes (ctx.takes, the engine’s, or createTakes on a page of its own) instead');
 });

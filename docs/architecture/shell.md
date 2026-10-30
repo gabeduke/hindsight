@@ -11,8 +11,14 @@ it and a redeploy is picked up on reload. Nothing here is fingerprinted; the
 icons carry no explicit directive and fall through to `http.FileServer`'s ETag and `Last-Modified`
 handling.
 
-The takes list is polled every five seconds and guarded by the `/api/jams`
-ETag, so an unchanged list does not re-render and interrupt a playing preview.
+The takes list is one per page, the takes model (`lib/models/takes.js`;
+`push.md`, *The takes' revision*): asked for when the changes socket says
+the list moved, on its own slow poll otherwise, and guarded by the
+`/api/jams` ETag, so an unchanged list does not re-render and interrupt a
+playing preview. Nothing else on a page asks `/api/jams`
+(`architecture.test.js`, Guardrail 14): the shell's boot makes the model
+and hands it to the engine and to every view (`ctx.takes`); Open's page
+(`wave/page.js`) makes its own, unfed, and hands it to Open (`h.takes`).
 
 ## The shell
 
@@ -34,8 +40,13 @@ mounted after that and is hidden, never rebuilt: the tape page is a module
 singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 (`lib/shell/view.js`) carries:
 
-- `engine`, `go(url)`, `tapes`, `toast`, `link`: shared. A view never creates
-  the bar's audio and never assigns `location` to a room path.
+- `engine`, `go(url)`, `tapes`, `takes`, `toast`, `link`: shared. A view never creates
+  the bar's audio and never assigns `location` to a room path. `takes` is
+  the page's takes model (`lib/models/takes.js`): `list()`, `get()`,
+  `find(name)`, `refresh({force})`, `onChange(fn)`. A view lists takes from
+  it, never from `/api/jams`; a `TakesList` is made with it (`takes:`), and
+  a view draws on its `onChange` while shown (`TakesList.behind()`), its
+  own tick then asking the Pi nothing while the model vouches for its list.
 - `on(target, type, fn)`, `every(fn, ms)`, `loop(fn)`: a listener, interval or
   ticker step that does nothing while the view is hidden. Every global
   listener, poll and frame loop goes through these, so a hidden view costs no
@@ -246,9 +257,10 @@ it.
 
 | Part | What it is |
 |---|---|
-| `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf), `backToTape`, `setSource`, `playing()`, `snapshot()`, `onChange` |
+| `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf; from the page's takes, `createEngine({takes})`, or a model of its own when a page hands none), `backToTape`, `setSource`, `playing()`, `snapshot()`, `onChange` |
 | `engine.audio` | `adopt`, `owns`, `release`, `audioFor`: the take in the bar belongs to the engine, so a shelf row torn down never stops it, and two shelves never hold two elements for one take. Engine media is never in a view's subtree (a removed media element pauses) |
-| `engine.tape` | The tape source. `ingest({tape, live})` (the Studio's poll feeds the LCD), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport; the Studio delegates while it is shown and hands it back, `delegate(null)`, on hide, so the bar polls the tape itself in the other rooms), `setLevels`. While it polls the tape itself it watches `/api/tapes/changes` (`lib/tape/changes.js`) and polls on each new revision. `onPress(fn)` hears each press on the keyboard (see *The keyboard's press*, `push.md`), and `heardPress(p)` is the Studio's socket handing one on |
+| `engine.transport` | The page's transport (`lib/models/transport.js`; *The transport*, `bar.md`), made with the engine and loaded (`load(id)`) once the Pi has a tape. `ingest({tape, live})` (the Studio's poll feeds it), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport; the Studio lends it while it is shown and hands it back, `delegate(null)`, on hide, so it polls the tape itself in the other rooms). While it polls the tape itself it watches `/api/tapes/changes` (`lib/tape/changes.js`) and polls on each new revision. `onPress(fn)` hears each press on the keyboard (see *The keyboard's press*, `push.md`), and `heardPress(p)` is the Studio's socket handing one on; `onTakes(fn)` and `heardTakes(m)` the same for each message's `takes_rev`, which the engine hands to the page's takes model (*The takes' revision*, `push.md`) |
+| `engine.tape` | The bar's tape source (`lib/bar/tape-source.js`): the transport drawn (the LCD, the display, the overview), `setLevels` (the Studio's reels), and this phone's stream, whose place `pos()` is when it plays here. Null until the Pi has a tape |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
 | `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class. `lib/bar/player.js` sets `#np[data-size]` (`mini`, `full`) |

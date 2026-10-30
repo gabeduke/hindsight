@@ -21,11 +21,11 @@ import { cssOf, decls, rules, stripComments } from './stylesheets.js';
 
 const BUDGET = {
   hex: 2,
-  rgba: 94,
-  zIndex: 22,
+  rgba: 92,
+  zIndex: 21,
   important: 3,
-  media: 51,
-  durations: 44,
+  media: 45,
+  durations: 41,
   weights: 3,
 };
 

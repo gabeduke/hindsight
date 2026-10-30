@@ -81,9 +81,9 @@ queued, and forgets the passes, so one tape's pass is never caught onto
 another. Panics in the render goroutine and the device callback are
 recovered and reported in the state; the dashcam keeps rolling.
 
-**When a pad lands** (`trick.go`, `landing`). Play mode's pads, from a
-page or a controller, are quantised to the line the player was playing
-to: the line nearest what they heard at the moment the press reached the
+**When a pad lands** (`trick.go`, `landing`). The tape's pads, from a
+controller or a client of `GET /api/tapes/play`, are quantised to the line
+the player was playing to: the line nearest what they heard at the moment the press reached the
 Pi, worked out from the lead (`heardAt`, the blocks rendered ahead and the
 device's latency). A hit up to half a unit after a line, and never more
 than 100 ms, goes back to it; anything later goes on to the next. A line
@@ -100,6 +100,23 @@ way down, REV jumps back twice the lateness, DOUBLE forward by it. With no outpu
 doesn't hear), or no straight play from the line to the render head, a
 press lands on the transport's own target, the next line after the
 render head.
+
+No page plays the pads now. The web's instrument strip, a drawer above the
+Studio's bar behind the per-device Play mode switch, went on 2026-10-30
+with the switch: its folded row alone was twelve controls, and the Studio
+on a tablet holds 44 (J1.16). The pads can come back in the **Pads**
+component (`docs/plan/the-ecosystem.md`, *The components*, where Pads are
+so far the cue lane's clips) once the instrument's shape is settled; the strip, its Web MIDI and its tape mods'
+knobs are in git (`web/static/lib/play/`, before that date). Until then a
+controller plays them: one in the Pi through the bus
+(`internal/api/controls.go`, its defaults held to `lib/play/controls.js`),
+or the SMK-37's FX page (`keyboard.md`). No page shows the tape mods
+either: the keyboard's encoders set them, and its screen shows them. A page
+with the header (`initNav`: the shell, Open, the guide) forgets the
+switch's stored keys as it loads (`lib/play/flag.js` `forgetRetired`).
+Storage is an address's, so once a phone has loaded this release at an
+address, a release from before then, picked from Releases, finds Play
+mode off there.
 
 **Latency, in use** (`latency.go`; [decision 0016](../decisions/0016-measure-latency-in-use.md)).
 Every press, set and release a hand plays is timed to the moment it is
@@ -142,13 +159,16 @@ heard, and the Pi keeps the figures, never sending them anywhere.
   (`lib/play/latency.js`).
 - *The page's clock.* The Play socket answers `{"t":"clock","c"}` with the
   Pi's time as it read the ping and as it answered; `lib/play/piclock.js`
-  takes the offset from the quickest of the last sixteen trips, and
-  `link.js` adds `touch` (the event's `timeStamp`) and `sent` to each
-  press, set and release once it has one. The stream's player says on the
-  same clock which output frame its speaker plays.
+  takes the offset from the quickest of the last sixteen trips, and a
+  client adds `touch` (the event's `timeStamp`) and `sent` to each press,
+  set and release once it has one. The stream's player says on the same
+  clock which output frame its speaker plays. No page opens the socket
+  since the strip went, so no page learns the clock and the phone's stream
+  reports its delay alone: `page→room` and `page→phone` take no new
+  figures, and `midi→room` goes on as before.
 - *Not timed yet.* A controller's transport keys (PLAY, STOP) go through
-  the verb queue (`api/controls.go`, `queueVerb`), not the engine's
-  inbox: they carry no stamp.
+  the verb queue (`api/controls.go`, `queueVerb`) to `Verbs.Transport`,
+  not the engine's inbox: they carry no stamp.
 
 The revision, the changes socket and the keyboard's press, which tell a
 page the tape has changed, are in `push.md`.
@@ -259,11 +279,11 @@ action starts the transport as if the loop had been going round since the
 second tap, using Δ to turn that ring frame into an output frame.
 
 **The crate** (`crate.go`) is `TAPE_DIR/crate.json`: kept clips, each a
-window onto a pool file with a name and where it came from. Keeping a span of
-a take or the ring writes the pool first (`copyTake`, `ringClip`); keeping a
-tape clip or the clipboard keeps a reference. It's a clean-up root, its
-deleted clips too for a week, and an unreadable one stops the clean-up. A
-drop from it is a drop of a one-clip clipboard (`dropBoard`).
+window onto a pool file with a name and where it came from. Nothing shows it
+(decision 0009): a buffer replaced unused still goes there (`keepBoard`, by
+reference), and a range's Insert can still take a kept clip. It's a clean-up
+root, its deleted clips too for a week, and an unreadable one stops the
+clean-up.
 
 **The clipboard** (`clipboard.go`) is `TAPE_DIR/clipboard.json`: clips in
 the pool, laid out from frame 0, one track's worth or more. Copying from a
@@ -362,9 +382,10 @@ track it points at;
 summed; `CueAudio` (`GET /api/tapes/cue/audio`) is its Audition. All of
 them read the clip as a board (`CueClip.boardOf`), so they are the buffer's
 own code, and none of them touches the clipboard, which is left to a
-range's Cut, Copy and Paste, unseen (`/api/clipboard`'s GRAB still fills it
-for the buffer panel until that goes). Launching one is a
-performance, like Play mode's pads, so it stays out of the state and out of
+range's Cut, Copy and Paste, unseen (`POST /api/clipboard` still takes the
+old buffer's GRAB, which nothing in the web sends; `docs/plan/backlog.md`).
+Launching one is a
+performance, like the tape's pads, so it stays out of the state and out of
 undo (`cuelive.go`): a launch or stop rides the transport's action queue
 with quantum `bar` (`now` for Shift), and the render goroutine keeps the
 voices, rendering each from the output frame it started at, looped, its
@@ -373,6 +394,27 @@ transport's Stop and a mixdown's pass stop them all, and the lane's Solo
 leaves the tracks out of the output. What plays is `live.cue`. The lane is
 not in the mix or its exports: a clip reaches them only once it is dragged
 onto a track.
+
+**The verbs** -- KEEP, GRAB, DROP, CATCH and the transport -- are one set
+on the Pi, whatever surface presses them (`internal/api/verbs.go`, `Verbs`,
+`a.Verbs()`). The tablet's routes (`POST /api/trigger`,
+`/api/tapes/transport`, `/api/tapes/catch`, `/api/tapes/cue/grab`, `drop`
+and `keep`) and a controller's pads (`piVerbs` in `controls.go`, the
+SMK-37's included) call the same methods, so a press refuses for the same
+reasons with the same errors: the routes answer them as statuses
+(`verbErr`), the keyboard's banner names them (`banner.go`, `refusals`).
+The tablet says what it wants in full: which clip, which track, where. A
+pad presses its verb bare, and Verbs works it out as the Studio's keys do:
+`CatchArmed` catches the last pass onto every armed track, each from its
+own input (`armedPairs`), layered or replacing as `controls.json` says;
+`GrabArmed` takes the last N bars (2N seconds with no tempo) from the first
+armed track's input; `DropArmed` lays the cue lane's newest clip on the
+first armed track (moved up so all its lanes fit) at `tape.DropPlace`: the
+next bar line inside the loop, over what is there, never refused for room.
+The page's DROP key shows where before it is pressed, so it works that out
+too (`lib/buffer/model.js`, `dropPlace`); `dropplace_test.go` holds that
+file's cases, and the two must agree. A change to a verb goes in `Verbs`,
+never in a route or in `piVerbs`.
 
 **On screen** the lane's clips are pads (`lib/tape/cuelane.js`, on
 `CUE_PRESS`, `lib/ui/press.js`): a tap launches, ⇧-tap at once, a hold (a

@@ -100,17 +100,17 @@ function features(over = {}) {
   let reloads = 0;
   const saved = globalThis.document;
   globalThis.document = fakeDocument();
-  const store = over.store || { play: false, quiet: false };
+  const store = over.store || { trial: false, quiet: false };
   const session = over.session || { start: { ...store }, pending: new Set() };
   delete over.store; delete over.session;
   const prefs = [
-    { id: 'play', feature: true, label: 'Play mode', note: 'The instrument strip.', reload: true },
+    { id: 'trial', feature: true, label: 'A trial', note: 'Read once, as the page loads.', reload: true },
     { id: 'quiet', feature: true, label: 'Quiet', note: 'Takes effect now.', reload: false },
   ];
   const g = featuresGroup({
     prefs,
     read: () => ({ ...store }),
-    write: (id, v) => { store[id] = v; return { ok: true, reload: id === 'play' }; },
+    write: (id, v) => { store[id] = v; return { ok: true, reload: id === 'trial' }; },
     reload: () => { reloads++; },
     busy: () => false,
     session,
@@ -126,7 +126,7 @@ function features(over = {}) {
 }
 
 test('each feature is a real switch, off or on in its aria-checked', () => {
-  const f = features({ read: () => ({ play: true, quiet: false }) });
+  const f = features({ read: () => ({ trial: true, quiet: false }) });
   const sw = f.switches();
   assert.equal(sw.length, 2);
   assert.deepEqual(sw.map((s) => s.tag), ['button', 'button']);
@@ -136,7 +136,7 @@ test('each feature is a real switch, off or on in its aria-checked', () => {
 });
 
 test('the switch shows On or Off in words, not by colour alone', () => {
-  const f = features({ read: () => ({ play: true, quiet: false }) });
+  const f = features({ read: () => ({ trial: true, quiet: false }) });
   assert.match(text(f.switches()[0]), /\bOn\b/);
   assert.match(text(f.switches()[1]), /\bOff\b/);
   f.flip(1);
@@ -157,12 +157,21 @@ test('the section is open markup, not a folded details', () => {
   assert.match(text(f.g), /Preview features/);
 });
 
+test('with no previews there is no Preview features section at all', () => {
+  const saved = globalThis.document;
+  globalThis.document = fakeDocument();
+  const prefs = [{ id: 'tz', label: 'Clock', note: 'n', reload: false }];
+  const g = featuresGroup({ prefs, read: () => ({}), write: () => ({ ok: true, reload: false }), reload() {}, busy: () => false });
+  globalThis.document = saved;
+  assert.equal(g, null, 'an empty section would only be a heading and a promise');
+});
+
 test('a switch saves as it is clicked, with no Save', () => {
   const f = features();
   f.flip(0);
-  assert.equal(f.store.play, true);
+  assert.equal(f.store.trial, true);
   f.flip(0);
-  assert.equal(f.store.play, false);
+  assert.equal(f.store.trial, false);
 });
 
 test('one that needs a reload offers a single Reload, and its button reloads this page', () => {
@@ -216,7 +225,7 @@ test('device prefs that are not features stay in a folded This device group; fea
   const saved = globalThis.document;
   globalThis.document = fakeDocument();
   const prefs = [
-    { id: 'play', feature: true, label: 'Play mode', note: 'n', reload: true },
+    { id: 'trial', feature: true, label: 'A trial', note: 'n', reload: true },
     { id: 'tz', label: 'Clock', note: 'n', reload: false },
   ];
   const d = deviceGroup({ prefs, read: () => ({}), write: () => ({ ok: true, reload: false }), reload() {}, busy: () => false });
@@ -224,7 +233,7 @@ test('device prefs that are not features stay in a folded This device group; fea
   globalThis.document = saved;
   const labels = [...d.walk()].map((n) => n.textContent);
   assert.ok(labels.includes('Clock'));
-  assert.ok(!labels.includes('Play mode'), 'a feature is not under the fold');
+  assert.ok(!labels.includes('A trial'), 'a feature is not under the fold');
   assert.equal(none, null, 'no group at all when nothing is left for it');
 });
 
@@ -273,7 +282,7 @@ test('C: flip on, reopen, flip back to what the page loaded with: nothing is owe
   f.flip(0);
   const g = again(f);
   g.flip(0);
-  assert.equal(g.store.play, false);
+  assert.equal(g.store.trial, false);
   assert.equal(g.bar().hidden, true);
   assert.equal(statusOf(g, 0).hidden, true);
   assert.equal(statusOf(g, 0).textContent, '');
@@ -311,7 +320,7 @@ test('the bar is un-hidden before its words are set, so a screen reader announce
   assert.deepEqual(order.slice(0, 2), ['hidden=false', 'text']);
 });
 
-// Every row of the registry is drawn, "Plays the tape" (the strip's
+// Every row of the registry is drawn, "Plays the tape" (the Pi's
 // controller) included, and the saved body is what changed.
 const REG = [
   { key: 'MIDI_IGNORE', group: 'MIDI', value: '' },

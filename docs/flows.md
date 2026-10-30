@@ -74,7 +74,7 @@ core. `rig`: needs the hardware; checked by hand, not here.
 | K2 | press PLAY on the keyboard to play and stop the tape, and see the tablet's ▶ follow; the MIDI Stop and Start the keyboard sends of its own (a screen take sent several, which stopped the tape on the rig, 2026-10-29) move nothing | `k2-play` | core |
 | K3 | press REC to punch in on the armed track and again to punch out (from a stop, REC starts the tape), then find what I played on the tape | `k3-rec-punch` | todo: REC KEEPs today |
 | K4 | press HOME to give the keyboard its own screen (to pick one of the synth's voices there), then hold HOME a second and let go to hand it back: the Pi stays off it between, even as the keyboard answers again | `k4-home` | core (tablet) |
-| K5 | on the FX page, hold pads for Play mode's effects (BREAK held, then let go), with nothing in undo, and turn the tape's FX on the encoders (DRIVE on encoder 3 lands on the tape); their values on the screen are the virtual keyboard's to see | `k5-fx-page` | core (tablet) for the pads and the mod knobs; the rest todo |
+| K5 | on the FX page, hold pads for the tape's tricks and effects (BREAK held, then let go), with nothing in undo, and turn the tape's FX on the encoders (DRIVE on encoder 3 lands on the tape); their values on the screen are the virtual keyboard's to see | `k5-fx-page` | core (tablet) for the pads and the mod knobs; the rest todo |
 | K6 | hold SHIFT for the Mixer page: mute, select, solo and arm tracks 1–4 on the pads, each in its track's colour, and see the tablet follow; let go, and the pads are the FX page's again | `k6-mixer-page` | todo, after the map's spec |
 | K7 | scrub the tape on the master knob, with the counter on the keyboard's screen; SHIFT and the master knob for the synth's volume | `k7-scrub` | todo |
 | K8 | set the levels of tracks 1–4 on the faders, with no bank | `k8-faders` | todo |
@@ -89,7 +89,7 @@ More to convert: the `[demo]` lines in `docs/checks.md` (the `[rig]` ones stay m
 
 | Id | Story | Status |
 |---|---|---|
-| J1.8 | hold the instrument's pads (BREAK, REV, FX…) without touching undo | core (Play mode on) |
+| J1.8 | hold the instrument's pads (BREAK, REV, FX…) on the tablet without touching undo | todo: Play mode's strip, which held them behind a per-device switch, went on 2026-10-30; they come back with the Pads component, once the instrument's shape is settled (`architecture/tape.md`, *When a pad lands*). K5 holds them on the keyboard |
 | J2.8 | play all, stopped by picking one by hand | core |
 | J2.9 | write notes on a take as it plays: ✎, words, its pin on the waveform, a tap on its time goes there, ✕, and Undo brings it back (`listening-back.md`) | todo |
 | J4.3 | send the tape to the phone upstairs (output Jam room / Phone / Both) | core |

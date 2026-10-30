@@ -1,14 +1,13 @@
 // web/static/lib/rooms/keys.js
-// The Studio's own keys, while the page has the keyboard (the instrument
-// strip folded, or the keys given back to editing): the rooms' verbs from
-// lib/play/controls.js's one list. The buffer's keys are lib/buffer/keys.js.
+// The Studio's own keys: the rooms' verbs from lib/play/controls.js's one
+// list. The buffer's keys are lib/buffer/keys.js.
 
 import { blocked } from '../buffer/keys.js';
 import { STUDIO_KEYS } from '../play/controls.js';
 
 /**
- * bindStudioKeys gives the Studio its keys while the page has the keyboard
- * (lib/play/controls.js, STUDIO_KEYS): C catches, K keeps the feed -- the
+ * bindStudioKeys gives the Studio its keys (lib/play/controls.js,
+ * STUDIO_KEYS): C catches, K keeps the feed -- the
  * dashcam's one action gets the plain key -- and the click moves to M
  * (lib/tape/page.js). Bound on the root element in the capture phase, after
  * the buffer's (whose K, while it's open, is KEEP AS TAKE: it prevents the

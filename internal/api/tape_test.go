@@ -407,11 +407,6 @@ func TestTheClipboardCopiesATakeAndDropsItOnATape(t *testing.T) {
 	if !strings.Contains(w.Body.String(), `"seconds":1`) {
 		t.Fatalf("copy = %s", w.Body.String())
 	}
-	w = send(t, r, http.MethodGet, "/api/clipboard/audio", "")
-	want(t, w, http.StatusOK, "audition")
-	if b := w.Body.Bytes(); len(b) != 44+48000*4 || string(b[:4]) != "RIFF" {
-		t.Fatalf("audition: %d bytes", len(b))
-	}
 
 	// Dropped on the empty tape, it's the first loop; tile a copy through a
 	// four-bar loop.
@@ -469,7 +464,6 @@ func TestTheClipboardCopiesATakeAndDropsItOnATape(t *testing.T) {
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"clip":{"id":"`+clip+`","fade_out_shape":""}}`), http.StatusOK, "back to equal power")
 
 	want(t, send(t, r, http.MethodDelete, "/api/clipboard", ""), http.StatusOK, "clear")
-	want(t, send(t, r, http.MethodGet, "/api/clipboard/audio", ""), http.StatusNotFound, "audition nothing")
 }
 
 func TestTheTapesEditsLiftSplitAndMultiply(t *testing.T) {
@@ -1077,17 +1071,14 @@ func TestTapeCueAPI(t *testing.T) {
 	}
 }
 
-func TestTapeCueAddFromATakeAndLaunch(t *testing.T) {
+func TestTapeCueGrabFromATakeAndLaunch(t *testing.T) {
 	r, dir := newTapeAPI(t)
 	id := makeLoadedTape(t, r)
 	if _, err := audio.WriteWAV(filepath.Join(dir, "jam_cue.wav"), make([]int32, 2*96000), 2, []int{0, 1}, 48000); err != nil {
 		t.Fatal(err)
 	}
 
-	// The buffer is empty: nothing to cue.
-	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/add?id="+id, ""), http.StatusConflict, "cue an empty buffer")
-
-	w := send(t, r, http.MethodPost, "/api/tapes/cue/add?id="+id, `{"take":"jam_cue.wav","from":0,"to":48000}`)
+	w := send(t, r, http.MethodPost, "/api/tapes/cue/grab?id="+id, `{"take":"jam_cue.wav","from":0,"to":48000}`)
 	want(t, w, http.StatusOK, "cue a take")
 	var s struct {
 		Tape struct {
@@ -1102,7 +1093,7 @@ func TestTapeCueAddFromATakeAndLaunch(t *testing.T) {
 	}
 	c := s.Edit.CueClip
 	if c == nil || c.Frames != 48000 || !c.Loop || s.Tape.Cue == nil || len(s.Tape.Cue.Clips) != 1 {
-		t.Fatalf("after cue/add: edit %+v, lane %+v", c, s.Tape.Cue)
+		t.Fatalf("after cue/grab: edit %+v, lane %+v", c, s.Tape.Cue)
 	}
 
 	want(t, send(t, r, http.MethodPost, "/api/tapes/cue?id="+id, `{"clip":"`+c.ID+`"}`), http.StatusOK, "launch")

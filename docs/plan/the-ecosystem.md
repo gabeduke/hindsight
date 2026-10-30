@@ -52,8 +52,8 @@ counts are close, not exact.
   fetched by about seven modules, `/api/status` polled by eight.
 - **A few files own whole pages**: `lib/tape/page.js` (5,160 lines, about
   140 page-wide ids), `lib/wave/page.js` (2,013, with a bar of its own),
-  `TakesList` (1,171). Pieces talk through about fifteen `document` events
-  (`hindsight:tape-state`, `play-transport`, `verb`, …) instead of
+  `TakesList` (1,171). Pieces talk through about a dozen `document` events
+  (`hindsight:tape-state`, `verb`, `clipboard`, …) instead of
   interfaces. About a hundred modules already have no DOM, and the notes
   drawer (`createNotesDrawer`, given a `source`) and `mountCueLane` already
   have a component's shape.
@@ -190,12 +190,12 @@ what is on the list.
    `feed`, `transport`, `rig`) owning polling and push; takes and capture
    get push.
 5. **Components out of the big files**: Transport and the take browser
-   first, the tape editor last.
+   first, the tape editor last. Steps 4 and 5, the component contract and
+   the protocol under them: `components.md`.
 6. **Workspaces**: Jam, Build and Listen on the tablet; the laptop and the
    phone as other arrangements.
-7. **The look** (the play look, PR #218, unmerged) on components, not
-   pages.
+7. **The look** (`the-play-look.md`) on components, not pages.
 
 Steps 2 and 4 change no behaviour and can run before the walkthrough ends;
-nothing user-visible merges before it. Open's rebuild (#220) and the play
-look (#218) wait for it too.
+nothing user-visible merges before it. Open's rebuild (#220) and building the
+play look wait for it too.
