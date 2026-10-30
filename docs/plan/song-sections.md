@@ -225,12 +225,15 @@ yet agreed, and is on the `claude/components-spec` branch.
      - `midi.Out` gains `SendTo(name, at, msg)`;
      - its match list takes the device named for sequences, beside the
        clock's followers. That device's port is for programs only:
-       `Send`, `SendNow` and `Devices()` skip it, so it hears no clock,
-       Start or Stop, and isn't listed as a follower;
+       `Send`, `SendNow` and `Devices()` skip it. So it hears no clock,
+       Start or Stop, isn't listed as a follower, and its coming and going
+       doesn't move `gen`;
      - `ClockOut` gains an optional part for it, as `ClockFollower` is
-       one;
-     - `clockOut()` (`cmd/hindsight/main.go`) builds the `Out` when
-       `TAPE_PROGRAM_OUT` is set, not only with `TAPE_CLOCK=lead`.
+       one.
+   - **Only with `TAPE_CLOCK=lead`:** a program lands on a section's bar
+     line only while the MPC follows the tape's clock. Without `lead` there
+     is no `Out`, and a section's program isn't sent; its inspector says
+     so.
    - **Who hears it:** the one device the Rig names for sequences, never
      every follower of the clock (the Bento and the Sidekick don't want it).
      Until the rig roles exist, that is a setting, `TAPE_PROGRAM_OUT`: a
@@ -419,8 +422,8 @@ Two things come first:
    `ClockOut`'s part for it; the send in `clock.go`, after a locate and at
    the wrap; `TAPE_PROGRAM_OUT` and `TAPE_PROGRAM_CHANNEL`. Go tests with
    the clock's fake out: only the named device hears it, on its channel,
-   on the beat before; that device hears no clock; and the `Out` is built
-   without `lead`.
+   on the beat before; that device hears no clock; and without `lead`
+   nothing is sent.
 7. **A jam into a song.** *Make it a song…*, *From a take…* and the
    picker. Flow J2.12, *make last night's jam a song*.
 
