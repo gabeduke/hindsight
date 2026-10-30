@@ -25,8 +25,6 @@ and still looks it:
 
 - Open (`wave.html`), the rig (`rig.html`) and the guide are still pages of
   their own, outside the shell ([decision 0011](../decisions/0011-open-is-its-own-page.md)).
-- Open still titles a take by its date stamp, not `takeTitle`, until Open's
-  pass.
 - The cue lane takes GRABs only; adding from the shelf and from a track is
   in `backlog.md`.
 
@@ -57,6 +55,10 @@ and still looks it:
 
 ## Open, needs Gabe at the rig
 
+- **Decided for Gabe while he was away, his to overrule** (2026-10-30): in
+  the Studio a take or the feed that isn't playing gives the bar back to
+  the tape, so ▶ there plays the tape (`docs/architecture/bar.md`, *In the
+  Studio, the tape*; J1.17).
 - The instrument's DRIVE make-up by ear with the SMK-37 (about 10 dB
   quieter on a loud loop at full drive). At the rig on 2026-10-29 the
   encoders reached the tape (DRIVE 0 to 1 as K3 turned) but Gabe heard no
@@ -102,18 +104,20 @@ and still looks it:
 - **`the-ecosystem.md` comes first** (2026-10-30, not yet agreed): Gabe
   finds the UX chaotic and wants an ecosystem of components reached from
   every surface. Its walkthrough settles what is kept, merged or cut, and
-  the instrument's shape; nothing user-visible merges before it, so Open's
-  rebuild (#220) and the play look (#218) wait. Its steps 2 (one verb set)
-  and 4 (models per noun) change no behaviour and may go ahead, unmerged
-  until Gabe reviews them.
-- **`the-studio-space.md` is the build order**: steps 1–9 and 11 have
-  landed (9, the notes drawer: `docs/architecture/rooms.md`, *The notes
-  drawer*; 11, GRAB onto the cue lane, a clip's drawer above the bar;
-  decision 0061); 10 (Open, which docks the drawer beside its waveform)
-  and 12 (polish) are open.
+  the instrument's shape. Gabe rolled forward on 2026-10-30 ("merge
+  anything"): the play look (#218) and Open's rebuild (#220) landed ahead
+  of it. Components (`components.md`) are next.
+- **`the-studio-space.md` is the build order**: steps 1–11 have landed
+  (10, Open and the dolly into a take: `docs/architecture/take-page.md`,
+  *Open*); 12 (polish) is open, and so is Open's one unbuilt part, the
+  selection's action bar, settled by recommendation (Gabe may overrule):
+  its ends, length and Clear dock above the bar as the Studio's action bar
+  does, and GRAB and KEEP stay under the waveform, already saying what
+  they do to the selection. Open wants a look on the tablet: the docked
+  notes drawer, GRAB first, the folds, the numbered pins and double-tap
+  zoom.
   The phone's player as a sheet and its ● want a look on a real phone:
-  the mini player's display is narrow on a 360 px phone (`bar.md`). They
-  take in the open steps of `listening-back.md`, which holds their details.
+  the mini player's display is narrow on a 360 px phone (`bar.md`).
   Decision 0061's three choices were built as recommended; Gabe to try
   them on the tablet and overrule any.
 - **The Pi's buffer routes are dead code** since step 11: `/api/clipboard`'s

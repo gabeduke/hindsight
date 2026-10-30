@@ -13,6 +13,24 @@
 //              than 24 px around it, measured on the part not covered
 //   small-touch  under 44 px on a touch profile (the fingers' guideline,
 //              WCAG's stricter level): a warning, as a stylus copes
+//   bar-*      the phone's bar, by its own shape (css/bar.css). The mini
+//              player: its keys on one row (bar-row), .np-row-1 the bar's
+//              width inside its padding (bar-width), no key over another
+//              (bar-overlap), a window a finger wide (bar-window), and ▶ at
+//              one x for the tape, a take and the feed (bar-play-x). The
+//              player pulled up: every key on the screen (bar-sheet-offscreen)
+//              and |◀ ▶ ● on one row (bar-sheet-transport). Play mode's
+//              toggle once wrapped the mini player and stacked its keys on
+//              each other, and every check above passed.
+//   sideways   the page wider than the screen: a phone then lays it out
+//              that wide and shows it at its own size, a finger pans it,
+//              and its edges are cut off (Gabe's Studio, 2026-10-30, every
+//              head and lane a little large and both sides cut); or the
+//              page scrolled sideways, which body's overflow-x keeps a
+//              finger from but not a script
+//
+// They run on a whole page, or inside one component (checkLayout's root):
+// a component's own harness mounts it and checks it alone.
 //
 // A finding is a "fail" or a "warn". Fails fail the flow, unless
 // layout-allow.mjs says the overlap is meant (a sheet over the page).
@@ -49,20 +67,31 @@ function scrolls(n) {
   }
   return false;
 }
+// A control on something fixed (a menu, a sheet, the Listening Room's
+// room) doesn't move as the page scrolls: only a scroller inside that
+// can bring it out (the room's wall can). A menu that opened under the
+// phone's player pulled up was passed as scrolled under it.
 function underChrome(el, hit) {
   const { pinned, scrolls } = window.__layoutPin;
-  const pin = pinned(hit);
-  return !!pin && !pin.contains(el) && !pinned(el)?.contains(pin) && scrolls(el);
+  const pin = pinned(hit), own = pinned(el);
+  if (!pin || pin.contains(el) || own?.contains(pin) || !scrolls(el)) return false;
+  if (!own || getComputedStyle(own).position !== 'fixed') return true;
+  for (let p = el.parentElement; p && p !== own.parentElement; p = p.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight + 1) return true;
+  }
+  return false;
 }
 const PIN = `window.__layoutPin = { pinned: ${pinned}, scrolls: ${scrolls}, underChrome: ${underChrome} };`;
 
 // geometry runs in the page: the covered, offscreen, clipped and
-// small-touch checks over every visible control, and menu-offscreen over
-// every open menu; those inside `root` (a selector) alone, when it is given.
-function geometry({ touch, MENU, PIN, root }) {
+// small-touch checks over every visible control, menu-offscreen over
+// every open menu, the phone's bar's own (bar-*, but bar-play-x, which
+// is across screens: playAt), and sideways. With root (a selector) it
+// looks inside that element alone, and sideways, the page's, is left out.
+function geometry({ touch, MENU, PIN, root = null }) {
   if (!window.__layoutPin) (0, eval)(PIN);
   const scope = root ? document.querySelector(root) : document;
-  if (!scope) return [{ rule: 'root', severity: 'fail', el: root, msg: 'the root to check is not in the page' }];
+  if (!scope) return [{ rule: 'root', severity: 'fail', el: root, msg: `nothing on the page matches ${root}` }];
   const CONTROL = 'button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=tab], [role=slider], [tabindex]:not([tabindex="-1"])';
   const W = innerWidth, H = innerHeight;
   const name = (el) => {
@@ -81,7 +110,8 @@ function geometry({ touch, MENU, PIN, root }) {
   };
   const { pinned, scrolls } = window.__layoutPin;
   const out = [];
-  for (const el of scope.querySelectorAll(CONTROL)) {
+  const own = (sel) => [...(scope.matches?.(sel) ? [scope] : []), ...scope.querySelectorAll(sel)];
+  for (const el of own(CONTROL)) {
     if (!shown(el) || el.disabled) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) continue;
@@ -127,7 +157,7 @@ function geometry({ touch, MENU, PIN, root }) {
   }
   // An open menu stays on the screen, all of it: unlike a control above,
   // one wholly off it counts (its rows are what a person came for).
-  for (const m of scope.querySelectorAll(MENU)) {
+  for (const m of own(MENU)) {
     if (m.closest('dialog') || !shown(m)) continue;
     const r = m.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) continue;
@@ -136,7 +166,71 @@ function geometry({ touch, MENU, PIN, root }) {
       out.push({ rule: 'menu-offscreen', severity: 'fail', el: name(m), msg: `an open menu runs off the ${off.join(' and the ')} of the screen (x ${Math.round(r.left)}–${Math.round(r.right)}, y ${Math.round(r.top)}–${Math.round(r.bottom)} of ${W}×${H})` });
     }
   }
+  // The phone's bar: the mini player (data-size="mini"), or the player
+  // pulled up (body.player-open). Its keys are judged by the rows they are
+  // drawn in, so a bar squeezed into a box narrower than the screen fails
+  // here, not only when a key falls off it.
+  const np = own('#np')[0];
+  const keysIn = (box) => [...(box?.querySelectorAll(CONTROL) ?? [])].filter((el) => shown(el) && !el.disabled)
+    .map((el) => ({ el, r: el.getBoundingClientRect() })).filter(({ r }) => r.width >= 1 && r.height >= 1);
+  const spread = (keys) => (keys.length ? Math.round(Math.max(...keys.map((k) => k.r.top)) - Math.min(...keys.map((k) => k.r.top))) : 0);
+  const open = document.body.classList.contains('player-open');
+  if (np && shown(np) && np.dataset.size === 'mini' && !open) {
+    // The keys of its one row: the out strip above it is a row of its own.
+    const row = np.querySelector('.np-row-1');
+    const keys = keysIn(row);
+    const apart = spread(keys);
+    if (apart > 4) {
+      out.push({ rule: 'bar-row', severity: 'fail', el: name(row), msg: `the mini player's keys are not on one row: their tops are ${apart} px apart` });
+    }
+    const st = getComputedStyle(np);
+    const inside = np.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight);
+    const wide = row?.getBoundingClientRect().width ?? 0;
+    if (Math.abs(wide - inside) > 1) {
+      out.push({ rule: 'bar-width', severity: 'fail', el: name(row), msg: `the mini player's row is ${Math.round(wide)} px wide, in a bar ${Math.round(inside)} px wide inside its padding` });
+    }
+    for (let i = 0; i < keys.length; i++) {
+      for (let j = i + 1; j < keys.length; j++) {
+        const [a, b] = [keys[i].r, keys[j].r];
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w > 1 && h > 1) out.push({ rule: 'bar-overlap', severity: 'fail', el: name(keys[i].el), by: name(keys[j].el), msg: `the mini player draws it and ${name(keys[j].el)} over each other (${Math.round(w)}×${Math.round(h)} px)` });
+      }
+    }
+    const win = np.querySelector('.np-window');
+    const ww = win?.getBoundingClientRect().width ?? 0;
+    if (ww < 44) out.push({ rule: 'bar-window', severity: 'fail', el: name(win), msg: `the mini player's window is ${Math.round(ww)} px wide, under a finger's 44` });
+  }
+  if (np && shown(np) && open) {
+    for (const { el, r } of keysIn(np)) {
+      if (r.left < -1 || r.top < -1 || r.right > W + 1 || r.bottom > H + 1) {
+        out.push({ rule: 'bar-sheet-offscreen', severity: 'fail', el: name(el), msg: `the player pulled up has it off the screen (x ${Math.round(r.left)}–${Math.round(r.right)}, y ${Math.round(r.top)}–${Math.round(r.bottom)} of ${W}×${H})` });
+      }
+    }
+    const transport = np.querySelector('.np-transport');
+    const apart = spread(keysIn(transport));
+    if (apart > 4) {
+      out.push({ rule: 'bar-sheet-transport', severity: 'fail', el: name(transport), msg: `the player pulled up has |◀ ▶ ● on more than one row: their tops are ${apart} px apart` });
+    }
+  }
+  const side = Math.round(scrollX || document.scrollingElement?.scrollLeft || 0);
+  const wider = Math.round(innerWidth - screen.width); // a phone's layout grown to hold what is too wide
+  if (!root && wider > 1) {
+    out.push({ rule: 'sideways', severity: 'fail', el: 'the page', msg: `the page is ${wider} px wider than the ${screen.width} px screen: a phone shows part of it, its edges cut off` });
+  } else if (!root && side !== 0) {
+    out.push({ rule: 'sideways', severity: 'fail', el: 'the page', msg: `the page is scrolled ${side} px sideways: its ${side > 0 ? 'left' : 'right'} edge is cut off` });
+  }
   return out;
+}
+
+// playAt runs in the page: where the mini player's ▶ stands, and what the
+// bar holds. checkLayout holds it against the first place a run saw it, at
+// that size (bar-play-x).
+function playAt() {
+  const np = document.getElementById('np');
+  const play = document.getElementById('np-play')?.getBoundingClientRect();
+  if (!np || np.hidden || np.dataset.size !== 'mini' || document.body.classList.contains('player-open') || !play?.width) return null;
+  const where = document.body.classList.contains('tape-page') ? 'in the Studio' : `on ${location.pathname}`;
+  return { x: Math.round(play.left), holds: `the ${np.dataset.source ?? 'bar'} ${where}`, size: `${innerWidth}×${innerHeight}` };
 }
 
 // openMenus names the menus open on the screen, as the checks saw them: a
@@ -154,8 +248,8 @@ export const seenMenus = (page) => page.evaluate(openMenus, { MENU }).catch(() =
 const allowance = (f) => ALLOW.find((a) => a.rule === f.rule &&
   (!a.el || a.el.test(f.el)) && (!a.by || (f.by && a.by.test(f.by))));
 
-// sample is one look at the page: the geometry checks and axe's.
-async function sample(page, touch, root = null) {
+// sample is one look at the page, or inside root: the geometry checks and axe's.
+async function sample(page, touch, root) {
   const found = await page.evaluate(geometry, { touch, MENU, PIN, root }).catch(() => []);
   // axe in the page by evaluate, not a script tag, so no CSP stops it.
   const axeFound = await page.evaluate(async ([src, pin, root]) => {
@@ -218,23 +312,41 @@ async function settle(page) {
 // checkLayout answers the findings on the page once it has settled, and
 // only those it finds twice, 400 ms apart: a fault of the layout stays,
 // one of a moment (something still arriving) doesn't, and a check that
-// fails a flow must not fail it by chance. With `root` (a selector), only
-// what is inside it is checked: one component, in its harness
-// (scripts/components.mjs), where the page around it is not its fault.
-export async function checkLayout(page, { touch, root = null }) {
+// fails a flow must not fail it by chance.
+//
+// bar is the run's memory of where the mini player's ▶ stood, by screen
+// size (a Map, kept across flows): a screen with ▶ anywhere else fails
+// (bar-play-x). It is read once, after both looks, with the page at rest.
+// Without it, ▶ is not followed.
+//
+// root (a selector) checks one component alone: only what is inside it,
+// the bar's checks if it is or holds #np, and nothing of the page's own.
+export async function checkLayout(page, { touch, bar = null, root = null }) {
   await settle(page);
   const first = new Set((await sample(page, touch, root)).map(findingKey));
   await page.waitForTimeout(400);
   const seen = new Set();
-  return (await sample(page, touch, root)).filter((f) => {
+  const twice = (await sample(page, touch, root)).filter((f) => {
     const k = findingKey(f);
     if (seen.has(k) || (f.severity === 'fail' && !first.has(k))) return false;
     seen.add(k);
     return true;
-  }).map((f) => {
+  });
+  const moved = bar ? playMoved(bar, await page.evaluate(playAt).catch(() => null)) : [];
+  return [...twice, ...moved].map((f) => {
     const a = f.severity === 'fail' && allowance(f);
     return a ? { ...f, severity: a.as ?? 'allowed', why: a.why } : f;
   });
+}
+
+// playMoved holds ▶'s place on this screen (playAt's) against the first
+// the run saw at this size, which it keeps: a finding if it moved.
+function playMoved(bar, at) {
+  if (!at) return [];
+  const was = bar.get(at.size);
+  if (!was) { bar.set(at.size, at); return []; }
+  if (Math.abs(at.x - was.x) <= 2) return [];
+  return [{ rule: 'bar-play-x', severity: 'fail', el: 'button#np-play', msg: `▶ stands at x ${at.x} with ${at.holds}, and stood at ${was.x} with ${was.holds}` }];
 }
 
 // key names a finding apart from the screen it was on.

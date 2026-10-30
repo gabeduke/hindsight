@@ -71,10 +71,10 @@ toast, help mode, the scene contract and the shared ticker.
 |---|---|
 | The studio is a place | The drawn room becomes **where you are**, not what you look at. The Studio's desk and the library's shelf wall are two walls of one space, and switching rooms **turns a CSS-perspective camera** from one to the other (tab order: the Studio left, the library right) while the header and the bar, the desk in front of you, hold still. The room shows in full as you walk in, then falls back to ambient light behind the shelves. Opening a take **dollies in** to it; ‹ Takes dollies back out. No 3D engine: CSS 3D transforms and View Transitions on the compositor. "Flat first" stands; three.js stays the Rig's. |
 | Motion | One set of tokens and springs in `lib/objects/motion.js`, mirrored in CSS and kept in step by a test (as `choreo.test.js` does). A touch shows within one frame. **Nothing teleports**: a GRAB peels off the ribbon into the cue lane, a cue clip flies to its track, KEEP sends a spine to the Listening Room's tab, the mini player grows into the full one. Sheets and drawers follow the finger and settle on a spring, flicks included. Anything waiting for the bar line shows its countdown; lamps pulse in tempo. Only transform and opacity animate. Reduced motion turns travel into fades. Haptics where the device has them, never as the only answer. **No UI sounds**: the ring is always listening. |
-| Open | `listening-back.md`, step 3, as agreed, plus: the frame above; the selection gets the Studio's action bar; the page's grid is set from the first paint, so nothing jumps when MIDI arrives; − Fit + on the waveform, and a double tap zooms (notes come from ✎ alone); grips and pins 44 px on touch. |
+| Open | Landed with step 10 (`docs/architecture/take-page.md`, *Open*), but for one part: **the selection gets the Studio's action bar** is not built. Settled by recommendation (2026-10-30; Gabe may overrule): while a selection is held, its ends, length and Clear dock above the bar as the Studio's action bar does; GRAB and KEEP stay under the waveform, where they already say what they do to the selection (*GRAB SELECTION*, *KEEP 41s*), so no verb is on the screen twice. |
 | Under the hood | The CSS splits into one file per place (tokens, base, kit, chrome, bar, studio, room, take, play, rig, guide…), each listed in `sw.js` and checked by ratchet tests. Shared modules in `lib/ui/`: `layers.js` (the one stack), `menu.js`, `sheet.js` (detents, swipe, flick), `press.js` (tap, double tap, hold: one table of thresholds), an SVG icon sprite in place of the unicode glyphs, and `dom.js`. Each lands with its first user, never as a sweep. |
 
-The studio as a place has landed but for the dolly into a take (step 10).
+The studio as a place has landed, the dolly into a take with step 10.
 Of *Under the hood*, `lib/ui/` has `layers.js`, `menu.js`, `press.js`,
 `keys.js`, `icons.js` and `sheet.js`, and `css/` has `chrome.css`,
 `bar.css` and `rooms-motion.css`; the rest of the CSS files come as their
@@ -107,8 +107,10 @@ what's next.
    J1.16.
 9. ~~The notes drawer~~ (`listening-back.md`, step 2). Landed:
    `docs/architecture/rooms.md`, *The notes drawer*; J2.4, U3.
-10. **Open** (`listening-back.md`, step 3, with the decisions above), and
-    the dolly into a take.
+10. ~~Open, and the dolly into a take~~. Landed:
+    `docs/architecture/take-page.md`, *Open*; `shell.md`, *Moving between
+    rooms* (the dolly); J2.5, J2.9, J3.1. The selection's action bar is
+    still to build (above).
 11. ~~The buffer into the cue lane~~ (`the-studio-on-one-screen.md`, step
     5, now deleted). Landed: `docs/architecture/tape.md`, *The cue lane*;
     [decision 0061](../decisions/0061-grab-lands-on-the-cue-lane.md); C1,

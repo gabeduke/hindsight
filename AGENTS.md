@@ -284,8 +284,8 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   shows it. ([0061](docs/decisions/0061-grab-lands-on-the-cue-lane.md))
 - **A take is named by `takeTitle`** (`lib/rooms/takename.js`), wherever a
   person reads it: its name, or the time on its spine. Never a take's file
-  or its date stamp on screen (Open's page is the one still to move, in
-  Open's pass). ([0049](docs/decisions/0049-one-name-for-a-take.md))
+  or its date stamp on screen.
+  ([0049](docs/decisions/0049-one-name-for-a-take.md))
 - **The Listening Room** is the shelf wall and the List
   (`docs/architecture/rooms.md`, *The library*). Its toolbar is the search
   (`#shelf-q`: give it behaviour by its id, wherever the header puts it),

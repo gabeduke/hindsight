@@ -5,6 +5,43 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.30.6 — 2026-10-30
+
+- Merge main into phone-checks again, with the service worker cache at v187 (efc0d33e)
+- Review fixes for Download beside Share: a key already in its place keeps the keyboard's focus, and the docs name every caller (01d85e80)
+- Exporting from the Studio offers Download: the mix as an MP3, and a clip as a WAV, save to a folder on a computer, with Share beside them where the browser can share (e9ed03b7)
+- Tests only: the flows run on the phone too, and check its bar keeps its shape: the mini player one row, its full width, no key over another, ▶ in one place (83ca2a35)
+- On a phone, a cue clip's drawer docks above the mini player and brings the cue lane and the armed track into sight, so ▶ is never under it (b5a2a4bf)
+- On a phone, the tempo's and the source's menus open over the player pulled up, where no tap reached them (41fdceca)
+- With help mode on, a phone's List scrolls its last takes clear of the tip, which had covered them for good (06d1787e)
+- Under the hood, nothing on screen: a height the stylesheets read is measured in one place (lib/ui/measure.js), the bar's and next help mode's tip (ec5e94ab)
+
+
+## v2026.10.30.5 — 2026-10-30
+
+- Open's page asks phones for a fresh shell (0e576b16)
+- Open: notes are numbered pins, a double tap zooms, − Fit +, dropouts among the notes, and opening a take dollies in (21e86603)
+- Open: the notes beside the waveform, GRAB first, Fine tune and MIDI folded; Send to and the flag keys are gone (e9c446b6)
+
+
+## v2026.10.30.4 — 2026-10-30
+
+- Docs only: the components spec says how much of the transport model is built (3f0fd60c)
+- Docs only: the components spec is agreed, with Gabe's yes to its six calls (38bae6c9)
+- Spec: the pocket kit, the star and the tag are the two a phone edits without an undo (c72f5dce)
+- Spec: the pocket kit, last review: the tag's undo, the home moving when shared (7f11023a)
+- Spec: the pocket kit, after the re-check: the hub as a third engine, star's undo, pairing asked (bafe25c2)
+- Spec: the pocket kit, after review: the core's build, a second brain, slices and Undo (5a624034)
+- Spec: the pocket kit, Hindsight on a phone that records on its own (095d5870)
+- The guide stops promising KEEP 30s on the instrument's pad, and says Settings opens on the Pi's settings (b68f9494)
+- A phone that had Play mode on forgets it, so an older release picked from Releases can't put EDIT | PLAY back over the mini player (2a347a8c)
+- Play mode is gone: its switch in Settings, the instrument strip above the Studio's bar, and the phone's EDIT | PLAY (ee222972)
+- Settings leaves out Preview features when this release has none to try (a3de2fdd)
+- Docs only, no change to the app: the components plan counts the bar's ids the flows use as at least nineteen, and lists #clock-out among those to rename (1473e261)
+- Docs only, no change to the app: the components plan keeps the bar's ids the flows use, and builds its Pi client on the page's existing link (bd81571a)
+- Spec: components, models and the protocol, so a change to one part of the app stays in that part (f5f893b2)
+
+
 ## v2026.10.30.3 — 2026-10-30
 
 - Spec: reaching back, after the re-check: bare presses first, audio for the audition (5e570143)

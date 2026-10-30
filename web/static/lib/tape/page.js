@@ -4,7 +4,7 @@
 // state a few times a second and sends what you tap.
 
 import { toast } from '../toast.js';
-import { canShareFiles, shareOrDownload, looksLikeMP3 } from '../wave/share.js';
+import { looksLikeMP3, saveFile, shareFile, exportActions, orderExportKeys } from '../wave/share.js';
 import { drawBars, takeGain, levelsOfColumns, laneChannels } from '../wave/draw.js';
 import { drawTrace, traceLines } from '../wave/tape-strip.js';
 import { TileCache } from '../wave/tiles.js';
@@ -39,10 +39,8 @@ import { heardAt, layer, blit, bandFor, still, paintMarks, paintHead, paintLaneG
 import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
-import { watchChanges } from './changes.js';
 import { lightTrackHead } from '../bar/press-note.js';
 import * as sel from './selection.js';
-import { pageCarry, studioVisit } from '../bar/carry.js';
 import { syncState } from '../bar/display.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
@@ -60,6 +58,7 @@ import { mountCueLane } from './cuelane.js';
 import { layersOf } from '../ui/layers.js';
 import { menu, splitKey, menuItem, barTop } from '../ui/menu.js';
 import { icon } from '../ui/icons.js';
+import { revealAbove } from '../ui/reveal.js';
 import { tapeRowSub, deleteWords, afterDelete } from './tape-menu.js';
 
 // A hidden Studio's dock nodes (#multi-bar, #clip-editor) are out of the
@@ -182,10 +181,6 @@ let stack = null;
 export function mountTapePage(ctx) {
   viewCtx = ctx;
   stack = ctx?.layers || layersOf(document);
-  // The Studio's bar is the tape's and never takes a take: this page neither
-  // reads the hand-off nor writes it, so the Listening Room, back, finds its
-  // take (lib/bar/carry.js).
-  studioVisit(pageCarry());
   takes = ctx?.takes || null; // before the bounce, which reads it
   initBouncing();
   initEditorBar();
@@ -260,17 +255,17 @@ export function mountTapePage(ctx) {
     ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { poll(true); fetchClipboard(); } });
     ctx.every(() => { if (!document.hidden) poll(); }, POLL_MS);
     ctx.every(() => { if (!document.hidden) fetchClipboard(); }, 2000);
-    // While the Studio is shown, the Pi's word that the tape changed polls
+    // While the Studio is shown, it borrows the page's transport: the Pi's
+    // word that the tape changed, on the page's one socket, polls the Studio
     // now, not at the next tick, and the bar's tape is the Studio's to poll
-    // and play (the socket feeds both). Hidden, the bar has it back, and
-    // follows the tape in the other rooms. ctx opens it on each visit, after
-    // show()'s poll, and closes it on hide.
+    // and play. Hidden, the bar has it back, and follows the tape in the
+    // other rooms. ctx borrows it on each visit, after show()'s poll, and
+    // hands it back on hide; the socket stays open throughout.
     ctx.socket(followTheTape);
   })();
   return {
     ready,
     show() {
-      studioVisit(pageCarry());
       if (state.id) {
         poll(true);
         fetchClipboard();
@@ -312,36 +307,36 @@ let gen = 0;
 let link = { ok() {}, fail() {} };
 const POLL_TIMEOUT_MS = 4000;
 
-// The changes socket (changes.js): while the Studio is shown, each new
-// revision polls at once, through the gate, so a nudge that lands while a
-// poll is out polls once more after it rather than beside it. The 200 ms
-// poll stays as the fallback, for a socket that is down.
-// What the Studio lends the page's transport (lib/models/transport.js,
-// delegate) while it is shown: its ▶ ■, locate, loop and poll.
+// The changes socket is the page's one, the transport's (lib/models/
+// transport.js), open from the tape's mount whatever room is shown; while
+// the Studio is shown it borrows the transport, and each new revision the
+// socket says polls the Studio at once, through the gate, so a nudge that
+// lands while a poll is out polls once more after it rather than beside it.
+// The 200 ms poll stays as the fallback, for a socket that is down.
+// What the Studio lends the page's transport (delegate) while it is shown:
+// its ▶ ■, locate, loop and poll, and what it does with a nudge.
 const barHands = {
   play: () => transport('play'),
   stop: () => transport('stop'),
   locate: (pos) => transport('locate', { pos }),
   setLoop: (on) => patch({ loop: { on } }),
   poll: () => poll(),
+  nudge: () => nudged(),
 };
 function nudged() {
   if (document.hidden) return; // the poll on visibilitychange has it
   if (gate.nudge()) poll();
 }
-// followTheTape is the Studio's ctx.socket: open while it is shown.
-// A press on the keyboard heard on it is the bar's note's (handed on), and
-// lights the head of the track it changed here, for the note's second.
-function heardPress(p) {
-  engine.transport.heardPress(p);
-  lightTrackHead(lanes, p);
-}
+// followTheTape is the Studio's ctx.socket: it holds the transport while
+// the Studio is shown. A press on the keyboard (the bar's note hears it from
+// the transport too) lights the head of the track it changed here, for the
+// note's second.
 function followTheTape() {
   engine.transport.delegate(barHands);
-  const changes = watchChanges({ onNudge: nudged, onPress: heardPress, onTakes: (m) => engine.transport.heardTakes(m) });
+  const offPress = engine.transport.onPress((p) => lightTrackHead(lanes, p));
   return {
     close() {
-      changes.close();
+      offPress();
       engine.transport.delegate(null);
     },
   };
@@ -907,7 +902,7 @@ async function mixdown(all) {
   } catch (e) {
     // With the interface off, the mix can still be sent.
     const off = /output isn.t open/.test(e.message);
-    toast(`Could not bounce: ${e.message}`, 'bad', off ? { action: { label: 'Share the mix', run: shareMix } } : {});
+    toast(`Could not bounce: ${e.message}`, 'bad', off ? { action: { label: 'Share the mix', run: () => exportMix() } } : {});
   }
 }
 
@@ -941,12 +936,7 @@ async function exportStems(e) {
     return;
   }
   toast('Rendering the stems: the download starts in a moment');
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  saveFile(url);
 }
 
 // filenameOf is the name a response's Content-Disposition gives its file.
@@ -957,16 +947,17 @@ function filenameOf(res, fallback) {
   return fallback;
 }
 
-// shareMix is Share the mix: the Pi renders the whole tape as an MP3 (the
-// mix as Overdub on this device hears it: levels, pans, mutes and solos, no
-// Sidekick), and the toast's Share hands it to the share sheet. A phone opens
-// the sheet only straight from a tap, and the render takes seconds, so that
-// is a second tap. Where there's no sheet, it downloads. Nothing goes on the
-// shelf and the tape doesn't stop.
-let sharingMix = false;
-async function shareMix() {
-  if (sharingMix || !state.tape) return;
-  sharingMix = true;
+// exportMix renders the whole tape as an MP3 on the Pi (the mix as Overdub
+// on this device hears it: levels, pans, mutes and solos, no Sidekick).
+// Download the mix ('download') saves it the moment it arrives. Share the
+// mix… and Bounce's refusal ('offer') put it on a toast with Download and
+// Share in exportWays' order (lib/wave/share.js): a phone opens the share
+// sheet only straight from a tap, and the render takes seconds, so sharing
+// is a second tap. Nothing goes on the shelf and the tape doesn't stop.
+let exportingMix = false;
+async function exportMix(how = 'offer') {
+  if (exportingMix || !state.tape) return;
+  exportingMix = true;
   const wait = toast('Rendering the mix…', 'ok', { ms: 120000 });
   try {
     const res = await fetch(`/api/tapes/listen?${q()}&all=1&format=mp3`, { cache: 'no-store' });
@@ -979,37 +970,33 @@ async function shareMix() {
     // A render that failed halfway is still a 200: look at what came.
     if (!looksLikeMP3(new Uint8Array(await blob.slice(0, 4096).arrayBuffer()))) throw new Error('the render stopped short');
     wait.dismiss();
-    toast(`The mix is ready: ${named(name)}`, 'ok', {
-      ms: 60000,
-      action: { label: canShareFiles() ? 'Share' : 'Download', run: () => shareOrDownload(blob, name, name.replace(/\.mp3$/, '')) },
-    });
+    if (how === 'download') {
+      saveFile(blob, name);
+      toast(`Downloaded the mix: ${named(name)}`, 'ok');
+    } else {
+      toast(`The mix is ready: ${named(name)}`, 'ok', { ms: 60000, actions: exportActions(blob, name, name.replace(/\.mp3$/, '')) });
+    }
   } catch (e) {
     wait.dismiss();
-    toast(`Could not share the mix: ${e.message}`, 'bad');
+    toast(`Could not ${how === 'download' ? 'download' : 'share'} the mix: ${e.message}`, 'bad');
   } finally {
-    sharingMix = false;
+    exportingMix = false;
   }
 }
 
-// shareClip offers a clip to the share sheet as a WAV -- a short one; a long
-// one downloads, without holding it all in the phone's memory. A sheet that
-// won't open (too long after the tap, say) downloads too.
+// A clip as a WAV, from its inspector. Download as WAV is the Pi's file
+// straight to the browser's downloads, so a long one never sits in the
+// phone's memory. Share as WAV… hands a short one to the share sheet; one
+// over a minute downloads. A sheet that won't open (too long after the tap,
+// say) downloads too (shareFile).
+const clipURL = (c) => `/api/tapes/clip?${q()}&clip=${encodeURIComponent(c.id)}`;
 async function shareClip(c) {
   const t = state.tape;
-  const url = `/api/tapes/clip?${q()}&clip=${encodeURIComponent(c.id)}`;
-  if (c.frames / t.sample_rate > 60 || !canShareFiles()) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    return;
-  }
+  if (c.frames / t.sample_rate > 60) { saveFile(clipURL(c)); return; }
   toast('Preparing the WAV…');
   let res;
   try {
-    res = await fetch(url, { cache: 'no-store' });
+    res = await fetch(clipURL(c), { cache: 'no-store' });
   } catch (e) {
     toast(`Could not share it: ${e.message}`, 'bad');
     return;
@@ -1020,7 +1007,7 @@ async function shareClip(c) {
     return;
   }
   const name = filenameOf(res, 'clip.wav');
-  await shareOrDownload(await res.blob(), name, name, 'audio/wav');
+  await shareFile(await res.blob(), name, name, 'audio/wav');
 }
 
 // --- editing: split, join, slide, multiply ------------------------------------
@@ -1422,9 +1409,7 @@ function revealPicked() {
     if (!lane) return;
     // Under the inspector's sheet, when it's open; else under the action bar.
     const cover = inspecting() ? $(inspecting()) : bar;
-    const over = lane.canvas.getBoundingClientRect().bottom + 8 - cover.getBoundingClientRect().top;
-    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (over > 0) window.scrollBy({ top: over, behavior: still ? 'auto' : 'smooth' });
+    revealAbove([lane.canvas], cover, { reduced: matchMedia('(prefers-reduced-motion: reduce)').matches });
   }, 550);
 }
 const selNow = () => ({ picked: state.picked, multi: state.multi });
@@ -4468,6 +4453,7 @@ function fillClip(c) {
   $('clip-reverse').textContent = c.reversed ? 'Play forwards' : 'Reverse';
   renderFades(c);
   fillTrims(c);
+  orderExportKeys($('clip-download'), $('clip-share'));
 }
 
 // fillTrims: Start here and End here trim to the playhead, where the clip
@@ -4681,8 +4667,11 @@ function renderTapeMenu() {
   const playable = !!(t0 && live && live.output && t0.tracks.some((tr) => tr.clips.length));
   $('tape-mixdown').disabled = !playable || !(t0.loop.out > t0.loop.in);
   $('tape-mixdown-all').disabled = !playable;
-  // The mix needs parts, not the output: it plays nowhere.
-  $('tape-share-mix').disabled = !(t0 && t0.tracks.some((tr) => tr.clips.length));
+  // The mix needs parts, not the output: it plays nowhere. Download it, and
+  // Share it beside that where the browser can, in exportWays' order.
+  const parts = !!(t0 && t0.tracks.some((tr) => tr.clips.length));
+  $('tape-dl-mix').disabled = $('tape-share-mix').disabled = !parts;
+  orderExportKeys($('tape-dl-mix'), $('tape-share-mix'));
   if (bouncing) { bouncing.keeper.changed(state.id); bouncing.keeper.refresh(); }
 }
 
@@ -4769,7 +4758,7 @@ function wire() {
   $('jam-only-close').addEventListener('click', () => $('jam-only').close());
   // Where it plays is a key on the bar's display: it opens the output sheet.
   $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('np-output').click(); });
-  $('jam-only-share').addEventListener('click', () => { $('jam-only').close(); shareMix(); });
+  $('jam-only-share').addEventListener('click', () => { $('jam-only').close(); exportMix(); });
   $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('np-output').click(); });
   // The Studio's buffer (lib/buffer) changed the clipboard: the range's Paste
   // and Insert follow it now, not at the next fetch. And it dropped onto the
@@ -4810,6 +4799,11 @@ function wire() {
     if (c && await edit('reverse', { clip: c.id })) {
       toast(c.reversed ? 'Playing forwards' : 'Reversed', 'ok', { action: undoAction });
     }
+  });
+  $('clip-download').addEventListener('click', () => {
+    const c = state.clip;
+    $('clip-sheet').close();
+    if (c) saveFile(clipURL(c));
   });
   $('clip-share').addEventListener('click', () => {
     const c = state.clip;
@@ -4975,7 +4969,8 @@ function wire() {
   $('tape-new').addEventListener('click', newTape);
   $('tape-mixdown').addEventListener('click', () => mixdown(false));
   $('tape-mixdown-all').addEventListener('click', () => mixdown(true));
-  $('tape-share-mix').addEventListener('click', shareMix);
+  $('tape-dl-mix').addEventListener('click', () => exportMix('download'));
+  $('tape-share-mix').addEventListener('click', () => exportMix());
   // The feed's ● Phone, which the strip shows on a phone alone: the Studio
   // (lib/rooms/studio.js) opens its sheet.
   $('tape-phone')?.addEventListener('click', () => document.dispatchEvent(new CustomEvent('hindsight:phone')));

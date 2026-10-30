@@ -110,7 +110,7 @@ jobs:
           grep -q '"capture_healthy":true' /tmp/status.json
 
   # The user flows (docs/flows.md): Gabe's stories, driven in a real browser
-  # against the demo on a tablet and a desktop profile. The unit tests stayed
+  # against the demo on a tablet, a desktop and a phone profile. The unit tests stayed
   # green through a Studio that threw on every load; this is what notices.
   # A todo flow (a story not built yet) reports and never fails the job.
   flows:

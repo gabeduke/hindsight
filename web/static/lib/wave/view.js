@@ -6,12 +6,15 @@
 // The canvas is three zones, so gestures never compete (see the editing
 // model spec, "One set of gestures"):
 //
-//   ruler   top half: flag pins -- tap one to open it, drag to move it.
+//   ruler   top half: the notes' numbered pins -- tap one for its note,
+//           drag to move it.
 //           bottom half: bar numbers (or seconds), the playhead handle ▾ to
 //           scrub silently, and bar 1 to drag the downbeat.
 //   body    the waveform. A drag pans, always, inside the selection too; a
 //           hold then a drag selects; a tap moves the playhead; two taps
-//           add a flag.
+//           zoom in there (notes come from ✎ alone).
+//
+// On a touch screen the pins and the grips take a finger: 44 px wide.
 //   grips   below the waveform: the In and Out grips at the selection's
 //           ends, and the move handle between them, the only way to move a
 //           whole selection, so it can't happen by accident.
@@ -21,10 +24,10 @@
 import { frameToX, xToFrame, gridLines, rulerTicks, snapFrame, clampRegion } from './geometry.js';
 import { levelsOfColumns, laneChannels, takeGain } from './draw.js';
 import { drawTrace, traceLines, sliceLines, paintOxide, oxideColors } from './tape-strip.js';
-import { GestureSurface } from '../edit/gestures.js';
+import { GestureSurface, MIN_FPP } from '../edit/gestures.js';
 import { withAlpha } from '../theme.js';
 import { drawGrease } from '../objects/grease.js';
-import { drawPennant, drawPennantName } from '../objects/pennant.js';
+import { drawPin, drawPennantName } from '../objects/pennant.js';
 import { seamHalves } from './boundary.js';
 
 export { HOLD_MS } from '../edit/gestures.js';
@@ -33,6 +36,8 @@ export const PIN_H = 16;     // the ruler's top half: flag pins
 export const RULER_H = 36;   // the whole ruler
 export const GRIP_H = 30;    // the strip under the waveform
 const PIN_HIT = 12;          // px each side of a pin
+const FINGER = 22;           // px each side of a pin or a grip's edge, on a touch screen: 44 across
+const CLOSER = 4;            // how much closer a double tap brings the take
 const PLAYHEAD_HIT = 16;
 const DOWNBEAT_HIT = 18;
 const DOWNBEAT_LABEL = 7;    // the middle of bar 1's "1", right of its line
@@ -62,7 +67,21 @@ export class WaveView extends GestureSurface {
     this.ro = new ResizeObserver(this.resize);
     this.ro.observe(canvas);
     this.initGestures(canvas);
+    // A tapped pin is said on the tap's click, not its lift: on a touch
+    // screen the mouse's down comes after the lift and would take the focus
+    // back from wherever the pin sent it (Open: its note's words).
+    this.pinTapped = null;
+    const sig = { signal: this.gestureAC.signal };
+    canvas.addEventListener('pointerdown', () => { this.pinTapped = null; }, sig);
+    canvas.addEventListener('click', () => this.clicked(), sig);
     this.resize();
+  }
+
+  /** clicked says the pin a tap lifted off, now its click has come. */
+  clicked() {
+    const f = this.pinTapped;
+    this.pinTapped = null;
+    if (f) this.emit('selectFlag', { flag: f });
   }
 
   destroy() {
@@ -113,9 +132,11 @@ export class WaveView extends GestureSurface {
     }
     if (y < PIN_H) {
       let best = null;
+      // A pin's tag stands right of its line: its middle is the target.
+      const reach = this.coarse ? FINGER : PIN_HIT;
       for (const f of st.flags || []) {
-        const d = Math.abs(x - frameToX(f.frame, v));
-        if (d <= PIN_HIT && (!best || d < best.d)) best = { f, d };
+        const d = Math.abs(x - (frameToX(f.frame, v) + 6));
+        if (d <= reach && (!best || d < best.d)) best = { f, d };
       }
       if (best) return { kind: 'pin', grab: true, flag: best.f };
       return { kind: 'ruler' };
@@ -146,8 +167,9 @@ export class WaveView extends GestureSurface {
         // The grips sit just outside the selection's ends, so even a selection
         // a pixel wide keeps two separate tabs to hold. Their reach inside
         // overlaps on a narrow one; the side of the middle decides.
-        const inStart = x >= x0 - GRIP_W - 4 && x <= x0 + GRIP_IN;
-        const inEnd = x >= x1 - GRIP_IN && x <= x1 + GRIP_W + 4;
+        const out = this.coarse ? 2 * FINGER - GRIP_IN : GRIP_W + 4;
+        const inStart = x >= x0 - out && x <= x0 + GRIP_IN;
+        const inEnd = x >= x1 - GRIP_IN && x <= x1 + out;
         if (inStart && inEnd) return { kind: 'grip', grab: true, edge: x < mid ? 'start' : 'end' };
         if (inStart) return { kind: 'grip', grab: true, edge: 'start' };
         if (inEnd) return { kind: 'grip', grab: true, edge: 'end' };
@@ -220,7 +242,7 @@ export class WaveView extends GestureSurface {
         // its flag list for the server's answer mid-drag, and g.flag would
         // then be a stale copy holding the old frame.
         const f = (st.flags || []).find((x) => x.id === g.flag.id) || g.flag;
-        if (tap) this.emit('selectFlag', { flag: f });
+        if (tap) this.pinTapped = f;
         else if (g.moved) this.emit('flagMove', { flag: f, frame: g.frame ?? f.frame, final: true });
         break;
       }
@@ -253,13 +275,16 @@ export class WaveView extends GestureSurface {
   }
 
   // A tap moves the playhead (snapped); the second of two taps on the
-  // waveform adds a flag there.
+  // waveform zooms in about it, or, as close as it goes, out to the whole
+  // take. A note comes from ✎ alone.
   tapAt(p, h, double) {
     if (h.kind === 'seam') { this.emit('seamSide', { side: h.side }); return; }
     if (h.kind === 'seamOff') return;
     const frame = this.snapX(p.x);
-    if (double && h.kind === 'body' && !h.strip) this.emit('addFlag', { frame: Math.min(this.total - 1, frame) });
-    else this.emit('seek', { frame });
+    if (double && h.kind === 'body' && !h.strip) {
+      if (this.view.fpp <= MIN_FPP) this.fitAll();
+      else this.zoomTo(this.view.fpp / CLOSER, p.x);
+    } else this.emit('seek', { frame });
   }
 
   // --- painting ---------------------------------------------------------------
@@ -463,20 +488,23 @@ export class WaveView extends GestureSurface {
       ctx.fillRect(Math.round(x) - 1, PIN_H, 2, RULER_H - PIN_H);
     }
 
-    // Flags: a line through the body, a pin in the ruler, and its name when
+    // Notes: a line through the body, a numbered pin in the ruler (its
+    // number its row's in the notes, notes.js notesOf), and its words when
     // there is room before the next one.
-    ctx.textBaseline = 'alphabetic';
-    ctx.font = `11px ${col('--font', 'system-ui')}`;
     let lastRight = -Infinity;
-    for (const f of st.flags || []) {
+    const face = col('--font', 'system-ui');
+    const pins = [...(st.flags || [])].sort((a, b) => a.frame - b.frame || String(a.id).localeCompare(String(b.id)));
+    pins.forEach((f, i) => {
       const x = frameToX(f.frame, view);
-      if (x < -200 || x > W + 200) continue;
+      if (x < -200 || x > W + 200) return;
       const selected = st.selectedFlag && st.selectedFlag.id === f.id;
-      drawPennant(ctx, x, { pinH: PIN_H, bottom, selected, ink: col('--flag', '#d99a0a') });
-      if (f.label && x + 12 > lastRight) {
-        lastRight = drawPennantName(ctx, x, f.label, { pinH: PIN_H, ink: col('--well-ink', '#f2e6c8') });
+      const right = drawPin(ctx, x, i + 1, { pinH: PIN_H, bottom, selected, ink: col('--flag', '#d99a0a'), numInk: col('--on-accent', '#fff7ea'), font: face });
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = `11px ${face}`;
+      if (f.label && right + 2 > lastRight) {
+        lastRight = drawPennantName(ctx, right - 10, f.label, { pinH: PIN_H, ink: col('--well-ink', '#f2e6c8') });
       }
-    }
+    });
 
     // Dropouts: where the capture lost audio. A dashed line through the body
     // and ⚠ in the ruler; not a flag, so nothing to tap or drag.

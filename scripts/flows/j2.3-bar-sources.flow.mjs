@@ -3,7 +3,11 @@
 // menu of the tape, the live feed, the last few takes and the shelf. The
 // feed brings GRAB to the bar (the feed onto the Studio's cue lane); the shelf
 // is the Listening Room. One bar, three things it can hold, and ▶ in one
-// place for all three. docs/flows.md#j23
+// place for all three. On a phone the display is the player's, pulled up,
+// and ▶ is held to its place in the mini player. docs/flows.md#j23
+import { mini, pullUp, putAway } from './player.mjs';
+import { aTake } from './room.mjs';
+
 const bar = () => {
   const np = document.getElementById('np');
   const r = (id) => document.getElementById(id)?.getBoundingClientRect();
@@ -34,12 +38,17 @@ export default {
     const pick = (id) => page.locator(`#np-source-menu [data-source="${id}"]`);
 
     await t.step('open the Studio', () => page.goto(`${t.base}/tape.html`));
-    await source.waitFor({ state: 'visible' });
+    await page.locator('#np-play').waitFor({ state: 'visible' });
     const onTape = await t.poll(() => document.getElementById('np')?.dataset.source === 'tape' && document.getElementById('np-source-short')?.textContent === 'TAPE');
     let b = await now();
     t.expect('the Studio opens on the tape, and the display says TAPE', onTape, b);
     const play = b.play;
+    const phone = await mini(page);
+    // The display's source, and on a phone the player put away after it.
+    const display = async () => { if (phone) t.expect('the player comes up', await t.step('pull the player up', () => pullUp(t))); };
+    const down = async () => { if (phone) t.expect('the player goes down', await t.step('put the player away', () => putAway(t))); };
 
+    await display();
     await t.step('tap the source on the display', () => t.tap(source));
     const menu = await t.poll(() => {
       const m = document.getElementById('np-source-menu');
@@ -54,6 +63,7 @@ export default {
 
     await t.step('choose the live feed', () => t.tap(pick('feed')));
     const onFeed = await t.poll(() => document.getElementById('np')?.dataset.source === 'feed' && document.getElementById('np-source-short')?.textContent === 'FEED');
+    await down();
     b = await now();
     t.expect('the bar holds the feed, and the display says FEED', onFeed, b);
     t.expect('the feed’s GRAB is on the bar', b.grab, b);
@@ -64,15 +74,17 @@ export default {
     t.expect('the feed GRAB lands on the cue lane', grabbed?.frames > 0 && grabbed?.grab, grabbed);
     await page.waitForURL(/tape\.html/, { timeout: 5000 }).catch(() => {});
 
+    await display();
     await t.step('tap the source again', () => t.tap(source));
     await pick('shelf').waitFor({ state: 'visible' });
     await t.step('choose Go to the shelf', () => t.tap(pick('shelf')));
     await page.waitForURL(/takes\.html/, { timeout: 5000 }).catch(() => {});
     t.expect('the shelf is the Listening Room', /takes\.html/.test(page.url()), page.url());
+    await down();
 
-    const cassette = page.locator('#view-room .room-cassette').first();
-    await cassette.waitFor({ state: 'visible' });
-    await t.step('tap a take', () => t.tap(cassette));
+    const spine = aTake(page);
+    await spine.waitFor({ state: 'visible' });
+    await t.step('tap a take', () => t.tap(spine));
     // The display names the take a frame or two after the source changes: wait for both.
     const onTake = await t.poll(() => { const lcd = document.getElementById('np-source-short')?.textContent.trim() ?? ''; return document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing') && lcd.length > 0 && lcd !== 'TAPE' && lcd !== 'FEED'; });
     b = await now();
@@ -80,17 +92,20 @@ export default {
     t.expect('Open › and ✎ are at the bar’s end', b.open && b.note, b);
     t.expect('▶ has not moved, in this room either', Math.abs(b.play - play) <= 2, { play, now: b.play });
 
+    await display();
     await t.step('tap the source, and choose the tape', async () => {
       await t.tap(source);
       await pick('tape').waitFor({ state: 'visible' });
       await t.tap(pick('tape'));
     });
     const back = await t.poll(() => document.getElementById('np')?.dataset.source === 'tape' && document.getElementById('np-source-short')?.textContent === 'TAPE');
+    await down();
     b = await now();
     t.expect('the bar holds the tape again', back, b);
     t.expect('the room stays put', b.path === '/takes.html', b);
 
     // A take from the menu: the last few are there, and one plays at once.
+    await display();
     await t.step('tap the source, and choose the take just kept', async () => {
       await t.tap(source);
       await pick(`take:${take.name}`).waitFor({ state: 'visible' });

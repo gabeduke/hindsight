@@ -43,6 +43,11 @@ export const studioView = {
       // before it mounts the other rooms out of sight (router.js prewarm).
       ready: tape?.ready,
       show({ first }) {
+        // The bar is the tape's here unless what it holds still plays: a
+        // take stopped in the Listening Room gives way, so ▶ plays the tape
+        // (lib/bar/engine.js tapeUnlessPlaying). Every visit, the first
+        // after a prewarm included.
+        ctx.engine?.bar.tapeUnlessPlaying();
         if (!first) {
           tape?.show?.();
           studio?.show?.();
