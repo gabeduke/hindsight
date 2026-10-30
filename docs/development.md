@@ -699,6 +699,10 @@ claude.ai artifacts, private to Gabe:
 - The wireframes (every view at tablet, phone and desktop size):
   `9VDEexPH2bUo1vVzxZBSQx`
 - The SMK-37's surface: `WrryAkACiz1AgNHGBMYAWV`
+- The kit (eight components on every surface; `the-ecosystem.md`):
+  `4fJSP7iBAvLS2uMuBJ4xhg`
+- The ecosystem review (the architecture today, the directions, the
+  walkthrough's questions): `XTWpyKFHcn14cCzBE2cdCo`
 
 ## Conventions
 

@@ -78,6 +78,13 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
+- **`the-ecosystem.md` comes first** (2026-10-30, not yet agreed): Gabe
+  finds the UX chaotic and wants an ecosystem of components reached from
+  every surface. Its walkthrough settles what is kept, merged or cut, and
+  the instrument's shape; nothing user-visible merges before it, so Open's
+  rebuild (#220) and the play look (#218) wait. Its steps 2 (one verb set)
+  and 4 (models per noun) change no behaviour and may go ahead, unmerged
+  until Gabe reviews them.
 - **`the-studio-space.md` is the build order**: steps 1–9 and 11 have
   landed (9, the notes drawer: `docs/architecture/rooms.md`, *The notes
   drawer*; 11, GRAB onto the cue lane, a clip's drawer above the bar;
