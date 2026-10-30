@@ -305,6 +305,27 @@ test('a press on the keyboard and the take list\'s revision are heard on the one
   assert.deepEqual(takes, [4, 5, 6]);
 });
 
+test('snapshot is the tape and its live state, frozen, the same object until one of them moves', async () => {
+  let live = stopped();
+  const r = rig(() => ({ tape: tapeJSON(), loaded: true, live }));
+  const none = r.m.snapshot();
+  assert.deepEqual(none, { v: 1, id: null, tape: null, live: null });
+  assert.ok(Object.isFrozen(none));
+  assert.equal(r.m.snapshot(), none, 'asked again with nothing moved: the same object');
+  r.m.load('t1');
+  await settle();
+  const s = r.m.snapshot();
+  assert.notEqual(s, none);
+  assert.equal(s.id, 't1');
+  assert.equal(s.tape, r.m.tape);
+  assert.equal(s.live, r.m.live);
+  assert.ok(s.v > none.v);
+  assert.equal(r.m.snapshot(), s);
+  r.m.locate(BAR);
+  assert.notEqual(r.m.snapshot(), s, 'a locate shows at once');
+  assert.equal(r.m.snapshot().live.heard, BAR);
+});
+
 test('a tape the Studio ingests before load does not keep load from asking', async () => {
   const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
   r.m.ingest({ tape: tapeJSON(), live: stopped() });

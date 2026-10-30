@@ -100,7 +100,8 @@ In the page, every message with a `takes_rev` (beats included) goes to
 `watchChanges`'s `onTakes`, and on to the page's takes model
 (`lib/models/takes.js`, `heard`): through the page's transport
 (`onTakes`), from the page's one socket, as the presses go; the engine
-hands each to the model it was made with. The model asks `/api/jams` (with If-None-Match)
+hands each to the model it was made with. The model asks `/api/jams` (with If-None-Match,
+through the protocol client, `components.md`)
 when a `takes_rev` is one it hasn't heard, the first included (its list
 may be older than the socket). Its fallback poll is its readers' own
 ticks: `get()` answers the list it holds while it can vouch for it, and

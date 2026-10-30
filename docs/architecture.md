@@ -41,3 +41,7 @@ request. Why things are the way they are is in `docs/decisions/`.
   (a file per place), icons, the scene contract, a frame's budget, motion.
 - [take-page.md](architecture/take-page.md): Open (`wave.html`), its
   modules and the rules that hold it together.
+- [components.md](architecture/components.md): the component kit: the
+  contract (`mountComponent`, `cx`) and Guardrail 15, the models'
+  `snapshot()`, the protocol client and its fixtures, the harness, and the
+  components so far.

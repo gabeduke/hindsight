@@ -99,7 +99,8 @@ rewriting the cue chunk on a flag edit made an old take look new.
 
 ## The list is cached
 
-`/api/jams` is asked by each open page's takes model (`lib/models/takes.js`)
+`/api/jams` is asked by each open page’s takes model (`lib/models/takes.js`,
+through the protocol client `lib/models/protocol.js`)
 when the take list's revision moves (`push.md`, *The takes' revision*), and
 on its fallback poll: every five seconds with no push, every thirty with
 it. It costs one directory listing: each take's signature is the size and modification time of

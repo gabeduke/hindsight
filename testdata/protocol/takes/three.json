@@ -1,0 +1,51 @@
+[
+  {
+    "name": "jam_2026-10-30_101500.wav",
+    "size_mb": 21.9,
+    "duration_seconds": 124.5,
+    "created": "2026-10-30T10:15:00Z",
+    "channels": 2,
+    "sample_rate": 48000,
+    "has_preview": true,
+    "has_peaks": true,
+    "has_midi": false,
+    "preview_name": "jam_2026-10-30_101500.mp3",
+    "midi_name": "",
+    "label": "The good bit",
+    "starred": true,
+    "bpm": 96,
+    "tempo_from": "clock"
+  },
+  {
+    "name": "jam_2026-10-30_101730.wav",
+    "size_mb": 2.9,
+    "duration_seconds": 16.2,
+    "created": "2026-10-30T10:17:30Z",
+    "channels": 2,
+    "sample_rate": 48000,
+    "has_preview": true,
+    "has_peaks": true,
+    "has_midi": false,
+    "preview_name": "jam_2026-10-30_101730.mp3",
+    "midi_name": "",
+    "label": "",
+    "starred": false,
+    "source": { "name": "jam_2026-10-30_101500.wav", "start_frame": 480000, "end_frame": 1257600 }
+  },
+  {
+    "name": "jam_2026-10-29_213000.wav",
+    "size_mb": 55.2,
+    "duration_seconds": 300,
+    "created": "2026-10-29T21:30:00Z",
+    "channels": 2,
+    "sample_rate": 48000,
+    "has_preview": true,
+    "has_peaks": true,
+    "has_midi": true,
+    "preview_name": "jam_2026-10-29_213000.mp3",
+    "midi_name": "jam_2026-10-29_213000.mid",
+    "label": "",
+    "starred": false,
+    "tag": "keys"
+  }
+]

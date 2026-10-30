@@ -15,7 +15,9 @@ The takes list is one per page, the takes model (`lib/models/takes.js`;
 `push.md`, *The takes' revision*): asked for when the changes socket says
 the list moved, on its own slow poll otherwise, and guarded by the
 `/api/jams` ETag, so an unchanged list does not re-render and interrupt a
-playing preview. Nothing else on a page asks `/api/jams`
+playing preview. It reads the list through the protocol client
+(`lib/models/protocol.js`; `components.md`), the one module that names
+`/api/jams`, and nothing else on a page asks it
 (`architecture.test.js`, Guardrail 14): the shell's boot makes the model
 and hands it to the engine and to every view (`ctx.takes`); Open's page
 (`wave/page.js`) makes its own, unfed, and hands it to Open (`h.takes`).
@@ -42,8 +44,9 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 
 - `engine`, `go(url)`, `tapes`, `takes`, `toast`, `link`: shared. A view never creates
   the bar's audio and never assigns `location` to a room path. `takes` is
-  the page's takes model (`lib/models/takes.js`): `list()`, `get()`,
-  `find(name)`, `refresh({force})`, `onChange(fn)`. A view lists takes from
+  the page's takes model (`lib/models/takes.js`): `snapshot()` (`{v,
+  list}`), `list()`, `get()`, `find(name)`, `refresh({force})`,
+  `onChange(fn)`. A view lists takes from
   it, never from `/api/jams`; a `TakesList` is made with it (`takes:`), and
   a view draws on its `onChange` while shown (`TakesList.behind()`), its
   own tick then asking the Pi nothing while the model vouches for its list.
@@ -60,7 +63,9 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 - `layers`: the view's scope of the shell's one stack of open things
   (below). A menu, sheet, drawer or selection the view opens goes on it with
   its `onClose`, and whatever is still open when the view is hidden is
-  closed then, as its slots are taken out.
+  closed then, as its slots are taken out. A scope's `scope()` is a share
+  of it, a component's (`components.md`): its `closeAll` closes what it
+  opened, and the view's closes that too.
 - `headerSlot`, `dockSlot`, `barSlot`: **Slots**. What a view adds to the
   header, the dock or the bar is in the page only while it is shown: `hide()`
   takes the nodes **out of the document** and `show()` puts them back. So
