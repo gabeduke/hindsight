@@ -3,8 +3,8 @@
 // selection of the feed offers GRAB and KEEP and nothing else; every KEEP
 // names what it keeps; a take's TO THE STUDIO and Send to become GRAB. The
 // markup and the wiring, read from the source -- the pure parts are in
-// keeplabel.test.js and grab.test.js; the pad's and the buffer's behaviour is
-// run, on a stand-in document, in play/keeps.test.js and buffer/keeps.test.js.
+// keeplabel.test.js and grab.test.js; the buffer's behaviour is run, on a
+// stand-in document, in buffer/keeps.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

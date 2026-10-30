@@ -334,14 +334,13 @@ card the capture uses (see [architecture/tape.md](architecture/tape.md)):
 
 | Variable | Default | What it does |
 |---|---|---|
-| `TAPE_CONTROLLER` | *(empty)* | Comma-separated name substrings of the MIDI controllers whose keys play Play mode's pads and the Studio's verbs, matched as `MIDI_DEVICES` is: `smk`. They are opened even with `MIDI_CAPTURE` off; left off `MIDI_DEVICES`, they play but their notes aren't kept in takes. `MIDI_IGNORE` still wins: an ignored device is never opened, whatever this says. In Settings › MIDI as *Plays the tape* |
+| `TAPE_CONTROLLER` | *(empty)* | Comma-separated name substrings of the MIDI controllers whose keys play the tape's pads and the Studio's verbs, matched as `MIDI_DEVICES` is: `smk`. They are opened even with `MIDI_CAPTURE` off; left off `MIDI_DEVICES`, they play but their notes aren't kept in takes. `MIDI_IGNORE` still wins: an ignored device is never opened, whatever this says. In Settings › MIDI as *Plays the tape* |
 
 What each key plays is `TAPE_DIR/controls.json`, keyed by the controller's
-name, changed by MIDI LEARN on the instrument strip or `PUT
-/api/tapes/controls` (`docs/api.md`). A controller with no entry starts on its
-profile, or at note 36 counting up. A controller plugged into a laptop's
-browser instead (Web MIDI, Chrome or Edge over HTTPS or localhost; never
-Safari) keeps its bindings in that browser.
+name, changed by `PUT /api/tapes/controls` (`docs/api.md`), or by MIDI
+LEARN over `GET /api/tapes/play`, which no page opens since the instrument
+strip went (2026-10-30). A controller with no entry starts on its
+profile, or at note 36 counting up.
 
 ### The tape's clock
 

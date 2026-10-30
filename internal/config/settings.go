@@ -75,7 +75,7 @@ var Settings = []Setting{
 	{Key: "MIDI_SNAP_BARS", Group: "MIDI", Label: "Start on a bar", Kind: "bool", Default: "true",
 		Help: "Start a take on the last downbeat, so the .mid begins on bar 1"},
 	{Key: "TAPE_CONTROLLER", Group: "MIDI", Label: "Plays the tape", Kind: "text", Default: "",
-		Help: "Comma-separated names of controllers whose keys play Play mode's pads and verbs, from the Pi"},
+		Help: "Comma-separated names of controllers whose keys play the tape's pads and verbs, from the Pi"},
 
 	{Key: "TAPE_TRACKS", Group: "Tape", Label: "Tracks", Kind: "int", Min: 1, Max: 16, Default: "4",
 		Help: "Tracks a new tape has"},

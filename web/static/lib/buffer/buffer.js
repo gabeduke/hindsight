@@ -142,7 +142,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     unfolded: false,  // UNFOLD: the lanes have their height back, the buffer stays
     n: readPick() ?? 4,    // the feed's 1 / 2 / 4 / 8: it starts at the tape's loop in bars (rooms/grab.js)
     loopBars: null,   // the loop N last followed
-    keeps: '',        // what K keeps from here, as the instrument's pad last heard it
     chosen: null,     // the sources picked by hand; null follows the armed track's input
     chosenSource: readSource(storage) || null, // feed source picked by hand
     grabbing: false,
@@ -158,15 +157,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   const changed = () => doc.dispatchEvent(new CustomEvent('hindsight:tape-changed'));
   const tapeNow = () => st.answer || st.detail?.tape || null;
   const tapeId = () => tapeNow()?.id || '';
-  // Bringing the drawer forward -- a grab of this page's own, or a clip held
-  // on the lane -- asks the instrument strip (lib/play/strip.js), if there is
-  // one, to give way: the two take turns. Nothing listens with Play mode off.
-  // (The bench was the buffer's panel; the event is named for it so the strip
-  // need not use a buffer- class, which only this directory may: styles.test.js.)
-  const forward = () => doc.dispatchEvent(new CustomEvent('hindsight:bench-forward'));
-  // What K keeps from here, for the instrument's KEEP pad (lib/play/strip.js).
-  // Said when it changes, and again on each poll for a strip that mounted later.
-  const announceKeeps = () => doc.dispatchEvent(new CustomEvent('hindsight:keeps', { detail: { buffer: st.keeps } }));
 
   // --- the clip ------------------------------------------------------------------
 
@@ -213,7 +203,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     st.dropped = '';
     st.local = null;
     takeClip();
-    if (id) forward();
   }
 
   // The tape's Undo: a GRAB's, a drop's, a toss's. `then` reopens the
@@ -287,7 +276,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     st.dropped = '';
     st.grabbing = true;
     render();
-    forward();
     try {
       const b = await send(() => api.grab(id, { ...req, sources: sources() }));
       const clip = b.edit?.cue_clip;
@@ -632,14 +620,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
       });
     }
     if (el.grabSel) el.grabSel.disabled = st.grabbing;
-    // KEEP names what it keeps: the window, in bars when there is a tempo.
-    // K keeps it while the buffer is open, so the instrument's pad says so.
-    const keepLen = g ? bufferKeepLength({ frames: windowFrames(st), barFrames: g.bar_frames, sampleRate: sr() }) : '';
-    const keeps = open && g && !st.grabbing ? keepLen : '';
-    if (keeps !== st.keeps) {
-      st.keeps = keeps;
-      announceKeeps();
-    }
     if (!open) { placeMark(); return; }
 
     const rate = sr();
@@ -682,6 +662,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     el.dropSub.textContent = dk.sub;
     el.drop.disabled = !dk.can || st.grabbing;
     el.keep.disabled = !g || st.grabbing;
+    // KEEP names what it keeps: the window, in bars when there is a tempo.
+    const keepLen = g ? bufferKeepLength({ frames: windowFrames(st), barFrames: g.bar_frames, sampleRate: sr() }) : '';
     el.keepLen.textContent = keepLen;
     el.keep.setAttribute('aria-label', keepLabel(keepLen));
     el.toss.disabled = !g || st.grabbing;
@@ -953,19 +935,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     },
   });
 
-  // The Studio's verbs from the instrument strip (lib/play): its pads, its
-  // keys while it has the keyboard, and a controller plugged into this
-  // computer. GRAB and DROP are the buffer's; KEEP is too while it's open
-  // (claimed with preventDefault, so the Studio doesn't also keep the feed).
-  onDoc('hindsight:verb', (e) => {
-    switch (e.detail?.verb) {
-      case 'grab': grabBars(); e.preventDefault(); break;
-      case 'drop': if (grabOf()) { drop(); e.preventDefault(); } break;
-      case 'keep': if (st.open && grabOf() && !st.grabbing) { keepTake(); e.preventDefault(); } break;
-      default:
-    }
-  });
-
   // The tape, as the page polls it. A drop undone -- by the toast, or by
   // ⌘Z on the page -- puts the clip back in hand.
   onDoc('hindsight:tape-state', (e) => {
@@ -982,7 +951,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     }
     if (openNoted()) return;
     takeClip();
-    announceKeeps(); // again, for a pad that mounted later
   });
   // A GRAB made away from the Studio -- a take's, a note's, the bar's --
   // opens its clip here, once, and says what it took the place of: once

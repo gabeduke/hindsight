@@ -49,7 +49,7 @@ test('the tape page loads the Studio through mount.js', () => {
 });
 
 // The Studio and the tape page share a page but import nothing of each
-// other's; they speak in events, as Play mode does. A GRAB onto the cue lane
+// other's; they speak in events. A GRAB onto the cue lane
 // is an edit of the tape, which the drawer asks the page to look at again;
 // nothing tells the tape page about a crate (F3).
 test('the drawer tells the tape page the tape changed, and nothing about a crate', () => {
