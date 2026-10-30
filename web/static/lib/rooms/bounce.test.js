@@ -146,6 +146,17 @@ function fakeToast() {
   return { shown, toast };
 }
 const listing = (takes) => async () => ({ ok: true, json: async () => takes });
+// takesOver stands in for the page's takes (lib/models/takes.js), each of
+// get() and refresh() a GET of its own through fetchImpl, so these tests
+// see every ask bounce makes.
+const takesOver = (fetchImpl) => {
+  const ask = async () => {
+    const res = await fetchImpl('/api/jams', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  };
+  return { get: ask, refresh: ask };
+};
 class FakeAudio {
   constructor() { this.paused = true; this.src = ''; this.playCalls = 0; this.listeners = {}; FakeAudio.made.push(this); }
   addEventListener(t, f) { (this.listeners[t] ||= []).push(f); }
@@ -181,7 +192,7 @@ test('the take is looked up and its audio built when the toast is raised, so ▶
   const { shown, toast } = fakeToast();
   let fetches = 0;
   const fetchImpl = async () => { fetches++; return { ok: true, json: async () => [take] }; };
-  const player = takePlayer({ toast, fetchImpl, Audio: FakeAudio, sleep: instant });
+  const player = takePlayer({ toast, takes: takesOver(fetchImpl), Audio: FakeAudio, sleep: instant });
   bounceToast({ toast, name: take.name, message: 'Bounced as a take', player, go() {} });
   await player.whenReady();
   const a = FakeAudio.made[0];
@@ -198,7 +209,7 @@ test('the take is looked up and its audio built when the toast is raised, so ▶
 test('▶ plays the take, on a toast of its own with ■ to stop it and Open; the end takes the toast away', async () => {
   fresh();
   const { shown, toast } = fakeToast();
-  const player = takePlayer({ toast, fetchImpl: listing([take]), Audio: FakeAudio, sleep: instant });
+  const player = takePlayer({ toast, takes: takesOver(listing([take])), Audio: FakeAudio, sleep: instant });
   bounceToast({ toast, name: take.name, message: 'Bounced as a take', player, go() {} });
   await player.whenReady();
   await shown[0].actions[0].run();
@@ -216,7 +227,7 @@ test('a ▶ the browser refuses (iOS holds sound back) says so and keeps Open re
   fresh();
   const { shown, toast } = fakeToast();
   const went = [];
-  const player = takePlayer({ toast, fetchImpl: listing([take]), Audio: FakeAudio, sleep: instant, go: (u) => went.push(u) });
+  const player = takePlayer({ toast, takes: takesOver(listing([take])), Audio: FakeAudio, sleep: instant, go: (u) => went.push(u) });
   bounceToast({ toast, name: take.name, message: 'Bounced as a take', player, go: (u) => went.push(u) });
   await player.whenReady();
   FakeAudio.reject = true;
@@ -236,7 +247,7 @@ test('a ▶ the browser refuses (iOS holds sound back) says so and keeps Open re
 test('▶ on the take that is playing pauses it rather than starting it twice', async () => {
   fresh();
   const { shown, toast } = fakeToast();
-  const player = takePlayer({ toast, fetchImpl: listing([take]), Audio: FakeAudio, sleep: instant });
+  const player = takePlayer({ toast, takes: takesOver(listing([take])), Audio: FakeAudio, sleep: instant });
   await player.prepare(take.name);
   await player.toggle(take.name);
   await player.toggle(take.name);
@@ -248,7 +259,7 @@ test('▶ on the take that is playing pauses it rather than starting it twice', 
 test('▶ on a bounce still being encoded says so with Open beside it, and plays nothing', async () => {
   fresh();
   const { shown, toast } = fakeToast();
-  const player = takePlayer({ toast, fetchImpl: listing([{ ...take, has_preview: false }]), Audio: FakeAudio, sleep: instant, tries: 2 });
+  const player = takePlayer({ toast, takes: takesOver(listing([{ ...take, has_preview: false }])), Audio: FakeAudio, sleep: instant, tries: 2 });
   await player.prepare(take.name);
   await player.toggle(take.name);
   assert.ok(FakeAudio.made.every((a) => a.playCalls === 0), 'nothing played');
@@ -262,7 +273,7 @@ test('a preview that lands while the toast is up makes ▶ work: the lookup trie
   const { toast } = fakeToast();
   let n = 0;
   const fetchImpl = async () => ({ ok: true, json: async () => [{ ...take, has_preview: ++n >= 3 }] });
-  const player = takePlayer({ toast, fetchImpl, Audio: FakeAudio, sleep: instant });
+  const player = takePlayer({ toast, takes: takesOver(fetchImpl), Audio: FakeAudio, sleep: instant });
   await player.prepare(take.name);
   assert.equal(n, 3);
   await player.toggle(take.name);
@@ -272,7 +283,7 @@ test('a preview that lands while the toast is up makes ▶ work: the lookup trie
 test('a bounce the Pi will not list is said, not played', async () => {
   fresh();
   const { shown, toast } = fakeToast();
-  const player = takePlayer({ toast, fetchImpl: async () => ({ ok: false, status: 503 }), Audio: FakeAudio, sleep: instant });
+  const player = takePlayer({ toast, takes: takesOver(async () => ({ ok: false, status: 503 })), Audio: FakeAudio, sleep: instant });
   await player.prepare(take.name);
   await player.toggle(take.name);
   assert.equal(shown[0].kind, 'bad');
@@ -290,7 +301,7 @@ test('a lookup that answers late, after another take was asked for, does not tak
     if (!release.used) { release.used = true; await slow; return { ok: true, json: async () => [take] }; }
     return { ok: true, json: async () => [other] };
   };
-  const player = takePlayer({ toast, fetchImpl, Audio: FakeAudio, sleep: instant });
+  const player = takePlayer({ toast, takes: takesOver(fetchImpl), Audio: FakeAudio, sleep: instant });
   const first = player.prepare(take.name);
   await player.toggle(take.name); // a tap during the lookup
   assert.equal(FakeAudio.made.length, 0, 'nothing to play yet');
@@ -310,7 +321,7 @@ test('a stop while the lookup is out leaves the late answer silent', async () =>
   let release;
   const slow = new Promise((r) => { release = r; });
   const fetchImpl = async () => { await slow; return { ok: true, json: async () => [take] }; };
-  const player = takePlayer({ toast, fetchImpl, Audio: FakeAudio, sleep: instant });
+  const player = takePlayer({ toast, takes: takesOver(fetchImpl), Audio: FakeAudio, sleep: instant });
   const asked = player.prepare(take.name);
   player.stop();
   release();
@@ -326,7 +337,7 @@ test('a lookup waiting for a preview to be encoded stops asking once another tak
   let fetches = 0, wake;
   const sleep = () => new Promise((r) => { wake = r; });
   const fetchImpl = async () => { fetches++; return { ok: true, json: async () => [{ ...take, has_preview: false }, other] }; };
-  const player = takePlayer({ toast, fetchImpl, Audio: FakeAudio, sleep });
+  const player = takePlayer({ toast, takes: takesOver(fetchImpl), Audio: FakeAudio, sleep });
   const first = player.prepare(take.name);
   await Promise.resolve();
   await player.prepare(other.name);
@@ -340,7 +351,7 @@ test('Last bounce raises the same toast for the newest bounce, naming it; it kno
   fresh();
   const { shown, toast } = fakeToast();
   const t = { ...take, origin: 'tape', tape_id: 't1', created: '2026-10-15T13:01:00Z' };
-  const player = takePlayer({ toast, fetchImpl: async () => { throw new Error('no lookup needed'); }, Audio: FakeAudio, sleep: instant });
+  const player = takePlayer({ toast, takes: takesOver(async () => { throw new Error('no lookup needed'); }), Audio: FakeAudio, sleep: instant });
   lastBounceToast({ toast, take: t, player, go() {} });
   assert.match(shown[0].msg, /^The last bounce/);
   assert.match(shown[0].msg, /Second take loop/);
@@ -372,7 +383,7 @@ test('after a switch to another tape, Last bounce is disabled until the Pi answe
   let tape = { id: 'B', name: 'B' };
   let release;
   const gate = new Promise((r) => { release = r; });
-  const keeper = lastBounceKeeper({ menu, tapeNow: () => tape, fetchImpl: async () => { await gate; return { ok: true, json: async () => [bounceOf('jam_b.wav', 'B')] }; } });
+  const keeper = lastBounceKeeper({ menu, tapeNow: () => tape, takes: takesOver(async () => { await gate; return { ok: true, json: async () => [bounceOf('jam_b.wav', 'B')] }; }) });
   keeper.set(bounceOf('jam_b.wav', 'B'), 'B');
   assert.equal(keeper.take()?.name, 'jam_b.wav');
   tape = { id: 'A', name: 'A' };
@@ -390,7 +401,7 @@ test('an answer that returns after the tape changed is ignored', async () => {
   let tape = { id: 'B', name: 'B' };
   let release;
   const gate = new Promise((r) => { release = r; });
-  const keeper = lastBounceKeeper({ menu, tapeNow: () => tape, fetchImpl: async () => { await gate; return { ok: true, json: async () => [bounceOf('jam_b.wav', 'B')] }; } });
+  const keeper = lastBounceKeeper({ menu, tapeNow: () => tape, takes: takesOver(async () => { await gate; return { ok: true, json: async () => [bounceOf('jam_b.wav', 'B')] }; }) });
   const asked = keeper.refresh(); // asked for B
   tape = { id: 'A', name: 'A' };
   keeper.changed('A');
@@ -403,7 +414,7 @@ test('an answer that returns after the tape changed is ignored', async () => {
 test('the same tape: the answer lights Last bounce, and a bounce just made stands without asking', async () => {
   const menu = fakeMenu();
   const tape = { id: 'A', name: 'A' };
-  const keeper = lastBounceKeeper({ menu, tapeNow: () => tape, fetchImpl: async () => ({ ok: true, json: async () => [bounceOf('jam_a.wav', 'A')] }) });
+  const keeper = lastBounceKeeper({ menu, tapeNow: () => tape, takes: takesOver(async () => ({ ok: true, json: async () => [bounceOf('jam_a.wav', 'A')] })) });
   await keeper.refresh();
   assert.equal(keeper.take().name, 'jam_a.wav');
   keeper.set({ name: 'jam_new.wav', label: 'A' }, 'A');
@@ -413,7 +424,7 @@ test('the same tape: the answer lights Last bounce, and a bounce just made stand
 test('a Pi that does not answer leaves Last bounce as it was for this tape', async () => {
   const menu = fakeMenu();
   const tape = { id: 'A', name: 'A' };
-  const keeper = lastBounceKeeper({ menu, tapeNow: () => tape, fetchImpl: async () => { throw new Error('down'); } });
+  const keeper = lastBounceKeeper({ menu, tapeNow: () => tape, takes: takesOver(async () => { throw new Error('down'); }) });
   keeper.set(bounceOf('jam_a.wav', 'A'), 'A');
   await keeper.refresh();
   assert.equal(keeper.take().name, 'jam_a.wav');
@@ -494,11 +505,13 @@ test('the tape page sends BOUNCE as the request Mix down always sent', () => {
   assert.match(page, /bounceToast\(\{ toast, name: md\.take/, 'the done toast is the bounce toast, with ▶ and Open');
   assert.match(page, /lastBounceToast/);
   assert.match(page, /lastBounceKeeper\(\{ menu, tapeNow/, 'Last bounce follows the loaded tape');
+  const mount = page.slice(page.indexOf('export function mountTapePage('));
+  assert.ok(mount.indexOf('takes = ctx') >= 0 && mount.indexOf('takes = ctx') < mount.indexOf('initBouncing()'), 'the page\'s takes are in hand before the bounce is made, which reads them');
   assert.match(page, /bouncing\.keeper\.refresh\(\)/, 'and is asked again as the menu opens');
   assert.match(page, /bouncing\.keeper\.changed\(state\.id\)/, 'with another tape’s bounce dropped first');
   assert.match(page, /take: bouncing\.keeper\.take\(\)/, 'the click offers only this tape’s');
   assert.doesNotMatch(page, /bouncing\.menu\.take/, 'never the menu’s own memory');
   const own = lib('./bounce.js');
-  assert.deepEqual([...new Set([...own.matchAll(/'(\/api\/[a-z/]+)/g)].map((m) => m[1]))].sort(), ['/api/jams']);
+  assert.deepEqual([...new Set([...own.matchAll(/'(\/api\/[a-z/]+)/g)].map((m) => m[1]))].sort(), [], 'no route of its own: the takes are the page\'s (lib/models/takes.js)');
   assert.match(own, /`\/api\/download\?file=/);
 });

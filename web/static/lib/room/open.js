@@ -5,8 +5,8 @@
 // rooms' words laid over it: ✎ Note, GRAB beside KEEP, the take's notes one
 // line each, its tag, and what was made from it (From this take) or came
 // before it (Earlier bounces). The page (lib/wave/page.js) hands this module
-// a handle on its take, its flags and its clock; nothing the page does is
-// copied.
+// a handle on its take, its flags and its clock, and the page's takes
+// (h.takes, lib/models/takes.js); nothing the page does is copied.
 //
 // Every class made here is room-open-*, which only this module makes, so the
 // stylesheet's rules for it reach nothing else (AGENTS.md: scope a new rule
@@ -44,7 +44,7 @@ const $ = (id) => document.getElementById(id);
  * from it. `madeFrom` is the take this one was cut from, or null. `earlier`
  * ("Earlier bounces") is for the spine and for a bounce: the other bounces of
  * the tape, the spine (the newest) included when this is an older one.
- * Each line: {name, title, length, href}. Pure: `list` is /api/jams.
+ * Each line: {name, title, length, href}. Pure: `list` is the takes (h.takes).
  */
 export function familyLines(list, name) {
   const all = Array.isArray(list) ? list : [];
@@ -240,7 +240,7 @@ export function mount(h) {
   // --- From this take, Earlier bounces ---------------------------------------------
   async function drawFamily() {
     let jams = [];
-    try { const res = await fetch('/api/jams', { cache: 'no-store' }); if (res.ok) jams = await res.json(); } catch { /* the lines just don't show */ }
+    try { jams = await h.takes.get(); } catch { /* the lines just don't show */ }
     const { from, madeFrom, earlier } = familyLines(jams, h.file);
     const group = (title, lines, tip) => lines.length && el('section', 'room-open-fam', { 'aria-label': title, 'data-tip': tip },
       el('h2', 'room-open-h', { text: title }),

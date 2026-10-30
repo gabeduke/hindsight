@@ -380,3 +380,16 @@ test('Guardrail 13: a menu or a ▾ panel is lib/ui/menu.js’s', () => {
   const gone = [...allowed].filter(([f, n]) => (found.get(f) || 0) < n).map(([f, n]) => `${f} (×${n}, found ${found.get(f) || 0})`);
   assert.deepEqual(gone, [], 'these are on OWN_MENUS but no longer set up a menu of their own: take them off');
 });
+
+test('Guardrail 14: only the takes model (lib/models/takes.js) asks /api/jams; every list of takes is the page’s', () => {
+  // docs/architecture/push.md, *The takes' revision*: one list a page, asked
+  // for when the Pi says it moved. A module with a fetch of its own asks the
+  // Pi again for what the page already holds.
+  const found = [];
+  for (const [f, raw] of gestureLiterals()) {
+    if (f === 'lib/models/takes.js') continue;
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    if (/['"`]\/api\/jams\b/.test(src)) found.push(f);
+  }
+  assert.deepEqual(found, [], 'asks /api/jams itself: take the page’s takes (ctx.takes, the engine’s, or createTakes on a page of its own) instead');
+});

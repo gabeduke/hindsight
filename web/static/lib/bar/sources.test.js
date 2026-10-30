@@ -255,12 +255,13 @@ test('the tape: ▶ then ■ before a poll says so stops it, and the Pi has the 
 // docs/architecture/push.md: the Pi's word that the tape changed
 // polls the bar's tape at once, while the bar polls it itself.
 function fakeWatch() {
-  const w = { open: 0, nudge: null, press: null };
-  w.watch = ({ onNudge, onPress }) => {
+  const w = { open: 0, nudge: null, press: null, takes: null };
+  w.watch = ({ onNudge, onPress, onTakes }) => {
     w.open++;
     w.nudge = onNudge;
     w.press = onPress;
-    return { close() { w.open--; w.nudge = null; w.press = null; } };
+    w.takes = onTakes;
+    return { close() { w.open--; w.nudge = null; w.press = null; w.takes = null; } };
   };
   return w;
 }
@@ -342,6 +343,26 @@ test('the tape: a press on the keyboard is heard on the bar\'s socket, or handed
   off();
   s.heardPress({ words: 'KEPT 30 S', role: 'rec', lit: ['rec'], track: 0, ms: 1000 });
   assert.deepEqual(heard, ['PLAY', 'STOP']);
+  s.destroy();
+});
+
+test('the tape: the take list\'s revision is heard on the bar\'s socket, or handed on from the Studio\'s, with a take in the bar too', async () => {
+  stubs(() => ({ tape: tapeJSON(), loaded: true, live: { playing: false, heard: 0, count_in: 0, output: 'demo' } }));
+  const w = fakeWatch();
+  const s = stopper = tapeSource('t1', { watch: w.watch });
+  await settle();
+  const heard = [];
+  const off = s.onTakes((m) => heard.push(m.takes_rev));
+  w.takes({ rev: 1, takes_rev: 4 });
+  s.setActive(false);
+  w.takes({ rev: 1, takes_rev: 5 });
+  s.setActive(true);
+  s.delegate({ poll() {} });
+  assert.equal(w.takes, null, 'handed to the Studio, the bar\'s socket is shut');
+  s.heardTakes({ rev: 2, takes_rev: 6 });
+  off();
+  s.heardTakes({ rev: 2, takes_rev: 7 });
+  assert.deepEqual(heard, [4, 5, 6]);
   s.destroy();
 });
 

@@ -109,9 +109,10 @@ export function lastBounce(takes, tape) {
  * tape it is the bounce of. A bounce of another tape is never offered for
  * this one: the line is off the moment the loaded tape differs, and an answer
  * from the Pi that returns after the tape changed is dropped.
- * tapeNow() is the loaded tape ({id, name}) or null.
+ * tapeNow() is the loaded tape ({id, name}) or null; takes is the page's
+ * (lib/models/takes.js).
  */
-export function lastBounceKeeper({ menu, tapeNow, fetchImpl = (...a) => globalThis.fetch(...a) }) {
+export function lastBounceKeeper({ menu, tapeNow, takes }) {
   let forTape = null, asks = 0;
   const set = (take, id) => {
     forTape = take ? id : null;
@@ -135,15 +136,13 @@ export function lastBounceKeeper({ menu, tapeNow, fetchImpl = (...a) => globalTh
       if (!tape) return;
       this.changed(tape.id);
       const mine = ++asks;
-      let list;
+      let all;
       try {
-        const res = await fetchImpl('/api/jams', { cache: 'no-store' });
-        if (!res.ok) return;
-        list = await res.json();
+        all = await takes.get();
       } catch { return; } // the next time the menu opens
       const now = tapeNow();
       if (mine !== asks || !now || now.id !== tape.id) return;
-      set(lastBounce(list, tape), tape.id);
+      set(lastBounce(all, tape), tape.id);
     },
   };
 }
@@ -196,10 +195,11 @@ const PREVIEW_EVERY_MS = 1500;
  * still being encoded; toggle(name) is then synchronous as far as play(), so
  * it runs inside the tap that asked, as iOS demands. A prepare overtaken by
  * another leaves nothing behind. toggle plays it, or pauses it when it is
- * the one playing.
+ * the one playing. takes is the page's (lib/models/takes.js): the list as
+ * held first, then, while a preview is awaited, as the Pi has it now.
  */
 export function takePlayer({
-  toast, fetchImpl = (...a) => globalThis.fetch(...a), Audio = globalThis.Audio,
+  toast, takes, Audio = globalThis.Audio,
   go = (u) => location.assign(u), sleep = sleepFor, tries = PREVIEW_TRIES,
 }) {
   let audio = null, playing = null, note = null;
@@ -225,9 +225,8 @@ export function takePlayer({
     for (let i = 0; i < tries; i++) {
       let t;
       try {
-        const res = await fetchImpl('/api/jams', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        t = (await res.json()).find((x) => x.name === name);
+        // The list as held first; once waiting on its preview, as the Pi has it now.
+        t = (await (i === 0 ? takes.get() : takes.refresh())).find((x) => x.name === name);
       } catch (e) {
         return { why: e.message };
       }

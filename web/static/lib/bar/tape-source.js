@@ -89,13 +89,17 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
   // bar's note hears it either way (onPress). The keyboard plays the tape
   // whatever is in the bar, so the socket stays open with a take in it too,
   // for the presses: only its nudges wait for the tape to be back.
+  // The take list's revision comes on it too (takes_rev), handed on the
+  // same way, from either socket, to the page's takes model (onTakes).
   let changes = null;
   const pressListeners = new Set();
   const heardPress = (p) => { for (const f of pressListeners) f(p); };
+  const takesListeners = new Set();
+  const heardTakes = (m) => { for (const f of takesListeners) f(m); };
   const syncChanges = () => {
     const on = !stopped && !del;
     if (on && !changes) {
-      changes = watch({ onNudge: () => { if (active && !del && !document.hidden) ask(); }, onPress: heardPress });
+      changes = watch({ onNudge: () => { if (active && !del && !document.hidden) ask(); }, onPress: heardPress, onTakes: heardTakes });
     } else if (!on && changes) { changes.close(); changes = null; }
   };
   tick();
@@ -261,6 +265,10 @@ export function tapeSource(loadedId, { onError, stream = () => null, watch = wat
     heardPress,
     /** onPress hears each press on the keyboard (changes.js pressOf), and answers its off. */
     onPress(fn) { pressListeners.add(fn); return () => pressListeners.delete(fn); },
+    /** heardTakes is a changes message with a takes_rev, heard on the Studio's socket, handed on. */
+    heardTakes,
+    /** onTakes hears each changes message with a takes_rev (lib/models/takes.js heard), and answers its off. */
+    onTakes(fn) { takesListeners.add(fn); return () => takesListeners.delete(fn); },
     /** on hears every change to what the bar shows of the tape, and answers its off. */
     on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     /** changed: something the LCD shows changed (the stream's state). */
