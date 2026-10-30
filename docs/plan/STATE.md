@@ -78,18 +78,54 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
-- **The walkthrough has begun** (2026-10-30): `walkthrough.md` holds Gabe's
-  stories and what is decided so far. Specs come out of it: reaching back
-  (Catch and Keep as one move), song sections and templates, the pocket
-  kit (a phone that records on its own and syncs the tape), and retiring
-  Play mode's flag.
-- **`the-ecosystem.md` comes first** (2026-10-30, not yet agreed): Gabe
-  finds the UX chaotic and wants an ecosystem of components reached from
-  every surface. Its walkthrough settles what is kept, merged or cut, and
-  the instrument's shape; nothing user-visible merges before it, so Open's
-  rebuild (#220) and the play look (#218) wait. Its steps 2 (one verb set)
-  and 4 (models per noun) change no behaviour and may go ahead, unmerged
-  until Gabe reviews them.
+- **The component migration, paced** (`components.md`, agreed
+  2026-10-30). One component per session, one PR each, tried by Gabe on
+  the tablet before the next starts. Gabe, 2026-10-30: "merge anything, we
+  roll forward", so a reviewed, green PR merges without waiting for him.
+  Start each session fresh from this file and `components.md`. The queue:
+  0. **Left from 2026-10-30**, if not merged yet (`gh pr list`):
+     - setting the tempo at any time (#223);
+     - the component harness and fixture models;
+     - phone checks, which run every flow on the phone and dock the cue
+       drawer above the mini player;
+     - Export offering Download from the tape's track export;
+     - ▶ in the Studio playing the tape when the bar held a take, with
+       the counter fixed for a take (it read "BAR -1.4");
+     - **push over HTTPS**: on a real kit's HTTPS address the socket to
+       `/api/tapes/changes` fails, so pages fall back to polling. The
+       demo and the flows run on plain HTTP and never see it.
+  1. **Transport** (the bar): `components.md` §6, row 1. It amends
+     AGENTS.md and decision 0047 (call 1).
+  2. **Library: the List.**
+  3. **Library: the wall.** The search becomes the library's state
+     (call 2), and AGENTS.md's `#shelf-q` line changes with it.
+  4. **The notes drawer**, on the take model.
+  5. **Pads** (the cue lane). They need `lib/ui/drag.js` first.
+
+  In between, the models still to build (step 4): `feed`, `take`, `rig`,
+  `tape`, and the rest of `transport`. #231 built only the tape's
+  transport: no source, output or tempo verbs, and getters rather than
+  `snapshot()`. Then the one push socket at `/api/changes` (call 3).
+- **The walkthrough's specs** wait on Gabe's questions:
+  - `reach-back.md` (Catch and Keep as one move);
+  - `song-sections.md` (templates you fill in);
+  - `the-pocket-kit.md` (a phone that records on its own and syncs the
+    tape; 19 questions).
+
+  Their builds sit on the Transport and the List, so they come after
+  those. `walkthrough.md` holds the stories and what is still to talk
+  through.
+- **Calls taken for Gabe on 2026-10-30, his to overrule:**
+  - `tempo.md`'s recommendations: move the bar lines now, varispeed later;
+  - the phone's cue drawer docks above the mini player;
+  - ▶ in the Studio, with nothing playing, plays the tape;
+  - Export always offers Download;
+  - Open's selection bar as #220 recommends.
+- **`the-ecosystem.md` is the map.** Landed so far:
+  - step 2, one verb set (#224);
+  - step 4's first models: takes (#225), the tape's transport (#231).
+
+  Step 5 is the migration above, and step 7 is the play look.
 - **`the-studio-space.md` is the build order**: steps 1–9 and 11 have
   landed (9, the notes drawer: `docs/architecture/rooms.md`, *The notes
   drawer*; 11, GRAB onto the cue lane, a clip's drawer above the bar;
