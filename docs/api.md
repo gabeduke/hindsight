@@ -70,14 +70,12 @@ internet.
 | `GET /api/tapes/peaks?file=` | A pool file's whole-file waveform, or with `from`, `to` and `buckets` just a range of it |
 | `GET /api/tapes/slice?file=&from=&to=` | A 16-bit WAV of a range of a pool file |
 | `POST /api/tapes/cue?id=` | Launch or stop a cue clip: `{clip, op: launch\|stop\|toggle, now}`, on the next bar line or at once |
-| `POST /api/tapes/cue/add?id=` | Put the buffer, or a take's `{take, from, to}`, on the cue lane |
 | `POST /api/tapes/cue/grab?id=` | GRAB onto the cue lane (no `id`: the loaded tape's): `{bars}`, `{seconds}` or `{ring_from, ring_to}` from `sources`; `{clip, sources}` takes that clip again from other inputs; `{take, from, to}` a take's span. The tape's state, with `edit.cue_clip`, and `edit.cue_replaced` when it took the place of an untouched clip (the tape's Undo brings that back) |
 | `PATCH /api/tapes/cue/clip?id=` | A cue clip's drawer: `{clip, in, out}` its window inside its handles; `{clip, gain_db}`, fades and their curves, `normalize`, `reverse`. Each an Undo of the tape's |
 | `POST /api/tapes/cue/drop?id=` | A cue clip onto the tape, `{clip, track, at?, merge?}`: a lane a track, with its handles; answers as `/api/tapes/drop` |
 | `POST /api/tapes/cue/keep?id=` | KEEP a cue clip as a take, its lanes summed: `{name, label, seconds}` |
 | `GET /api/tapes/cue/audio?id=&clip=` | A cue clip's first minute, its lanes summed, as a WAV to audition |
 | `GET /api/clipboard` | What's on the clipboard |
-| `GET /api/clipboard/audio` | The clipboard, its tracks summed, as a WAV to audition |
 | `POST /api/clipboard` | Copy a take's span or a span of the ring onto it |
 | `DELETE /api/clipboard` | Empty it |
 
@@ -518,7 +516,7 @@ on.
 | Status | When |
 |---|---|
 | 400 | `seconds` is not a non-negative number |
-| 409 | Nothing is buffered yet |
+| 409 | Nothing is buffered yet, or there is no ring to keep from |
 | 507 | Free space is below `MIN_FREE_GB` |
 | 500 | The write itself failed |
 
@@ -1229,7 +1227,7 @@ The action takes effect on the exact output frame its quantum falls on
 (`now`, the default, at the next block). Answers 200 `{"status":"queued"}`,
 with `kept` when a stop ended a punch (below).
 `play` is 409 when the tape has no output (a build without PortAudio);
-`locate` still moves it. Loading a tape stops the transport and forgets the
+`locate` still moves it. An `action` or `quantum` it doesn't know is 400. Loading a tape stops the transport and forgets the
 passes played, so a pass of one tape is never caught onto another.
 
 ### `GET /api/tapes/play` (WebSocket)
@@ -1369,7 +1367,8 @@ In either form, `pass` 1 is the last complete one. `{"out": F}` instead names a 
 frame it began at (a `cycles` entry's `out`), so a tap catches the pass that
 was on screen even if another has finished since. `{"track": 2, "source": "aux", "bars": 4}` catches
 the last 4 bars up to the last bar line the ring has heard. `replace: true`
-clears what's under it instead of adding a layer.
+clears what's under it instead of adding a layer. A body with neither a
+`track` nor `pairs` is 409, *arm a track first*.
 
 The span is the range of the ring that heard what the tape played then, by
 `delta`, written once into the pool with handles either side (as much of
@@ -1685,22 +1684,6 @@ restart; 404 when the tape is off.
   toss's restore.
 - Both answer the new clipboard; 400 for a copy longer than a track; 507 for
   low disk.
-- `PATCH` changes the buffer (a grab only; 400 for a copy, 409 when it's
-  empty), outside undo: `{"in": I, "out": O}` moves its window, kept inside
-  its handles less the crossfades' overhang; `{"gain_db"}`, `{"fade_in",
-  "fade_out", "fade_in_shape", "fade_out_shape"}`, `{"normalize": true}` (the
-  tracks' sum to −1.5 dBFS at its loudest, one gain for all, at most +24 dB)
-  and `{"reverse": true}`
-  apply to every track. It answers the clipboard.
-- `POST /api/clipboard/keep` is KEEP AS TAKE: the clipboard as a take, its
-  tracks summed to stereo with their levels and fades, from its own audio;
-  a sum that would go over full scale is brought down as a whole, never
-  clipped (the buffer's audition too).
-  Its label names its sources (*Buffer · ch1 + ch2*), its `origin` is
-  `buffer`, and a grab's tempo and downbeat are the tape's. It answers
-  `{"name", "label", "seconds"}`; the buffer is then marked used.
-- `GET /api/clipboard/audio` is its first minute, every track summed, as a
-  16-bit stereo WAV, with `Range` and `HEAD`. 404 when it's empty.
 - `DELETE` empties it. Its audio stays until a clean-up finds nothing using
   it; the clean-up keeps whatever the clipboard holds. `DELETE ?toss=1` (the
   buffer's TOSS) keeps what it held aside, a root for the clean-up until the

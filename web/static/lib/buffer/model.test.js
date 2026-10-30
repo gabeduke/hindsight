@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  barStart, barAt, nextBar, nextFreeSpan, spanWords, dropKey, grabKey, grabSeconds, overwritten, landsWords,
+  barStart, barAt, nextBar, spanWords, dropKey, grabKey, grabSeconds, overwritten, landsWords,
   clampWindow, windowLimits, gridOf, snapNear, edgeStep, bufferLines, bufferMeta, bufferNote, barsText, boardKey, chipsFor, grabTitle,
 } from './model.js';
 
@@ -23,59 +23,6 @@ test('bar lines fall where the Pi puts them, at an awkward tempo too', () => {
   assert.equal(nextBar(411429, bar), 411429);
   assert.equal(nextBar(411430, bar), barStart(4, bar));
   assert.equal(Object.is(barStart(0, bar), -0), false);
-});
-
-test('the next free span is the first gap long enough after the next bar line', () => {
-  // Track 2 has bars 1–2 and 5–6 taken; a 2-bar buffer, the playhead in bar 1.
-  const t = tape({ clips: [[], [[0, 2], [4, 6]], [], []] });
-  assert.deepEqual(nextFreeSpan(t, { first: 2, frames: 2 * BAR, pos: BAR / 2 }), { at: 2 * BAR });
-  // A 3-bar one doesn't fit in bars 3–4, nor in the loop's bars 7–8: with
-  // the loop off, it goes after bar 6.
-  assert.equal(nextFreeSpan(t, { first: 2, frames: 3 * BAR, pos: BAR / 2 }), null);
-  const off = { ...t, loop: { ...t.loop, on: false } };
-  assert.deepEqual(nextFreeSpan(off, { first: 2, frames: 3 * BAR, pos: BAR / 2 }), { at: 6 * BAR });
-});
-
-test('it starts at the next bar line after the playhead, not under it', () => {
-  const t = tape();
-  // Mid-bar 3: bar 4's line. On a bar line: that line.
-  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: BAR, pos: 2 * BAR + 1000 }), { at: 3 * BAR });
-  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: BAR, pos: 3 * BAR }), { at: 3 * BAR });
-});
-
-test('it wraps round the loop: a span free only before the playhead is found', () => {
-  // The 8-bar loop; track 1 full from bar 3 to the loop's end. The playhead
-  // in bar 6: nothing after it fits, so it comes round to bar 1.
-  const t = tape({ clips: [[[2, 8]], [], [], []] });
-  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: 2 * BAR, pos: 5 * BAR + 10 }), { at: 0 });
-  // It never runs past the loop's Out, even with tape after it.
-  assert.equal(nextFreeSpan(tape({ clips: [[[0, 7]], [], [], []] }), { first: 1, frames: 2 * BAR, pos: 0 }), null);
-  // A buffer longer than the loop has nowhere to go.
-  assert.equal(nextFreeSpan(t, { first: 2, frames: 9 * BAR, pos: 0 }), null);
-});
-
-test('with the loop off it runs to the tape’s end, then round from its start', () => {
-  const t = tape({ clips: [[[0, 1], [10, 32]], [], [], []], loop: { in: 0, out: 8 * BAR, on: false } });
-  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: 4 * BAR, pos: 9 * BAR }), { at: 1 * BAR });
-  assert.deepEqual(nextFreeSpan(t, { first: 1, frames: 2 * BAR, pos: 3 * BAR }), { at: 3 * BAR });
-});
-
-test('several lanes need the span free on each of their tracks', () => {
-  // Track 2 free in bars 1–4, track 3 busy in bars 2–3: two lanes from track
-  // 2 go to bar 4.
-  const t = tape({ clips: [[], [], [[1, 3]], []] });
-  assert.deepEqual(nextFreeSpan(t, { first: 2, count: 2, frames: BAR, pos: 0 }), { at: 0 });
-  assert.deepEqual(nextFreeSpan(t, { first: 2, count: 2, frames: 2 * BAR, pos: 0 }), { at: 3 * BAR });
-  // Lanes past the last track don't fit.
-  assert.equal(nextFreeSpan(t, { first: 4, count: 2, frames: BAR, pos: 0 }), null);
-});
-
-test('with no tempo it lands at the playhead or after a clip; an empty tape takes it at 0', () => {
-  const none = tape({ grid: null, loop: { in: 0, out: 0, on: false }, clips: [[[1, 2]], [], [], []] });
-  assert.deepEqual(nextFreeSpan(none, { first: 1, frames: BAR / 2, pos: BAR / 4 }), { at: BAR / 4 });
-  assert.deepEqual(nextFreeSpan(none, { first: 1, frames: BAR, pos: BAR / 2 }), { at: 2 * BAR });
-  const empty = tape({ grid: null, loop: { in: 0, out: 0, on: false } });
-  assert.deepEqual(nextFreeSpan(empty, { first: 3, frames: 5 * BAR, pos: 7 * BAR }), { at: 0 });
 });
 
 test('spanWords names bars, or the clock with no tempo', () => {

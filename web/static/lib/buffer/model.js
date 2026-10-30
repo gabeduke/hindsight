@@ -30,51 +30,6 @@ export function nextBar(pos, bar) {
 
 const barOf = (grid) => (grid && grid.frames > 0 && grid.bars > 0 ? grid.frames / grid.bars : 0);
 
-/**
- * nextFreeSpan is where ↵ dropped a buffer until F7 (it is dropPlace now, which
- * lays over what is there). The Pi's own DROP, from a controller pad, still
- * finds the next free span (internal/tape freespan.go mirrors this), so this
- * stays as the rule it is tested against. It is where a buffer `frames` long
- * goes on tracks first to first + count - 1: the first span free on all of them, from the next bar
- * line at or after the playhead (pos), on a bar line, as far as the loop's
- * Out -- then round from its In, as the loop plays -- or with the loop off
- * the tape's end, then round from its start. With no tempo, at the playhead
- * or where a clip ends. An empty tape with no tempo takes it at 0, as its
- * first loop. It answers {at} or null when nothing fits.
- */
-export function nextFreeSpan(tape, { first, count = 1, frames, pos = 0 }) {
-  if (!tape || !(frames > 0) || !(first >= 1) || first + count - 1 > tape.tracks.length) return null;
-  const lanes = tape.tracks.slice(first - 1, first - 1 + count);
-  const busy = (a, b) => lanes.some((tr) => tr.clips.some((c) => c.at < b && c.at + c.frames > a));
-  const loop = tape.loop || {};
-  const looping = !!(loop.on && loop.out > loop.in);
-  const lo = looping ? loop.in : 0;
-  const hi = looping ? loop.out : tape.length;
-  if (frames > hi - lo) return null;
-  const bar = barOf(tape.grid);
-  if (!bar && tape.tracks.every((tr) => !tr.clips.length)) return { at: 0 };
-  const start = pos >= lo && pos < hi ? pos : lo;
-  // The candidates, in the order the tape plays them from the playhead.
-  const ahead = [], round = [];
-  if (bar) {
-    for (let n = barAt(nextBar(lo, bar), bar); ; n++) {
-      const at = barStart(n, bar);
-      if (at + frames > hi) break;
-      (at >= start ? ahead : round).push(at);
-    }
-  } else {
-    const ends = [...new Set(lanes.flatMap((tr) => tr.clips.map((c) => c.at + c.frames)))].sort((a, b) => a - b);
-    for (const at of [start, ...ends, lo]) {
-      if (at < lo || at + frames > hi) continue;
-      (at >= start ? ahead : round).push(at);
-    }
-    ahead.sort((a, b) => a - b);
-    round.sort((a, b) => a - b);
-  }
-  for (const at of [...ahead, ...round]) if (!busy(at, at + frames)) return { at };
-  return null;
-}
-
 /** fmtClock reads frames as m:ss. */
 export function fmtClock(frames, sr) {
   const s = Math.max(0, Math.round(frames / sr));
@@ -142,6 +97,10 @@ const trackWords = (first, count) => (count > 1 ? `tracks ${first}–${first + c
  * -- the tape's end less the part with no tempo -- and `fitted` says it was
  * moved back. {at, long, fitted}; a part longer than the tape has no place
  * (dropKey refuses it).
+ *
+ * The Pi works out the same place for a DROP pressed on a controller
+ * (internal/tape dropplace.go, DropPlace, whose test holds this file's
+ * cases): change one, change both.
  */
 export function dropPlace(tape, { frames, pos = 0 }) {
   const loop = tape.loop || {};

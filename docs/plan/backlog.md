@@ -7,7 +7,7 @@ short spec in this folder when it is next.
 ## The rooms and the bar
 
 - **Cue lane: the shelf and the tracks as sources.** Throw a take from the
-  shelf (`POST /api/tapes/cue/add` with `take` does the Pi's half) or lift a
+  shelf (`POST /api/tapes/cue/grab` with `take` does the Pi's half) or lift a
   part from a track onto the lane.
 - **The flows' gestures in the harness.** J1.3 and J1.11 each carry a
   hold-then-drag helper; one `t.holdDrag` beside `t.hold` would do.
@@ -57,12 +57,21 @@ short spec in this folder when it is next.
 
 ## Cleanup decisions
 
-- **The crate's HTTP API**: removed 2026-10-18 (Gabe). Follow-up: the
-  engine's crate methods (`KeepTake`, `SplitTake`, `KeepRing`,
-  `KeepTapeClip`, `KeepClipboard`, `RenameCrateClip`, `DeleteCrateClip`,
-  `RestoreCrateClip`, `CrateList`, `DropCrate`, `CrateWAV`) now have no
-  production caller (tests only), and the store is write-only from the UI's
-  side. Decide whether to retire `internal/tape/crate.go` with them.
+- **The crate's HTTP API**: removed 2026-10-18 (Gabe). Its engine methods
+  with no caller went on 2026-10-30 (one set of verbs). What is left:
+  `KeepTake` and `CrateList` (tests only), `CrateClip` (a range's Insert of a
+  kept clip), and `keepBoard`, which still puts a buffer replaced unused in
+  the crate, though nothing shows it. Decide whether to retire
+  `internal/tape/crate.go` with them.
+- **The buffer's routes with no caller in the web**: `POST /api/clipboard`'s
+  GRAB forms (`bars`, `seconds`, `again`, `grab: true`, `crate`) and its
+  ring copy, `DELETE ?toss=1` and the plain `POST /api/clipboard/restore`
+  (a toss's Undo). The Go tests use them to set up GRAB's Undo (`restore
+  ?replaced=1`, which a range's Cut and Copy still use); retiring them means
+  setting those tests up with a range Copy, and then the engine's `Grab`,
+  `GrabTake`, `CopyRing`, `TossClipboard`, `RestoreClipboard`,
+  `TrimClipboard`, `ShapeClipboard`, `KeepClipboardTake`, `ClipboardAudio`,
+  `CueFromClipboard` and `CueFromTake` (tests only now) can go too.
 - **Remote branches awaiting a decision** (the merged ones were deleted
   2026-10-18):
   `rooms/r2-shelf-to-deck` (R2, the cassette flies to the
