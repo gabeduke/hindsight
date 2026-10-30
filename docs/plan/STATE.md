@@ -21,8 +21,6 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 - Open (`wave.html`), the rig (`rig.html`) and the guide are still pages of
   their own, outside the shell ([decision 0011](../decisions/0011-open-is-its-own-page.md)).
-- Open still titles a take by its date stamp, not `takeTitle`, until Open's
-  pass.
 - The cue lane takes GRABs only; adding from the shelf and from a track is
   in `backlog.md`.
 

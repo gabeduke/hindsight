@@ -214,8 +214,8 @@ panel (the Studio's four input chips, one input menu): it shows for one at
 a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
 (a key of its own beside Catch), the tape's name, the tempo on the bar's
 display, the ruler's ⌗ (the View menu) and a track's input chip; on Open,
-the take's name. Open's More, Send to and lane menus are still their own,
-to move in Open's pass.
+the take's name and More. Open's lane menus are still their own
+(`OWN_MENUS`).
 
 **Sheets** (`lib/ui/sheet.js`). A sheet or a drawer that comes up from
 the foot and follows the finger is `createSheet(el, {layers, kind, modal,

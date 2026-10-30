@@ -4,8 +4,8 @@
 // sidecar API. The view and the clock own no take state of their own.
 //
 // The words follow the editing model: a *selection* is In to Out (the API
-// still calls it trim); Loop is a toggle, off when the page opens; *Save as
-// take* writes the selection as a new take; *Share* sends it as an MP3.
+// still calls it trim); Repeat is a toggle, off when the page opens; KEEP
+// writes the selection as a new take; More's Share sends it as an MP3.
 import { TileCache } from './tiles.js';
 import { WaveView } from './view.js';
 import { Overview } from './overview.js';
@@ -16,7 +16,7 @@ import { RisingNotes } from './rising.js';
 import { looksLikeMP3, canShareFiles, shareOrDownload, gainText } from './share.js';
 import {
   barBeat, fmtTime, fmtClock, fmtPoint, clampRegion, fmtRegionLength,
-  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, prevFlag, nextFlag, landFlag, fmtTenths,
+  SNAPS, SNAP_LABELS, initialSnap, tempoLabel, snapOnTempo, tempoPending, nudgeFrame, placeDownbeat, nudgeDownbeat, adoptDownbeat, snapFrame, snapStep, setPoint, 
 } from './geometry.js';
 import {
   viewAbout, stepFrames, stepLabel, placeEdge, fmtSample, beatOffset, fmtOffset, crossedLine,
@@ -34,15 +34,14 @@ import { flagRequest, asFlags, newFlagId } from '../flags.js';
 import { holdScreen } from '../wakelock.js';
 import { initHelp } from '../help/help.js';
 import { showPresses } from '../ui/keys.js';
-import { say, named } from '../rooms/words.js';
+import { named } from '../rooms/words.js';
 import { toast, toastNext, takeNextToast, undoSkipped, undoPhrase } from '../toast.js';
 import { restoreTake, stepPast, putBack } from '../trash.js';
 import { withClient } from '../client.js';
 import { token, withAlpha, onSchemeChange } from '../theme.js';
-import { listFrom, fold, familyOf, flagChips, dropoutsText } from '../shelf.js';
+import { listFrom, fold, familyOf, dropoutsText } from '../shelf.js';
 import { takeTitle } from '../rooms/takename.js';
 import { cutLabel } from './cut-label.js';
-import { sendHint, sentMessage } from './send.js';
 import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter } from '../objects/lcd.js';
@@ -51,7 +50,7 @@ import { measureBar, hereWord, deviceOf } from '../bar/slots.js';
 import { takeDisplay } from '../bar/display.js';
 import { layersOf } from '../ui/layers.js';
 import { menu, barTop } from '../ui/menu.js';
-import { openTheTape, pageCarry, takePageState, startOpen } from '../bar/carry.js';
+import { pageCarry, takePageState, startOpen } from '../bar/carry.js';
 import { timedFetch, watchLink } from '../link.js';
 import { start as startRoom } from '../room/mount.js';
 import { createTakes } from '../models/takes.js';
@@ -81,26 +80,13 @@ function safeStem(base) {
 }
 
 const stemOf = (name) => (name || '').replace(/\.wav$/, '');
-// What an unnamed take is called: its timestamp, as the list shows it.
-const stampOf = (name) => (name || '').replace(/^jam_|\.wav$/g, '');
 
 // hopTo opens another take in this one's place: replace, not a new entry, so
-// Back from any take in a run of ◂/▸ (or of deletes) still goes straight to
-// the list (see the back button in main).
+// Back from any take in a run of the take menu's Previous and Next (or of
+// deletes) still goes straight to the list (see the back button in main).
 function hopTo(name) {
-  offNotes(() => {
-    try { sessionStorage.setItem('hindsight.hop', '1'); } catch {}
-    location.replace(`/wave.html?file=${encodeURIComponent(name)}`);
-  });
-}
-
-// offNotes runs then once the page is off the phone's notes pane's history
-// entry, if it's on it: a replace there would leave this take's own entry
-// under the next, and Back would land on it.
-function offNotes(then) {
-  if (!(history.state && history.state.notes)) { then(); return; }
-  addEventListener('popstate', () => then(), { once: true });
-  history.back();
+  try { sessionStorage.setItem('hindsight.hop', '1'); } catch {}
+  location.replace(`/wave.html?file=${encodeURIComponent(name)}`);
 }
 
 // untrash is a trashed take's Undo, on the take after it: back from the
@@ -132,6 +118,9 @@ async function main() {
   let link = { ok() {}, fail() {} };
   // What Open hears of each redraw (lib/room/open.js).
   const openHooks = new Set();
+  // What Open hears of a tapped pin, and of F, the keyboard's ✎.
+  const pinHooks = new Set();
+  const noteKeyHooks = new Set();
   if (!file) {
     // A tape opens in the Studio, where tapes live (?tape=ID). The Studio
     // shows the tape it has loaded, and offers the rest from its own list.
@@ -141,9 +130,6 @@ async function main() {
     }
     return fail('No take given.');
   }
-  // A reload while the notes pane was open leaves a stale {notes:1} entry
-  // that would otherwise pop straight into the (unbuilt) pane on Back.
-  if (history.state && history.state.notes) history.replaceState(null, '');
   initHelp({ page: 'take', toast });
   showPresses(document); // every key goes down the moment it is touched
   // Open is outside the shell, so it has a stack of open things of its own
@@ -152,13 +138,6 @@ async function main() {
   // A take trashed on the page before this one: "Deleted … · Undo", and its
   // Undo opens it again, where it was in the list's order.
   const queued = takeNextToast();
-  // Where ◂⚑ or ⚑▸ from the take before or after lands, read once whether or
-  // not this take loads, so it can't land a later visit.
-  let land = null;
-  try {
-    land = JSON.parse(sessionStorage.getItem('hindsight.land') || 'null');
-    sessionStorage.removeItem('hindsight.land');
-  } catch {}
   if (queued) toast(queued.msg, queued.kind || 'ok', queued.restore ? { action: { label: 'Undo', run: () => untrash(queued) } } : {});
   const [takeRes, peaksRes] = await Promise.all([
     // Not from the cache: Back onto a take deleted since must say it's gone.
@@ -218,23 +197,18 @@ async function main() {
   let overview = null;
   let lanes = null;
   let notes = null;
-  const bench = window.matchMedia('(min-width: 860px)');
-  const notesVisible = () => bench.matches || document.body.classList.contains('notes-open');
+  // The piano roll draws while MIDI ▸ is open.
+  let midiOpen = false;
   function syncNotes() {
     if (!notes) return;
-    if (notesVisible() && clock.playing) notes.start();
-    else { notes.stop(); if (notesVisible()) notes.draw(); }
-    $('notes-play').textContent = clock.playing ? 'Pause' : 'Play';
+    if (midiOpen && clock.playing) notes.start();
+    else { notes.stop(); if (midiOpen) notes.draw(); }
   }
   function redraw() {
-    setText($('flags-count'), String(state.flags.length));
-    const nd = state.dropouts.length;
-    setAttr($('flags-list'), 'aria-label', say(`${state.flags.length} flag${state.flags.length === 1 ? '' : 's'}`) + `${nd ? ` and ${nd} dropout${nd === 1 ? '' : 's'}` : ''}: show the list`);
     view.draw();
     if (overview) overview.draw();
     if (lanes) lanes.draw();
-    if (notes && !notes.running && notesVisible()) notes.draw();
-    drawStrip();
+    if (notes && !notes.running && midiOpen) notes.draw();
     for (const f of openHooks) f();
   }
   // Canvases don't restyle themselves when the device turns dark or light.
@@ -427,7 +401,6 @@ async function main() {
     const keep = state.selectedFlag && state.selectedFlag.id;
     state.flags = asFlags(fresh.flags);
     if (keep) state.selectedFlag = state.flags.find((f) => f.id === keep) || null;
-    if (state.selectedFlag === null && !sheet.hidden) sheet.hidden = true;
     take.label = fresh.label;
     state.snap = snapOnTempo(state.snap, snapChosen, !!take.bpm, !!fresh.bpm);
     take.bpm = fresh.bpm;
@@ -543,7 +516,8 @@ async function main() {
       case 'addFlag':
         addFlagAt(p.frame);
         break;
-      case 'selectFlag': openSheet(p.flag); break;
+      // A pin is its note: Open puts the cursor in its words.
+      case 'selectFlag': for (const f of pinHooks) f(p.flag); break;
       case 'flagMove': {
         const f = state.flags.find((x) => x.id === p.flag.id);
         if (!f) break;
@@ -604,12 +578,15 @@ async function main() {
     updateReadout(); redraw();
   }
 
-  function addFlagAt(frame) {
+  // A note and its words go in one request: added bare and then given its
+  // words, the Pi's answer to the add could land after the words and blank
+  // them until the edit's came back.
+  function addFlagAt(frame, label = '') {
     if (state.flags.some((f) => f.frame === frame)) return;
     const id = newFlagId();
-    state.flags.push({ id, frame, label: '' });
+    state.flags.push({ id, frame, label });
     state.flags.sort((a, b) => a.frame - b.frame);
-    flagOp('add', { id, frame });
+    flagOp('add', { id, frame, label });
     redraw();
   }
 
@@ -674,46 +651,6 @@ async function main() {
   renderLevel();
   if (levelOn) fetchLevel();
 
-  // --- flag sheet ---------------------------------------------------------
-  const sheet = $('flag-sheet');
-  function openSheet(flag) {
-    state.selectedFlag = flag;
-    $('flag-label').value = flag.label;
-    sheet.hidden = false;
-    $('flag-label').focus();
-    view.draw();
-  }
-  function closeSheet(commit) {
-    const f = state.selectedFlag;
-    if (!f) return;
-    if (commit) {
-      const label = $('flag-label').value.trim();
-      if (label !== f.label) {
-        f.label = label;
-        flagOp('edit', { id: f.id, label });
-      }
-    }
-    state.selectedFlag = null;
-    sheet.hidden = true;
-    view.draw();
-  }
-  $('flag-done').addEventListener('click', () => closeSheet(true));
-  $('flag-label').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') closeSheet(true);
-    if (e.key === 'Escape') closeSheet(false);
-  });
-  $('flag-delete').addEventListener('click', () => {
-    const f = state.selectedFlag;
-    if (!f) return;
-    state.flags = state.flags.filter((x) => x !== f);
-    state.selectedFlag = null;
-    sheet.hidden = true;
-    flagOp('remove', { id: f.id }, (b) => {
-      if (b.undo?.op) toast(f.label ? `Flag "${named(f.label)}" deleted` : 'Flag deleted', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
-    });
-    redraw();
-  });
-
   // --- transport ----------------------------------------------------------
   async function togglePlay() {
     if (clock.playing) {
@@ -768,48 +705,6 @@ async function main() {
   }
   $('back5').addEventListener('click', back5);
 
-  // The flags as a list, in time order, as the takes page's pane has them: a
-  // tap plays from one.
-  function openFlags() {
-    // Dropouts too, ⚠, among them in time: a tap plays from a second before
-    // one, to hear what was lost.
-    const drops = flagChips({ flags: state.dropouts.map((d) => ({ frame: d, label: 'dropout' })), sample_rate: sr }).map((f) => ({ ...f, dropout: true }));
-    const all = [...flagChips({ flags: state.flags, sample_rate: sr }), ...drops].sort((a, b) => a.frame - b.frame);
-    const items = all.map((f) => {
-      f.at = fmtTenths(f.frame, sr); // to the tenth, as the LCD: two flags a moment apart differ
-      const li = document.createElement('li');
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'detail-flag flags-item';
-      b.setAttribute('aria-label', `Play from ${f.label} at ${f.at}`);
-      b.innerHTML = '<span aria-hidden="true"></span><span class="flag-name"></span><span class="flag-at"></span>';
-      b.firstChild.textContent = f.dropout ? '⚠' : '⚑';
-      b.classList.toggle('dropout', !!f.dropout);
-      b.querySelector('.flag-name').textContent = f.label;
-      b.querySelector('.flag-at').textContent = f.at;
-      if (f.dropout) b.setAttribute('aria-label', `Play from a second before the dropout at ${f.at}`);
-      const from = f.dropout ? Math.max(0, f.frame - sr) : f.frame;
-      b.addEventListener('click', async () => {
-        $('flags-sheet').close();
-        // A flag outside a looping selection: Loop goes off, or ▶ would
-        // start at In, not here.
-        if (state.loop && state.region && (from < state.region.start || from >= state.region.end)) setLoop(false);
-        seekTo(from);
-        view.follow(from);
-        if (!clock.playing) await togglePlay();
-        $('play').focus(); // so Space pauses, not opens the list again
-      });
-      li.appendChild(b);
-      return li;
-    });
-    $('flags-items').replaceChildren(...items);
-    $('flags-none').hidden = items.length > 0;
-    $('flags-sheet').showModal();
-    (items[0]?.firstChild || $('flags-done')).focus();
-  }
-  $('flags-list').addEventListener('click', openFlags);
-  $('flags-done').addEventListener('click', () => $('flags-sheet').close());
-
   // The scrubber is a slider for the keyboard too: ← → a second, and Space
   // still plays (the page's Space leaves focused controls alone).
   $('overview-canvas').addEventListener('keydown', (e) => {
@@ -825,7 +720,6 @@ async function main() {
   });
   // While a boundary is being edited, the arrows step the point (the page's
   // handler); a tap still moves the playhead but leaves the view on the point.
-  $('notes-play').addEventListener('click', togglePlay);
   $('loop').addEventListener('click', () => setLoop(!state.loop));
 
   function setSpeed(rate) {
@@ -851,31 +745,6 @@ async function main() {
   }
   $('set-in').addEventListener('click', () => setPointAt('start'));
   $('set-out').addEventListener('click', () => setPointAt('end'));
-  $('flag-now').addEventListener('click', () => addFlagAt(Math.min(total - 1, state.cursor)));
-  function stepFlag(dir) {
-    const f = dir < 0 ? prevFlag(state.flags, state.cursor) : nextFlag(state.flags, state.cursor);
-    if (!f) { crossTake(dir); return; }
-    seekTo(f.frame);
-    view.follow(f.frame);
-  }
-  // Past the first or last flag, ◂⚑ and ⚑▸ go on to the take before or after
-  // in the list's order, at its nearest flag: its last going back, its first
-  // going on (its start without one). So they walk every flag of a run of
-  // takes. The take opens stopped: a browser won't play a page that hasn't
-  // been tapped.
-  async function crossTake(dir) {
-    const order = await orderReady;
-    const i = order ? order.indexOf(file) : -1;
-    const name = i < 0 ? null : order[i + dir];
-    if (!name) return;
-    flushRegion();
-    flushDownbeat();
-    try { sessionStorage.setItem('hindsight.land', JSON.stringify({ file: name, flag: dir < 0 ? 'last' : 'first' })); } catch {}
-    hopTo(name);
-  }
-  $('flag-prev').addEventListener('click', () => stepFlag(-1));
-  $('flag-next').addEventListener('click', () => stepFlag(1));
-
   // --- selection row --------------------------------------------------------
   function setRegion(r) {
     state.region = clampRegion(r, total, minLen);
@@ -1209,7 +1078,6 @@ async function main() {
     writePref('wave.snap', state.snap);
     snapChosen = true;
     renderSnap();
-    renderSendHint();
   });
 
   // --- header ---------------------------------------------------------------
@@ -1230,14 +1098,13 @@ async function main() {
     const drops = dropoutsText(take);
     $('take-drops').hidden = !drops;
     $('take-drops').textContent = drops;
-    renderSendHint(); // the hint follows the tempo and the selection
     $('take-len').textContent = state.region
       ? `${fmtClock(state.region.end - state.region.start, sr)} of ${fmtClock(total, sr)}`
       : fmtClock(total, sr);
     const src = take.source;
     $('take-source').hidden = !src;
     if (src) {
-      $('take-source').textContent = `from ${stampOf(src.name)}`;
+      $('take-source').textContent = `from ${takeTitle(src)}`;
       $('take-source').href = `/wave.html?file=${encodeURIComponent(src.name)}`;
     }
     renderSnap();
@@ -1366,26 +1233,10 @@ async function main() {
     backLink.querySelector('.back-text').textContent = 'Capture';
   }
   backLink.addEventListener('click', (e) => {
-    if (document.body.classList.contains('notes-open')) { e.preventDefault(); closeNotes(); return; }
     if (fromList && history.length > 1) { e.preventDefault(); history.back(); }
   });
 
   // --- menus ------------------------------------------------------------------
-  function wireMenu(button, menu) {
-    const close = () => { menu.hidden = true; button.setAttribute('aria-expanded', 'false'); };
-    button.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = menu.hidden;
-      document.querySelectorAll('.menu').forEach((m) => { m.hidden = true; });
-      document.querySelectorAll('[aria-haspopup="menu"][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
-      menu.hidden = !open;
-      button.setAttribute('aria-expanded', String(open));
-    });
-    // A choice closes it, and the keyboard is back on its button.
-    menu.addEventListener('click', () => { close(); button.focus({ preventScroll: true }); });
-    document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== button) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  }
   // The take's menu, from its name (lib/ui/menu.js): under the name, on the
   // page's stack, so Escape, Back or a press elsewhere closes it. Rename…
   // swaps the name for its field; Tag… is the tag beside the star, where the
@@ -1393,8 +1244,22 @@ async function main() {
   menu($('take-name'), $('take-menu'), { layers: layersOf(document), side: 'below', align: 'start', floor: barTop(document) });
   $('take-rename').addEventListener('click', () => rename());
   $('take-tag-row').addEventListener('click', () => $('take-tag')?.click());
-  wireMenu($('more-btn'), $('more-menu'));
-  wireMenu($('send-btn'), $('send-menu'));
+  // More, beside KEEP: Share (or Download), the bundle, the files, Delete.
+  menu($('more-btn'), $('more-menu'), { layers: layersOf(document), align: 'end' });
+
+  // Fine tune ▸ and MIDI ▸ fold out under the keys, closed on every open.
+  function fold(button, panel, onToggle = () => {}) {
+    button.addEventListener('click', () => {
+      const open = panel.hidden;
+      panel.hidden = !open;
+      button.setAttribute('aria-expanded', String(open));
+      onToggle(open);
+    });
+  }
+  fold($('fine-btn'), $('fine-tune'));
+  fold($('midi-btn'), $('midi'), (open) => { midiOpen = open; if (lanes) lanes.draw(); syncNotes(); });
+  // Shown from the take's first paint, not when its MIDI has loaded.
+  $('midi-btn').hidden = !take.has_midi;
 
   $('downbeat-reset').addEventListener('click', () => {
     state.grid.downbeat = 0;
@@ -1436,7 +1301,7 @@ async function main() {
     pendingTrim = null;
     clearTimeout(regionTimer);
     clock.pause();
-    const msg = `Deleted ${named(take.label || stampOf(file))}`;
+    const msg = `Deleted ${named(takeTitle({ ...take, name: file }))}`;
     // On through the list's own order only: a take it doesn't have (a cut
     // opened from its toast, say) goes back to the list, as before.
     const order = await orderReady;
@@ -1447,82 +1312,13 @@ async function main() {
       hopTo(step.next);
     } else {
       toastNext({ msg, restore: file });
-      offNotes(() => {
-        if (fromList && history.length > 1) history.back();
-        else location.href = list || '/takes.html';
-      });
+      if (fromList && history.length > 1) history.back();
+      else location.href = list || '/takes.html';
     }
   }
   $('take-trash').addEventListener('click', trashTake);
   $('take-trash').disabled = false; // off until now: a tap before this did nothing
   $('delete-take').addEventListener('click', trashTake);
-
-  // --- Send to tape -------------------------------------------------------------
-  // The selection (or the whole take) onto track 1 of the loaded tape. The Pi
-  // places it from the take's tempo and downbeat: on the tape's bar lines,
-  // linear, and on an empty tape it gives the tape its tempo. A take with no
-  // tempo goes at the playhead, or is the first loop of an empty tape. Offered
-  // only when the Pi runs the tape.
-  const tapeAPI = async (path, opts = {}) => {
-    const res = await fetch(path, { cache: 'no-store', ...opts });
-    const b = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(b.error || `status ${res.status}`);
-    return b;
-  };
-  fetch('/api/tapes', { cache: 'no-store' }).then((r) => {
-    if (r.ok) {
-      if ($('send-btn')) $('send-btn').hidden = false;
-      renderSendHint();
-    }
-  }).catch(() => {});
-  // What Send to → Tape will do, under its name in the menu.
-  function renderSendHint() {
-    if ($('send-btn').hidden) return;
-    $('send-hint').textContent = sendHint({ bpm: take.bpm, region: state.region, total, sr });
-  }
-  // Copy: the selection (or the whole take) onto the clipboard, for Drop on
-  // a tape.
-  const copyTake = async () => {
-    const from = state.region ? state.region.start : 0;
-    const to = state.region ? state.region.end : total;
-    await tapeAPI('/api/clipboard', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ take: file, from, to }),
-    });
-    return to - from;
-  };
-  $('copy-take').addEventListener('click', async () => {
-    try {
-      const n = await copyTake();
-      toast(`Copied ${fmtClock(n, sr)}: Paste it on a tape`, 'ok', { action: { label: 'Open the tape', run: () => openTheTape() } });
-    } catch (e) {
-      toast(`Could not copy: ${e.message}`, 'bad');
-    }
-  });
-  $('send-to-tape').addEventListener('click', async () => {
-    try {
-      // The tempo, downbeat and selection the Pi reads must be the ones on screen.
-      await whenSaved();
-      const from = state.region ? state.region.start : null;
-      const to = state.region ? state.region.end : null;
-      // Whichever tape is loaded now: another device may have changed it.
-      let id = (await tapeAPI('/api/tapes')).loaded;
-      if (!id) {
-        const t = await tapeAPI('/api/tapes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: take.label || '' }) });
-        await tapeAPI(`/api/tapes/load?id=${encodeURIComponent(t.id)}`, { method: 'POST' });
-        id = t.id;
-      }
-      const body = { take: file, track: 1 };
-      if (state.region) { body.from = from; body.to = to; }
-      const res = await tapeAPI(`/api/tapes/send?id=${encodeURIComponent(id)}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      const { msg, kind } = sentMessage(res, fmtClock(state.region ? to - from : total, sr));
-      toast(msg, kind, { ms: kind === 'warn' ? 10000 : undefined, action: { label: 'Open the tape', run: () => openTheTape() } });
-    } catch (e) {
-      toast(`Could not send to tape: ${e.message}`, 'bad', 8000);
-    }
-  });
 
   // --- Save as take ---------------------------------------------------------
   // It asks for the new take's name first, in the verbs' place: offered as
@@ -1569,7 +1365,7 @@ async function main() {
     try {
       const list = await takes.refresh();
       const s = familyOf(fold(Array.isArray(list) ? list : []), name).spine;
-      return s && s.name !== name ? s.label || stampOf(s.name) : '';
+      return s && s.name !== name ? takeTitle(s) : '';
     } catch { return ''; }
   }
   $('save-take').addEventListener('click', openSaveName);
@@ -1616,12 +1412,13 @@ async function main() {
   // The selection (or the whole take) rendered to an MP3 and handed to the
   // phone's share sheet. Nothing is saved: a share is a stream.
   const shareBtn = $('share');
+  const shareWord = $('share-word');
   const shareVerb = canShareFiles() ? 'Share' : 'Download';
   function setShareLabel() {
     const r = state.region;
-    // With Level on, the key says it shares levelled.
+    // With Level on, the row says it shares levelled.
     const lv = levelOn && levelRead && levelDb ? ` · ${gainText(levelDb)}` : '';
-    shareBtn.textContent = (r ? `${shareVerb} · ${fmtClock(r.end - r.start, sr)}` : shareVerb) + lv;
+    shareWord.textContent = (r ? `${shareVerb} · ${fmtClock(r.end - r.start, sr)}` : shareVerb) + lv;
   }
   refreshShareLabel = setShareLabel;
   shareBtn.addEventListener('click', async () => {
@@ -1632,7 +1429,7 @@ async function main() {
     const from = state.region ? state.region.start : 0;
     const to = state.region ? state.region.end : total;
     shareBtn.disabled = true;
-    shareBtn.textContent = 'Rendering…';
+    shareWord.textContent = 'Rendering…';
     try {
       const res = await fetch(`/api/render?file=${encodeURIComponent(file)}&from=${from}&to=${to}${levelOn ? '&normalize=1' : ''}`);
       if (!res.ok) {
@@ -1756,78 +1553,8 @@ async function main() {
       storageKey: `wave.notes.${file}`,
     });
     $('notes-pane').hidden = false;
-    $('notes-open').hidden = false;
     syncNotes();
   }
-
-  // --- rising notes on a phone ------------------------------------------
-  // Fullscreen over the page, sharing its clock, with a thin strip of the
-  // waveform on top so where you are in the take stays in sight.
-  function openNotes() {
-    if (document.body.classList.contains('notes-open')) return;
-    document.body.classList.add('notes-open');
-    history.pushState({ notes: 1 }, '');
-    updateReadout();
-    syncNotes();
-    stripResize();
-  }
-  function closeNotes() {
-    if (!document.body.classList.contains('notes-open')) return;
-    if (history.state && history.state.notes) { history.back(); return; }
-    document.body.classList.remove('notes-open');
-    syncNotes();
-  }
-  window.addEventListener('popstate', () => {
-    if (!document.body.classList.contains('notes-open')) return;
-    document.body.classList.remove('notes-open');
-    syncNotes();
-  });
-  // From the take's menu: once the stack has taken the menu's own history
-  // entry back (a browser without CloseWatcher), so the pane's entry is the
-  // one on top.
-  $('notes-open').addEventListener('click', () => {
-    const wait = layersOf(document).settled?.();
-    if (wait) wait.then(openNotes); else openNotes();
-  });
-  const onBenchChange = () => { if (bench.matches) closeNotes(); syncNotes(); };
-  bench.addEventListener('change', onBenchChange);
-
-  const strip = $('notes-strip');
-  const stripCtx = strip.getContext('2d');
-  let stripCols = null;
-  let stripGain = null;
-  function stripResize() {
-    const r = strip.getBoundingClientRect();
-    if (r.width <= 0) return;
-    const dpr = window.devicePixelRatio || 1;
-    strip.width = Math.round(r.width * dpr);
-    strip.height = Math.round(r.height * dpr);
-    stripCols = levelsFor(filePeaks, Math.max(1, Math.round(r.width)));
-    drawStrip();
-  }
-  function drawStrip() {
-    if (!stripCols || !document.body.classList.contains('notes-open')) return;
-    const dpr = window.devicePixelRatio || 1;
-    const W = strip.width / dpr, H = strip.height / dpr;
-    stripCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    stripCtx.clearRect(0, 0, W, H);
-    const played = (state.cursor / total) * W;
-    const waveOn = token('--wave', '#4ebeb4'), waveOff = token('--wave-dim', '#2f5f5b');
-    // The take's trace, on its own scale (as its view above), lit where played.
-    const opts = { cy: H / 2, half: H / 2 - 2, gain: stripGain ??= takeGain(filePeaks), fillAlpha: 0.3 };
-    drawTrace(stripCtx, stripCols, stripCols, { ...opts, fillAlpha: 0.45, line: waveOff });
-    stripCtx.save();
-    stripCtx.beginPath();
-    stripCtx.rect(0, 0, played, H);
-    stripCtx.clip();
-    drawTrace(stripCtx, stripCols, stripCols, { ...opts, line: waveOn });
-    stripCtx.restore();
-    if (state.region) {
-      stripCtx.fillStyle = withAlpha(waveOn, 0.2);
-      stripCtx.fillRect((state.region.start / total) * W, 0, ((state.region.end - state.region.start) / total) * W, H);
-    }
-  }
-  new ResizeObserver(stripResize).observe(strip);
 
   // --- keyboard -----------------------------------------------------------
   // The menus close themselves on Escape before the handler below runs, so
@@ -1863,7 +1590,8 @@ async function main() {
     }
     switch (e.key) {
       case ' ': e.preventDefault(); togglePlay(); break;
-      case 'f': case 'F': addFlagAt(Math.min(total - 1, state.cursor)); break;
+      // F is ✎ from the keyboard: Open's notes, at the playhead.
+      case 'f': case 'F': for (const f of noteKeyHooks) f(); break;
       case '[': setPointAt('start'); break;
       case ']': setPointAt('end'); break;
       case 'b': case 'B': barOneAtPlayhead(); break;
@@ -1905,7 +1633,6 @@ async function main() {
     setAttr(ov, 'aria-valuenow', String(Math.round(state.cursor / (sr / 10)) * (sr / 10)));
     setAttr(ov, 'aria-valuetext', `${bar ? `bar ${bar}, ` : ''}${fmtTime(Math.round(state.cursor / (sr / 10)) * (sr / 10), sr)}`);
     setAttr($('to-start'), 'aria-label', state.region ? 'Back to In' : 'Back to the start');
-    $('notes-bar').textContent = bar || fmtTime(state.cursor, sr);
     feedReels();
   }
   let displayKey = null;
@@ -1919,11 +1646,6 @@ async function main() {
   view.fitAll();
   loadLanes();
   orderReady = neighbours();
-  // Here by ◂⚑ or ⚑▸ from the take before or after: at the nearest flag.
-  if (land && land.file === file) {
-    const f = landFlag(state.flags, land.flag);
-    if (f) { seekTo(f.frame); view.follow(f.frame); }
-  }
   // A bar 1 nudge still in its pause saves before the page goes away.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushDownbeat();
@@ -1961,9 +1683,11 @@ async function main() {
     seek: (frame) => { seekTo(frame); if (!state.edit) view.follow(Math.max(0, Math.min(total - 1, frame))); },
     // A note is a flag with words. NOTE HERE puts one where the playhead
     // is -- or answers the one already there.
-    addNote(frame) {
+    addNote(frame, label = '') {
       const at = Math.max(0, Math.min(total - 1, Math.round(frame)));
-      if (!state.flags.some((f) => f.frame === at)) addFlagAt(at);
+      const there = state.flags.find((f) => f.frame === at);
+      if (there) { this.editNote(there.id, label); return there.id; }
+      addFlagAt(at, label);
       return state.flags.find((f) => f.frame === at)?.id || null;
     },
     editNote(id, label) {
@@ -1977,7 +1701,7 @@ async function main() {
       const f = state.flags.find((x) => x.id === id);
       if (!f) return;
       state.flags = state.flags.filter((x) => x !== f);
-      if (state.selectedFlag === f) { state.selectedFlag = null; sheet.hidden = true; }
+      if (state.selectedFlag === f) state.selectedFlag = null;
       flagOp('remove', { id }, (b) => {
         if (b.undo?.op) toast(f.label ? `Note "${named(f.label)}" taken out` : 'Note taken out', 'ok', { action: { label: 'Undo', run: () => undo(b.undo.op) } });
       });
@@ -1985,6 +1709,8 @@ async function main() {
     },
     patch: (body) => patch(body),
     onRedraw: (fn) => { openHooks.add(fn); return () => openHooks.delete(fn); },
+    onPin: (fn) => { pinHooks.add(fn); return () => pinHooks.delete(fn); },
+    onNoteKey: (fn) => { noteKeyHooks.add(fn); return () => noteKeyHooks.delete(fn); },
   })?.catch((e) => console.error('Open could not start:', e));
   // Leaving, the take and where the playhead is go to the next page's bar
   // (lib/bar/carry.js), so Room -> Open -> back carries what was done here.
@@ -2001,7 +1727,6 @@ async function main() {
     flushRegion();
     flushDownbeat();
     screenLock?.release();
-    bench.removeEventListener('change', onBenchChange);
     clock.destroy(); tiles.stop(); view.destroy(); overview.destroy();
     if (lanes) lanes.destroy();
     if (notes) notes.destroy();

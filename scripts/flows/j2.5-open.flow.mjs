@@ -61,6 +61,20 @@ export default {
     t.expect('its header: ‹, the take’s name, its star and tag, then ↶ and ☰; no ◂ ▸, ⋯ or 🗑 of their own',
       head[0] === 'back' && head[1] === 'take-name' && head[2] === 'take-star' && head.slice(-2).join() === 'take-undo,app-menu-btn'
       && !head.some((k) => ['take-prev', 'take-next', 'menu-btn', 'take-trash'].includes(k)), head);
+    // Its page (listening-back.md, "Open, on a tablet and wider").
+    const layout = await page.evaluate(() => {
+      const r = (id) => document.getElementById(id)?.getBoundingClientRect();
+      const wave = r('wave-canvas'), dock = r('notes-drawer');
+      return {
+        docked: document.getElementById('notes-drawer')?.parentElement?.id === 'notes-dock' && dock.height > 0 && dock.left >= wave.right,
+        keys: [...document.querySelectorAll('.tb-row.verbs > .icon-btn, .tb-row.verbs > .menu-anchor > .icon-btn')].map((k) => k.id),
+        folds: ['fine-btn', 'midi-btn'].map((id) => document.getElementById(id)?.getAttribute('aria-expanded')),
+        midi: !document.getElementById('midi-btn').hidden,
+        gone: ['flag-prev', 'flags-list', 'send-btn'].filter((id) => document.getElementById(id)).concat(document.querySelector('.hints') ? ['hints'] : []),
+      };
+    });
+    t.expect('beside the waveform the notes drawer, docked; under it GRAB, KEEP and More, then Fine tune ▸ and MIDI ▸ (this take has MIDI), folded; no ◂⚑ ⚑▸, ⚑ N, Send to or hints card',
+      layout.docked && layout.keys.join() === 'take-grab,save-take,more-btn' && layout.folds.join() === 'false,false' && layout.midi && !layout.gone.length, layout);
     await t.step('tap the take’s name', () => t.tap(page.locator('#take-name')));
     const menu = await t.poll(() => {
       const m = document.getElementById('take-menu');

@@ -325,7 +325,6 @@ const OWN_HISTORY = [
   // [file, how many pushState calls, why it is still its own]
   ['lib/shell/router.js', 1, 'a room’s entry'],
   ['lib/ui/layers.js', 1, 'the stack’s one entry, where there is no CloseWatcher'],
-  ['lib/wave/page.js', 1, 'Open’s notes pane on a phone, until it is the notes drawer (listening-back.md, step 2)'],
 ];
 
 test('Guardrail 12: only the router and the stack (lib/ui/layers.js) push history entries', () => {
@@ -362,7 +361,6 @@ test('Guardrail 12: the Studio’s Escape is the stack’s; its page keeps it on
 const OWN_MENUS = [
   // [file, how many aria-haspopup, why it is still its own]
   ['lib/wave/lanes.js', 1, 'Open’s lane menus, until Open’s pass (step 10)'],
-  ['lib/wave/page.js', 1, 'Open’s menus shut one another by it, until Open’s pass'],
   ['lib/room/open.js', 1, 'the tag key opens a sheet, not a menu'],
 ];
 

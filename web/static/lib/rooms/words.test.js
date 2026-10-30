@@ -41,16 +41,11 @@ const walk = (d) => readdirSync(new URL(d, root), { withFileTypes: true }).flatM
 const NO_CRATE = 'its control is taken out of sight by room/open.js (Send to ▾), so this is never shown';
 const ALLOW = [
   // -- markup
-  ['wave.html', 'Send to', 'Send to ▾ is taken out of sight by room/open.js: GRAB is its Tape and its Clipboard'],
   // -- strings: code, not text
-  ['lib/room/open.js', 'tb-flag', 'a CSS class'],
   ['lib/room/tap.js', '.take-flag', 'a CSS selector'],
-  ['lib/wave/page.js', 'detail-flag flags-item', 'CSS classes'],
   ['lib/flags.js', 'unknown flag op', 'a programmer error, never shown'],
   ['lib/device-prefs.js', 'the loop’s ring', 'a ring that is drawn (the reel’s), not the feed'],
   ['lib/objects/lcd.js', 'ring out', 'letting a tail ring out: the word’s other sense'],
-  ['lib/wave/page.js', 'Could not send to tape', 'its Send to ▾ → Tape is taken out of sight by Open'],
-  ['lib/wave/send.js', 'one clip, no loop', 'the hint under Send to ▾, which Open takes out of sight'],
 ];
 const used = new Set();
 // Strings that reach the screen only through a sink that says them (a toast's

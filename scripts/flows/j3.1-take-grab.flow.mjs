@@ -14,10 +14,13 @@ export default {
     const before = parts(await api.tapeState());
 
     await t.given('the take\'s page is open', () => page.goto(`${t.base}/wave.html?file=${encodeURIComponent(take.name)}`));
-    const grab = page.locator('.room-open-grab');
+    const grab = page.locator('#take-grab');
     await grab.waitFor({ state: 'visible' });
-    const words = await t.poll(() => /4 bars/i.test(document.querySelector('.room-open-grab')?.textContent ?? '') && document.querySelector('.room-open-grab').textContent);
+    const words = await t.poll(() => /4 bars/i.test(document.getElementById('take-grab')?.textContent ?? '') && document.getElementById('take-grab').textContent);
     t.expect('the key reads GRAB 4 BARS', words, await grab.innerText());
+    const keys = await page.evaluate(() => [...document.querySelectorAll('.tb-row.verbs > .icon-btn, .tb-row.verbs > .menu-anchor > .icon-btn')].map((k) => k.id));
+    t.expect('under the waveform, GRAB is first and the primary key, then KEEP, then More',
+      keys.join() === 'take-grab,save-take,more-btn' && await page.evaluate(() => document.getElementById('take-grab').classList.contains('primary')), keys);
 
     await t.step('tap GRAB 4 BARS', () => t.tap(grab));
     await page.waitForURL(/tape\.html/, { timeout: 10_000 });

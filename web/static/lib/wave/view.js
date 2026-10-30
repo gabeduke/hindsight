@@ -62,7 +62,21 @@ export class WaveView extends GestureSurface {
     this.ro = new ResizeObserver(this.resize);
     this.ro.observe(canvas);
     this.initGestures(canvas);
+    // A tapped pin is said on the tap's click, not its lift: on a touch
+    // screen the mouse's down comes after the lift and would take the focus
+    // back from wherever the pin sent it (Open: its note's words).
+    this.pinTapped = null;
+    const sig = { signal: this.gestureAC.signal };
+    canvas.addEventListener('pointerdown', () => { this.pinTapped = null; }, sig);
+    canvas.addEventListener('click', () => this.clicked(), sig);
     this.resize();
+  }
+
+  /** clicked says the pin a tap lifted off, now its click has come. */
+  clicked() {
+    const f = this.pinTapped;
+    this.pinTapped = null;
+    if (f) this.emit('selectFlag', { flag: f });
   }
 
   destroy() {
@@ -220,7 +234,7 @@ export class WaveView extends GestureSurface {
         // its flag list for the server's answer mid-drag, and g.flag would
         // then be a stale copy holding the old frame.
         const f = (st.flags || []).find((x) => x.id === g.flag.id) || g.flag;
-        if (tap) this.emit('selectFlag', { flag: f });
+        if (tap) this.pinTapped = f;
         else if (g.moved) this.emit('flagMove', { flag: f, frame: g.frame ?? f.frame, final: true });
         break;
       }

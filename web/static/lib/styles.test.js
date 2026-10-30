@@ -129,15 +129,15 @@ test('a latched transport key sits as low as the raised key rule it overrides', 
     assert.ok(outranks(specificity(part), raised) >= 0, `${part} loses to .np .icon-btn`);
 });
 
-// Open's take menu showed Tag… and MIDI at 1024 px, beside the tag key
-// and the notes pane they stand in for: the rules hiding them tied with,
-// or lost to, a menu row's own display (.menu > .menu-item, later).
+// Open's take menu showed Tag… at 1024 px, beside the tag key it stands
+// in for: the rule hiding it tied with, or lost to, a menu row's own
+// display (.menu > .menu-item, later).
 test('a take menu row hidden where its key is on the page outranks a menu row’s display', () => {
   const all = rules(cssOf());
   const row = all.findIndex((r) => r.sel.includes('.menu > .menu-item') && /display:\s*grid/.test(r.body) && !r.media);
   assert.ok(row >= 0, 'the menu row rule');
-  const hides = all.map((r, i) => ({ r, i })).filter(({ r }) => /display:\s*none/.test(r.body) && r.sel.some((x) => /\.(?:notes-btn|take-tag-row)\b/.test(x)));
-  assert.ok(hides.length >= 2, 'the MIDI row’s and the Tag… row’s');
+  const hides = all.map((r, i) => ({ r, i })).filter(({ r }) => /display:\s*none/.test(r.body) && r.sel.some((x) => /\.take-tag-row\b/.test(x)));
+  assert.ok(hides.length >= 1, 'the Tag… row’s');
   for (const { r, i } of hides) {
     for (const part of r.sel) {
       const by = outranks(specificity(part), specificity('.menu > .menu-item'));
@@ -173,7 +173,7 @@ test('every text field shows focus', () => {
 // Audio is drawn in black windows in both themes: the waveform colours are
 // chosen for black, and wash out on the aluminium.
 test('every waveform sits in a black window', () => {
-  for (const sel of ['.wave:not(.pending)', '.notes-strip']) {
+  for (const sel of ['.wave:not(.pending)']) {
     const bg = RULES.filter((r) => r.sel.includes(sel) && /background:/.test(r.body))
       .map((r) => /background:\s*([^;]+);/.exec(r.body)[1].trim());
     assert.ok(bg.length, `no background for ${sel}`);

@@ -302,10 +302,9 @@ and the sheet says why.
 
 ## 4. The take page
 
-*Today.* Open any take from the list. The first time you do, three hints
-point at the gestures that matter; **Got it** puts them away for good.
-This page is **Open**, with a few things added and a few taken away: §4.1
-says which.
+*Today.* Open any take from the list. Help mode (in ☰) starts here with three
+things worth knowing about its gestures. This page is **Open**, with a few
+things added and a few taken away: §4.1 says which.
 
 **The layout, top to bottom:**
 
@@ -317,7 +316,7 @@ says which.
   name becomes a field: type, then Enter), *Previous take* and *Next take*,
   each saying which take it opens, the WAV and MIDI downloads, *Reset the
   downbeat*, and *Delete this take* last. Under 1000 px its tag is in the
-  menu too (*Tag…*), and under 860 px, with MIDI, the notes (*MIDI*).
+  menu too (*Tag…*).
 - **Under the header,** its tempo (tap to set), its length ("0:30 of 0:59"
   when part of it is selected) and, for a take saved from another, "from
   *that take*", which opens it.
@@ -327,7 +326,7 @@ says which.
   0.05, the clock's is kept (*· clock*), and so it is for a take with no steady
   pulse. Takes from before this update keep their clock tempo until you edit
   them. Tap it to type your own.
-- **The ruler:** bar numbers (or seconds, without a BPM), and the flags as
+- **The ruler:** bar numbers (or seconds, without a BPM), and the notes as
   pins above them. **▾** is the playhead; drag it to scrub silently. With a
   BPM, bar **1** is the downbeat; drag it to line the grid up.
 - **The take, on tape:** its sound as a glowing trace on brown oxide (a
@@ -336,28 +335,34 @@ says which.
   sound's envelope: at the closest zoom it doesn't show each wave crossing.
 - **The grips,** under the waveform at the selection's ends, with the move
   handle between them.
-- **The toolbar:** with a selection, its In and Out times with their
-  nudges, its length and *Clear*; with a BPM, the *Downbeat* row (below); then *Save as take* · *GRAB* (when
-  the Pi runs the tape) · *Share* · *More*; then ◂⚑ ⚑▸, **⚑ N** (the
-  flags as a list), *Snap* and *Practice speed*.
+- **Under the waveform:** with a selection, its In and Out times with their
+  nudges, its length and *Clear*; then **GRAB 4 BARS**, **KEEP** and
+  **More**; then **Fine tune ▸**, which folds out the *Downbeat* row
+  (below), *Snap*, *Practice speed* and *Level*; then **MIDI ▸**, for a take
+  with MIDI (below).
+- **The notes drawer** is docked beside the waveform from 860 px wide; on a
+  phone the notes are listed under the keys, and **✎** brings the drawer up
+  (§4.1).
 - **The bar,** along the foot of the page, as in the Studio: the take's
   reels either side of an amber window, which says where it is (bar.beat
   with a BPM, with the time beside it; otherwise the time, and the take's
   length) with ▶ or ❚❚ and a level bar for each side; then **|◂** (back to
-  In, or to the start), **↺ 5 s**, **▶ / ❚❚** and **⟲ Loop**; then **IN**, **OUT** and
-  **⚑**. Under them, **the overview:** the whole take, its scrubber. Tap it to
+  In, or to the start), **↺ 5 s**, **▶ / ❚❚** and **⟲ Repeat**; then **IN**, **OUT** and
+  **✎**. Under them, **the overview:** the whole take, its scrubber. Tap it to
   move the playhead there, drag its window to move along, double-tap to see
   it all; with it focused, ← → move a second. **OUT · This device**: a take
   plays here. On a phone it's the mini player above the tabs, with ▶; tap
   its window for the whole bar (§8.2).
-- **The MIDI lanes,** if the take has MIDI. Tap a lane's name for its menu:
-  collapse, show as drums or notes, or hide.
+- **MIDI ▸,** if the take has MIDI, folds out a lane per track (tap a
+  lane's name for its menu: collapse, show as drums or as a piano roll, or
+  hide) and
+  the piano roll, the notes rising out of a keyboard as it plays.
 
 **Getting around:**
 
 - **One-finger drag moves along the take,** even inside the selection.
 - **Pinch** (or the mouse wheel) zooms.
-- **Tap** moves the playhead; **tap twice** drops a flag there.
+- **Tap** moves the playhead; **tap twice** puts a note there.
 - **Drag the playhead's handle** ▾ in the ruler to move it silently; the take
   carries on from where you let go. **Drag the downbeat** — the yellow "1"
   just right of its line — to say where bar 1 starts.
@@ -380,7 +385,7 @@ says which.
 
 **The downbeat:**
 
-Once the take has a BPM, a *Downbeat* row stays in the toolbar. The downbeat
+Once the take has a BPM, a *Downbeat* row is in *Fine tune*. The downbeat
 is where bar 1 starts. **Set to playhead** puts it where the playhead is; **◂ ▸** move it 10 ms, or by one
 *Snap* step (a bar, beat or ⅛) with *Snap* on, as In and Out do; the time between them opens the editor on it. The ruler's "1"
 still drags, and **B** on a keyboard is Set to playhead. The grid follows as
@@ -422,14 +427,14 @@ and the editor bar takes the place of the toolbar.
 - **↺ 5 s**, or **J**, goes back five seconds, playing or not: to hear a
   bit again without finding it. The bar in both rooms has it too,
   and J in the Studio goes back five seconds of tape.
-- **⟲ Loop** makes ▶ repeat the selection instead. It's off each time you
+- **⟲ Repeat** makes ▶ repeat the selection instead. It's off each time you
   open a take.
 - **Practice speed** (½× 1× 2×) slows or speeds the take without changing its
-  pitch. It's off while Loop is on: the loop plays at 1×, exactly.
+  pitch. It's off while Repeat is on: the loop plays at 1×, exactly.
 - **Level** normalizes: it brings the selection (or the whole take) up, or
   down, so its loudest moment is 1.5 dB under full scale, and says by how
   much (*Level +6.2 dB*). On, the take plays here at that level and
-  **Share** sends it so (its key says *Share · 0:12 · +6.2 dB*): what you
+  More's **Share** sends it so (it says *Share · 0:12 · +6.2 dB*): what you
   hear is what you share. It follows the selection as it changes. A quiet
   take is brought up no more than 24 dB, so its hiss isn't shared at full
   volume, and played past the selection, anything louder is held under full
@@ -438,78 +443,74 @@ and the editor bar takes the place of the toolbar.
   device, and the DAW bundle is always as recorded.
 - The screen stays on while a take plays.
 
-**Flags:**
+**Notes:**
 
-- **⚑** drops a flag at the playhead.
-- **Tap a pin** to name or delete it. **Drag a pin** to move it.
-- **◂⚑ ⚑▸** jump between flags. Past the first or last, they go on to the
-  take before or after in the list, at its nearest flag (its last going
-  back, its first going on, its start without any), so they walk every flag
-  of a run of takes. The take opens stopped; ▶ plays on.
-- **⚑ N**, beside them, says how many flags the take has and opens them as
-  a list, in time order, with their names and times, as the Listening Room's
-  pane shows them. Tap one to play from it.
+- **✎** (or **F**) writes a note at the playhead, in the notes drawer
+  (§4.1). On the ruler a note is a pin; **tap a pin** to write in its
+  words, **drag a pin** to move it.
 - **⚠ Dropouts.** Where the capture lost audio while the take was recorded
   (the interface overran because the Pi fell behind, the ring's writer
   did, or the stream stalled and was restarted), the take has a ⚠ in the ruler and a dashed line through the
-  waveform. The header says *⚠ 2 dropouts*. They aren't flags: they can't
+  waveform. The header says *⚠ 2 dropouts*. They aren't notes: they can't
   be moved, named or deleted, and they don't count against the 512 a take
-  can carry. ⚑ N's list has them, in time, and a tap plays from a second
-  before one, to hear what was lost. A cut of the take keeps the ones
-  inside it. In the Listening Room the cassette wears a *⚠ 2 dropouts*
-  sticker, and the pane's line says so too.
+  can carry. A cut of the take keeps the ones inside it. In the Listening
+  Room the cassette wears a *⚠ 2 dropouts* sticker, and the pane's line
+  says so too.
 
 **Doing things with the selection:**
 
-- **Save as take** makes a new take of just the selection. It asks for a
+- **KEEP** makes a new take of just the selection. It asks for a
   name first, offering the one it would get anyway ("Tuesday jam ·
   0:42–1:10") already selected, so typing replaces it; Enter or **Save**
   saves it, Escape or **Cancel** doesn't. In the Listening Room it folds in
   with this take (§3.1).
-- **Share** sends it from your phone as an MP3 (the whole take, with no
-  selection), levelled when **Level** is on.
-- **GRAB** (when the Pi runs the tape) puts it on the Studio's cue lane, to
-  drop on a track (§4.1, §8.12).
-- **More** has the DAW bundle (WAV + MIDI in a zip), the downloads, and
-  delete.
+- **GRAB** puts it on the Studio's cue lane, to drop on a track (§4.1,
+  §8.12).
+- **More** has **Share** (**Download** on a computer), which sends it as an
+  MP3 (the whole take, with no selection), levelled when **Level** is on;
+  the DAW bundle (WAV + MIDI in a zip), the downloads, and delete.
 - **Undo** in the header steps back through anything you changed (§5).
 
 ### 4.1 Open
 
 A tap in the Listening Room plays a take; **Open** is where you dig into it. It is the
-take page above: the waveform, the selection, the tempo, the MIDI lanes, ↶
-and the take's menu on its name. Along the foot is the take's own bar (▶, ⟲ **Loop** for the
-selection, **IN** and **OUT**), not the Listening Room's. What is different:
+take page above: the waveform, the selection, the tempo, the MIDI, ↶
+and the take's menu on its name. Along the foot is the take's own bar (▶, ⟲ **Repeat** for the
+selection, **IN**, **OUT** and **✎**), not the Listening Room's. What is different:
 
 - **It opens where the bar was.** From **Open ›** on the bar (or the
   deck) it starts at the spot you were hearing, and plays on if it was
   playing. A browser that won't start sound without a tap on the page (an
   iPhone always) leaves it paused at that spot. From the bar's **✎** it also
   opens the notes drawer there (below).
-- **✎ Note** opens the **notes drawer** at the playhead, the same drawer as
-  in the Studio and the Listening Room (§3.1): type what you hear, Enter. The
-  **✎ Note** key at the head of the *Notes* list is always there; the bar's
-  own **✎** is folded away on a phone until the player opens. **◂✎** and
-  **✎▸** step from note to note, and **✎ 3** is the list.
-- **Notes,** one line each: its number, its time, its words (the only field;
-  they save when you leave it), **▶** to play from it, **GRAB** and **✕**. A
-  note's **GRAB** puts this note, up to the next note or eight bars (16
-  seconds with no tempo), onto the Studio's cue lane, and opens the Studio on it.
+- **The notes drawer** is docked beside the waveform from 860 px wide:
+  the same drawer as in the Studio and the Listening Room (§3.1), without
+  the take's name, ★ and tag, which the header has. Its **✎ at 0:09** over
+  the words follows the take until you start writing; Enter adds the note.
+  On a phone the notes are a list under the keys, and **✎** in the bar
+  brings the drawer up. **✎ is the only pencil**: on the bar, **F** on a
+  keyboard, and a tap on a pin puts the cursor in that note's words.
+- **Notes,** one line each: its number (its pin's), its time (a tap goes
+  there), its words (they save when you leave them), **▶** to play from
+  it, **GRAB** and **✕**, whose toast has **Undo**. A note's **GRAB** puts
+  this note, up to the next note or eight bars (16 seconds with no tempo),
+  onto the Studio's cue lane, and opens the Studio on it.
 - **A tag** sits beside ★: *+ tag*, or the tag's name. It opens *One tag*:
   choose one to give it, or press the lit one to take it off (the key then
   reads *+ tag* again). *No tag* is a separate button, shown only while the
   take has a tag. *Edit tags* changes the list, or *Make a tag* when there is
   none; *Done* closes the sheet. A take has one tag.
-- **KEEP and GRAB** sit side by side. **KEEP** makes a take of the selection
+- **GRAB, KEEP and More** sit under the waveform, GRAB the main key.
+  **KEEP** makes a take of the selection
   and says how long it is (*KEEP 41s*). **GRAB** puts the selection, or with
   none the last N bars before the playhead (twice N seconds without a tempo),
   onto the Studio's cue lane and opens the Studio on it; N starts at the tape's loop,
   and the key says what it will do (*GRAB 4 BARS*, *GRAB SELECTION*).
 - **No menu of places to send it.** KEEP and GRAB are the two verbs, and the
   page has nothing for a drawer of kept pieces: **More** has the DAW bundle,
-  the downloads and delete. **Download** (**Share** on a phone) sends the
-  whole take, or the selection, as an MP3.
-- **What it came from, and what came from it,** are lines under the notes,
+  the downloads and delete, and **Download** (**Share** on a phone), which
+  sends the whole take, or the selection, as an MP3.
+- **What it came from, and what came from it,** are lines under the keys,
   each one opening that take: **Made from** (the take this one was kept
   from), **From this take** (what was kept from it) and **Earlier bounces**
   (for a bounce: the tape's other bounces).
@@ -1613,7 +1614,7 @@ has no tip.
 | ☰ (header) | The menu: Settings, the rig, help mode, the guide and Releases. A dot on it means a release is waiting, or the rig needs a look |
 | The rig (menu) | Your devices and the cables between them, each cable a setting. Its lamp turns amber when a cable waits for a restart, or the tape is in a tap you're recording from |
 | Shelf · List | The takes on shelves, a month to a shelf, or in a list by month and day. This device remembers which |
-| ✎ Note | The notes drawer, at the playhead: write what you hear, and Enter puts it there |
+| ✎ | The notes drawer, at the playhead: write what you hear, and Enter puts it there. Key: F |
 | GRAB (a take) | Onto the Studio's cue lane, and the Studio opens on it: the take's selection, else the last bars before the playhead (as many as the tape's loop is long) |
 | GRAB (a note) | This note, to the next note or eight bars, onto the Studio's cue lane |
 | Tag (a take) | The take's one tag |
@@ -1694,14 +1695,10 @@ has no tip.
 | The source (the bar’s display) | What the bar plays: the tape, the take, or the live feed. A tap chooses another: the tape, the live feed, one of the last few takes, or the shelf |
 | Where it plays (the bar’s display) | Where what’s in the bar plays: the tape in the jam room, on a phone or both; a take or the feed on this device. A tap opens where the tape plays |
 | GRAB (the feed, in the bar) | GRAB the bars around where the feed is onto the Studio’s cue lane, and go there |
-| ⟲ Loop | Repeat the selection instead of playing straight through |
+| ⟲ Repeat | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
 | Out | End the selection at the playhead |
-| ⚑ | Drop a flag at the playhead |
-| ◂⚑ ⚑▸ | Jump to the previous or next flag. Past the first or last, on to the take before or after |
-| ⚑ N | The take's flags as a list, with their names and times. Tap one to play from it |
 | ↺ 5 s | Back five seconds, playing or not. Key: J |
-| Delete flag | Remove this flag |
 | ◂ ▸ beside In and Out | Move that end of the selection to the next snap line, or by 10 ms |
 | Downbeat ◂ ▸ | Move the downbeat by 10 ms, or by the Snap step with Snap on. It stays here once the take has a tempo |
 | Downbeat time | Tap to place the downbeat exactly, in the editor |
@@ -1720,16 +1717,14 @@ has no tip.
 | Snap | Make the selection, In, Out and the nudges land on bars, beats or 8ths |
 | Practice speed | Slow down or speed up without changing pitch |
 | Level | Normalize: play and share the selection with its loudest moment just under full scale |
-| Save as take | Make a new take of just the selection |
+| Fine tune ▸ | The downbeat, the snap, the practice speed and the level, folded away until you want them |
+| KEEP | Make a new take of just the selection |
 | Name (Save as take) | Name the new take, then Save. On the Listening Room’s shelf it folds in with this take. Cancel saves nothing |
-| Share | Send the selection from your phone as an MP3 |
-| More | The DAW bundle, the WAV and MIDI downloads, Split here, and delete |
+| Share (More) | The selection, or the whole take, as an MP3: shared from a phone, downloaded on a computer |
+| More | Share or download an MP3, the DAW bundle, the WAV and MIDI downloads, and delete |
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
-| MIDI (the take's menu) | Under 860 px: watch the take's MIDI rise out of a keyboard as it plays. Wider, it is beside the waveform |
-| Lane | Tap for this lane's menu: collapse, show as drums or notes, or hide |
-| Send to | Send the selection, or the whole take without one, to the tape or the clipboard |
-| Send to → Tape | Put the take, or the selection, on the loaded tape: by its tempo and downbeat if it has them, else at the playhead or as an empty tape's first loop. The line under it says which |
-| Send to → Clipboard | Put the take, or the selection, on the clipboard, to Drop or Insert on a tape |
+| MIDI ▸ | The take's MIDI: a lane per track, and the piano roll, its notes rising out of a keyboard as it plays |
+| Lane | Tap for this lane's menu: collapse, show as drums or as a piano roll, or hide |
 | The tape's name ▾ | The tape’s menu: your tapes (load one, or make a new one); rename or duplicate this one; share the mix, bounce it, export its stems or play its last bounce; record from this phone; and, last, delete it |
 | A tape in the list | Load this tape: the transport plays the loaded one |
 | New tape | Start an empty tape. Its first loop sets the tempo |

@@ -82,3 +82,13 @@
 .notes-out { color: var(--danger-ink); }
 .notes-none { margin: 0; font-size: 14px; color: var(--ink-dim); }
 .notes-none[hidden] { display: none; }
+
+/* Docked beside Open's waveform from 860 px (drawer.js `dock`): in the
+   page's grid, not over it, so no grabber, no Done and no shadow, and its
+   list scrolls inside it. */
+.notes-drawer.notes-docked {
+  position: static; width: auto; margin: 0; max-height: none; flex: 1 1 auto; min-height: 0;
+  border-bottom: 1px solid var(--line); border-radius: var(--radius); box-shadow: none;
+}
+.notes-docked :is(.notes-grabber, .notes-head) { display: none; }
+.notes-docked .notes-body { padding-top: 14px; }

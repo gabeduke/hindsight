@@ -16,10 +16,11 @@ test('the trash says how long ago, coarsely', () => {
 
 test('a skipped undo names the thing that changed', () => {
   assert.equal(undoSkipped('rename'), 'Not undone: the name has changed since');
-  assert.match(undoSkipped('flag moved'), /the flag has changed/);
+  assert.match(undoSkipped('flag moved'), /the note has changed/);
   assert.match(undoSkipped('selection'), /the selection has changed/);
   assert.match(undoSkipped('something new'), /the take has changed/);
-  assert.equal(undoPhrase('flag deleted'), 'deleting a flag');
+  assert.equal(undoPhrase('flag deleted'), 'taking a note out');
+  assert.equal(undoPhrase('flag added'), 'adding a note');
   assert.equal(undoPhrase('tempo'), 'the tempo change');
   assert.equal(undoPhrase('???'), 'the last change');
 });
