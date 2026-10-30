@@ -60,6 +60,26 @@ sideways scroll).
   PHONE, BOTH for the tape; THIS TABLET, THIS PHONE or THIS COMPUTER for a
   take or the feed; the output sheet). Each value has a short form and a
   long one, for the widest bar.
+- **A take's counter** (`lib/bar/take-source.js` `takeBar`, drawn by
+  `lib/objects/lcd.js` `takeCounter`) is BAR and beat by the take's own
+  tempo, counted from its own downbeat; with no tempo, and before the
+  downbeat, it is the take's time. Before the downbeat it once counted up
+  from below zero (*BAR -1.4*, on a take whose downbeat was set a few
+  seconds in).
+- **In the Studio, the tape** (`lib/bar/engine.js` `tapeUnlessPlaying`):
+  the bar is the tape's there whenever what it holds instead isn't
+  playing. A take or the feed left in it stopped (a take played in the
+  Listening Room and stopped there, or carried from the last page and not
+  playing) gives way to the tape as the Studio is shown, and a take stopped
+  or played to its end in the Studio gives way as it stops, so ▶ in the
+  Studio plays the tape. A take still playing when you change rooms stays,
+  and plays on (J2.2), until it stops. The feed, stopped in the Studio,
+  gives way the next time the Studio is shown, not as it stops. Gabe's ▶ on
+  his Mac once played a take left in the bar from the Listening Room, and
+  the tape, never moving, had no playhead (J1.17). **Decided on Gabe's
+  behalf on 2026-10-30, while he was away; his to overrule** (the other
+  way: a take stays in the Studio's bar until ⏏, as before, with ▶ playing
+  it).
 - **It folds by its grabber** (`lib/bar/fold.js`), a pill on a lip above its
   top edge: a tap toggles, a drag down folds, a drag up unfolds, and it
   slides by a FLIP on the lid spring (a transform, never a height a frame).

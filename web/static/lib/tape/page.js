@@ -42,7 +42,6 @@ import { pollGate } from './poll-gate.js';
 import { watchChanges } from './changes.js';
 import { lightTrackHead } from '../bar/press-note.js';
 import * as sel from './selection.js';
-import { pageCarry, studioVisit } from '../bar/carry.js';
 import { syncState } from '../bar/display.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
@@ -182,10 +181,6 @@ let stack = null;
 export function mountTapePage(ctx) {
   viewCtx = ctx;
   stack = ctx?.layers || layersOf(document);
-  // The Studio's bar is the tape's and never takes a take: this page neither
-  // reads the hand-off nor writes it, so the Listening Room, back, finds its
-  // take (lib/bar/carry.js).
-  studioVisit(pageCarry());
   takes = ctx?.takes || null; // before the bounce, which reads it
   initBouncing();
   initEditorBar();
@@ -270,7 +265,6 @@ export function mountTapePage(ctx) {
   return {
     ready,
     show() {
-      studioVisit(pageCarry());
       if (state.id) {
         poll(true);
         fetchClipboard();

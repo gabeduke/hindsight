@@ -185,6 +185,18 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     }
     eject();
   }
+  // In the Studio the bar is the tape's whenever nothing else in it plays
+  // (docs/architecture/bar.md, *In the Studio, the tape*): a take or the live
+  // feed left in it stopped -- played in the Listening Room and stopped
+  // there, carried from the last page, or a take stopped here -- gives way
+  // to the tape, so ▶ there plays the tape. One still playing stays and
+  // plays on (J2.2) until it stops. The Studio asks as it is shown; the
+  // hand-off, as it settles; a take, as it stops or ends.
+  function tapeUnlessPlaying() {
+    if (!tape || !isStudio(location.pathname)) return;
+    if (!bar.src || bar.src === tape || bar.src.playing()) return;
+    backToTape();
+  }
   function setSource(kind, { byHand = false } = {}) {
     if (byHand) { touches++; handoff.touch(); }
     if (kind === 'feed') {
@@ -241,7 +253,15 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     const src = takeSource(t, player, { onGone: () => { if (take && take.src === src) backToTape(); } });
     const audio = adoptAudio(player.audio);
     audio.addEventListener('play', takePlays);
-    take = { name: t.name, audio, src, off: () => audio.removeEventListener('play', takePlays) };
+    // Stopped, or played to its end, in the Studio: the tape takes the bar.
+    for (const ev of ['pause', 'ended']) audio.addEventListener(ev, tapeUnlessPlaying);
+    take = {
+      name: t.name, audio, src,
+      off: () => {
+        audio.removeEventListener('play', takePlays);
+        for (const ev of ['pause', 'ended']) audio.removeEventListener(ev, tapeUnlessPlaying);
+      },
+    };
     bar.load(take.src);
     if (old && old.audio !== audio) releaseAudio(old.audio);
     old?.off();
@@ -325,7 +345,9 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     if (take && !take.src.playing()) take.src.play();
     bar.kick();
   }
-  handoff.start();
+  // A take carried from the last page that isn't playing here (it was
+  // paused, or the browser held its sound back) leaves a Studio the tape's.
+  handoff.start().then(() => tapeUnlessPlaying());
   const api = {
     ready,
     /** frameNow: the take in the bar and its frame at this moment ({take, frame, sr, playing, at}), or null. ✎ takes it before the page changes. */
@@ -368,6 +390,12 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     setFind: (fn) => { find = fn; if (fn) findWait?.(); },
     setOnNote: (fn) => { onNote = fn; },
     backToTape,
+    /**
+     * tapeUnlessPlaying puts the tape back in the bar, in the Studio, when
+     * what the bar holds instead (a take, the feed) isn't playing: the
+     * Studio's view says so each time it is shown.
+     */
+    tapeUnlessPlaying,
     setSource,
     onChange: (fn) => bar.onChange(fn),
     snapshot: () => bar.snapshot(),
