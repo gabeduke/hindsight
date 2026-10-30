@@ -40,6 +40,10 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Open, needs Gabe at the rig
 
+- **Decided for Gabe while he was away, his to overrule** (2026-10-30): in
+  the Studio a take or the feed that isn't playing gives the bar back to
+  the tape, so ▶ there plays the tape (`docs/architecture/bar.md`, *In the
+  Studio, the tape*; J1.17).
 - The instrument's DRIVE make-up by ear with the SMK-37 (about 10 dB
   quieter on a loud loop at full drive). At the rig on 2026-10-29 the
   encoders reached the tape (DRIVE 0 to 1 as K3 turned) but Gabe heard no
