@@ -1,8 +1,8 @@
 # Reaching back: Catch and Keep as one move
 
 Not agreed yet: the decisions, for Gabe. From the walkthrough of
-2026-10-30 ([`walkthrough.md`](walkthrough.md), *Reaching back*), his
-words:
+2026-10-30 ([`walkthrough.md`](walkthrough.md), *Reaching back*), and his
+notes on the ecosystem review's worksheet:
 
 - Catch: *"I don't really know what I'm catching. Does it mean some kind
   of loop?"* He catches two ways: a whole jam he has been noodling on for
@@ -36,14 +36,14 @@ surface's KEEP, CATCH, GRAB and DROP through `Verbs`
 
 | Where | Today | Becomes |
 |---|---|---|
-| The bar: Catch (`#catch-pass`) | The last pass onto every armed track; until a pass is done it waits (*after one pass*) | A tap takes the default span (D2): the last pass while the loop plays, as now; otherwise *since you started*, where today it waits. It still waits for the alignment (SYNC amber) |
-| The bar: Catch's ▾ (`#catch-menu`) | The last pass, or the last 1, 2 or 4 bars | Still a menu ([0047](../decisions/0047-the-bars-keys-live-in-its-zones.md)): the passes, then *Choose IN and OUT…*, which opens the reach-back. The bars go |
+| The bar: Catch (`#catch-pass`) | The last pass onto every armed track; until a pass is done it waits (*after one pass*) | A tap takes the default span (D2): the last pass while the loop plays, as now; otherwise *since you started*, where today it waits. While SYNC is red it still waits (D6) |
+| The bar: Catch's ▾ (`#catch-more`, its menu `#catch-menu`) | The last pass, or the last 1, 2 or 4 bars | Still a menu ([0047](../decisions/0047-the-bars-keys-live-in-its-zones.md)): the passes, then *Choose IN and OUT…*, which opens the reach-back. The bars go |
 | The feed: KEEP (`#studio-keep`) and its ▾ (`#studio-keep-more`, the lengths `#dur-seg`) | The last 30 s, 2 m, 7 m or all; the pick kept in `localStorage` | A tap keeps the default span. The ▾'s lengths and the kept pick give way to *Choose IN and OUT…* |
 | The feed: GRAB (`buffer-grab-tpl`) and its ▾ | The last 1, 2, 4 or 8 bars, and the input | A tap grabs the default span. The ▾'s bars give way to *Choose IN and OUT…*; its inputs stay |
 | The ribbon: hold and drag (`#rb-sel`) | A span on the log axis: GRAB or Keep, *"select generously and trim on the take page"* | The hold opens the reach-back with IN where you held; the selection bar goes |
 | A note on the ribbon: its sheet | *Save from here to now*, Delete | *Save from here* goes: notes are marks in the reach-back, and a tap on one puts IN there. Delete stays |
 | The record track's inspector | *Catch the last 1, 2, 4 bars* (`#catch-bars`), the passes (`#passes`) | Both go: the passes are in Catch's menu and the reach-back. Input, Layer / Replace and Overdub stay |
-| The bar with the feed in it: GRAB (`#np-feed-grab`) | The last bars onto the cue lane, then the Studio | A tap: the default span; the Studio opens on the reach-back |
+| The bar with the feed in it: GRAB (`#np-feed-grab`) | The last 8 s onto the cue lane, then the Studio | A tap: the default span; the Studio opens on the reach-back |
 | A cue clip's drawer: KEEP (`#buffer-keep`); its input chips | The clip, as a take; a chip GRABs the clip's span again from that input (`again`) | Unchanged: they act on a clip, not the feed |
 | The computer's keys | C catches the last pass, G grabs, K keeps the feed (the cue clip's, while its drawer is open) | The same keys on the default span, or on the reach-back's while it is open; [ ] and ⇧[ ⇧] step IN and OUT, as in a cue clip's drawer; B opens it (free in the Studio; Open uses B, so step 7 picks another there) |
 | The phone: the mini player's Catch and ▾ | As the bar's | As the bar's; the reach-back is a sheet (D8) |
@@ -54,7 +54,7 @@ surface's KEEP, CATCH, GRAB and DROP through `Verbs`
 | A controller in the browser (Web MIDI) | The page's keys (`hindsight:verb`) | As the computer's keys |
 | Play mode's strip: CATCH, GRAB, DROP, KEEP | As the keys | Its flag is being retired in its own session; if the strip stays, its pads are the keys' |
 | An empty tape: *Tap where the loop starts* | Two taps on the downbeats make the first loop | Stays, a gesture in time (Q4) |
-| Open, a take's page: a selection's KEEP and GRAB; the notes drawer's GRAB | A take's span. GRAB takes the selection, or the last N bars, N the feed's pick ([0014](../decisions/0014-a-takes-grab-is-the-feeds-grab.md)) | 0014 holds: N is the loop's bars, where the feed's pick started, and the shared pick (`lib/rooms/grab.js`) goes. The editor given a take is step 7 |
+| Open, a take's page: a selection's KEEP and GRAB; the notes drawer's GRAB | A take's span. GRAB takes the selection, or the last N bars, N the feed's pick ([0014](../decisions/0014-a-takes-grab-is-the-feeds-grab.md)) | The shared pick (`lib/rooms/grab.js`) goes, and N is the loop's bars, where it started. That keeps 0014 while the loop plays (the feed's GRAB takes a pass); with no loop the feed's takes *since you started*, which a take has no answer to, so step 7 settles it |
 
 ## The decisions
 
@@ -78,8 +78,8 @@ and where they are; what changes is that they all take the same span.
 
 **D2. The default span, one rule for every bare press.**
 
-- The loop playing, and played through once since it started: **the last
-  pass.**
+- The loop playing: **the last pass.** Before its first pass is done, a
+  bare press says *after one pass*, as Catch does today.
 - Otherwise (the loop off, or the tape stopped): **since you started**:
   from where the sound began after the last 10 s of quiet (or the oldest
   audio in the feed) to now. Quiet is the envelope under its signal gate
@@ -108,8 +108,9 @@ bare KEEP keeps the jam, not a length.
 - They snap to the passes when a loop is set, then to bars, then to the
   strongest attack near the mark (as a free loop's tap snaps). ⌥, or the
   snap's menu set to Off, frees them.
-- ▶ Audition loops the span on this device, as a cue clip's drawer does;
-  never through the Pi.
+- ▶ Audition loops the span on this device, as a cue clip's drawer does
+  (`lib/buffer/audition.js`); never through the Pi. It needs the span's
+  audio from the ring, a read that doesn't exist yet (step 1).
 - Drag it by its grip onto a lane, as a cue clip is dragged, and it lands
   where you let go.
 
@@ -132,23 +133,27 @@ As a component, in `components.md`'s terms (#230, open), it `needs:
 - `feed` gives it the window's levels (the linear read, step 1), the notes
   and the default span;
 - `transport` gives it the passes and the alignment that put the tape's
-  bars on the feed, and plays the audition on this device, as the bar
-  plays a take or the feed (a component makes no audio of its own);
+  bars on the feed;
 - `tape` takes the sends `catch(span)` and `grab(span)`, and gives it the
-  armed tracks, their inputs and Layer / Replace;
+  armed tracks and their inputs;
 - `takes` takes `keep(span)`.
 
 The span is the component's own state, unless Q5 makes it the Pi's.
+Layer / Replace is this device's (`tape.mode`, `lib/tape/page.js`), and
+a pad's is `controls.json`'s. The audition is the drawer's own audio
+today, which #230 doesn't allow a component: the model that plays it on
+this device is #230's to name.
 
 **D5. The words on screen.**
 
 - The keys keep their words: **Catch**, **GRAB**, **KEEP**, and their
-  letters, C, G and K. Each says the one span: *Catch · the last pass →
-  2*, *GRAB · the last pass*, *KEEP 6:12 · since you started*.
+  letters, C, G and K. Each says the one span: *Catch · last pass → 2*,
+  *GRAB 4 BARS · the last pass*, *KEEP 6:12 · since you started*.
 - The ▾'s row that opens it: *Choose IN and OUT…*.
 - The drawer is **Feed**, as the guide calls the ring. Its line says the
-  span and the input: *the last pass · 4 bars · 10.0 s*, *since you
-  started · 6:12 · from main*.
+  span: *the last pass · 4 bars · 10.0 s · 96 BPM*, *since you started ·
+  6:12*. The input is its chips; on a phone, where the zoom takes their
+  row, the line ends *· from main*.
 - The ends are **IN** and **OUT**, as on a cue clip and a take's page.
 - The sends: **Catch onto track 2** (*bars 1–4 · layered*), where a cue
   clip's drawer has DROP, then **GRAB** and **KEEP**. The drawer's line
@@ -168,15 +173,18 @@ tape time, from the transport's log.
   running on past the loop's end, as DROP lays a part longer than the
   loop; the key says *runs past the loop*. Q3.
 - A span the tape didn't play over (it was stopped): at the playhead's
-  bar, as DROP lands, and the key says where.
+  bar, as DROP lands, and the key says where. With no tape time to map
+  it to, it needs no alignment, so it skips the refusal a catch has while
+  SYNC is red (`ErrNotLined`, `Engine.Catch`).
 - On the Pi: `tape.CatchRequest` takes a ring span, `ring_from` and
   `ring_to`, as GRAB's request does. KEEP (`/api/trigger?from=&to=`) and
   GRAB (`ring_from`, `ring_to`) already take one.
 
 **D7. The keyboard and the controllers.** No ends on the keyboard: its
 pads and REC press the default span (D2), so `keepSeconds` and `grabBars`
-go and `Verbs.Span` takes their place. The banner names what it took:
-*CAUGHT PASS → 2*, *KEPT 6:12*, *GRABBED 4 BARS*. REC is KEEP today;
+go and `Verbs.Span` takes their place. The banner names what it took,
+in the ASCII its screen prints (`cleanText`): *CAUGHT PASS ON T2*,
+*KEPT 6:12*, *GRABBED 4 BARS*. REC is KEEP today;
 K3 (`docs/flows.md`) plans it as a punch-in, and if it becomes one it
 leaves this list. The encoders moving IN and OUT wait for the
 instrument's shape (`the-ecosystem.md`, *To settle*). Q5 asks whether a
@@ -207,10 +215,11 @@ the same three sends.
    becomes the whole feed: should the gate follow the room's floor?
 3. A catch longer than a pass: one long part past the loop (recommended),
    each pass layered on the loop, or refused?
-4. A DROP onto an empty tape with no tempo already becomes the first loop
-   (`internal/tape/engine.go`, `SendFirstLoop`; `tempo.md`). Should a
-   CATCH from the reach-back do the same, its length setting the tempo?
-   And then does *Tap where the loop starts* go?
+4. A DROP onto an empty tape with no tempo already becomes the first loop,
+   up to a minute long (`internal/tape/engine.go`, `SendFirstLoop`,
+   `firstLoopMaxSeconds`; `tempo.md`). Should a CATCH from the reach-back
+   do the same, its length setting the tempo? And then does *Tap where
+   the loop starts* go? A longer span lands straight, with no tempo.
 5. Should the span be the Pi's while the reach-back is open, as the
    armed track is, so the keyboard's CATCH sends what the tablet set?
    (Recommended later, not first: it is shared state with a push.)
@@ -227,23 +236,26 @@ steps that change the app (it ships with the binary).
    `pass` or `since`) for the `feed` model; `CatchRequest` takes
    `ring_from` and `ring_to` (D6); a linear read of the feed,
    `/api/envelope?from=&to=&buckets=`, with its passes, bar lines and
-   notes as ring frames. Go tests; no UI. Releases.
+   notes as ring frames; and the span's audio, for the audition (D3).
+   Go tests; no UI. Releases.
 2. **The span editor, taken out of the cue clip's drawer** (D4), and the
-   drawer's phone sheet moved onto `createSheet` (D8). Nothing a person
-   would notice changes; C1 and J1.6 pass as they are.
-3. **The reach-back on the tablet**: the feed as the editor's second
-   source, docked above the bar; *Choose IN and OUT…* in the three ▾, the
-   ribbon's hold and B open it; the inspector's bars and passes go. J1.1,
-   J1.3, J1.4 and J1.6 lose their pickers, so their stories in
-   `docs/flows.md` change; a new flow: drag IN back to where the jam
-   began and KEEP it, and catch the pass before the last onto track 2.
-   The phone's menus lose their lengths too, but offer *Choose IN and
-   OUT…* only from step 5; J4.4 still opens Catch's menu and closes it
-   with Back.
-4. **The bare presses take the default span**: the bar's keys, C G K,
+   drawer's phone sheet moved onto `createSheet` (D8). On the tablet
+   nothing changes, and C1 and J1.6 pass as they are. On a phone the
+   sheet now moves as the player does (detents, a flick, the lid spring)
+   where it grew by `data-height` and lifted by a hold: a new phone flow
+   for the cue clip's sheet.
+3. **The bare presses take the default span**: the bar's keys, C G K,
    the controllers' pads and the SMK-37's REC, with the ribbon lit and
-   the banner's words. A K flow for KEEP on a pad.
-5. **The phone**: the sheet (D8); J4.4 grows.
+   the banner's words. A K flow for KEEP from REC. The pickers are still
+   there, so nothing is lost in between.
+4. **The reach-back on the tablet**: the feed as the editor's second
+   source, docked above the bar; *Choose IN and OUT…* in the three ▾, the
+   ribbon's hold and B open it; the pickers and the inspector's bars and
+   passes go. J1.1, J1.3, J1.4 and J1.6 lose their pickers, so their
+   stories in `docs/flows.md` change; a new flow: drag IN back to where
+   the jam began and KEEP it, and catch the pass before the last onto
+   track 2. The phone keeps its pickers until step 5, so J4.4 holds.
+5. **The phone**: the sheet (D8), and its pickers go; J4.4 grows.
 6. **Capture**, the tape off: KEEP with the reach-back; its lengths go.
    J2.11.
 7. **Later, its own spec**: the editor given a take (Open's selection,
@@ -252,17 +264,19 @@ steps that change the app (it ships with the binary).
 
 Interfaces it will touch (0022), each in its step's pull request:
 
-- the Pi: `internal/api` `Verbs` (`Span`), `controls.go` (`keepSeconds`,
+- the Pi: `internal/api` `Verbs` (`Span`, and `CatchArmed`, `GrabArmed`
+  and `Keep`, which take a span), `controls.go` (`keepSeconds`,
   `grabBars`), `banner.go` (the words), `/api/status` (`span`),
-  `/api/envelope` (`from`, `to`), `tape.CatchRequest`;
+  `/api/envelope` (`from`, `to`), the span's audio, `tape.CatchRequest`;
 - the editor: `lib/buffer/` (the drawer becomes the span editor, and
   `wireSheet` goes), `lib/buffer/keys.js` and `lib/play/controls.js`
   (B);
 - Catch: `lib/tape/page.js` (`mountCatchMenu`, `#catch-bars`,
   `#passes`), `lib/tape/catch.js` (`catchState`);
 - KEEP and GRAB: `lib/rooms/studio.js` (KEEP's ▾), `lib/rooms/grab.js`
-  (the shared pick), `lib/bar/take-keys.js` and `lib/bar/feed-source.js`
-  (`#np-feed-grab`), the `hindsight:keeps` event;
+  (the shared pick), `lib/bar/take-keys.js`, `lib/bar/feed-source.js`
+  and `lib/bar/engine.js` (`onGrabFeed`: `#np-feed-grab`), the
+  `hindsight:keeps` event;
 - the ribbon, `lib/objects/ribbon.js` (its selection), and Capture,
   `app.js`.
 

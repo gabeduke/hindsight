@@ -310,7 +310,7 @@ const phone = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile:
   const m = {
     sr: SR, levels: fd.levels, levelsSeconds: fd.seconds, view, lines,
     span: { in: now - JAM, out: now }, quietBefore: now - JAM - 0.3,
-    meta: 'since you started · 6:12 · from main', snap: 'Attack', zoom: 'Fit',
+    meta: 'since you started · 6:12', snap: 'Attack', zoom: 'Fit',
     catchWord: 'Catch onto track 2', catchSub: 'at bar 1 · runs past the loop',
     footLabel: 'Out', footChips: ['on NOW'], footLit: 'on NOW',
     why: 'since you started', grabLen: '6:12', keepLen: '6:12', barSub: '6:12 → 2',
@@ -318,7 +318,7 @@ const phone = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile:
     ribbon: { left: ribbonAt(JAM), right: 100, label: '6:12' },
   };
   await shoot(browser, 'tablet-jam', tablet, m);
-  await shoot(browser, 'phone-jam', phone, { ...m, phone: true, meta: 'since you started · 6:12 · main', catchWord: 'Catch onto 2' });
+  await shoot(browser, 'phone-jam', phone, { ...m, phone: true, meta: 'since you started · 6:12 · from main', catchWord: 'Catch onto 2' });
   await call('POST', `/api/tapes/transport?${q}`, { action: 'play' });
 }
 
