@@ -97,8 +97,9 @@ yet agreed, and is on the `claude/components-spec` branch.
   `take` model (the peaks, the notes) and the `tape` model (the sections).
 - ***Use for Verse* is the tape model's `paste`** (`/api/tapes/drop`), with
   `at` the section's start. It doesn't use `send`, which places a take by
-  its own tempo and downbeat: the window is already on the take's bars, so
-  a span and a place are all it needs.
+  its own tempo and downbeat. The take is at the tape's tempo (a new tape
+  made from it, or the *From a take…* menu's filter), and the window is
+  already on its bars, so a span and a place are all it needs.
 - **The workspaces:**
   - **Build:** laying out a song, a section's settings, the picker;
   - **Jam:** *Play it*, and the cues.
@@ -170,9 +171,11 @@ yet agreed, and is on the `claude/components-spec` branch.
    the section (the loop follows), arm a track, play over it, and Catch the
    best pass. The inspector's *Fill it* row has two keys:
    - **Play it** loops the section and plays it after a bar of count-in.
-   - **From a take…** opens a menu of the ten newest takes that have a
-     tempo (the `takes` model). The take chosen opens in the picker
-     (decision 7), on this section.
+   - **From a take…** opens a menu of the ten newest takes at the tape's
+     tempo: within 0.1%, by `SameTempo`, as `send` checks it (the `takes`
+     model). A take at another tempo wouldn't fill the section's bars, so
+     it isn't offered. The take chosen opens in the picker (decision 7),
+     on this section.
 5. **Per-section mutes on Hindsight's tracks.**
    - **Where they apply:** the renderer silences a section's `muted`
      tracks inside its span, with the 3 ms declick a cut's edge gets.
@@ -221,9 +224,13 @@ yet agreed, and is on the `claude/components-spec` branch.
      device. So:
      - `midi.Out` gains `SendTo(name, at, msg)`;
      - its match list takes the device named for sequences, beside the
-       clock's followers;
+       clock's followers. That device's port is for programs only:
+       `Send`, `SendNow` and `Devices()` skip it, so it hears no clock,
+       Start or Stop, and isn't listed as a follower;
      - `ClockOut` gains an optional part for it, as `ClockFollower` is
-       one.
+       one;
+     - `clockOut()` (`cmd/hindsight/main.go`) builds the `Out` when
+       `TAPE_PROGRAM_OUT` is set, not only with `TAPE_CLOCK=lead`.
    - **Who hears it:** the one device the Rig names for sequences, never
      every follower of the clock (the Bento and the Sidekick don't want it).
      Until the rig roles exist, that is a setting, `TAPE_PROGRAM_OUT`: a
@@ -412,7 +419,8 @@ Two things come first:
    `ClockOut`'s part for it; the send in `clock.go`, after a locate and at
    the wrap; `TAPE_PROGRAM_OUT` and `TAPE_PROGRAM_CHANNEL`. Go tests with
    the clock's fake out: only the named device hears it, on its channel,
-   on the beat before.
+   on the beat before; that device hears no clock; and the `Out` is built
+   without `lead`.
 7. **A jam into a song.** *Make it a song…*, *From a take…* and the
    picker. Flow J2.12, *make last night's jam a song*.
 
