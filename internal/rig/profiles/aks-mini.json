@@ -63,6 +63,10 @@
       {
         "text": "Its only audio output is a headphone jack: set its level so the interface input doesn't clip.",
         "status": "unconfirmed"
+      },
+      {
+        "text": "Silent keys with the metronome still audible: the oscillators' signal level and the filter cutoff were down. Turning both up gives sound.",
+        "status": "owner"
       }
     ],
     "unknowns": [
