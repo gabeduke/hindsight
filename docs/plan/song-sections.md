@@ -62,6 +62,44 @@ What is missing:
 - **Anything per section**: mutes, a cue, a message to the MPC.
 - **A take as the source** of a section's audio.
 
+## In the ecosystem's terms
+
+This uses the models and components of `the-ecosystem.md`, *The shape*.
+The component contract (`docs/plan/components.md`) is still being written,
+so the names below may move to fit it.
+
+- **The `tape` model owns sections.** They are already its state
+  (`State.Sections`). The `tape` model (`lib/models/tape.js`, not built;
+  `lib/models/takes.js` is the shape) holds:
+  - in its state, `sections`, each with `muted`, `cue` and `program`;
+  - as its commands, adding, changing and removing a section, Duplicate
+    section, laying out a template and a section's bars;
+  - the templates, read once (`GET /api/tapes/templates`).
+
+  Every change reaches every device through its `onChange`, from the
+  tape's revision (`push.md`). There is no `sections` model of its own.
+- **The Tape component** ("tracks, parts, sections, the loop") draws them:
+  - the strip;
+  - the section inspector and its *Heard in it*;
+  - the hatching on the lanes;
+  - the cue's flag over the strip. The flag's countdown reads the
+    `transport` model's position on the shared ticker.
+- **Others:**
+  - **Transport** plays *Play it* once the tape's command has set the
+    loop.
+  - **Rig** decides which devices hear the Program Change.
+  - **Tempo** must have set a tempo before a template can be laid out.
+- **The picker is the Take component**, docked in the Tape's workspace. It
+  is one take's window, a section long, read from the `take` model, and
+  *Use for Verse* is the protocol's **DROP** onto a track.
+- **Where it is used, among the tablet's workspaces:**
+  - **Build:** laying out a song, a section's settings, the picker;
+  - **Jam:** *Play it*, and the cues while playing.
+- **The engine** keeps it all on the Pi. The renderer applies the mutes,
+  and the clock's scheduler sends the Program Change. The SMK-37's screen
+  can show the section and its cue later, drawn by the Pi as it draws the
+  screen now.
+
 ## Decisions
 
 1. **A section** stays a named span of bars on the tape. It gains three
