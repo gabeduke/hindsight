@@ -731,9 +731,8 @@ func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
 		t.Fatal("no tape loaded")
 	}
 
-	req, err := a.catchRequest(tp)
-	if err != nil || req.Replace || req.Track != 1 || req.Pass != 1 {
-		t.Fatalf("layer by default: %+v %v", req, err)
+	if pairs := a.Verbs().armedPairs(tp); a.catchReplaces() || len(pairs) != 1 || pairs[0].Track != 1 {
+		t.Fatalf("layer by default, onto track 1: %v %+v", a.catchReplaces(), pairs)
 	}
 	rec := httptest.NewRecorder()
 	r := mux.NewRouter()
@@ -742,8 +741,8 @@ func TestTheControllersCatchKeepsThePagesGuards(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"catch":"replace"`) {
 		t.Fatalf("PUT catch: %d %s", rec.Code, rec.Body)
 	}
-	if req, _ := a.catchRequest(tp); !req.Replace {
-		t.Fatalf("replace mode not honoured: %+v", req)
+	if !a.catchReplaces() {
+		t.Fatal("replace mode not honoured")
 	}
 
 	if code := putOutput(t, srv, "phone"); code != http.StatusOK {

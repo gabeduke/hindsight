@@ -410,16 +410,9 @@ func (a *API) handleTrigger(w http.ResponseWriter, r *http.Request) {
 		seconds = f
 	}
 
-	name, err := a.saver.Save(seconds)
-	switch {
-	case errors.Is(err, audio.ErrLowDisk):
-		writeErr(w, http.StatusInsufficientStorage, err.Error())
-		return
-	case errors.Is(err, audio.ErrNoAudio):
-		writeErr(w, http.StatusConflict, err.Error())
-		return
-	case err != nil:
-		writeErr(w, http.StatusInternalServerError, err.Error())
+	name, err := a.Verbs().Keep(seconds)
+	if err != nil {
+		verbErr(w, err)
 		return
 	}
 
@@ -449,16 +442,9 @@ func (a *API) handleTriggerRange(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	got, err := a.saver.SaveRange(from, to)
-	switch {
-	case errors.Is(err, audio.ErrLowDisk):
-		writeErr(w, http.StatusInsufficientStorage, err.Error())
-		return
-	case errors.Is(err, audio.ErrNoAudio), errors.Is(err, audio.ErrRangeGone):
-		writeErr(w, http.StatusConflict, err.Error())
-		return
-	case err != nil:
-		writeErr(w, http.StatusInternalServerError, err.Error())
+	got, err := a.Verbs().KeepRange(from, to)
+	if err != nil {
+		verbErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{

@@ -634,26 +634,9 @@ func (a *API) handleTapeTransport(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &act) {
 		return
 	}
-	switch act.Kind {
-	case "play", "stop", "locate":
-	default:
-		writeErr(w, http.StatusBadRequest, "action is play, stop or locate")
-		return
-	}
-	switch act.Quantum {
-	case "", tape.QuantumNow, tape.QuantumBeat, tape.QuantumBar, tape.QuantumLoop:
-	default:
-		writeErr(w, http.StatusBadRequest, "quantum is now, beat, bar or loop")
-		return
-	}
-	if act.Kind == "play" && !a.tape.HasOutput() {
-		writeErr(w, http.StatusConflict, "nothing plays the tape: this build has no audio output")
-		return
-	}
-	// ▶ with a track armed counts in and records; ■ during a punch keeps it.
-	kept, err := a.tape.Transport(id, act)
+	kept, err := a.Verbs().Transport(id, act)
 	if err != nil {
-		tapeErr(w, err)
+		verbErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "queued", "kept": kept})
@@ -742,9 +725,9 @@ func (a *API) handleTapeCatch(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	res, err := a.tape.CatchPairs(r.URL.Query().Get("id"), req)
+	res, err := a.Verbs().Catch(r.URL.Query().Get("id"), req)
 	if err != nil {
-		tapeErr(w, err)
+		verbErr(w, err)
 		return
 	}
 	// clip is the first, as before; clips and tracks are everything a
