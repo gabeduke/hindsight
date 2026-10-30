@@ -266,7 +266,7 @@ A take keeps its form on the Pi; the portable form is the same idea:
 `{id, object, meta}`, with the meta as `.meta.json` has it, plus `by`, the
 device it was kept on, and its own version for its meta edits. Most
 already go one field at a time with a before and an after (`audio.Op`);
-the star and the colour tag don't (`DiffMeta`: *"Star, created, source
+of those a phone edits, the star and the colour tag don't (`DiffMeta`: *"Star, created, source
 and version are not operations"*, and `Tag` isn't one either), so each
 gets an operation of its own in slice 1, and so becomes undoable. A
 take's `.meta.json` `version` stays its schema's. Takes and tapes share
