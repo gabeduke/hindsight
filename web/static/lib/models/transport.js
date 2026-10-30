@@ -61,10 +61,11 @@ export const SETTLE_MS = 150;
  *   load(id)      the tape loaded on the Pi: starts asking about it
  *   ready, id     a tape is in; its id
  *   snapshot()    {v, id, tape, live}: the tape and its live state as last
- *                 answered (or a press or a locate shown ahead of the
- *                 answer), frozen, the same object until one of them moves;
- *                 v counts the moves. What runs on between answers
- *                 (playing(), pos()) is read on the ticker, not from here
+ *                 answered (a locate shown ahead of the answer), frozen,
+ *                 the same object until one of them moves; v counts the
+ *                 moves. A ▶ or ■ pressed and not yet answered is not in
+ *                 it: that, and what runs on between answers, is
+ *                 playing() and pos(), read on the ticker
  *   tape          the tape as last answered ({name, length, loop, grid, …}), or null
  *   live          its live state ({playing, heard, count_in, output_mode, …}), or null
  *   sampleRate, length

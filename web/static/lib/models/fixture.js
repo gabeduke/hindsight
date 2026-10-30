@@ -6,8 +6,8 @@
 // can refuse one, so a component's refused press is checked too. It names no
 // route and opens nothing: it is protocol.js's three methods over plain data.
 //
-// Not shipped to a phone: nothing a page loads imports it, and it stays out
-// of sw.js's SHELL.
+// It is in a release like everything under web/static, but nothing a page
+// loads imports it, and it stays out of sw.js's SHELL: no phone caches it.
 
 import { Refusal } from './protocol.js';
 import { createTakes } from './takes.js';
@@ -94,9 +94,9 @@ function transportEnv(fx) {
     send: async (_url, o = {}) => {
       if (!o.method) return answer(true, { loaded: fx.peek('tape')?.tape?.id ?? null });
       const body = JSON.parse(o.body || '{}');
-      const [noun, name, args] = body.action
-        ? ['transport', body.action, body.pos == null ? {} : { pos: body.pos }]
-        : ['tape', 'setLoop', body.loop ?? {}];
+      const [noun, name, args] = body.action ? ['transport', body.action, body.pos == null ? {} : { pos: body.pos }]
+        : body.loop ? ['tape', 'setLoop', body.loop]
+          : ['tape', 'patch', body];
       try {
         return answer(true, await fx.verb(noun, name, args));
       } catch (e) {
@@ -112,11 +112,16 @@ const MAKERS = {
   takes(fx) {
     const takes = createTakes({ protocol: fx });
     const sock = fx.watch({ onTakes: (m) => takes.heard(m) });
-    return { model: takes, ready: takes.refresh().catch(() => null), stop: () => sock.close() };
+    // A fixture with no takes is a mistake in the check: ready says so.
+    return { model: takes, ready: takes.refresh(), stop: () => sock.close() };
   },
   transport(fx, { onError = null } = {}) {
+    const state = fx.peek('tape');
+    // The transport follows the Pi to whichever tape is loaded: a fixture
+    // of one that isn't would have it ask for ever.
+    if (state && !state.loaded) throw new TypeError('a tape fixture for the transport is the loaded tape’s: loaded: true');
     const transport = createTransport({ ...transportEnv(fx), onError });
-    const id = fx.peek('tape')?.tape?.id;
+    const id = state?.tape?.id;
     if (!id) return { model: transport, ready: Promise.resolve(), stop: () => transport.destroy() };
     const ready = new Promise((resolve) => {
       const off = transport.onChange(() => { if (transport.tape) { off(); resolve(); } });

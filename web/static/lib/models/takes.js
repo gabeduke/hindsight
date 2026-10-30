@@ -93,7 +93,7 @@ export function createTakes(env = {}) {
     list = next;
     etag = tag;
     at = asked;
-    if (snap.list !== list || snap.v !== etag) snap = Object.freeze({ v: etag, list });
+    if (changed) snap = Object.freeze({ v: etag, list });
     if (changed) for (const fn of [...listeners]) { try { fn(list); } catch (e) { console.error(e); } }
     return list;
   }

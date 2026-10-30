@@ -360,9 +360,9 @@ proof-of-concept shortcuts don't come back
 - **Components** (`docs/architecture/components.md`): a module under
   `lib/components/` draws inside the root it is given, from its models'
   snapshots, and reaches the page only through `cx` (`mountComponent`,
-  `lib/components/mount.js`): no fetch or route, no `document.` look-ups,
-  no window or document listener but `cx.on`, no `setInterval`, no
-  `hindsight:` event, no id but `cx.id()`'s. Its stylesheet starts every
+  `lib/components/mount.js`): no fetch or route; the window and the
+  document only as `cx.on`'s target (no look-up, no listener of its own);
+  no `setInterval`, no `hindsight:` event, no id but `cx.id()`'s. Its stylesheet starts every
   selector at its root, and no other reaches inside it. Guardrail 15 has
   no list of exceptions: a module moves in once it keeps every rule. Each
   component has a harness check: `node scripts/components.mjs <id>`.

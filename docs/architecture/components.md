@@ -21,20 +21,21 @@ export default {
 ```
 
 A surface mounts it with `mountComponent(def, root, models, ctx, props)`
-(`lib/components/mount.js`): `models` the page's, by noun; `ctx` a shell
-view's (`lib/shell/view.js`); `props` the surface's callbacks and values
-for this one (the menu a key opens, the take it shows). It answers
-`{ show(), hide(), unmount(), shown }`. It refuses a component that lacks
-one of the five, a model in `needs` without `snapshot()` and `onChange()`,
-and a root that already has one mounted.
+(`lib/components/mount.js`): `models` the page's, by noun, of which it is
+handed those in `needs` and no others; `ctx` a shell view's
+(`lib/shell/view.js`); `props` the surface's callbacks and values for this
+one (the menu a key opens, the take it shows). It answers `{ show(),
+hide(), unmount(), shown }`. It refuses a component that lacks one of the
+five, a model in `needs` without `snapshot()` and `onChange()`, and a root
+that already has one mounted.
 
 | `cx` | What it is |
 |---|---|
 | `watch(model, fn)` | `fn(model.snapshot())` now and on each change; never while hidden; on show, once, if the snapshot moved meanwhile; off on unmount. A watcher that throws is reported, and the others still draw |
-| `on(target, type, fn, opts)` | `ctx.on`, quiet while the component is hidden as well as the view; off on unmount |
+| `on(target, type, fn, opts)` | `ctx.on`, quiet while the component is hidden as well as the view; `once` means once while shown; off on unmount |
 | `loop(fn)` | `ctx.loop`, parked on hide, started on show if it was wanted (one that parked itself stays parked) |
-| `layers` | its share of the view's stack: opened through the view's scope, and what it opened closes on hide (`'navigate'`) and unmount, leaving the view's own |
-| `floor` | `menu()`'s floor: `ctx.floor`, else the bar's top (`barTop`) |
+| `layers` | its scope of the view's: `scope()` on the view's scope (`lib/ui/layers.js`, where a scope's scope is a share of it). What it opened closes on hide (`'navigate'`) and unmount, newest first, and the view's own stay open |
+| `floor` | `menu()`'s floor: the bar's top (`barTop`) |
 | `toast`, `go` | `ctx`'s |
 | `id(name)` | its root's id and the name: root `np` and `play` make `np-play` |
 | `props` | the surface's, frozen |
@@ -42,21 +43,38 @@ and a root that already has one mounted.
 It mounts shown. A surface out of sight hides it at once (a prewarmed
 view's `hide()` runs before its first show, decision 0048, so a view that
 hides its components in its own `hide()` covers it). `unmount` is real:
-the component's own `unmount` runs, then everything that went through
-`cx` is taken off, the root emptied and its class removed, so a second
-mount binds each listener once (`mount.test.js` counts them).
+the component is hidden and quieted (its layers closed, its loops parked),
+its own `unmount` runs, then everything that went through `cx` is taken
+off, the root emptied and its class removed, so a second mount binds each
+listener once (`mount.test.js` counts them). After that `cx` takes
+nothing: a `watch`, `on` or `loop` throws.
 
 **Enforced by directory** (`architecture.test.js`, Guardrail 15), over
-every module under `lib/components/`, with no list of exceptions: no
-`fetch`, socket or `'/api/` string; no `document.getElementById`,
-`querySelector` or `body`; no listener on the window or the document but
-`cx.on`; no `setInterval`; no `hindsight:` event; no `new Audio`; no
-`location` or `history`; no id written in (`id="`, `.id = '…'`); no
-`setTimeout` beside a `pointerdown`. And each component directory has an
-`index.js` exporting the five, a harness check, and a stylesheet whose
-every selector starts at `.root`, which no other stylesheet reaches inside
-(it may name the root to place it, or lay out around it with `:has()`).
-Guardrails 12 and 13 (`pushState`, `aria-haspopup`) cover it too.
+every module under `lib/components/`, the contract's own included, with no
+list of exceptions:
+- no `fetch`, `timedFetch`, socket, or `'/api` string;
+- `window` and `document` only as `cx.on`'s target, and never
+  `globalThis`, an `ownerDocument` or a `defaultView`: no look-up, no
+  listener of its own, no `document.onkeydown`;
+- no bare `addEventListener` or `setInterval`;
+- no `hindsight:` event, no audio, no `location` or `history`;
+- no id written in (an `id=` in markup, `.id = '…'`, `setAttribute('id')`);
+- no `setTimeout` beside a `pointerdown`.
+
+A test beside it lists what these catch and what they let be. Each
+component directory has an `index.js` exporting the five and a harness
+check. Its stylesheet starts every selector at `.root` and goes into it,
+never beside it (`.root + .x`). No other stylesheet may reach inside it:
+it may not name the root before a combinator, or name a class the
+component owns (one its stylesheet styles that nothing outside its
+directory writes). It may name the root to place it, or lay out around it
+with `:has()`. Guardrails 12 and 13 (`pushState`, `aria-haspopup`) cover it
+too.
+
+A component's stylesheet joins the stylesheet tests (the budget, the
+cascade, the tokens, the keys' `.down`) when a page links it: they read
+`cssOf(page)`. `css/display.css`, which only the harness links, would add
+nothing to the budget today.
 
 ## Models, and the protocol client
 
@@ -84,7 +102,8 @@ is the one error a verb throws: `message` for a person, `code` for a page
 ## Fixtures
 
 `lib/models/fixture.js` is a protocol client with no Pi, for the tests and
-the harness, never shipped (not in `SHELL`):
+the harness. It is in a release like all of `web/static`, but no page
+imports it and it is not in `SHELL`, so no phone caches it:
 `fixture(snapshots, {refuse, answers})` answers reads from JSON, records
 verbs in `calls` and answers or refuses them as scripted
 (`{refuse: {play: 'no_audio_out'}}`), and stands in for the changes socket
@@ -95,10 +114,12 @@ tests stand in for, until it is on the client.
 
 The snapshots are the Pi's answers, saved: `testdata/protocol/<noun>/<case>.json`
 (`tape/` is `GET /api/tapes/state`, `takes/` is `GET /api/jams`). Outside
-`release.yml`'s paths, so a new one cuts no release. They can't drift:
-`internal/api/protocol_fixtures_test.go` decodes each, refusing any field
-the Pi doesn't send, into the type its route encodes, and fails on a noun
-directory it has no type for.
+`release.yml`'s paths, so a new one cuts no release.
+`internal/api/protocol_fixtures_test.go` decodes each into the type its
+route encodes, refusing any field the Pi doesn't send, and fails on a noun
+directory it has no type for. So a fixture says nothing the Pi doesn't:
+a field renamed or dropped on the Pi fails it. It checks one way only: a
+field the Pi adds, or a value it now says differently, does not.
 
 ## The harness
 

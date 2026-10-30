@@ -46,12 +46,13 @@ export function lacks(def) {
 const mounted = new WeakSet();
 
 /**
- * mountComponent mounts `def` on `root` with the page's `models` (every noun
- * in def.needs), inside a shell view's `ctx` (its on, loop, layers, toast,
- * go), with `props` from the surface: the callbacks and the values it hands
- * this one (a key's menu to open, the take it shows). It mounts shown; a
- * surface hidden at the time hides it at once, as a view mounted out of
- * sight does (decision 0048). Answers { show(), hide(), unmount(), shown }.
+ * mountComponent mounts `def` on `root` with the page's `models` (it is
+ * handed those in def.needs, and no others), inside a shell view's `ctx`
+ * (its on, loop, layers, toast, go), with `props` from the surface: the
+ * callbacks and the values it hands this one (a key's menu to open, the
+ * take it shows). It mounts shown; a surface hidden at the time hides it at
+ * once, as a view mounted out of sight does (decision 0048). Answers
+ * { show(), hide(), unmount(), shown }.
  *
  * The component is handed cx:
  *   watch(model, fn)  fn(model.snapshot()) now and on each change; never
@@ -59,16 +60,20 @@ const mounted = new WeakSet();
  *                     meanwhile; off on unmount. Answers its off.
  *   on(target, type, fn, opts)
  *                     ctx.on: a listener on the window or the document (a
- *                     key), quiet while hidden, off on unmount
+ *                     key), quiet while hidden, off on unmount; `once`
+ *                     means once while shown
  *   loop(fn)          ctx.loop: a step on the shared ticker, parked while
  *                     hidden. Answers { start(), stop(), running }
- *   layers            its share of the view's stack: what it opens there
- *                     closes when it is hidden or unmounted
- *   floor             where its menus stop above the bar (menu()'s floor)
+ *   layers            its scope of the view's (lib/ui/layers.js scope()):
+ *                     what it opens there closes when it is hidden or
+ *                     unmounted, and the view's own stay as they are
+ *   floor             where its menus stop above the bar: menu()'s floor,
+ *                     the bar's top (barTop)
  *   toast, go         ctx's: words for a person; a move to another room
  *   id(name)          the id of a part of it: its root's id and the name
  *                     (root np and 'play' make np-play)
  *   props             the surface's, frozen
+ * Unmounted, cx takes nothing more: a watch, on or loop then throws.
  */
 export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
   const missing = lacks(def);
@@ -77,13 +82,14 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
   if (mounted.has(root)) throw new Error(`the ${def.id} component's root has a component mounted on it already: unmount that first`);
   const unmet = def.needs.filter((n) => !models[n] || typeof models[n].snapshot !== 'function' || typeof models[n].onChange !== 'function');
   if (unmet.length) throw new TypeError(`the ${def.id} component needs the ${unmet.join(', ')} model${unmet.length > 1 ? 's' : ''} (snapshot and onChange)`);
+  const given = Object.freeze(Object.fromEntries(def.needs.map((n) => [n, models[n]])));
 
   let shown = true;
   let gone = false;
   const watchers = new Set();
   const offs = new Set();
   const loops = new Set();
-  const opened = new Set();
+  const live = (what) => { if (gone) throw new Error(`the ${def.id} component is unmounted: cx.${what} takes nothing more`); };
 
   const deliver = (w) => {
     const s = w.model.snapshot();
@@ -93,6 +99,7 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
   };
 
   function watch(model, fn) {
+    live('watch');
     if (!model || typeof model.snapshot !== 'function' || typeof model.onChange !== 'function') {
       throw new TypeError('cx.watch needs a model with snapshot() and onChange()');
     }
@@ -106,15 +113,26 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
   }
 
   function on(target, type, fn, opts) {
+    live('on');
     if (typeof ctx.on !== 'function') throw new TypeError('cx.on needs a view’s ctx.on');
-    const gated = function gated(e) { return shown ? fn.call(this, e) : undefined; };
-    const viewOff = ctx.on(target, type, gated, opts);
-    const off = () => { viewOff(); offs.delete(off); };
+    // `once` is kept here, as the view keeps it: one heard while the
+    // component is hidden, and its view shown, must not use it up.
+    const once = !!(opts && typeof opts === 'object' && opts.once);
+    const pass = once ? { ...opts, once: false } : opts;
+    let off = null;
+    const gated = function gated(e) {
+      if (!shown) return undefined;
+      if (once) off();
+      return fn.call(this, e);
+    };
+    const viewOff = ctx.on(target, type, gated, pass);
+    off = () => { viewOff(); offs.delete(off); };
     offs.add(off);
     return off;
   }
 
   function loop(fn) {
+    live('loop');
     if (typeof ctx.loop !== 'function') throw new TypeError('cx.loop needs a view’s ctx.loop');
     // A step that parks itself (returns false) stays parked through a show.
     const e = { wanted: false, l: null };
@@ -131,30 +149,14 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
     };
   }
 
-  // Its share of the view's stack: opened through the view's scope, and
-  // closed by handle, so the view's other layers stay as they are.
-  const scope = ctx.layers || null;
-  const layers = scope && Object.freeze({
-    open(spec) {
-      const h = scope.open(spec);
-      opened.add(h);
-      return h;
-    },
-    top: () => scope.top?.() ?? null,
-    ownsKeys: (e) => !!scope.ownsKeys?.(e),
-    settled: () => scope.settled?.(),
-    closeAll({ reason = 'program' } = {}) {
-      for (const h of [...opened]) { if (h.open) h.close(reason); opened.delete(h); }
-    },
-    get size() { for (const h of [...opened]) if (!h.open) opened.delete(h); return opened.size; },
-  });
+  const layers = typeof ctx.layers?.scope === 'function' ? ctx.layers.scope() : null;
 
   const cx = Object.freeze({
     watch,
     on,
     loop,
     layers,
-    floor: ctx.floor ?? barTop(root.ownerDocument),
+    floor: barTop(),
     toast: ctx.toast,
     go: ctx.go,
     id(name) {
@@ -164,22 +166,14 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
     props: Object.freeze({ ...props }),
   });
 
-  mounted.add(root);
-  root.classList.add(def.root);
-  let handle;
-  try {
-    handle = def.mount(root, models, cx) || {};
-  } catch (e) {
-    teardown();
-    throw e;
-  }
-
+  // Quiet: hidden, its layers closed, its loops parked.
   function quiet() {
     shown = false;
     layers?.closeAll({ reason: 'navigate' });
     for (const e of loops) e.l.stop();
   }
 
+  // Gone: everything that went through cx taken off, and its root empty.
   function teardown() {
     gone = true;
     quiet();
@@ -189,6 +183,16 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
     root.replaceChildren();
     root.classList.remove(def.root);
     mounted.delete(root);
+  }
+
+  root.classList.add(def.root);
+  mounted.add(root);
+  let handle;
+  try {
+    handle = def.mount(root, given, cx) || {};
+  } catch (e) {
+    teardown();
+    throw e;
   }
 
   return {
@@ -205,9 +209,12 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
       try { handle.hide?.(); } catch (e) { report(e); }
       quiet();
     },
+    // Hidden first, as hide() leaves it, so nothing it watches draws while
+    // its own unmount runs; then the rest is taken off.
     unmount() {
       if (gone) return;
       if (shown) { try { handle.hide?.(); } catch (e) { report(e); } }
+      quiet();
       try { handle.unmount?.(); } catch (e) { report(e); }
       teardown();
     },

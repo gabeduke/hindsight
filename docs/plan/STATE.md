@@ -43,6 +43,17 @@ and still looks it:
   handlers in `lib/tape/page.js` before blaming the flow); J1.3's second
   hold-drag on the feed ribbon once didn't open the selection at
   `FLOWS_CPU=4`.
+- **The flows' phone runs can't see a page wider than the phone.** On the
+  phone profile (`isMobile`) a page that overflows is zoomed out, and
+  `innerWidth`, which `layout.mjs`'s offscreen check measures against,
+  grows with it: in the components' harness a 480 px root on the 390 px
+  phone measured 496 and passed. The harness measures against the
+  screen's `clientWidth` as well (its `screen` check); `checkLayout`
+  should too, and then the flows' phone runs may find what they missed.
+- **Two copies of the display's keys** until the Transport's extraction:
+  the bar's (`shell.html`, `css/bar.css` `.np-lcd-*`) and the `display`
+  component's (`lib/components/display`, `css/display.css`), which only
+  the harness mounts. The extraction keeps one and deletes the other.
 
 ## Open, needs Gabe at the rig
 

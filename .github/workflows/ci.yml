@@ -180,12 +180,15 @@ jobs:
       # the flows' layout checks on its root: seconds, no demo. Its pictures
       # go into the storyboard, under components/.
       - name: Components
+        id: components
         run: node scripts/components.mjs --storyboard=storyboard/components --json=components.json
 
       # Each scenario prints as Given/When/Then; the layout checks run on
       # every screen. No LLM: the review is its own opt-in workflow
-      # (ux-review.yml).
+      # (ux-review.yml). They run when a component failed too, so the job
+      # says what both found.
       - name: User flows
+        if: ${{ success() || steps.components.outcome == 'failure' }}
         run: |
           CGO_ENABLED=0 go build -o /tmp/hindsight ./cmd/hindsight
           HINDSIGHT_BIN=/tmp/hindsight node scripts/flows.mjs --shots=flow-shots --json=flows.json --storyboard=storyboard

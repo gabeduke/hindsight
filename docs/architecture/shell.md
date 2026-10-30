@@ -63,7 +63,9 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 - `layers`: the view's scope of the shell's one stack of open things
   (below). A menu, sheet, drawer or selection the view opens goes on it with
   its `onClose`, and whatever is still open when the view is hidden is
-  closed then, as its slots are taken out.
+  closed then, as its slots are taken out. A scope's `scope()` is a share
+  of it, a component's (`components.md`): its `closeAll` closes what it
+  opened, and the view's closes that too.
 - `headerSlot`, `dockSlot`, `barSlot`: **Slots**. What a view adds to the
   header, the dock or the bar is in the page only while it is shown: `hide()`
   takes the nodes **out of the document** and `show()` puts them back. So

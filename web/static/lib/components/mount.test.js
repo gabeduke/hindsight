@@ -225,3 +225,49 @@ test('a watcher that throws is reported, and the others still draw', () => {
     globalThis.reportError = was;
   }
 });
+
+test('unmount quiets it before its own unmount runs: nothing draws then, and its menu has closed', () => {
+  const doc = fakeDoc();
+  const ctx = viewCtx(doc);
+  const tape = model({ n: 1 });
+  const log = [];
+  const def = {
+    ...probe().def,
+    mount(root, m, cx) {
+      cx.watch(m.tape, (s) => log.push(`draw ${s.n}`));
+      cx.layers.open({ el: doc.createElement('div'), kind: 'menu', onClose: (r) => log.push(`menu ${r}`) });
+      return { unmount() { log.push('unmount'); tape.move({ n: 2 }); } };
+    },
+  };
+  mountComponent(def, rootIn(doc), { tape }, ctx).unmount();
+  assert.deepEqual(log, ['draw 1', 'menu navigate', 'unmount']);
+});
+
+test('it is handed the models it needs and no others, and cx takes nothing once it is unmounted', () => {
+  const doc = fakeDoc();
+  const ctx = viewCtx(doc);
+  let seen = null;
+  let kept = null;
+  const def = { ...probe().def, mount(root, m, cx) { seen = m; kept = cx; } };
+  const c = mountComponent(def, rootIn(doc), { tape: model({}), takes: model({}) }, ctx);
+  assert.deepEqual(Object.keys(seen), ['tape']);
+  c.unmount();
+  assert.throws(() => kept.watch(model({}), () => {}), /unmounted/);
+  assert.throws(() => kept.on(doc, 'keydown', () => {}), /unmounted/);
+  assert.throws(() => kept.loop(() => {}), /unmounted/);
+});
+
+test('once means once while it is shown: an event while it is hidden doesn’t use it up', () => {
+  const doc = fakeDoc();
+  const ctx = viewCtx(doc);
+  let heard = 0;
+  const def = { ...probe().def, mount(root, m, cx) { cx.on(doc, 'keyup', () => { heard++; }, { once: true }); } };
+  const c = mountComponent(def, rootIn(doc), { tape: model({}) }, ctx);
+  c.hide();
+  doc.dispatchEvent({ type: 'keyup' });
+  c.show();
+  doc.dispatchEvent({ type: 'keyup' });
+  doc.dispatchEvent({ type: 'keyup' });
+  assert.equal(heard, 1);
+  c.unmount();
+});

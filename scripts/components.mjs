@@ -94,23 +94,35 @@ function inside(dir, rel) {
   return p === dir || p.startsWith(dir + sep) ? p : null;
 }
 
+// answer is one request: the harness page, its script, a fixture, or a file
+// of web/static. It throws on a request it can't read (a bad escape, a spec
+// that isn't JSON), which serve answers 400.
+function answer(req, res) {
+  const url = new URL(req.url, 'http://harness');
+  let file = null;
+  if (url.pathname === '/__components/' || url.pathname === '/__components/index.html') {
+    const html = page(JSON.parse(url.searchParams.get('spec')));
+    res.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-store' });
+    res.end(html);
+    return;
+  }
+  if (url.pathname === '/__components/page.js') file = join(here, 'components', 'page.js');
+  else if (url.pathname.startsWith('/__fixtures/')) file = inside(FIXTURES, url.pathname.slice('/__fixtures/'.length));
+  else file = inside(STATIC, url.pathname.slice(1) || 'index.html');
+  const body = file && statSync(file, { throwIfNoEntry: false })?.isFile() ? readFileSync(file) : null;
+  if (!body) { res.writeHead(404); res.end('not found'); return; }
+  res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
+  res.end(body);
+}
+
 function serve() {
   const server = createServer((req, res) => {
-    const url = new URL(req.url, 'http://harness');
-    let file = null;
-    if (url.pathname === '/__components/' || url.pathname === '/__components/index.html') {
-      res.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-store' });
-      res.end(page(JSON.parse(url.searchParams.get('spec'))));
-      return;
+    try {
+      answer(req, res);
+    } catch (e) {
+      if (!res.headersSent) res.writeHead(400);
+      res.end(`bad request: ${e.message}`);
     }
-    if (url.pathname === '/__components/page.js') file = join(here, 'components', 'page.js');
-    else if (url.pathname.startsWith('/__fixtures/')) file = inside(FIXTURES, url.pathname.slice('/__fixtures/'.length));
-    else file = inside(STATIC, url.pathname.slice(1) || 'index.html');
-    let body = null;
-    try { if (file && statSync(file).isFile()) body = readFileSync(file); } catch { /* not there */ }
-    if (!body) { res.writeHead(404); res.end('not found'); return; }
-    res.writeHead(200, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
-    res.end(body);
   });
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
 }

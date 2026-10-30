@@ -93,8 +93,8 @@ and `props`, the callbacks and values the surface hands this one (1.3's
 | `watch(model, fn)` | `fn(snapshot)` now and on each `onChange`; never while hidden, and on show once if the snapshot moved meanwhile; off on unmount | new, over the models' `onChange` |
 | `on(target, type, fn)` | a listener on `window` or `document` (a key), quiet while hidden | `ctx.on` |
 | `loop(fn)` | a step on the shared ticker, parked while hidden | `ctx.loop` |
-| `layers` | its share of the view's stack: what it opens closes on hide and unmount | `ctx.layers`, the view's scope, through which it opens; a scope has no scope of its own, so it closes what it opened by handle |
-| `floor` | where its menus stop above the bar: the function `menu()` takes as its `floor` | `ctx.floor`, else `barTop(document)` (`lib/ui/menu.js`), which reads `#np` from anywhere |
+| `layers` | its share of the view's stack: what it opens closes on hide and unmount | `ctx.layers.scope()`: a scope of the view's scope, which `lib/ui/layers.js` gained for it |
+| `floor` | where its menus stop above the bar: the function `menu()` takes as its `floor` | `barTop()` (`lib/ui/menu.js`), which reads `#np` from anywhere; a view's `ctx` has no floor to give |
 | `toast`, `go` | words for a person; a move to another room | `ctx.toast`, `ctx.go` |
 | `id(name)` | the id of a part of it: its root's id and the name (`np` and `play` make `np-play`), for `aria-controls`, `<label for>` and the flows | new |
 | `props` | the surface's callbacks and values for it, frozen | `mountComponent`'s fifth argument |
@@ -300,7 +300,10 @@ transport moves onto the client.
   (`protocol_fixtures_test.go`), it decodes each fixture into the type its
   route encodes, refusing any field the Pi doesn't send, which needs no
   demo and no tape on disk; a fixture directory with no type to check it
-  against fails it.
+  against fails it. That holds one way only: a fixture can't say what the
+  Pi doesn't, but a field the Pi adds, or a value it now says differently,
+  passes. Comparing with the demo's answer, as first written, would catch
+  both, and is still to build.
 - `fixture.js` is for tests and the harness only, and stays out of
   `SHELL`. It names no route and opens nothing, so no guardrail needs to
   skip it.
