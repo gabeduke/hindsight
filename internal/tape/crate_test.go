@@ -1,7 +1,6 @@
 package tape
 
 import (
-	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -56,123 +55,6 @@ func TestKeepingASpanOfATake(t *testing.T) {
 	}
 }
 
-func TestAKeptClipOutlivesItsTake(t *testing.T) {
-	e, _, tp := newEngine(t)
-	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
-	k, err := e.KeepTake(take, "jam_take.wav", "jam", 0, 96000, []int{0, 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Remove(take); err != nil {
-		t.Fatal(err)
-	}
-	w, err := e.CrateWAV(k.ID)
-	if err != nil || w.Frames != 96000 {
-		t.Fatalf("its WAV with the take gone = %+v %v", w, err)
-	}
-	var b bytes.Buffer
-	if _, err := w.WriteTo(&b); err != nil || int64(b.Len()) != w.Bytes() {
-		t.Fatalf("wrote %d of %d: %v", b.Len(), w.Bytes(), err)
-	}
-	if _, err := e.DropCrate(tp.ID, k.ID, 1); err != nil {
-		t.Fatalf("dropped with the take gone: %v", err)
-	}
-	if cl := track(e, 1); len(cl) != 1 || cl[0].File != k.File || cl[0].Src != k.Src || cl[0].Frames != k.Frames {
-		t.Fatalf("on the tape: %+v", cl)
-	}
-}
-
-func TestDropFromTheCrateThreeTimesEndToEnd(t *testing.T) {
-	e, sink, tp := newEngine(t)
-	take := takeWAV(t, 400000, func(i int) float64 { return 0.25 })
-	// A tape with a tempo, so the drops go at the playhead.
-	if err := e.Edit(tp.ID, "", func(_ *Tape, s *State) error {
-		g := GridFor(120, 4, 48000)
-		s.Grid = &g
-		s.Loop = Loop{In: 0, Out: g.Frames, On: true}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	k, _ := e.KeepTake(take, "jam_take.wav", "jam", 0, 96000, []int{0, 1})
-	// Stopped, the playhead moves to each drop's end: the next lands after it.
-	e.Start()
-	for i := 0; i < 3; i++ {
-		d, err := e.DropCrate(tp.ID, k.ID, 2)
-		if err != nil {
-			t.Fatal(err)
-		}
-		waitFor(t, func() bool { sink.play(t, 512); return e.tr.Status().Pos == d.End })
-	}
-	cl := track(e, 2)
-	if len(cl) != 3 || cl[0].At != 0 || cl[1].At != 96000 || cl[2].At != 192000 {
-		t.Fatalf("three drops = %+v", cl)
-	}
-	for i := 0; i < 3; i++ {
-		e.Undo(tp.ID, false)
-	}
-	if n := len(track(e, 2)); n != 0 {
-		t.Fatalf("three undos leave %d clips", n)
-	}
-}
-
-func TestKeepingATapeClipOrTheClipboardCopiesNothing(t *testing.T) {
-	e, _, tp, orig := firstLoop(t)
-	pool := len(poolNames(t, e))
-	k, err := e.KeepTapeClip(tp.ID, orig.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if k.File != orig.File || k.Src != orig.Src || k.Frames != orig.Frames || k.Source.Kind != "tape" || k.Source.Tape != tp.ID {
-		t.Fatalf("kept from the tape = %+v", k)
-	}
-	b, err := e.KeepClipboard()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b.Source.Kind != "clipboard" || b.Frames != 96000 {
-		t.Fatalf("kept from the clipboard = %+v", b)
-	}
-	if n := len(poolNames(t, e)); n != pool {
-		t.Fatalf("%d pool files, were %d", n, pool)
-	}
-	if _, err := e.KeepTapeClip("other", orig.ID); !errors.Is(err, ErrWrongTape) {
-		t.Fatalf("another tape's clip = %v", err)
-	}
-	// A clipboard of more than one clip isn't one clip to keep.
-	setLoop(t, e, 0, 96000)
-	pos := int64(48000)
-	e.EditOp(tp.ID, EditRequest{Op: "split", Track: 1, Pos: &pos})
-	if _, err := e.EditOp(tp.ID, EditRequest{Op: "copy", Track: 1}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.KeepClipboard(); !errors.Is(err, ErrBadParameter) {
-		t.Fatalf("a two-clip clipboard = %v", err)
-	}
-}
-
-func TestDeletingAKeptClipAndBringingItBack(t *testing.T) {
-	e, _, _ := newEngine(t)
-	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
-	a, _ := e.KeepTake(take, "jam_take.wav", "jam", 0, 48000, []int{0, 1})
-	b, _ := e.KeepTake(take, "jam_take.wav", "jam", 48000, 96000, []int{0, 1})
-	if _, err := e.DeleteCrateClip(a.ID); err != nil {
-		t.Fatal(err)
-	}
-	if l, _ := e.CrateList("", ""); len(l) != 1 || l[0].ID != b.ID {
-		t.Fatalf("after deleting one: %+v", l)
-	}
-	if _, err := e.RestoreCrateClip(a.ID); err != nil {
-		t.Fatal(err)
-	}
-	if l, _ := e.CrateList("", ""); len(l) != 2 || l[0].ID != b.ID {
-		t.Fatalf("after bringing it back (newest first): %+v", l)
-	}
-	if _, err := e.DeleteCrateClip("nope"); !errors.Is(err, ErrNoSuchCrateClip) {
-		t.Fatalf("delete no clip = %v", err)
-	}
-}
-
 func TestCleanupKeepsTheCrateUntilItsTrashEmpties(t *testing.T) {
 	e, _, _ := newEngine(t)
 	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
@@ -193,7 +75,11 @@ func TestCleanupKeepsTheCrateUntilItsTrashEmpties(t *testing.T) {
 		t.Fatalf("clean-up took a kept clip's audio: %v", err)
 	}
 	// Deleted, it's still kept while it can be brought back.
-	e.DeleteCrateClip(k.ID)
+	e.changeCrate(func(c *Crate) error {
+		now := time.Now()
+		c.Clips[0].Deleted = &now
+		return nil
+	})
 	clean()
 	if _, err := audio.ReadWAVInfo(path); err != nil {
 		t.Fatalf("clean-up took a deleted clip's audio within the week: %v", err)
@@ -236,47 +122,6 @@ func TestTheCrateListFindsByNameAndTake(t *testing.T) {
 	if l, _ := e.CrateList("", "jam_b.wav"); len(l) != 1 || l[0].ID != b.ID {
 		t.Fatalf("by take: %+v", l)
 	}
-	if _, err := e.RenameCrateClip(a.ID, "  The verse  "); err != nil {
-		t.Fatal(err)
-	}
-	if k, _ := e.CrateClip(a.ID); k.Name != "The verse" {
-		t.Fatalf("renamed = %q", k.Name)
-	}
-	if _, err := e.RenameCrateClip(a.ID, "   "); !errors.Is(err, ErrBadParameter) {
-		t.Fatalf("a blank name = %v", err)
-	}
-}
-
-func TestKeepingASpanOfTheRing(t *testing.T) {
-	e, sink, _ := newEngine(t)
-	sink.ring.WriteFrames(make([]int32, 48000*3*8)) // three seconds of the capture
-	k, clamped, err := e.KeepRing(48000, 96000, "aux")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if clamped || k.Frames != 48000 || k.Source.Kind != "ring" || !poolNames(t, e)[k.File] {
-		t.Fatalf("kept from the ring = %+v (clamped %v)", k, clamped)
-	}
-}
-
-func TestADeletedClipNeitherPlaysNorDrops(t *testing.T) {
-	e, _, tp := newEngine(t)
-	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
-	k, _ := e.KeepTake(take, "jam_take.wav", "jam", 0, 48000, []int{0, 1})
-	e.DeleteCrateClip(k.ID)
-	if _, err := e.CrateWAV(k.ID); !errors.Is(err, ErrNoSuchCrateClip) {
-		t.Fatalf("a deleted clip's WAV = %v", err)
-	}
-	if _, err := e.DropCrate(tp.ID, k.ID, 1); !errors.Is(err, ErrNoSuchCrateClip) {
-		t.Fatalf("a deleted clip's drop = %v", err)
-	}
-	// Deleting it again doesn't start its week over.
-	first, _ := e.CrateClip(k.ID)
-	time.Sleep(2 * time.Millisecond)
-	e.DeleteCrateClip(k.ID)
-	if again, _ := e.CrateClip(k.ID); !again.Deleted.Equal(*first.Deleted) {
-		t.Fatal("deleting it again moved its week")
-	}
 }
 
 func TestKeepingMoreThanATrackIsRefused(t *testing.T) {
@@ -285,61 +130,5 @@ func TestKeepingMoreThanATrackIsRefused(t *testing.T) {
 	take := takeWAV(t, 48000*61, func(i int) float64 { return 0.1 })
 	if _, err := e.KeepTake(take, "jam_take.wav", "jam", 0, 48000*61, []int{0, 1}); err == nil {
 		t.Fatal("a keep longer than a track was let through: it could never be dropped")
-	}
-}
-
-func TestKeepingFromTheRingSaysWhereItStarted(t *testing.T) {
-	e, sink, _ := newEngine(t)
-	sink.ring.WriteFrames(make([]int32, 48000*25*8)) // more than the 20 s ring holds
-	oldest, _ := sink.ring.Window()
-	k, clamped, err := e.KeepRing(0, -1, "aux")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !clamped || k.Source.From != int64(oldest)+48000 || k.Source.To != k.Source.From+k.Frames {
-		t.Fatalf("kept from a span that had left: %+v (clamped %v, oldest %d)", k.Source, clamped, oldest)
-	}
-}
-
-func TestSplitHereKeepsTwoClipsAndLeavesTheTake(t *testing.T) {
-	e, _, _ := newEngine(t)
-	take := takeWAV(t, 200000, func(i int) float64 { return float64(i) / 1e6 })
-	before, _ := os.Stat(take)
-	ks, err := e.SplitTake(take, "jam_take.wav", "Tuesday jam", 72000, []int{0, 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	a, b := ks[0], ks[1]
-	if a.Name != "Tuesday jam · A" || a.Frames != 72000 || a.Source.From != 0 || a.Source.To != 72000 {
-		t.Fatalf("A = %+v", a)
-	}
-	if b.Name != "Tuesday jam · B" || b.Frames != 128000 || b.Source.From != 72000 || b.Source.To != 200000 {
-		t.Fatalf("B = %+v", b)
-	}
-	if l, _ := e.CrateList("", ""); len(l) != 2 || l[0].ID != a.ID || l[1].ID != b.ID {
-		t.Fatalf("the crate = %+v: A, then B", l)
-	}
-	// The take is as it was.
-	if after, _ := os.Stat(take); after.Size() != before.Size() || !after.ModTime().Equal(before.ModTime()) {
-		t.Fatal("split here changed the take")
-	}
-	// At either end, there's nothing to split.
-	for _, at := range []int64{0, 100, 200000 - 100, 200000} {
-		if _, err := e.SplitTake(take, "jam_take.wav", "jam", at, []int{0, 1}); !errors.Is(err, ErrBadParameter) {
-			t.Fatalf("split at %d = %v", at, err)
-		}
-	}
-}
-
-func TestSplitHereNeedsRoomForTheWholeTake(t *testing.T) {
-	e, _, _ := newEngine(t)
-	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
-	pool := len(poolNames(t, e))
-	e.minFreeGB = 1 << 20 // more than any disk has
-	if _, err := e.SplitTake(take, "jam_take.wav", "jam", 96000, []int{0, 1}); !errors.Is(err, audio.ErrLowDisk) {
-		t.Fatalf("a split with no room = %v", err)
-	}
-	if l, _ := e.CrateList("", ""); len(l) != 0 || len(poolNames(t, e)) != pool {
-		t.Fatal("a refused split left something behind")
 	}
 }

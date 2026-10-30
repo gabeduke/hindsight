@@ -342,7 +342,7 @@ nothing else.
   DROP, KEEP, TOSS.
 - `cueclip.js` — a cue clip as a board (`boardOf`), the dial's arithmetic,
   GRAB's words.
-- `model.js` — the numbers, tested: the next free span, the window's steps.
+- `model.js` — the numbers, tested: where DROP lands, the window's steps.
 - `keys.js` — the drawer's keys, as a table for P3's control bus to fold in.
 - `draw.js`, `lanes.js`, `fold.js`, `audition.js`, `api.js`.
 

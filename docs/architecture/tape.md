@@ -142,8 +142,8 @@ heard, and the Pi keeps the figures, never sending them anywhere.
   press, set and release once it has one. The stream's player says on the
   same clock which output frame its speaker plays.
 - *Not timed yet.* A controller's transport keys (PLAY, STOP) go through
-  the verb queue (`api/controls.go`, `queueVerb`), not the engine's
-  inbox: they carry no stamp.
+  the verb queue (`api/controls.go`, `queueVerb`) to `Verbs.Transport`,
+  not the engine's inbox: they carry no stamp.
 
 The revision, the changes socket and the keyboard's press, which tell a
 page the tape has changed, are in `push.md`.
@@ -254,11 +254,11 @@ action starts the transport as if the loop had been going round since the
 second tap, using Δ to turn that ring frame into an output frame.
 
 **The crate** (`crate.go`) is `TAPE_DIR/crate.json`: kept clips, each a
-window onto a pool file with a name and where it came from. Keeping a span of
-a take or the ring writes the pool first (`copyTake`, `ringClip`); keeping a
-tape clip or the clipboard keeps a reference. It's a clean-up root, its
-deleted clips too for a week, and an unreadable one stops the clean-up. A
-drop from it is a drop of a one-clip clipboard (`dropBoard`).
+window onto a pool file with a name and where it came from. Nothing shows it
+(decision 0009): a buffer replaced unused still goes there (`keepBoard`, by
+reference), and a range's Insert can still take a kept clip. It's a clean-up
+root, its deleted clips too for a week, and an unreadable one stops the
+clean-up.
 
 **The clipboard** (`clipboard.go`) is `TAPE_DIR/clipboard.json`: clips in
 the pool, laid out from frame 0, one track's worth or more. Copying from a
@@ -357,8 +357,9 @@ track it points at;
 summed; `CueAudio` (`GET /api/tapes/cue/audio`) is its Audition. All of
 them read the clip as a board (`CueClip.boardOf`), so they are the buffer's
 own code, and none of them touches the clipboard, which is left to a
-range's Cut, Copy and Paste, unseen (`/api/clipboard`'s GRAB still fills it
-for the buffer panel until that goes). Launching one is a
+range's Cut, Copy and Paste, unseen (`POST /api/clipboard` still takes the
+old buffer's GRAB, which nothing in the web sends; `docs/plan/backlog.md`).
+Launching one is a
 performance, like Play mode's pads, so it stays out of the state and out of
 undo (`cuelive.go`): a launch or stop rides the transport's action queue
 with quantum `bar` (`now` for Shift), and the render goroutine keeps the
@@ -368,6 +369,27 @@ transport's Stop and a mixdown's pass stop them all, and the lane's Solo
 leaves the tracks out of the output. What plays is `live.cue`. The lane is
 not in the mix or its exports: a clip reaches them only once it is dragged
 onto a track.
+
+**The verbs** -- KEEP, GRAB, DROP, CATCH and the transport -- are one set
+on the Pi, whatever surface presses them (`internal/api/verbs.go`, `Verbs`,
+`a.Verbs()`). The tablet's routes (`POST /api/trigger`,
+`/api/tapes/transport`, `/api/tapes/catch`, `/api/tapes/cue/grab`, `drop`
+and `keep`) and a controller's pads (`piVerbs` in `controls.go`, the
+SMK-37's included) call the same methods, so a press refuses for the same
+reasons with the same errors: the routes answer them as statuses
+(`verbErr`), the keyboard's banner names them (`banner.go`, `refusals`).
+The tablet says what it wants in full: which clip, which track, where. A
+pad presses its verb bare, and Verbs works it out as the Studio's keys do:
+`CatchArmed` catches the last pass onto every armed track, each from its
+own input (`armedPairs`), layered or replacing as `controls.json` says;
+`GrabArmed` takes the last N bars (2N seconds with no tempo) from the first
+armed track's input; `DropArmed` lays the cue lane's newest clip on the
+first armed track (moved up so all its lanes fit) at `tape.DropPlace`: the
+next bar line inside the loop, over what is there, never refused for room.
+The page's DROP key shows where before it is pressed, so it works that out
+too (`lib/buffer/model.js`, `dropPlace`); `dropplace_test.go` holds that
+file's cases, and the two must agree. A change to a verb goes in `Verbs`,
+never in a route or in `piVerbs`.
 
 **On screen** the lane's clips are pads (`lib/tape/cuelane.js`, on
 `CUE_PRESS`, `lib/ui/press.js`): a tap launches, ⇧-tap at once, a hold (a

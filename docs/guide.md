@@ -1463,10 +1463,11 @@ nothing needs to be open.
    wheel bends, CC 21–24 turn WOW, FLUTTER, DRIVE and AGE (saved once a knob
    is still for a second), and program change 0–3 picks a formula. The
    SMK-37 starts with its pads on channel 10.
-3. CATCH, GRAB, DROP and KEEP run on the Pi itself: the last pass onto the
-   armed track, the last 4 bars onto the cue lane (on every Studio within a
-   couple of seconds), the cue lane's newest part onto the armed track's next
-   free span, and the last 30 seconds as a take.
+3. CATCH, GRAB, DROP and KEEP run on the Pi itself, as the Studio's own keys
+   do: the last pass onto every armed track, each from its input; the last 4
+   bars onto the cue lane (on every Studio within a couple of seconds); the
+   cue lane's newest part onto the armed track at the next bar line in the
+   loop, over what is there; and the last 30 seconds as a take.
 4. Unplug it with a pad held and the pad lets go.
 
 **A controller in a laptop** (**＋ MIDI here** under *Playing from*) plays
