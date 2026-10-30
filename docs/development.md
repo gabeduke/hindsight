@@ -168,6 +168,12 @@ The rest of the UI is checked by the user flows: `node scripts/flows.mjs`
 itself, on a tablet and a desktop profile. The stories, how to run them and
 how to write a new one are in [flows.md](flows.md).
 
+The push on a real kit, which the demo never shows (TLS, HTTP/2 to Caddy, a
+network between): `node scripts/push-probe.mjs https://<kit-name>` opens the
+Studio and the Listening Room there and says whether the page held one
+changes socket, heard in both rooms (`docs/architecture/push.md`, *One
+socket a page*). It only reads.
+
 ### A CSS change that should change nothing
 
 Tidying the stylesheets — a dead rule out, two rules merged, a literal

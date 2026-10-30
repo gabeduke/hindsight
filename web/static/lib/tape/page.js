@@ -39,7 +39,6 @@ import { heardAt, layer, blit, bandFor, still, paintMarks, paintHead, paintLaneG
 import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
 import { pollGate } from './poll-gate.js';
-import { watchChanges } from './changes.js';
 import { lightTrackHead } from '../bar/press-note.js';
 import * as sel from './selection.js';
 import { pageCarry, studioVisit } from '../bar/carry.js';
@@ -312,36 +311,36 @@ let gen = 0;
 let link = { ok() {}, fail() {} };
 const POLL_TIMEOUT_MS = 4000;
 
-// The changes socket (changes.js): while the Studio is shown, each new
-// revision polls at once, through the gate, so a nudge that lands while a
-// poll is out polls once more after it rather than beside it. The 200 ms
-// poll stays as the fallback, for a socket that is down.
-// What the Studio lends the page's transport (lib/models/transport.js,
-// delegate) while it is shown: its ▶ ■, locate, loop and poll.
+// The changes socket is the page's one, the transport's (lib/models/
+// transport.js), open from the tape's mount whatever room is shown; while
+// the Studio is shown it borrows the transport, and each new revision the
+// socket says polls the Studio at once, through the gate, so a nudge that
+// lands while a poll is out polls once more after it rather than beside it.
+// The 200 ms poll stays as the fallback, for a socket that is down.
+// What the Studio lends the page's transport (delegate) while it is shown:
+// its ▶ ■, locate, loop and poll, and what it does with a nudge.
 const barHands = {
   play: () => transport('play'),
   stop: () => transport('stop'),
   locate: (pos) => transport('locate', { pos }),
   setLoop: (on) => patch({ loop: { on } }),
   poll: () => poll(),
+  nudge: () => nudged(),
 };
 function nudged() {
   if (document.hidden) return; // the poll on visibilitychange has it
   if (gate.nudge()) poll();
 }
-// followTheTape is the Studio's ctx.socket: open while it is shown.
-// A press on the keyboard heard on it is the bar's note's (handed on), and
-// lights the head of the track it changed here, for the note's second.
-function heardPress(p) {
-  engine.transport.heardPress(p);
-  lightTrackHead(lanes, p);
-}
+// followTheTape is the Studio's ctx.socket: it holds the transport while
+// the Studio is shown. A press on the keyboard (the bar's note hears it from
+// the transport too) lights the head of the track it changed here, for the
+// note's second.
 function followTheTape() {
   engine.transport.delegate(barHands);
-  const changes = watchChanges({ onNudge: nudged, onPress: heardPress, onTakes: (m) => engine.transport.heardTakes(m) });
+  const offPress = engine.transport.onPress((p) => lightTrackHead(lanes, p));
   return {
     close() {
-      changes.close();
+      offPress();
       engine.transport.delegate(null);
     },
   };
