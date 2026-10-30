@@ -25,8 +25,8 @@ page. A component reads only tokens: its colours, its type sizes, its
 materials. A theme is the set of values for those tokens, so the same
 Capture looks the same docked on the tablet, floating on the laptop, and
 in a sheet on the phone. The component contract that makes this possible
-is `docs/plan/components.md` (being written alongside this spec); this
-spec adds only the theme's tokens to it.
+is `docs/plan/components.md`; this spec adds only the theme's tokens to
+it.
 
 This spec sits beside `the-studio-space.md`, not in place of it: its step 12
 (polish: the reels' inertia, lamps in tempo, the room listening with you)
