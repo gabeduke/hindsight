@@ -1101,3 +1101,56 @@ func TestTapeCueGrabFromATakeAndLaunch(t *testing.T) {
 	want(t, send(t, r, http.MethodPost, "/api/tapes/cue?id="+id, `{"clip":"`+c.ID+`","op":"juggle"}`), http.StatusBadRequest, "an op that isn't one")
 	want(t, send(t, r, http.MethodPost, "/api/tapes/cue?id=other", `{"clip":"`+c.ID+`"}`), http.StatusConflict, "launch on a tape not loaded")
 }
+
+// A tempo with no bars re-grids a tape that has audio: the bar lines move,
+// and the clip and the loop keep their frames (docs/decisions/0062). Nudges
+// in a row are one step of undo, and a punch makes it wait.
+func TestATempoReGridsATapeWithAudio(t *testing.T) {
+	r, a := newTapeAPIWithAPI(t)
+	writeRealTake(t, a.cfg.OutputDir, "jam_2026-10-04_10-00-00.wav", 96000)
+	id := makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodPost, "/api/tapes/drop?id="+id, `{"take":"jam_2026-10-04_10-00-00.wav","from":24000,"to":72000,"track":1,"bars":1}`), http.StatusOK, "drop")
+	before := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, ""))
+	if before.BPM != 240 || len(before.Tape.Tracks[0].Clips) != 1 {
+		t.Fatalf("after the drop: bpm %v, track 1 %+v", before.BPM, before.Tape.Tracks[0])
+	}
+	var loop struct {
+		Tape struct {
+			Loop struct{ In, Out int64 } `json:"loop"`
+		} `json:"tape"`
+	}
+	loopOf := func(w *httptest.ResponseRecorder) struct{ In, Out int64 } {
+		json.Unmarshal(w.Body.Bytes(), &loop)
+		return loop.Tape.Loop
+	}
+	l0 := loopOf(send(t, r, http.MethodGet, "/api/tapes/state?id="+id, ""))
+
+	w := send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":120}}`)
+	want(t, w, http.StatusOK, "re-grid")
+	s := stateOf(t, w)
+	if s.BPM != 120 || s.Tape.Grid.Bars != 1 || s.Tape.Grid.Frames != 96000 {
+		t.Fatalf("grid %+v bpm %v, want a bar of 96000 at 120", s.Tape.Grid, s.BPM)
+	}
+	if c, c0 := s.Tape.Tracks[0].Clips[0], before.Tape.Tracks[0].Clips[0]; c != c0 {
+		t.Fatalf("the clip moved: %+v, was %+v", c, c0)
+	}
+	if l := loopOf(w); l != l0 {
+		t.Fatalf("the loop moved: %+v, was %+v", l, l0)
+	}
+	// Nudged again: one step, and undo goes back to where the drop left it.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":121}}`), http.StatusOK, "nudge")
+	w = send(t, r, http.MethodPost, "/api/tapes/undo?id="+id, "")
+	if s := stateOf(t, w); s.BPM != 240 {
+		t.Fatalf("undo: bpm %v, want 240", s.BPM)
+	}
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":500}}`), http.StatusBadRequest, "silly tempo")
+	// A tempo and bars at once would relabel the re-grid's frames: 120 and
+	// 8 bars of a 1-bar grid is 960 BPM. It's one or the other.
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":120},"bars":2}`), http.StatusBadRequest, "tempo and bars")
+
+	a.recordingHook = func() *tape.Recording { return &tape.Recording{Tape: id, Track: 2, State: "on"} }
+	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":100}}`), http.StatusConflict, "mid-punch")
+	if s := stateOf(t, send(t, r, http.MethodGet, "/api/tapes/state?id="+id, "")); s.BPM != 240 {
+		t.Fatalf("after the refusals: bpm %v, want 240 still", s.BPM)
+	}
+}

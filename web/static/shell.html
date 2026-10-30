@@ -311,9 +311,9 @@
      (lib/ui/menu.js), filled by page.js (renderInputMenu) with the inputs
      and their meters. -->
 <div id="input-menu" class="menu input-menu" role="menu" aria-label="Input" hidden></div>
-<!-- The tempo's: the bars the loop could be, from the bar's display
-     (page.js, renderTempo). -->
-<div id="tempo-menu" class="menu tempo-menu" role="menu" aria-label="The loop's length" hidden></div>
+<!-- The tempo's, from the bar's display: the tempo to type, nudge or tap,
+     and the bars the loop could be (page.js, renderTempo). -->
+<div id="tempo-menu" class="menu tempo-menu" role="dialog" aria-label="Tempo" hidden></div>
 <!-- Catch's: what to catch, the last pass or the last bars, over its ▾
      (page.js, renderCatchMenu). -->
 <div id="catch-menu" class="menu catch-menu" role="menu" aria-label="What to catch" hidden></div>
