@@ -12,7 +12,7 @@ import { flagRequest } from '/lib/flags.js';
 import { restoreTake } from '/lib/trash.js';
 import { undoSkipped } from '/lib/toast.js';
 import { withClient } from '/lib/client.js';
-import { timedFetch } from '/lib/link.js';
+import { createTakes } from '/lib/models/takes.js';
 import { onSchemeChange } from '/lib/theme.js';
 import { stripeFor, STRIPES } from '/lib/objects/cassette-geom.js';
 import { tagStore } from '/lib/tags.js';
@@ -68,8 +68,11 @@ export class TakesList {
    * The Listening Room's List (lib/shell/views/room.js) also asks for
    * openKey, a › at each row's end that opens the take on its page, and
    * newFor, how long (ms) a take wears the NEW sticker after it was made.
+   *
+   * takes is the page's takes (lib/models/takes.js), where the list comes
+   * from: the list never asks /api/jams itself. Without one it makes its own.
    */
-  constructor(container, emptyEl, { onToast, onListChange, onSelectChange, onSelected, touchHold = false, showFolded = false, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded, audioFor = null, openKey = false, newFor = 0 }) {
+  constructor(container, emptyEl, { takes = null, onToast, onListChange, onSelectChange, onSelected, touchHold = false, showFolded = false, selectBar, shape, stepOrder = 'shown', spines = false, spineAction = 'pick', onSpineHold, onPlay, onEnded, audioFor = null, openKey = false, newFor = 0 }) {
     // A take starting, and playing to its end: the page's now-playing bar hears of both.
     // Settles with the first list the Pi answers (bar/handoff.js waits for it).
     this.loaded = new Promise((resolve) => { this.markLoaded = resolve; });
@@ -150,7 +153,11 @@ export class TakesList {
     // Row waveforms are canvases: repaint them when the device turns dark or
     // light.
     onSchemeChange(() => { for (const row of this.rows.values()) row.ws?.draw(); });
+    this.takes = takes || createTakes();
+    // The ETag of the list drawn; null asks the Pi again and draws what it
+    // answers, changed or not (after a write of this list's own).
     this.etag = null;
+    this.asking = 0; // refreshes out: behind() waits for them
     this.playing = null; // name of the currently playing take
     this.fresh = null;
     this.reorderDeferred = false; // a render held back a move; see render()
@@ -207,20 +214,34 @@ export class TakesList {
     return body;
   }
 
+  /**
+   * refresh draws the page's list (this.takes) if it isn't the one drawn:
+   * as the model holds it, or as the Pi answers it when the model can't
+   * vouch for it. With this.etag null it asks the Pi now, and draws what
+   * comes back.
+   */
   async refresh() {
-    const headers = {};
-    if (this.etag) headers['If-None-Match'] = this.etag;
-
-    const res = await timedFetch('/api/jams', { headers, cache: 'no-store' });
-    if (res.status === 304) { this.markLoaded(); return; }
-    if (!res.ok) throw new Error(`takes: HTTP ${res.status}`);
-
-    this.etag = res.headers.get('ETag');
-    const takes = await res.json();
+    const drawn = this.etag;
+    let takes;
+    this.asking++;
+    try {
+      takes = drawn === null ? await this.takes.refresh() : await this.takes.get();
+    } finally { this.asking--; }
+    if (drawn !== null && this.takes.etag === drawn) { this.markLoaded(); return; }
+    this.etag = this.takes.etag;
     this.all = Array.isArray(takes) ? takes : [];
     this.reshape();
     this.onListChange?.();
     this.markLoaded();
+  }
+
+  /**
+   * behind is true when the page's takes hold a list other than the one
+   * drawn: the push or the model's poll brought one. Not while a refresh
+   * of its own is out, or asked for (this.etag null), which draws it anyway.
+   */
+  behind() {
+    return !this.asking && this.etag !== null && this.takes.list() !== null && this.takes.etag !== this.etag;
   }
 
   /** reshape re-renders the last list through shape, without a fetch. */

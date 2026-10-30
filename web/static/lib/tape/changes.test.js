@@ -23,9 +23,9 @@ function rig() {
     doc: { hidden: false, ...quiet }, win: quiet,
     location: { protocol: 'https:', host: 'pi.local' },
   };
-  const nudges = [], presses = [];
-  const w = watchChanges({ onNudge: (m) => nudges.push(m.rev), onPress: (p) => presses.push(p) }, env);
-  return { sockets, nudges, presses, w, clock };
+  const nudges = [], presses = [], takes = [];
+  const w = watchChanges({ onNudge: (m) => nudges.push(m.rev), onPress: (p) => presses.push(p), onTakes: (m) => takes.push(m.takes_rev) }, env);
+  return { sockets, nudges, presses, takes, w, clock };
 }
 
 test('it watches /api/tapes/changes on the page\'s host', () => {
@@ -47,6 +47,16 @@ test('a beat with the same revision says nothing; a new one nudges', () => {
   r.sockets[0].say({ rev: 7, at_ms: 2001 });
   r.sockets[0].say({ rev: 9, at_ms: 2050 });
   assert.deepEqual(r.nudges, [9]);
+});
+
+test('every message with a takes_rev is handed to onTakes, beats and the first included: the takes model says what is news', () => {
+  const r = rig();
+  r.sockets[0].say({ rev: 7, takes_rev: 2 });
+  r.sockets[0].say({ rev: 7, takes_rev: 2 });
+  r.sockets[0].say({ rev: 8, takes_rev: 3 });
+  r.sockets[0].say({ rev: 9 }); // a Pi from before the takes' revision
+  assert.deepEqual(r.takes, [2, 2, 3]);
+  assert.deepEqual(r.nudges, [8, 9], 'and the tape\'s nudges are as they were');
 });
 
 test('a beat catches a nudge that was lost', () => {

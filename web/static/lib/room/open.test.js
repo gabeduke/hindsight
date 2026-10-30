@@ -29,7 +29,9 @@ async function open({ file = 'jam_a.wav', arrivalNote = null, jams = [], region 
   const state = { cursor: 7 * SR, region, grid: { bpm, sampleRate: SR, downbeat: 0 }, flags: [] };
   let hooks = [];
   const h = {
-    file, take: { name: 'jam_a.wav', label: 'a', created: '2026-10-15T20:00:00Z', tag: '' }, sampleRate: SR, total: 90 * SR, peaks: null,
+    file, take: { name: 'jam_a.wav', label: 'a', created: '2026-10-15T20:00:00Z', tag: '' },
+    takes: { get: async () => jams }, // the page's takes (lib/models/takes.js)
+    sampleRate: SR, total: 90 * SR, peaks: null,
     toast: (m) => calls.push(`toast ${m}`),
     state: () => state, playing: () => false, togglePlay: async () => { calls.push('play'); }, seek: (f) => { calls.push(`seek ${f}`); state.cursor = f; },
     addNote: (f) => { calls.push(`add ${f}`); state.flags.push({ id: `f${state.flags.length + 1}`, frame: f, label: '' }); hooks.forEach((fn) => fn()); return `f${state.flags.length}`; },

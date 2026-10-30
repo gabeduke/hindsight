@@ -97,6 +97,7 @@ export const roomView = {
     // What the shelf folded on its last draw (lib/shelf.js fold).
     let fam = fold([]);
     const takes = new TakesList($('takes'), $('takes-empty'), {
+      takes: ctx.takes,
       onToast: toast,
       onListChange: () => {
         clearTimeout(trashTimer);
@@ -457,6 +458,11 @@ export const roomView = {
       if (ctx.active()) poll(true); else notesChanged = true;
     });
 
+    // The page's takes moved (the Pi's push, or the model's own poll):
+    // drawn now if the room is shown and nothing plays, else by the next
+    // tick, which asks the Pi nothing while the model vouches for its list.
+    const offTakes = ctx.takes?.onChange(() => { if (ctx.active() && takes.behind()) poll(); });
+
     renderControls();
     showNextToast();
     ctx.every(() => poll(), 5000);
@@ -515,6 +521,7 @@ export const roomView = {
       destroy() {
         stopPlayAll();
         offNotes?.();
+        offTakes?.();
         roomInst?.destroy?.();
       },
     };

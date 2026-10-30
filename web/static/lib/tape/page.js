@@ -186,6 +186,7 @@ export function mountTapePage(ctx) {
   // reads the hand-off nor writes it, so the Listening Room, back, finds its
   // take (lib/bar/carry.js).
   studioVisit(pageCarry());
+  takes = ctx?.takes || null; // before the bounce, which reads it
   initBouncing();
   initEditorBar();
   cueLane?.destroy();
@@ -336,7 +337,7 @@ function heardPress(p) {
 }
 function followTheTape() {
   engine.tape.delegate(barHands);
-  const changes = watchChanges({ onNudge: nudged, onPress: heardPress });
+  const changes = watchChanges({ onNudge: nudged, onPress: heardPress, onTakes: (m) => engine.tape.heardTakes(m) });
   return {
     close() {
       changes.close();
@@ -522,6 +523,7 @@ const playheadLoop = new Loop((_dt, now) => playheadFrame(now));
 // is, whether it plays, and how to read each track's level at a frame for
 // the LCD's level bars.
 let engine = null;
+let takes = null; // the page's takes (lib/models/takes.js), ctx.takes
 let output = null;
 let ghost = null; // a locate seen but not yet heard, { pos, until }
 const pending = new Pending();
@@ -904,7 +906,7 @@ function initBouncing() {
   // moment the tape differs, and asks the Pi as the menu opens (a bounce may
   // have been made from another device).
   const tapeNow = () => (state.tape ? { id: state.id, name: state.tape.name } : null);
-  bouncing = { menu, player: takePlayer({ toast }), keeper: lastBounceKeeper({ menu, tapeNow }) };
+  bouncing = { menu, player: takePlayer({ toast, takes }), keeper: lastBounceKeeper({ menu, tapeNow, takes }) };
 }
 
 // mixdown plays the loop (or, with all, the whole tape) once and saves what

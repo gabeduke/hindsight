@@ -16,7 +16,7 @@ import { icon } from '../ui/icons.js';
 export const RECENT = 3;
 
 /**
- * recentTakes is the newest `n` of `takes` (GET /api/jams's), newest first:
+ * recentTakes is the newest `n` of `takes` (as /api/jams lists them), newest first:
  * by the time in their names, which is when they were cut.
  */
 export function recentTakes(takes, n = RECENT) {
@@ -47,7 +47,7 @@ function lengthOf(t) {
 /**
  * sourceMenu wires the display's source key (`button`) to `panel`:
  *   now()       what plays: { kind, takeName, tape } (tape: the loaded tape's name, or null)
- *   list()      a promise of the takes (GET /api/jams)
+ *   list()      a promise of the takes (the page's, lib/models/takes.js get())
  *   pick(id)    'tape', 'feed' or 'take:<name>'
  *   layers      the page's stack
  * Answers its menu.

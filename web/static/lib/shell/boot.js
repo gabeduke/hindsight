@@ -18,6 +18,7 @@ import { ensureStudioSheets } from '/lib/rooms/sheets.js';
 import { layersOf } from '/lib/ui/layers.js';
 import { createNotesDrawer } from '/lib/room/drawer.js';
 import { barNotes } from '/lib/room/notes.js';
+import { createTakes } from '/lib/models/takes.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -33,8 +34,12 @@ const help = initHelp({ page: 'takes' });
 // first say over a tap in help mode).
 showPresses(document);
 const tapes = initNav(document, { layers });
+// The page's takes (lib/models/takes.js): the one list every room and the
+// bar read, asked for when the tape's changes socket says it moved (the
+// engine feeds it), and by the shown room's tick when it can't vouch for it.
+const takes = createTakes();
 let router = null;
-const engine = createEngine({ tapes, onToast: toast, go: (url, opts) => router?.go(url, opts) });
+const engine = createEngine({ tapes, takes, onToast: toast, go: (url, opts) => router?.go(url, opts) });
 const link = watchLink(() => {});
 
 // The notes drawer (lib/room/drawer.js), the shell's one, the same in every
@@ -87,7 +92,7 @@ const slots = {
   bar: { parent: () => $('np') },
 };
 
-const shared = { engine, tapes, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
+const shared = { engine, tapes, takes, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
 
 const views = [];
 const studioRoot = $('view-studio');

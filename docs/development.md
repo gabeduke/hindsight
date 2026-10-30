@@ -342,7 +342,7 @@ nothing else.
   DROP, KEEP, TOSS.
 - `cueclip.js` — a cue clip as a board (`boardOf`), the dial's arithmetic,
   GRAB's words.
-- `model.js` — the numbers, tested: the next free span, the window's steps.
+- `model.js` — the numbers, tested: where DROP lands, the window's steps.
 - `keys.js` — the drawer's keys, as a table for P3's control bus to fold in.
 - `draw.js`, `lanes.js`, `fold.js`, `audition.js`, `api.js`.
 
@@ -703,6 +703,9 @@ claude.ai artifacts, private to Gabe:
   `4fJSP7iBAvLS2uMuBJ4xhg`
 - The ecosystem review (the architecture today, the directions, the
   walkthrough's questions): `XTWpyKFHcn14cCzBE2cdCo`
+- The play look (the audit and three directions; `the-play-look.md`):
+  `DHqPaBAGJyqDz4PErR4Qir`, built by `play/gen.py` in the design
+  generators' folder
 
 ## Conventions
 

@@ -1,10 +1,8 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"path/filepath"
-	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
 	"github.com/gabeduke/hindsight/internal/tape"
@@ -68,10 +66,10 @@ func (a *API) handleCueGrab(w http.ResponseWriter, r *http.Request) {
 		}
 		g, err = a.tape.GrabTakeToCue(id, path, name, takeTitle(name, path), b.From, b.To, a.takePair(info.Channels))
 	} else {
-		g, err = a.tape.GrabToCue(id, tape.GrabRequest{Bars: b.Bars, Seconds: b.Seconds, RingFrom: b.RingFrom, RingTo: b.RingTo, Sources: b.Sources}, b.Clip)
+		g, err = a.Verbs().Grab(id, tape.GrabRequest{Bars: b.Bars, Seconds: b.Seconds, RingFrom: b.RingFrom, RingTo: b.RingTo, Sources: b.Sources}, b.Clip)
 	}
 	if err != nil {
-		tapeErr(w, err)
+		verbErr(w, err)
 		return
 	}
 	a.writeTapeStateWith(w, id, &tape.EditResult{Op: "cue-grab", Clips: 1, CueClip: &g.Clip, CueReplaced: g.Replaced}, false)
@@ -135,20 +133,15 @@ func (a *API) handleCueDrop(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &b) {
 		return
 	}
-	if b.Track == 0 {
-		b.Track = 1
-	}
-	d, err := a.tape.CueDrop(r.URL.Query().Get("id"), b.Clip, b.Track, b.Merge, b.At)
+	d, err := a.Verbs().Drop(r.URL.Query().Get("id"), b.Clip, b.Track, b.Merge, b.At)
 	if err != nil {
-		tapeErr(w, err)
+		verbErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, d)
 }
 
-// handleCueKeep is a cue clip's KEEP, a take like the buffer's
-// (handleClipboardKeep): its preview made after, and MAX_SAVES applied,
-// never to it.
+// handleCueKeep is a cue clip's KEEP, a take on the shelf (Verbs.KeepClip).
 func (a *API) handleCueKeep(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
@@ -159,18 +152,10 @@ func (a *API) handleCueKeep(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &b) {
 		return
 	}
-	if free := audio.EnsureFree(a.cfg.OutputDir, a.cfg.MinFreeGB); free < a.cfg.MinFreeGB {
-		writeErr(w, http.StatusInsufficientStorage, fmt.Sprintf("low disk: %.2f GB free, need %.2f GB", free, a.cfg.MinFreeGB))
-		return
-	}
-	k, err := a.tape.CueKeep(r.URL.Query().Get("id"), b.Clip, a.cfg.OutputDir, time.Now())
+	k, err := a.Verbs().KeepClip(r.URL.Query().Get("id"), b.Clip)
 	if err != nil {
-		tapeErr(w, err)
+		verbErr(w, err)
 		return
-	}
-	a.background(func() { audio.MakePreview(a.cfg, filepath.Join(a.cfg.OutputDir, k.Name), 2) })
-	if a.saver != nil {
-		a.background(func() { a.saver.Prune(k.Name) })
 	}
 	writeJSON(w, http.StatusOK, k)
 }

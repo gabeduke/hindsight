@@ -82,6 +82,7 @@ export function mountCapture(ctx) {
   const navigateTo = (url) => ctx.go(url);
 
   const takes = new TakesList(el.takes, el.takesEmpty, {
+    takes: ctx.takes,
     onToast: toast,
     onListChange: () => { if (el.allCount) el.allCount.textContent = takes.all.length ? String(takes.all.length) : ''; },
     shape: (all) => {
@@ -457,6 +458,10 @@ export function mountCapture(ctx) {
   pollStatus().then(() => pollTakes(true));
 
   ctx.every(pollStatus, 2000);
+  // The page's takes moved (the Pi's push, or the model's own poll): drawn
+  // now while Capture is shown and nothing plays, else by the next tick,
+  // which asks the Pi nothing while the model vouches for its list.
+  const offTakes = ctx.takes?.onChange(() => { if (ctx.active() && takes.behind()) pollTakes(); });
   ctx.every(() => pollTakes(), 5000);
 
   // Keep the screen awake while docked on a charger. Charging-only, so a phone
@@ -486,6 +491,7 @@ export function mountCapture(ctx) {
       ribbon?.pause?.();
     },
     destroy() {
+      offTakes?.();
       stopLive();
       vuMeters?.destroy?.();
       ribbon?.destroy?.();

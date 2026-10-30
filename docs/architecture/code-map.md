@@ -15,7 +15,7 @@ internal/tape          the tape: model and undo, store and pool, renderer, trans
 internal/rig           the kit drawn as hardware: device profiles, sockets, cables
 internal/hub           the Pi's side of the hub
 internal/hubserver     the hub itself
-internal/api           HTTP and WebSocket handlers
+internal/api           HTTP and WebSocket handlers; the verbs every surface presses (verbs.go)
 web/static             the UI, served from disk per request
 web/static/shell.html  the one document: the Studio, the Listening Room and Capture
 web/static/lib/shell   the router, the view contract and the three views

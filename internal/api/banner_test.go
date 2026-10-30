@@ -317,12 +317,12 @@ func TestEveryRefusalFitsTheBanner(t *testing.T) {
 		}
 	}
 	for err, want := range map[error]string{
-		errNotArmed:                     "NO TRACK ARMED",
-		audio.ErrNoAudio:                "NOTHING TO KEEP",
-		tape.ErrNeedsJamRoom:            "PLAYING ON A PHONE",
-		errors.New("something new"):     "GRAB REFUSED",
-		errors.Join(errNoRoom, errBusy): "NO ROOM ON TRACK",
-		tape.ErrEmptyClipboard:          "BUFFER IS EMPTY",
+		errNotArmed:                             "NO TRACK ARMED",
+		audio.ErrNoAudio:                        "NOTHING TO KEEP",
+		tape.ErrNeedsJamRoom:                    "PLAYING ON A PHONE",
+		errors.New("something new"):             "GRAB REFUSED",
+		errors.Join(errLongerThanTape, errBusy): "LONGER THAN TAPE",
+		tape.ErrEmptyClipboard:                  "BUFFER IS EMPTY",
 	} {
 		if got := refused("grab", err); got.words != want || got.colour != surface.Amber {
 			t.Errorf("refused(grab, %v) = %+v, want %q in amber", err, got, want)
