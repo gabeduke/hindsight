@@ -78,6 +78,11 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
+- **The walkthrough has begun** (2026-10-30): `walkthrough.md` holds Gabe's
+  stories and what is decided so far. Specs come out of it: reaching back
+  (Catch and Keep as one move), song sections and templates, the pocket
+  kit (a phone that records on its own and syncs the tape), and retiring
+  Play mode's flag.
 - **`the-ecosystem.md` comes first** (2026-10-30, not yet agreed): Gabe
   finds the UX chaotic and wants an ecosystem of components reached from
   every surface. Its walkthrough settles what is kept, merged or cut, and
