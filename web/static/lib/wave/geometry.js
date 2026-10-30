@@ -212,30 +212,6 @@ export function setPoint(edge, at, { selection, pending }, total, minLen) {
   return { selection: null, pending: { edge, frame: at } };
 }
 
-/** prevFlag and nextFlag are the flags either side of a frame, or null. */
-export function prevFlag(flags, at) {
-  let best = null;
-  for (const f of flags || []) if (f.frame < at - 1 && (!best || f.frame > best.frame)) best = f;
-  return best;
-}
-export function nextFlag(flags, at) {
-  let best = null;
-  for (const f of flags || []) if (f.frame > at + 1 && (!best || f.frame < best.frame)) best = f;
-  return best;
-}
-
-/**
- * landFlag is where ◂⚑ or ⚑▸ lands on a take it went on to: its last flag
- * (which 'last'), else its first; null without flags (the start).
- */
-export function landFlag(flags, which) {
-  let best = null;
-  for (const f of flags || []) {
-    if (!best || (which === 'last' ? f.frame > best.frame : f.frame < best.frame)) best = f;
-  }
-  return best;
-}
-
 /** fmtClock is m:ss, for lengths in the header and on buttons. */
 export function fmtClock(frames, sampleRate) {
   const s = Math.floor(frames / sampleRate);

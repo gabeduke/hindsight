@@ -25,7 +25,7 @@
  * naming the new address, until it is here, in sw.js's SHELL and in every
  * <use> the pages write.
  */
-export const SPRITE = '/icons/ui.svg?v=c8b28c4c';
+export const SPRITE = '/icons/ui.svg?v=c634899d';
 
 /** ICONS is every icon in the sprite, by its id. */
 export const ICONS = Object.freeze([
@@ -38,7 +38,7 @@ export const ICONS = Object.freeze([
   // the ruler: ⌗, and the loop's lock in two parts (the shackle lifts)
   'view', 'lock-body', 'lock-shackle',
   // ways in and out
-  'down', 'right', 'left', 'close', 'check',
+  'down', 'right', 'left', 'close', 'check', 'minus', 'plus',
   // the library
   'star', 'list',
   // the keyboard's press, on the bar

@@ -6,8 +6,8 @@
 //     mode: tapping a control shows its tip instead of using it, until the
 //     tip's Done, Escape or Help mode again (a control with data-tip-pass,
 //     the menu's own button among them, shows its tip and is used too);
-//   - the first time a page is opened on a device, a card with three hints
-//     points at what matters most, and is dismissed for good.
+//     on a page with HINTS, help mode starts with them: what matters most
+//     there, said once you have asked.
 //
 // Tips come from tips.js. A long press couldn't do this job: the nudges
 // already repeat when held.
@@ -20,16 +20,13 @@ export const HINTS = {
     lines: [
       'Hold, then drag, on the waveform to select. The grips underneath adjust the ends.',
       'A plain drag always moves along the take; it never moves the selection.',
-      'Loop is a toggle. Off, ▶ plays straight through the selection and on.',
+      'Repeat is a toggle. Off, ▶ plays straight through the selection and on.',
     ],
     guide: '/guide.html#4-the-take-page',
   },
 };
 
 const GUIDE = { take: '/guide.html#4-the-take-page', main: '/guide.html#3-the-main-page', takes: '/guide.html#31-the-takes-page', tape: '/guide.html#8-tape' };
-
-function storageGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-function storageSet(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } }
 
 /** applyTitles gives every data-tip element under root its tip as a title. */
 export function applyTitles(root) {
@@ -53,13 +50,23 @@ export function initHelp({ page, doc = document } = {}) {
   pop.setAttribute('role', 'status');
   pop.hidden = true;
   doc.body.appendChild(pop);
-  function show(title, text, link) {
+  function show(title, text, link, lines = []) {
     pop.replaceChildren();
     const h = doc.createElement('b');
     h.textContent = title;
     const p = doc.createElement('span');
     p.textContent = text;
     pop.append(h, p);
+    if (lines.length) {
+      const ul = doc.createElement('ul');
+      ul.className = 'tip-pop-hints';
+      for (const line of lines) {
+        const li = doc.createElement('li');
+        li.textContent = line;
+        ul.appendChild(li);
+      }
+      pop.appendChild(ul);
+    }
     if (link) {
       const a = doc.createElement('a');
       a.href = link;
@@ -86,7 +93,7 @@ export function initHelp({ page, doc = document } = {}) {
     doc.body.classList.toggle('help-mode', on);
     // A menu's item is checked; a button of its own is pressed.
     btn?.setAttribute(btn.getAttribute('role') === 'menuitemcheckbox' ? 'aria-checked' : 'aria-pressed', String(on));
-    if (on) show('Help mode', 'Tap anything to read what it does. Done, or Escape, leaves it.', GUIDE[page]);
+    if (on) show(HINTS[page]?.title || 'Help mode', 'Tap anything to read what it does. Done, or Escape, leaves it.', GUIDE[page], HINTS[page]?.lines);
     else pop.hidden = true;
   }
   btn?.addEventListener('click', (e) => { e.stopPropagation(); setOn(!on); });
@@ -130,35 +137,6 @@ export function initHelp({ page, doc = document } = {}) {
     if (e.key === 'Escape') setOn(false);
     if (e.key !== 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
-
-  // First-run hints, once per device per page.
-  const hints = HINTS[page];
-  if (hints && storageGet(`hints.${page}`) !== '1') {
-    const card = doc.createElement('div');
-    card.className = 'hints';
-    const h = doc.createElement('b');
-    h.textContent = hints.title;
-    const ul = doc.createElement('ul');
-    for (const line of hints.lines) {
-      const li = doc.createElement('li');
-      li.textContent = line;
-      ul.appendChild(li);
-    }
-    const row = doc.createElement('div');
-    row.className = 'hints-actions';
-    const more = doc.createElement('a');
-    more.href = hints.guide;
-    more.textContent = 'The guide';
-    const ok = doc.createElement('button');
-    ok.type = 'button';
-    ok.className = 'icon-btn';
-    ok.textContent = 'Got it';
-    ok.addEventListener('click', () => { storageSet(`hints.${page}`, '1'); card.remove(); });
-    row.append(more, ok);
-    card.append(h, ul, row);
-    const host = doc.querySelector('[data-hints]') || doc.querySelector('main');
-    host?.prepend(card);
-  }
 
   return { isOn: () => on, setOn, setPage: (p) => { page = p; } };
 }

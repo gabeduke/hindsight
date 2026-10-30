@@ -21,8 +21,6 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 - Open (`wave.html`), the rig (`rig.html`) and the guide are still pages of
   their own, outside the shell ([decision 0011](../decisions/0011-open-is-its-own-page.md)).
-- Open still titles a take by its date stamp, not `takeTitle`, until Open's
-  pass.
 - The cue lane takes GRABs only; adding from the shelf and from a track is
   in `backlog.md`.
 
@@ -78,6 +76,7 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
 
 ## Next
 
+
 - **The component migration, paced** (`components.md`, agreed
   2026-10-30). One component per session, one PR each, tried by Gabe on
   the tablet before the next starts. Gabe, 2026-10-30: "merge anything, we
@@ -127,14 +126,17 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   - step 4's first models: takes (#225), the tape's transport (#231).
 
   Step 5 is the migration above, and step 7 is the play look.
-- **`the-studio-space.md` is the build order**: steps 1–9 and 11 have
-  landed (9, the notes drawer: `docs/architecture/rooms.md`, *The notes
-  drawer*; 11, GRAB onto the cue lane, a clip's drawer above the bar;
-  decision 0061); 10 (Open, which docks the drawer beside its waveform)
-  and 12 (polish) are open.
+- **`the-studio-space.md` is the build order**: steps 1–11 have landed
+  (10, Open and the dolly into a take: `docs/architecture/take-page.md`,
+  *Open*); 12 (polish) is open, and so is Open's one unbuilt part, the
+  selection's action bar, settled by recommendation (Gabe may overrule):
+  its ends, length and Clear dock above the bar as the Studio's action bar
+  does, and GRAB and KEEP stay under the waveform, already saying what
+  they do to the selection. Open wants a look on the tablet: the docked
+  notes drawer, GRAB first, the folds, the numbered pins and double-tap
+  zoom.
   The phone's player as a sheet and its ● want a look on a real phone:
-  the mini player's display is narrow on a 360 px phone (`bar.md`). They
-  take in the open steps of `listening-back.md`, which holds their details.
+  the mini player's display is narrow on a 360 px phone (`bar.md`).
   Decision 0061's three choices were built as recommended; Gabe to try
   them on the tablet and overrule any.
 - **The Pi's buffer routes are dead code** since step 11: `/api/clipboard`'s
