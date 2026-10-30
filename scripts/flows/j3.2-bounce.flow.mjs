@@ -45,7 +45,9 @@ export default {
       !!menu && menu.on && menu.last && menu.groups[0].includes('✓ Bounce') && menu.groups[0].includes(other.name) && menu.groups[0].at(-1) === 'New tape'
       && JSON.stringify(menu.groups.slice(1)) === JSON.stringify([
         ['Rename…', 'Duplicate'],
-        ['Share the mix', 'Bounce the loop', 'Bounce the whole tape', 'Export stems', 'Play the last bounce'],
+        // Download the mix alone: this browser can't share files (Share the
+        // mix… beside it where one can, J3.4).
+        ['Download the mix', 'Bounce the loop', 'Bounce the whole tape', 'Export stems', 'Play the last bounce'],
         ['Record from this phone…'],
         ['Delete this tape…'],
       ]), menu);

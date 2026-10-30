@@ -82,9 +82,13 @@
         <button id="tape-rename" class="menu-item" type="button" role="menuitem" data-tip="tape-rename"><span class="menu-word">Rename…</span></button>
         <button id="tape-clone" class="menu-item" type="button" role="menuitem" data-tip="clone"><span class="menu-word">Duplicate</span></button>
         <div class="menu-divider" role="separator"></div>
-        <!-- The whole tape as an MP3 for the share sheet, rendered on the Pi:
-             no jam room, no interface (lib/tape/page.js, shareMix). -->
-        <button id="tape-share-mix" class="menu-item" type="button" role="menuitem" data-tip="share-mix"><span class="menu-word">Share the mix</span></button>
+        <!-- The whole tape as an MP3, rendered on the Pi: no jam room, no
+             interface (lib/tape/page.js, exportMix). Download it, and Share
+             it beside that where the browser can share files: with a mouse
+             Download first, on a touch screen Share (renderTapeMenu,
+             orderExportKeys). -->
+        <button id="tape-dl-mix" class="menu-item" type="button" role="menuitem" data-tip="download-mix"><span class="menu-word">Download the mix</span></button>
+        <button id="tape-share-mix" class="menu-item" type="button" role="menuitem" data-tip="share-mix"><span class="menu-word">Share the mix…</span></button>
         <!-- BOUNCE (lib/rooms/bounce.js): the tape through the mixer, once,
              into a take. -->
         <button id="tape-mixdown" class="menu-item" type="button" role="menuitem" data-tip="bounce"><span class="menu-word">Bounce the loop</span></button>
@@ -595,7 +599,12 @@
     </div>
     <div class="sheet-actions">
       <button id="clip-reverse" class="icon-btn" type="button" data-tip="clip-reverse">Reverse</button>
-      <button id="clip-share" class="icon-btn" type="button" data-tip="clip-share">Share as WAV</button>
+    </div>
+    <!-- The clip as a WAV: Download, and Share beside it where the browser
+         can share files, in the order fillClip puts them (orderExportKeys). -->
+    <div class="sheet-actions">
+      <button id="clip-download" class="icon-btn" type="button" data-tip="clip-download">Download as WAV</button>
+      <button id="clip-share" class="icon-btn" type="button" data-tip="clip-share">Share as WAV…</button>
     </div>
     <div class="sheet-actions">
       <button id="clip-trim-in" class="icon-btn" type="button" data-tip="clip-trim">Start here</button>
