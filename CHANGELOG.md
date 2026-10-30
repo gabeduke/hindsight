@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.30.5 — 2026-10-30
+
+- Open's page asks phones for a fresh shell (0e576b16)
+- Open: notes are numbered pins, a double tap zooms, − Fit +, dropouts among the notes, and opening a take dollies in (21e86603)
+- Open: the notes beside the waveform, GRAB first, Fine tune and MIDI folded; Send to and the flag keys are gone (e9c446b6)
+
+
 ## v2026.10.30.4 — 2026-10-30
 
 - Docs only: the components spec says how much of the transport model is built (3f0fd60c)

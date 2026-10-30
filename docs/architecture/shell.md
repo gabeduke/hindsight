@@ -342,8 +342,11 @@ usually was landed on the brand.
   - In the Studio the tape's name (`#tape-name`) opens the tape's menu
     (`lib/tape/page.js` `renderTapeMenu`; its words, `lib/tape/tape-menu.js`):
     *The tapes*, each with its tempo and parts and the loaded one ticked,
-    and New tape; Rename…, Duplicate; Share the mix, Bounce the loop,
-    Bounce the whole tape, Export stems and Play the last bounce
+    and New tape; Rename…, Duplicate; Download the mix and Share the mix…
+    (Share only where the browser can share files, after Download with a
+    mouse and before it on a touch screen: `orderExportKeys`,
+    `lib/wave/share.js`), Bounce the loop, Bounce the whole tape, Export
+    stems and Play the last bounce
     (`lib/rooms/bounce.js`); Record from this phone…; and Delete this
     tape…. Delete asks in `#confirm` (never the browser's prompt) by the
     tape's name and what is on it, then, the Pi keeping the tape it has

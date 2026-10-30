@@ -658,10 +658,10 @@ From the top:
 - **The tape's name is its menu,** a pill with a ▾ (and the cassette). It
   holds everything you do with the tape, in groups: *The tapes* (each with
   its tempo and its parts, this one ticked: tap another to open it) and
-  **New tape**; **Rename…** and **Duplicate**; **Share the mix**, **Bounce
-  the loop**, **Bounce the whole tape**, **Export stems** and **Play the
-  last bounce** (§8.6); **Record from this phone…** (§7); and last, in red,
-  **Delete this tape…**.
+  **New tape**; **Rename…** and **Duplicate**; **Download the mix** and
+  **Share the mix…**, **Bounce the loop**, **Bounce the whole tape**,
+  **Export stems** and **Play the last bounce** (§8.6); **Record from this
+  phone…** (§7); and last, in red, **Delete this tape…**.
 - **↶ ↷** undo and redo every change to the tape except its name. 100 steps
   are kept, with the tape, so they survive a restart and every device shares
   them. On a phone, ↷ shows once there is something to redo.
@@ -994,7 +994,7 @@ lets it go, and selecting a clip does too.
 | **Fade in, Fade out** | Pick a clip and drag the small square at either end of its top edge inwards: the fade follows, any length, sticking to a **⌗** line as it passes close by (hold ⌥ to keep it off them), and says how long it is as you drag. It stops where the other fade begins; drag it back to the corner for none. Or, in its inspector, choose 10 ms, an eighth or a quarter of a beat, a beat or a bar (the beat ones need a tempo). Under the lengths, its **curve**: *Equal power* (the default, even over a beat), *Linear*, *S-curve* (slow off both ends) or *Exponential* (drops early and tails off, the way a note dies away). Drawn on the block as a shaded corner under that curve, and played on it, in a mixdown and a shared WAV too. The 3 ms declick, or a crossfade where it meets audio, still works under it. A split keeps each fade on its half; reversing swaps them, curves and all; a lift or copy drops a fade it cuts through |
 | **×2** | On the action bar while the range is the loop: doubles the loop, copying what's in it over what follows |
 | **Reverse** | In the action bar, or a clip's inspector: plays it backwards. In the inspector, *Play forwards* turns it back |
-| **Share as WAV** | In a clip's inspector: sends just that clip, at its level, to another app; a clip over a minute downloads instead |
+| **Download as WAV, Share as WAV…** | In a clip's inspector: saves just that clip, at its level, in your downloads, or sends it to another app where the browser can share files (a clip over a minute downloads instead). With a mouse Download comes first, on a touch screen Share |
 
 **Replace, insert or close the gap.** Three edits change what's already on
 the tape in three different ways, and the keys pair up to say so: **⤓ Paste**
@@ -1057,7 +1057,7 @@ Escape lets go.
 | **Duplicate** | ⌘D / Ctrl+D | Lays a copy right after them and selects the copy, so pressing it again carries the run on |
 | **Reverse** | | Turns each round |
 | **Move here** | | Moves them so the first starts at the playhead, keeping their spacing and tracks |
-| **Details…** | Enter, or double-click | The one clip in the inspector: level, nudge, fades, Align, Share as WAV, Start here and End here |
+| **Details…** | Enter, or double-click | The one clip in the inspector: level, nudge, fades, Align, Download as WAV and Share as WAV…, Start here and End here |
 | **Remove** | Delete | Takes them off the tape |
 | **Drag any of them** (hold, then drag) | ← → (Shift: a bar) | Moves them all by the same time (and, dragging, the same number of tracks), as far as the tape and its tracks go. The keys move them a step of **⌗**: a bar, a beat or an eighth (a tenth of a second with Off, or without a tempo), stopping at the tape's ends |
 | **Done** | Escape | Lets go of them |
@@ -1174,19 +1174,22 @@ Hit → Grid or Hit → Track short, it says so (*The tape starts here*).
     `RING_SECONDS` less the tail and five seconds.
   - To share a song with the Sidekick in it, bounce it and share the take.
     To send the tape as it is from anywhere, even with the interface off,
-    use **Share the mix**.
+    use **Download the mix** or **Share the mix…**.
   - The toast that says it is done has **▶**, which plays the new take on
     this device, and **Open**, its page. **Play the last bounce**, after
     *Export stems*, brings that toast back for this tape's newest bounce once
     it has gone, and says which take that is under its name. A
     bounce is a take on its tape's spine in the Listening Room.
-- **Share the mix** sends the whole tape as an MP3, from the start to the
-  end of the last part:
+- **Download the mix** and **Share the mix…** send the whole tape as an
+  MP3, from the start to the end of the last part:
   - The Pi renders it in a few seconds, with every track at its level and
-    pan, mutes and solos as they are, and buses A and B summed. A toast
-    says it's rendering, then **Share** opens the phone's share sheet
-    (Messages, WhatsApp, mail). It's named after the tape and the day. On a
-    computer, or where the sheet can't take a file, it's **Download**.
+    pan, mutes and solos as they are, and buses A and B summed. It's named
+    after the tape and the day. A toast says it's rendering; then
+    **Download the mix** saves it in your downloads, and **Share the mix…**
+    offers **Share**, which opens the share sheet (Messages, WhatsApp,
+    mail), with **Download** beside it. Share is there only where the
+    browser can share files; with a mouse Download comes first, as a
+    computer's share sheet has no folder to save to.
   - It's dry: no Sidekick EQ or FX, and nothing played live. For those,
     bounce it.
   - It works with the tape playing on a phone and with the interface off.
@@ -1665,7 +1668,7 @@ has no tip.
 | DAW bundle | The selection's WAV and MIDI, lined up, in a zip for a DAW |
 | MIDI ▸ | The take's MIDI: a lane per track, and the piano roll, its notes rising out of a keyboard as it plays |
 | Lane | Tap for this lane's menu: collapse, show as drums or as a piano roll, or hide |
-| The tape's name ▾ | The tape’s menu: your tapes (load one, or make a new one); rename or duplicate this one; share the mix, bounce it, export its stems or play its last bounce; record from this phone; and, last, delete it |
+| The tape's name ▾ | The tape’s menu: your tapes (load one, or make a new one); rename or duplicate this one; download or share the mix, bounce it, export its stems or play its last bounce; record from this phone; and, last, delete it |
 | A tape in the list | Load this tape: the transport plays the loaded one |
 | New tape | Start an empty tape. Its first loop sets the tempo |
 | Rename… | Give this tape a new name |
@@ -1710,7 +1713,8 @@ has no tip.
 | Fade in, Fade out (clip) | Fade the clip in from silence, or out to it: 10 ms, a part of a beat, a beat or a bar. Off leaves just the 3 ms declick. Any length: drag the square on the clip's top edge |
 | Fade curve (clip) | The fade's shape: Equal power (even, the default), Linear, S-curve (slow at both ends) or Exponential (drops early and tails off, as a sound dies away) |
 | Reverse (clip) | Play this clip backwards, or forwards again. Undo puts it back |
-| Share as WAV (clip) | Send just this clip, at its level, to another app; a long one downloads |
+| Download as WAV (clip) | Save just this clip, at its level, as a WAV in your downloads |
+| Share as WAV… (clip) | Send just this clip, at its level, to another app, where the browser can share files; a long one downloads |
 | Remove (clip) | Take this clip off the tape. Undo brings it back |
 | Start here, End here (clip) | Trim the clip's start or end to the playhead, for a clip too short to drag. What's trimmed is kept: drag or trim back out |
 | Cut (action bar) | Copy the selected clips as they lie, then take them off the tape: Paste lays them out again, and one Undo puts them back. Key: ⌘X or Ctrl-X |
@@ -1750,7 +1754,8 @@ has no tip.
 | Mix down | Play the loop, or the whole tape, once and save what came out of the mixer as a take: FX and live playing included |
 | Bounce | Play the loop, or the whole tape, once and keep what came out of the mixer as a take: FX and live playing included. Its toast has ▶ to hear it and Open for its page |
 | Play the last bounce | The newest take bounced from this tape, named under it: ▶ to hear it, Open for its page. For when the bounce's toast has gone |
-| Share the mix | Send the whole tape as an MP3: the Pi renders every track at its level and pan, then Share opens the phone’s share sheet. It works with the interface off, and goes nowhere on the shelf. It’s dry: no Sidekick EQ or FX, nothing played live (that’s Bounce) |
+| Download the mix | Save the whole tape as an MP3 in your downloads: the Pi renders every track at its level and pan. It works with the interface off, and goes nowhere on the shelf. It’s dry: no Sidekick EQ or FX, nothing played live (that’s Bounce) |
+| Share the mix… | Send the whole tape as an MP3, where the browser can share files: the Pi renders it as Download the mix does, then Share opens the share sheet, and Download is beside it |
 | Export stems | Download a zip with a WAV per track from bar 1, and a .mid with the tempo, for a DAW |
 | Bus A / B | Which Sidekick channel this track plays through, for its EQ and FX |
 | Source chip | The input of the track the inspector shows (the record track's, while one is armed): what ● Rec and a catch take from it. Choosing one changes only that track. Its meter shows what is coming in. ● clean: none of the tape is in it. ○ the tape is in it too |
