@@ -36,7 +36,7 @@ conformance tests; no one codebase is the contract.*
 flowchart TB
   subgraph phone["Phone: the pocket kit"]
     io["mic or USB interface"] <--> cb["audio callback<br/>(native, never Go)"]
-    cb --> feed[("the phone's feed<br/>a ring file")]
+    cb --> feed[("the phone's feed<br/>a file on disk")]
     core["Hindsight core<br/>(Go, through gomobile)<br/>tape model, edits, render,<br/>catch, keep, sync"]
     feed --> core
     core -->|"rendered blocks"| cb
@@ -69,14 +69,17 @@ is already the one brain … every direction below keeps this*
 Pi the phone has to be a brain of its own, so two engines can each hold a
 tape, and the protocol has to carry a tape between them, which today it
 never does: *nothing syncs between devices*. The Pi stays the brain at
-home, and the home of every tape that is Gabe's (*Sync*); whether that is
-the line to hold is the first question at the end.
+home, and the home of Gabe's tapes unless he shares one, when the hub,
+running the same core, becomes a third engine and that tape's home
+(*Sync*). Whether that is the line to hold is the first question at the
+end.
 
 **This spec is the engine ↔ engine half**: the tape as a portable
 document, and sync between the phone, the Pi, the hub and a friend's
 phone. The screen ↔ engine half (the verbs, each noun's state with its
 version, the events on the push socket, the refusals) is
-`docs/plan/components.md`'s, and nothing here specifies it again. The two
+`docs/plan/components.md`'s (PR #230, not yet agreed), and nothing here
+specifies it again. The two
 use the same words: tape, take, track, part, version.
 
 ## 1. The tape as a portable document
@@ -176,8 +179,9 @@ engine exports, imports and syncs, and a Pi can keep a tape in both.
 
 #### The tape document
 
-A snapshot, which is today's state with three changes: global ids, objects
-by hash, and who made each part. Shortened:
+A snapshot, which is today's state with four changes: global ids,
+objects by hash, who made each part, and `clips` named `parts` (on the
+tracks and the cue lane), as a person reads them. Shortened:
 
 ```json
 {
@@ -197,9 +201,10 @@ by hash, and who made each part. Shortened:
 }
 ```
 
-- **Ids are ULIDs** with a prefix (`t-` a tape, `p-` a part, `s-` a
-  section, `u-` a person, `d-` a device): unique without asking anyone, and
-  in time order. The slug stays as the tape's folder name on a Pi.
+- **Ids are ULIDs** with a prefix (`t-` a tape, `k-` a take, `p-` a
+  part, `s-` a section, `u-` a person, `d-` a device): unique without
+  asking anyone, and in time order. The slug stays as the tape's folder
+  name on a Pi.
 - **`home`** names the engine that orders this tape's edits (*Sync*): a
   Pi is a device too, and the hub has an id of its own.
 - **`by`** is the person who made the part (*Identity*).
@@ -259,8 +264,11 @@ A meter other than 4/4 would be a new field, read as 4/4 when absent.
 
 A take keeps its form on the Pi; the portable form is the same idea:
 `{id, object, meta}`, with the meta as `.meta.json` has it, plus `by`, the
-device it was kept on, and its own version for its meta edits, which already
-go one field at a time with a before and an after (`audio.Op`). Takes and
+device it was kept on, and its own version for its meta edits. Most
+already go one field at a time with a before and an after (`audio.Op`);
+the star doesn't (`DiffMeta`: *"Star, created, source and version are
+not operations"*), so it gets an operation of its own in slice 1. A
+take's `.meta.json` `version` stays its schema's. Takes and
 tapes share the objects store, so a bounce and the parts it was made from
 are found from one another, the walkthrough's *Projects*: a bounce's meta
 already names its tape (`tape_id`).
@@ -306,7 +314,8 @@ each wait to reach it.
 - **Objects before edits.** A replica asks the home which objects it lacks
   (`have` with a list of hashes, answered with `missing`), uploads those,
   then sends the edits that use them. The home refuses an edit naming an
-  object it doesn't hold, with the list, so an edit never lands half-done.
+  object it doesn't know of, with the list, so an edit never lands
+  half-done.
 - **Uploads resume.** An upload names its object and its offset; after a
   dropout the sender asks how far the home got and carries on, the rule
   `/api/phone` already keeps for a live recording. The home checks the hash
@@ -439,11 +448,12 @@ player*). The difference is the language at the edge (*Sharing code*).
 
 Both platforms let an app keep recording with the screen off once the
 recording has started from a tap, and both show the user that it is
-happening; neither lets an app turn the mic on by itself, from the
-background or at boot. So the design is the same on both: **Listen is a
-key in the app; once on, it keeps going in the pocket, with a
-notification (Android) or the recording indicator (iOS) saying so, and
-KEEP and Stop on it.** What follows from the platforms (the sources are
+happening. Android never lets an app turn the mic on by itself, from the
+background or at boot, and iOS is read the same way (its rule rests on
+an archived guide: *What this spec couldn't verify*). So the design is
+the same on both: **Listen is a key in the app; once on, it keeps going
+in the pocket, with a notification (Android) or the recording indicator
+(iOS) saying so, and KEEP and Stop on it.** What follows from the platforms (the sources are
 in *Appendix: the platforms*):
 
 - **Android**: a foreground service of type `microphone`, which has no
@@ -467,11 +477,12 @@ in *Appendix: the platforms*):
 
 ### The phone's feed
 
-- **A ring file on disk, not in memory.** The Pi keeps 15 minutes of eight
+- **A file on disk, not memory.** The Pi keeps 15 minutes of eight
   channels in RAM (`RING_SECONDS`, `docs/configuration.md`); a phone app in
   the background that held 700 MB would be the first thing the system
   kills. The callback writes into a small buffer in memory; a writer
-  thread appends it to the ring file a second at a time.
+  thread appends it to the feed's file a second at a time, going round
+  when it is full.
 - **Stereo, 32-bit, 48 kHz**: the same samples a pool object holds, so
   KEEP is a copy of a span of the file and nothing is converted. A device
   running at another rate is resampled on the way in.
@@ -553,11 +564,11 @@ The sizes are arithmetic: stereo 32-bit at 48 kHz is 384 KB a second.
 | | Size |
 |---|---|
 | A minute of feed or take | 23 MB |
-| A 30-minute feed (the ring file) | 691 MB |
+| A 30-minute feed (its file) | 691 MB |
 | An hour of listening, written to flash | 1.4 GB |
 | A 5-minute take, sent once | 115 MB (about 10 s on home Wi-Fi at 100 Mbit/s) |
 
-- **Storage**: the ring file is fixed; takes grow until synced, and are
+- **Storage**: the feed's file is fixed; takes grow until synced, and are
   then kept on the phone or dropped to their peaks and preview, by a
   setting (*Questions*). Listening a few hours a day writes tens of GB a
   week; what that does to a phone's flash over years wasn't checked for
@@ -579,7 +590,7 @@ plus takes in `internal/audio`. Four ways to get it onto a phone:
 | | What | For | Against |
 |---|---|---|---|
 | A | **Native per platform**: Kotlin with Oboe in C++ on Android; Swift with AVAudioEngine on iOS | The best fit to each platform; no bridge | The tape's rules written three times (Go, Kotlin, Swift), and kept the same by tests alone; iOS starts from zero |
-| B | **Kotlin Multiplatform**: the model and sync in shared Kotlin, audio native each side (stable since Kotlin 1.9.20, November 2023, [JetBrains](https://blog.jetbrains.com/kotlin/2023/11/kotlin-multiplatform-stable/); Compose for iOS since 1.8.0, May 2025) | One codebase for both phones; Kotlin is Android's own language | Still two implementations of the rules (Go on the Pi, Kotlin on phones) |
+| B | **Kotlin Multiplatform**: the model and sync in shared Kotlin, audio native each side (stable since Kotlin 1.9.20, November 2023, [JetBrains](https://blog.jetbrains.com/kotlin/2023/11/kotlin-multiplatform-stable/); Compose for iOS since 1.8.0, May 2025, [JetBrains](https://blog.jetbrains.com/kotlin/2025/05/compose-multiplatform-1-8-0-released-compose-multiplatform-for-ios-is-stable-and-production-ready/)) | One codebase for both phones; Kotlin is Android's own language | Still two implementations of the rules (Go on the Pi, Kotlin on phones) |
 | C | **A shared C++ or Rust core**: model, render and audio in one native library on both phones ([cpal](https://github.com/RustAudio/cpal) plays through AAudio and Core Audio; [UniFFI](https://github.com/mozilla/uniffi-rs) makes the Kotlin and Swift bindings) | Real-time safe, both phones from one core | A third language in a one-person project; the Pi stays Go unless 27,000 lines are rewritten, so two implementations again |
 | D | **gomobile**: the Pi's Go core (model, edits, render-ahead, catch, sync) as a library on both phones, the audio callback native | **One implementation of the rules** on the Pi, the hub and both phones; its tests already exist; renders match the Pi's because they are the Pi's | gomobile is *"experimental"*, with no support from the Go team ([golang/mobile](https://github.com/golang/mobile)); one Go library per app; a narrow bridge; a Go runtime in the app |
 
@@ -596,7 +607,8 @@ native.** What it means in practice:
   `sink_portaudio.go` are behind `//go:build cgo`; gomobile always builds
   with cgo, so today an Android build of `internal/tape` pulls PortAudio
   in (`CGO_ENABLED=1 GOOS=android go list -deps ./internal/tape` lists
-  it). Either the constraint becomes `cgo && !android && !ios`, or
+  it). Either the constraint becomes `cgo && !android && !ios` (and the
+  `_nocgo.go` pair flips to match), or
   PortAudio moves to a package of its own that only `cmd/hindsight`
   imports (recommended: the core then can't reach a device by accident).
   It is the first step of the format work (*Build order*, step 3).
@@ -693,7 +705,7 @@ prompts go to Google, and it may not use a few high-risk permissions
 (accessibility, SMS, call log, notification listeners, installing
 packages), a list the mic isn't on ([Play Console help](https://support.google.com/googleplay/android-developer/answer/18765789)).
 AI Studio's page says the project can be downloaded as a ZIP to carry on
-in Android Studio, which makes it an ordinary app, outside this route.
+in Android Studio ([the same docs](https://ai.google.dev/gemini-api/docs/aistudio-android)), which makes it an ordinary app, outside this route.
 
 | The pocket kit needs | What Google says |
 |---|---|
@@ -738,7 +750,8 @@ wherever you were.
   token for the phone, which belongs to Gabe (*Identity*).
 - Objects: `have`, a resumable upload, a download.
 - Takes: import a take (its id, its object, its meta, `by`, the device);
-  meta edits as `audio.Op`s, the rules takes already have.
+  meta edits as `audio.Op`s, the rules takes already have, and one for
+  the star, which has none yet.
 - The takes model and its push (#225): the tablet sees a phone's take
   land as it sees a KEEP at the Pi.
 - The canonical hash, and the conformance suite's *Objects* and
@@ -778,7 +791,8 @@ back in their colour, with their name. The piece becomes a collaboration.
 - The hub as the home of a shared tape, running the same core.
 - An object store, signed uploads, share links.
 - The conflict rules for real, with every row in the suite.
-- iOS, if a friend has an iPhone: the Swift shell.
+- A friend with an iPhone hears the tape through its share link's page
+  until there is an iOS app (Q16).
 
 ## Build order
 
@@ -786,7 +800,8 @@ Each its own PR (or a few), and none user-visible before Gabe has agreed
 this spec.
 
 1. **This spec agreed**, the questions answered.
-2. **The spike**, on Gabe's phone, thrown away after: a gomobile library,
+2. **The spike**, on Gabe's phone, thrown away after: on its own branch,
+   PortAudio out of the core's build the quick way, then a gomobile library,
    an Oboe callback pulling from a Go-filled queue, a microphone service,
    the screen off for an hour; then the AMS-24 plugged in. Measure
    underruns, the round trip, battery, heat and the app's size. If it
@@ -800,7 +815,8 @@ this spec.
 5. **The tape document and edits as named edits** on the Pi: the
    tape document, exported and imported (the suite's *Documents*
    rows); the one verb set (#224) carried down to the tape's own changes;
-   Undo per person. Then slice 2's protocol and app.
+   Undo per person. Then slice 2's protocol and app, whose web view needs
+   the Studio's components from `components.md`'s build order.
 6. **The hub's object store and share links**, then shared tapes (slice
    3), then iOS if it is wanted.
 
@@ -829,30 +845,33 @@ My recommendation first in each.
 
 1. **A second engine.** The ecosystem keeps the Pi as the one brain. Away
    from it, should the phone be a brain of its own (recommended: the Pi
-   stays the brain at home and the home of your tapes, and the phone
-   syncs to it), or should the phone stay a view of the Pi and record only
-   into it, as today?
+   stays the brain at home and the home of your tapes, the phone syncs to
+   it, and a shared tape makes the hub a third, running the same core),
+   or should the phone stay a view of the Pi and record only into it, as
+   today?
 2. **The shape of the format and sync**: audio named by its hash, a
    snapshot and the edits since; one home per tape that orders its edits,
    rather than a peer-to-peer merge; snapshots down on the nudge, edits up?
 3. **The code**: the Go core on the phone through gomobile, with the audio
    callback native, after a spike proves it? Or native per platform, or a
    Rust core?
-4. **The feed's length** on the phone: 30 minutes (691 MB)? Should Listen
-   switch itself off after a long silence, and after how long? And is
-   *Listen* the key's name, beside the Listening Room and the ecosystem's
-   proposed Listen workspace?
+4. **The feed's length** on the phone: 30 minutes (691 MB)? Listen
+   switching itself off after an hour of silence (recommended), or never?
+   And *Listen* as the key's name (recommended, for now), though the
+   Listening Room and the ecosystem's proposed Listen workspace share the
+   word?
 5. **The battery**: is an evening of listening (three hours) leaving most
    of the battery the target the spike measures against?
 6. **Takes from the phone**: sent to the Pi by themselves when home
-   (recommended), or chosen one by one? Kept on the phone after, or only
-   their previews?
+   (recommended), or chosen one by one? Once synced, kept on the phone
+   until it needs the room and then only their previews (recommended), or
+   always whole?
 7. **The conflict rule**: the last change *made* wins, removals win over
    changes, overdubs always layer, a replace never removes what its author
    couldn't hear?
-8. **Undo per person** rather than one Undo for everyone, from slice 2 on
-   the Pi too, and for takes, with an untokened page or the keyboard
-   counting as you?
+8. **Undo per person**, from slice 2: on a tape in place of one Undo for
+   everyone, and on a take in place of one per device, with an untokened
+   page or the keyboard counting as you?
 9. **On a shared tape**: anyone adds and changes their own parts, and only
    the owner changes anyone's?
 10. **Share links**: audio in an object store outside the house, signed by
@@ -860,8 +879,11 @@ My recommendation first in each.
     built, and links that lapse after a month unless kept, since a shared
     jam is *"a sketch that isn't permanent"* (`walkthrough.md`). Or links
     that last?
-11. **How a friend joins**: an invite link and a key on their phone, no
-    account? Or sign in with Google from the start?
+11. **People and how they join**: a person and their devices, a phone
+    paired by a code the tablet shows, the sync routes needing its token
+    from the first day (recommended, slice 1); a friend by an invite link
+    and a key on their phone, no account (recommended, slice 3)? Or sign
+    in with Google from the start?
 12. **The phone's screens**: small and native for slice 1, then the
     Studio's own components in a web view, rather than a second UI?
 13. **Overdubs across two clocks** (USB in, the phone's speaker out):
