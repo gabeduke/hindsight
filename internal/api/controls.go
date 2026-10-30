@@ -228,7 +228,7 @@ type controlsFile struct {
 	Controllers map[string]Bindings `json:"controllers"`
 }
 
-// midiMsg is one message, decoded as controls.js's midi.js decodes it.
+// midiMsg is one message, decoded.
 type midiMsg struct {
 	typ   string // on, off, cc, bend, program, rt
 	ch    int

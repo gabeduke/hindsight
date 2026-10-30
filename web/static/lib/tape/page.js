@@ -316,7 +316,8 @@ const POLL_TIMEOUT_MS = 4000;
 // revision polls at once, through the gate, so a nudge that lands while a
 // poll is out polls once more after it rather than beside it. The 200 ms
 // poll stays as the fallback, for a socket that is down.
-// What the bar's tape source hands the Studio while it is shown.
+// What the Studio lends the page's transport (lib/models/transport.js,
+// delegate) while it is shown: its ▶ ■, locate, loop and poll.
 const barHands = {
   play: () => transport('play'),
   stop: () => transport('stop'),
@@ -332,16 +333,16 @@ function nudged() {
 // A press on the keyboard heard on it is the bar's note's (handed on), and
 // lights the head of the track it changed here, for the note's second.
 function heardPress(p) {
-  engine.tape.heardPress(p);
+  engine.transport.heardPress(p);
   lightTrackHead(lanes, p);
 }
 function followTheTape() {
-  engine.tape.delegate(barHands);
-  const changes = watchChanges({ onNudge: nudged, onPress: heardPress, onTakes: (m) => engine.tape.heardTakes(m) });
+  engine.transport.delegate(barHands);
+  const changes = watchChanges({ onNudge: nudged, onPress: heardPress, onTakes: (m) => engine.transport.heardTakes(m) });
   return {
     close() {
       changes.close();
-      engine.tape.delegate(null);
+      engine.transport.delegate(null);
     },
   };
 }
@@ -356,35 +357,16 @@ async function poll(force = false) {
     // then is one asked for.
     const bare = state.tape && !state.tape.grid && state.tape.tracks.every((tr) => tr.clips.length === 0);
     const s = await api(`/api/tapes/state?${q()}${bare ? '&suggest=1' : ''}`, { timeout: POLL_TIMEOUT_MS });
-    const at = performance.now();
     link.ok('tape');
     if (g !== gen || !gate.current(mine)) return;
     if (!s.loaded) { await follow(); return; }
     apply(s);
-    // Play mode (lib/play) listens for this and takes its grid and its ring
-    // from it. This event out and `hindsight:play-transport` in are the whole
-    // coupling: it imports nothing from here, and this page knows nothing
-    // about it. `heard` is after apply(), so on this phone it is what this
-    // phone hears; `at` is when the answer arrived.
+    // The Studio's buffer (lib/buffer) reads these: the tape as the Pi has
+    // it, the armed track and its input, the sources, the ruler's snap,
+    // what the lanes show, and the playhead as it lands on the tape. It
+    // imports nothing from here, and this page knows nothing about it.
     const t = state.tape;
     document.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
-      bpm: s.bpm || 0,
-      playing: !!state.live?.playing,
-      heard: state.live ? state.live.heard : 0,
-      at,
-      rate: t.sample_rate,
-      bar_frames: t.grid ? t.grid.frames / t.grid.bars : 0,
-      bars: t.grid ? t.grid.bars : 0,
-      loop: t.loop,
-      output: state.live?.output_mode || '',
-      // Play mode's pads the Pi holds now, whoever holds them, and a
-      // mixdown's state: the strip puts its pads right against the one, and
-      // says the FX wait during the other (lib/play/held.js, fx.js).
-      tricks: state.live?.tricks || [],
-      mixdown: state.live?.mixdown?.state || '',
-      // The Studio's buffer (lib/buffer) reads these: the tape as the Pi has
-      // it, the armed track and its input, the sources, the ruler's snap,
-      // what the lanes show, and the playhead as it lands on the tape.
       tape: t,
       rec_track: state.recTrack,
       rec_tracks: state.recTracks, // several, with multi-arm: DROP takes the first
@@ -595,7 +577,7 @@ function feedReels() {
   const peaksOf = (f) => peaks.get(f);
   engine.tape.setLevels(tracks.map((tr) => trackColor(tr.n, col)),
     (frame) => tracks.map((tr) => levelAt(tr, frame, peaksOf, t.sample_rate, anySolo)));
-  engine.tape.ingest({ tape: t, live });
+  engine.transport.ingest({ tape: t, live });
 }
 
 // laneView is the span of tape the lanes and the ruler show: where a pinch,
@@ -743,7 +725,7 @@ function render() {
   const md = live && live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
   const mixing = !!(md && (md.state === 'playing' || md.state === 'tail'));
   const counting = !!(live && live.count_in > 0);
-  engine?.tape?.ingest({ tape: t, live });
+  if (engine?.tape) engine.transport.ingest({ tape: t, live });
   const ov = $('tape-overview');
   setIf(ov, 'aria-valuemax', String(t.length));
   setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
@@ -4789,8 +4771,6 @@ function wire() {
   $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('np-output').click(); });
   $('jam-only-share').addEventListener('click', () => { $('jam-only').close(); shareMix(); });
   $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('np-output').click(); });
-  // Play mode's Space (lib/play): exactly ▶, disabled when ▶ is.
-  document.addEventListener('hindsight:play-transport', () => { if (viewActive()) $('np-play').click(); });
   // The Studio's buffer (lib/buffer) changed the clipboard: the range's Paste
   // and Insert follow it now, not at the next fetch. And it dropped onto the
   // tape: show that now too.

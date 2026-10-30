@@ -89,12 +89,7 @@ test('Guardrail 5: Unified Media Player provides FeedSource and 3-way source sel
   );
 });
 
-test('Guardrail 6: Instrument strip mounts inside #np Media Player and Studio swimlanes have a collapse toggle', () => {
-  const stripJs = read('lib/play/strip.js');
-  assert.ok(
-    stripJs.includes('np.prepend(') || stripJs.includes('np.insertBefore('),
-    'lib/play/strip.js must mount #play-strip inside #np as part of the Media Player object',
-  );
+test('Guardrail 6: Studio swimlanes have a collapse toggle', () => {
   const tapeHtml = read('shell.html');
   assert.ok(
     tapeHtml.includes('id="tracks-fold-btn"'),
@@ -247,7 +242,7 @@ const NOT_GESTURES = [
   // [where: what, how many, why it is no gesture]
   ['lib/meter.js: CAPTURE_ERR_HOLD_MS = 3500', 1, 'how long a capture error stays on screen'],
   ['lib/bar/handoff.js: HOLD_MS = 4000', 1, 'how long the bar stays blank for a carried take'],
-  ['lib/bar/tape-source.js: HOLD_MS = 1000', 1, 'how long a locate is shown over polls already on their way'],
+  ['lib/models/transport.js: HOLD_MS = 1000', 1, 'how long a press or a locate is shown over polls already on their way'],
   ['lib/tape/overview.js: GRAB_SLOP = 8', 1, 'a hit margin either side of the window, not a finger’s travel'],
   ['lib/wave/page.js: setTimeout(…, 300)', 4, 'saves and fetches after a pause (debounces)'],
   ['lib/settings.js: setTimeout(…, 600)', 1, 'a reload once a restart is under way'],

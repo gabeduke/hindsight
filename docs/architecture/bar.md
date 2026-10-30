@@ -84,3 +84,25 @@ sideways scroll).
   its art at the top, the strip, a space, then the transport, the verb and
   the modes in the thumb's reach, and the foot. On its side it keeps the
   stacked zones.
+
+## The transport
+
+What the bar shows of the tape, and what its keys send, is the page's
+transport (`lib/models/transport.js`), one per page, made by the engine
+(`engine.transport`, `shell.md`) and loaded with the Pi's tape. It has no
+DOM: the tape and its `live` state as `/api/tapes/state` last answered,
+`playing()` (through a count-in and a mixdown's tail, a press held
+`HOLD_MS` over answers already on their way, nothing on an answer
+`STALE_MS` old), `pos()` (run on at its rate, round the loop at its Out),
+the loop, |◂'s `start()`, a bar's `step()` and `tempo()` (`{bpm, bars,
+barFrames}` from the grid, or null), and the commands `play()`, `stop()`,
+`locate(frame)` and `setLoop(on)`. It asks every 500 ms in the bar, one
+tick in ten with a take in it, at once on the changes socket's nudge
+(`push.md`), and never two at once; the Studio lends it its own poll and
+keys while shown (`delegate`, `ingest`).
+
+The bar's tape source (`lib/bar/tape-source.js`) draws it: the LCD, the
+display, the overview and the levels, and this phone's stream (where it is
+is what this phone hears, and ▶ is the tap its sound waits for). A new
+reader of the tape's ▶, place, loop or tempo reads the transport, never the
+bar's source or the DOM.

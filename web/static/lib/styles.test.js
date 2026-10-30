@@ -537,65 +537,6 @@ test('the drawn room is the backdrop: in full while the room is walked into, at 
   assert.match(body, /\.room-backdrop\s*\{[^}]*transition:\s*opacity [^;]*var\(--t-room\)/, 'and back to ambient slowly, on the motion tokens');
 });
 
-test('Play mode’s rules reach only Play mode', () => {
-  // Play mode is behind a per-device flag, but its CSS is not: styles.css is
-  // on every page of every kit. Its overlay rule was once a bare `.play` --
-  // the class the Takes page already gave its Play buttons -- so on a phone,
-  // opening a take turned that button into a blank sheet over the whole
-  // screen, with Play mode switched off.
-  const body = section(css, '/* ---------- Play mode (lib/play) ---------- */');
-
-  // Every selector hangs off one of Play mode's own `play-` classes.
-  const loose = [];
-  const mine = new Set();
-  for (const m of body.matchAll(/([^{}]+)\{/g)) {
-    for (const sel of m[1].split(',').map((s) => s.trim())) {
-      if (!sel || sel.startsWith('@')) continue;
-      const own = [...sel.matchAll(/\.(play-[a-z0-9-]+)/g)].map((c) => c[1]);
-      if (!own.length) loose.push(sel);
-      for (const c of own) mine.add(c);
-    }
-  }
-  assert.deepEqual(loose, [], 'these Play mode selectors could match something that is not Play mode');
-
-  // And nothing outside lib/play wears one of those classes.
-  const root = new URL('../', import.meta.url);
-  const files = readdirSync(root, { recursive: true }).filter((f) =>
-    (f.endsWith('.html') || f.endsWith('.js')) && !f.endsWith('.test.js') && !f.includes('lib/play/'));
-  const borrowed = [];
-  for (const f of files) {
-    // An id is not a class, nor is a tip's name (data-tip, and the tips'
-    // names in lib/help/tips.js).
-    const text = readFileSync(new URL(f, root), 'utf8')
-      .replace(/\sid="[^"]*"/g, '')
-      .replace(/\sdata-tip="[^"]*"/g, '')
-      .replace(/ids: \[[^\]]*\]/g, '');
-    for (const c of mine) {
-      if (new RegExp(`(^|[^\\w-])${c}(?![\\w-])`).test(text)) borrowed.push(`${f}: ${c}`);
-    }
-  }
-  assert.deepEqual(borrowed, [], 'these files use a class that Play mode styles');
-});
-
-test('Play mode is drawn in its own materials, the same in both schemes', () => {
-  // It used the page's panels once, and in the light scheme its legends were
-  // ivory on pale grey: unreadable, and nobody saw it, because the only look
-  // anyone had was at night. Inside the overlay, nothing may use a token the
-  // dark scheme redefines. Its way in, .play-enter, sits on the page, so it
-  // dresses like the page.
-  const body = section(css, '/* ---------- Play mode (lib/play) ---------- */');
-  const scheme = new Set(Object.keys(tokens(css, { scheme: 'dark', only: true })));
-  const offenders = [];
-  for (const m of body.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const sel = m[1].trim();
-    if (sel.includes('play-enter')) continue;
-    for (const v of m[2].matchAll(/var\((--[a-z0-9-]+)/g)) {
-      if (scheme.has(v[1])) offenders.push(`${sel}: ${v[1]}`);
-    }
-  }
-  assert.deepEqual(offenders, [], 'these follow the scheme; use a --pad- material from objects.css');
-});
-
 test('on a phone the Studio’s selection bar wraps instead of running off the screen', () => {
   // Its readout and four keys are wider than a 390 px phone inside the
   // feed's padding: unwrapped, Save as take ended past the screen's edge,
@@ -643,27 +584,6 @@ for (const [name, text] of [['styles.css', css], ['objects.css', materials]]) {
     assert.equal(end, 0, 'the file ends inside a block');
   });
 }
-
-// The tape formulas (lib/play/mods.js): four labels, one of them selected.
-// WCAG's 4.5 : 1 for text, from the tokens the rules name.
-test('every tape formula label reads, selected or not', () => {
-  const all = tokens(materials);
-  const rule = (sel) => {
-    const m = new RegExp(`${sel.replace(/[.[\]="]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(css);
-    assert.ok(m, `the ${sel} rule`);
-    return m[1];
-  };
-  const token = (decl, prop) => {
-    const m = new RegExp(`(?:^|[;\\s])${prop}:\\s*var\\((--[a-z0-9-]+)\\)`).exec(decl);
-    assert.ok(m, `${prop} names a token`);
-    assert.ok(all[m[1]], `${m[1]} is defined in objects.css`);
-    return all[m[1]];
-  };
-  const plain = rule('.play-formula');
-  const chosen = rule('.play-formula[aria-checked="true"]');
-  assert.ok(contrast(token(plain, 'color'), token(plain, 'background')) >= 4.5, 'an unselected formula');
-  assert.ok(contrast(token(chosen, 'color'), token(chosen, 'background')) >= 4.5, 'the selected formula');
-});
 
 // The header's menu is the only way into Settings, Releases, the guide,
 // help mode and (on a phone) the rig, so ☰ is a finger's size, a key with

@@ -306,8 +306,8 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
 proof-of-concept shortcuts don't come back
 ([0051](docs/decisions/0051-ui-architecture-guardrails.md)):
 
-- **Controller → Model → Renderer:** views under `lib/room/`, `lib/rooms/`
-  and `lib/play/` read structured state from controllers and models and
+- **Controller → Model → Renderer:** views under `lib/room/` and
+  `lib/rooms/` read structured state from controllers and models and
   call explicit controller methods; they never scrape text out of the DOM
   or `.click()` a hidden control. The test checks it where it went wrong:
   `lib/room/doorway.js` hears the bar through `np.onChange`, never by
@@ -374,11 +374,13 @@ proof-of-concept shortcuts don't come back
 
 ## Momentary gestures must not touch undo
 
-`lib/play/` is a performance surface: pads are *held*, not committed, and a
-performance path bypasses undo entirely (wired to the track-mute PATCH, one
-jam would leave tens of undo entries). Play mode has been audible this way,
-held-only and outside undo, since v2026.10.15.3; every new performance
-control stays off the undo stack too.
+The tape's pads (`internal/tape/trick.go`, played from a controller, and
+on the web by Play mode's strip until 2026-10-30) are a performance
+surface: pads are *held*, not committed, and a performance path bypasses
+undo entirely (wired to the track-mute PATCH, one jam would leave tens of
+undo entries). They have been audible this way, held-only and outside undo,
+since v2026.10.15.3; every new performance control stays off the undo stack
+too.
 ([0006](docs/decisions/0006-tape-mods-undo-tricks-held-only.md))
 
 ## Specs before code

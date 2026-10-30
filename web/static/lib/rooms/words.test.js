@@ -44,7 +44,6 @@ const ALLOW = [
   // -- strings: code, not text
   ['lib/room/tap.js', '.take-flag', 'a CSS selector'],
   ['lib/flags.js', 'unknown flag op', 'a programmer error, never shown'],
-  ['lib/device-prefs.js', 'the loop’s ring', 'a ring that is drawn (the reel’s), not the feed'],
   ['lib/objects/lcd.js', 'ring out', 'letting a tail ring out: the word’s other sense'],
 ];
 const used = new Set();
@@ -52,7 +51,7 @@ const used = new Set();
 // message, the Undo phrases): [file, text, why].
 const SAID = [
   ['lib/toast.js', 'flag', 'the Undo phrases: they reach the screen only inside a toast, and toast() says its message'],
-  ['lib/play/controls.js', 'The crate’s', 'a pad’s name: screen.js and mods.js say it into the aria-label'],
+  ['lib/play/controls.js', 'The crate’s', 'a pad’s name in the bus’s list, which no page draws since the instrument strip went'],
 ];
 const saidElsewhere = (file, s) => SAID.some(([f, t]) => f === file && s.includes(t));
 const allowed = (file, s) => {

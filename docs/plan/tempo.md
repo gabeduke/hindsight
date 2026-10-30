@@ -49,8 +49,9 @@ What reads the grid, and so moves if it moves:
   is already handled as a jump: Stop, then Start / Song Position again.
 - **Quanta**: snap (`lib/tape/range.js`), loop edges a bar at a time,
   sections on bar lines (`sections.go onBar`), free spans (`freespan.go`),
-  punch-in at the next bar (`record.go`), the count-in, the pads in Play
-  mode (`lib/play/clock.js`, which assumes bar 1 is frame 0).
+  punch-in at the next bar (`record.go`), the count-in, and the pads
+  (`trick.go`, `landing`; the web strip's `lib/play/clock.js`, which
+  assumed bar 1 is frame 0, went with Play mode on 2026-10-30).
 - **Catch**: "the last pass" is the cycle log (`transport.go`, the loop's
   real passes, by the loop's frames, not the grid's); "the last N bars"
   and a punch with the loop off are bars of the grid.

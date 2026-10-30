@@ -27,6 +27,7 @@ import { rejoin } from '../tape/listener.js';
 import { wireOutput, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
 import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
 import { createTakes } from '../models/takes.js';
+import { createTransport } from '../models/transport.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -52,13 +53,18 @@ export function pageBar(opts) {
  * page's list has it.
  *
  * It answers `bar`, what a page drives the bar with; `np`, the NowPlaying on
- * #np; and `tape`, `stream` and `feed`, the sources it has made so far (null
- * until then).
+ * #np; `transport`, the page's (lib/models/transport.js), loaded once the Pi
+ * has a tape; and `tape`, `stream` and `feed`, the sources it has made so far
+ * (null until then).
  */
 export function createEngine({ tapes, takes: pageTakes = null, onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
   // The page's takes (lib/models/takes.js): the shell's, handed in, which the
   // tape's changes socket feeds; a page with none gets its own, unfed.
   const takes = pageTakes || createTakes();
+  // The page's transport (lib/models/transport.js): the tape's ▶ ■, where it
+  // is and its tempo, polled and pushed; the bar's tape source draws it, and
+  // the Studio borrows it while shown.
+  const transport = createTransport({ onError: (m) => onToast?.(`The tape: ${m}`, 'bad') });
   let find = initFind, onNote = initOnNote, go = initGo;
   let feed = null, tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
@@ -120,14 +126,15 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
   });
   function mountTape(loadedId) {
     if (tape || !loadedId) return;
-    tape = tapeSource(loadedId, { onError: (m) => onToast?.(`The tape: ${m}`, 'bad'), stream: () => stream });
+    transport.load(loadedId);
+    tape = tapeSource(transport, { stream: () => stream });
     stream = tapeStream(tape, onToast);
     if (take || (bar.src && bar.src.kind === 'feed')) stream.setQuiet(true);
     else if (!handoff.holding()) bar.load(tape);
     eject();
     setMode = (mode) => {
       if (mode !== 'jam') backToTape({ byHand: true });
-      return switchOutput(mode, { player: stream, poll: () => tape.refresh(), toast: (m, k) => onToast?.(m, k) });
+      return switchOutput(mode, { player: stream, poll: () => transport.refresh(), toast: (m, k) => onToast?.(m, k) });
     };
     // The header's output button (and the phone player's OUT pill): where the
     // tape plays, chosen from any room. Choosing to hear it here puts the tape
@@ -136,20 +143,20 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     // behind.
     openOutput = wireOutput({
       name: () => tape.title,
-      onOpen: () => tape.refresh(),
+      onOpen: () => transport.refresh(),
       choose: setMode,
       keys: [$('np-output'), $('np-out-foot')].filter(Boolean),
     });
     bar.kick();
     // A press on the keyboard, over the display for its second (press-note.js).
     let note = null;
-    tape.onPress((p) => { note ??= barPressNote(document); note.show(p); });
+    transport.onPress((p) => { note ??= barPressNote(document); note.show(p); });
     // The take list's revision, from whichever changes socket is open.
-    tape.onTakes((m) => takes.heard(m));
+    transport.onTakes((m) => takes.heard(m));
     const paintOut = () => {
-      paintOutSheet(tape.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : tape.streamDelayMs()));
+      paintOutSheet(transport.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : transport.streamDelayMs()));
     };
-    tape.on(paintOut);
+    transport.onChange(paintOut);
   }
   if (tapes && typeof tapes.then !== 'function' && tapes.loaded) mountTape(tapes.loaded);
   const ready = Promise.resolve(tapes).then((list) => {
@@ -381,6 +388,7 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
     // Studio): the engine holds it from here on.
     setTapes: (list) => { if (list && list.loaded) mountTape(list.loaded); },
     get tape() { return tape; },
+    transport,
     get stream() { return stream; },
     get feed() { return feed; },
   };

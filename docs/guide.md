@@ -6,9 +6,7 @@ OP-1.
 **How to read it.**
 
 - **When:** a section opens by saying whether its features are there:
-  - *Today* means they're in every release now.
-  - *With Play mode on* means they're there only when that preview is
-    switched on for this device (Settings › Preview features).
+  *Today* means they're in every release now.
 - **Two rooms.** Hindsight is a **Studio**, where you keep, grab and build on
   the tape, and a **Listening Room**, where every take is, a tap plays it and
   **Open** is its page. The screens say their words: feed, part, note,
@@ -263,12 +261,12 @@ sheet says so.
 **Settings**, first in the menu (**☰**, top right on every page), changes how
 Hindsight records without touching the Pi's files. It opens on the version
 with Releases, the guide and the rig (§3.2), then what's recording now (*Recording from Scarlett Solo 4th Gen, 2
-channels*), then two parts.
+channels*), then the Pi's settings, after any Preview features.
 
-- **Preview features** come first, always open: **Play mode**, a switch that
-  reads *On* or *Off*. It is for this device
-  only: the Pi and the other kits are unaffected, it saves the moment you
-  flip it, and it needs no restart. A switch that has to be read when the
+- **Preview features**, when a release has any, come first, always open:
+  each a switch that reads *On* or *Off*. They are for this device
+  only: the Pi and the other kits are unaffected, a switch saves the moment
+  you flip it, and none needs a restart. A switch that has to be read when the
   page loads says *Will be on after a reload* and brings up one **Reload to
   apply** button. It reloads this page alone, and Hindsight keeps running.
   It won't reload while this page holds a phone recording; finish that
@@ -836,9 +834,6 @@ From the top:
 - **The Studio's verbs** (§8.12): **K** keeps the feed as a take (the cue
   part, while its drawer is open), **C** catches, **G** grabs, and **↵** drops
   the open cue part.
-- **With the instrument unfolded** (§8.13) the keys are the instrument's:
-  **R** is STOP and **1–4** drop a track out. Fold it, or tap the lanes, to
-  give them back; its **KEYS** lamp says whose they are.
 - **After a sleep.** Lock a tablet and wake it, and the page asks the Pi
   again at once: no refresh. If the Pi doesn't answer, a small
   **Reconnecting…** note shows at the top (not for a blink) and goes when it
@@ -1275,8 +1270,8 @@ needs the HTTPS address, as the Phone button does; listening works anywhere.
 
 ### 8.9 Tricks and tape speed
 
-*Today.* Hold a trick pad and it acts until you let go, starting on the next
-16th note:
+*Today.* Hold a trick pad on a controller (§8.13) and it acts until you let
+go, starting on the next 16th note:
 
 - **Break** winds the tape down to a stop. When you let go, it comes back in
   time.
@@ -1349,8 +1344,8 @@ is something to jam with and to work on before it goes on the tape.
   peeled off the feed, and its drawer opens above the bar.
 - A selection on the feed has two verbs: **GRAB** (onto the cue lane) and
   **KEEP** (a take, on the shelf). Every KEEP says what it keeps: *KEEP 2m*
-  on the feed's key, *KEEP 41s* on a selection, *KEEP 4 BARS* in a part's
-  drawer, and *KEEP 30s* on the instrument's pad.
+  on the feed's key, *KEEP 41s* on a selection, and *KEEP 4 BARS* in a
+  part's drawer.
 - On a take, **GRAB** is the same key: the selection, or the last N bars
   before the playhead (at the take's tempo; twice N seconds without one),
   with N starting at the loop's length. In the Listening Room it is on
@@ -1402,68 +1397,25 @@ is something to jam with and to work on before it goes on the tape.
   for its **Paste**, as a DAW does.
 
 On a phone the drawer is a sheet: pull its grip up or down, or hold it and
-drag it up onto a lane to drop it there. With Play mode on, the sheet stands
-above the mini player, and on a laptop's height the feed folds to its keys
-while the drawer is open, so a lane or two stay in sight. The drawer and the
-instrument strip take turns: see §8.13.
+drag it up onto a lane to drop it there.
 
-### 8.13 The instrument strip (a preview)
+### 8.13 Playing the tape from a controller
 
-*With Play mode on (Settings › Preview features › Play mode).* Play mode is a
-drawer above the bar in the Studio, not a screen over it.
-
-- **Folded,** it's one row: **INSTRUMENT ▴**, the **KEYS** lamp, and the
-  track keys and tricks as small pads. They still play, and whatever plays
-  them -- a finger, the keys, a controller, someone else's phone -- they
-  light. A pad lit by another hand is bright with a ring; the dim state,
-  touched but not yet heard, is only ever your own.
-- **Unfolded** (**INSTRUMENT ▴** again): the reel, with the loop as a ring
-  round it -- bar ticks, the playhead sweeping in orange, bar.beat in its
-  hub -- the four track keys, the six tricks, the punch-in FX and the bend,
-  the tape mods, and CATCH, GRAB, DROP and KEEP. The reel answers the sound, not the touch:
-  REV turns it backwards, STOP winds it down over the beat, ½× and 2×
-  change its speed, CHOP rocks it, and BREAK leaves it turning while the
-  sound cuts. It remembers whether it was open, on this device.
-- **It takes turns with a cue part's drawer** (§8.12): there is
-  room for one in full. Unfolding the instrument folds the drawer to a single
-  line -- its name, its length, **AUDITION** and ✕ -- and a tap on that line,
-  or folding the instrument, opens it again. Bringing the drawer forward (a
-  **GRAB** in the feed, or a hold on a part) folds the instrument. A
-  **GRAB** played on the instrument's own pad or key leaves it open, and the
-  drawer comes up as its line.
-- **On a phone,** **EDIT | PLAY** sits on the mini player, and the drawer's
-  sheet stands above it, so the toggle is never under the sheet. **PLAY**
-  makes the bottom panel the instrument, with the sheet dropped to its peek;
-  **EDIT** gives the drawers back, the sheet at the height you left it. PLAY's
-  lamp lights while a pad sounds.
-
-**Whose keys are they?** The instrument's while it's unfolded, and the
-**KEYS** lamp is lit then. Folding it, or a tap on the lanes, gives them back
-to editing; a tap on the strip takes them again. MIDI and touch always play.
-
-| Key | Folded: editing | Unfolded: the instrument |
-|---|---|---|
-| 1 2 3 4 | arm a track | that track drops out, held |
-| Q W E R | — · — · — · ● Rec | BREAK, REV, CHOP, STOP, held |
-| Z X | — | ½×, 2×, held |
-| T Y U I | — | ROLL, FILTER, ECHO, CRUSH, held |
-| C G K ↵ | CATCH, GRAB, KEEP, DROP | the same |
-| ⇧ held | — | latch: what you let go stays held until ⇧ lifts |
-| Space | play/stop | play/stop |
-| Esc | closes things | lets go of everything |
-
-Keys are read by where they are, not what's printed on them; holding one
-doesn't repeat it; nothing plays while you're typing; and a lost window or a
-hidden tab lets go of everything.
+*Today.* The tape's tricks, its punch-in FX and its mods are played from a
+controller: a MIDI controller plugged into the Pi, or the SMK-37 on
+Hindsight's own firmware, whose FX page holds them on its pads and its
+encoders. Held pads are momentary: they act while you hold them, on the
+grid, and leave nothing to undo.
 
 **A MIDI controller in the Pi** is the steady way: no Wi-Fi in the way, and
 nothing needs to be open.
 
 1. Plug it into the Pi and put part of its name in **Settings › MIDI ›
    Plays the tape** (`TAPE_CONTROLLER`), then restart.
-2. Its keys play the pads from note 36 (C2) up: the track keys, the tricks,
-   then ROLL, FILTER, ECHO and CRUSH on 46–49 (how hard you strike one is
-   its amount), then CATCH, GRAB, DROP and KEEP on 50–53. A sustain pedal
+2. Its keys play the pads from note 36 (C2) up: the track keys (held, that
+   track drops out), the tricks (BREAK, REV, CHOP, STOP, ½× and 2×), then
+   ROLL, FILTER, ECHO and CRUSH on 46–49 (how hard you strike one is its
+   amount), then CATCH, GRAB, DROP and KEEP on 50–53. A sustain pedal
    latches. The mod wheel and aftertouch move the amount of an FX that
    controller holds (or its pedal keeps), never another hand's; the pitch
    wheel bends, CC 21–24 turn WOW, FLUTTER, DRIVE and AGE (saved once a knob
@@ -1476,19 +1428,8 @@ nothing needs to be open.
    loop, over what is there; and the last 30 seconds as a take.
 4. Unplug it with a pad held and the pad lets go.
 
-**A controller in a laptop** (**＋ MIDI here** under *Playing from*) plays
-too, through the browser: Chrome or Edge, over the hub's https:// address or
-on localhost. Safari has no Web MIDI, so with an iPhone or iPad the
-controller goes into the Pi. Its bindings are that browser's.
-
-**MIDI LEARN.** Pick the controller under *Playing from*, press **MIDI
-LEARN**: every pad shows its key on the controller (– for none). Tap a pad --
-it blinks -- then play a key or turn a knob on the controller: that's its
-key now, taken off any other pad. Esc cancels. A controller in the Pi keeps
-what it learned on the Pi, for everyone.
-
-**FX and the bend.** Like the K.O.'s punch-in row: held like a trick, on the grid, and gone when you let go -- nothing saved, nothing to
-undo.
+**FX and the bend.** Like the K.O.'s punch-in row: held like a trick, on the
+grid, and gone when you let go -- nothing saved, nothing to undo.
 
 | FX | Sound | Its amount |
 |---|---|---|
@@ -1497,26 +1438,19 @@ undo.
 | ECHO | a dotted-eighth throw that rings on after you let go | how much goes in |
 | CRUSH | fewer bits and a lower rate | 12 bits down to 4 |
 
-Each pad shows its amount and a meter. A key on a controller sets it by how
-hard you strike it; on screen it starts where you left it, and sliding your
-finger up or down on the held pad moves it. The mod wheel (FILTER) and
-aftertouch move it on the controller holding it. Every screen shows it moving, whoever
-moves it. **BEND**, under them, is a pitch wheel: drag it left or right to
-nudge the tape's speed (up to 8 %), and it springs back to the tape when you
-let go. The click stays dry under all of it. In a bounce the FX wait: it
-prints the tape and its mods, never what's held, and the strip says so.
+A key sets its amount by how hard you strike it, and the mod wheel (FILTER)
+and aftertouch move it on the controller holding it. The pitch wheel is
+**BEND**: it nudges the tape's speed (up to 8 %), and springs back to the
+tape when you let go. The click stays dry under all of it. In a bounce the
+FX wait: it prints the tape and its mods, never what's held.
 
 **Tape mods.** The tape's own sound, not a gesture: saved with it, undone
 with ↶ like any edit, and printed in a bounce.
 
-- **A formula** -- CLEAN, CHROME, FERRIC, WORN -- sets all four at once.
-  Move a knob after and it reads *custom*.
+- **A formula** -- CLEAN, CHROME, FERRIC, WORN -- sets all four at once
+  (program change 0–3). Turn a knob after and it is your own.
 - **WOW** is a slow wobble in pitch, **FLUTTER** a fast one, **DRIVE** tape
-  saturation, **AGE** the top end going dull.
-- **Drag a knob** (or focus it and use the arrows): you hear it as it
-  moves, and it's saved when you let go -- one step of undo, not a hundred.
-- **On a phone** the mods are the instrument's second page: swipe across the
-  panel, or tap *swipe for tape mods*.
+  saturation, **AGE** the top end going dull (CC 21–24).
 
 DRIVE keeps a tape near −18 dBFS RMS at the level it was, lifts a quieter
 one a little (up to 4 dB at full drive) and squeezes a loud one: at full
@@ -1549,7 +1483,7 @@ rooms, which is how parts of this guide still name it.
 | **Open** | A take's page (§4.1), from **Open ›** on the bar; the tape opens in the Studio | the take page, SIT DOWN |
 | **Repeat** | The bar's ⟲ for a take: its selection, or the whole take. For the tape it is still **Loop** | Loop |
 | **Tag** | A take's one tag: a name and a colour | unchanged |
-| **FX** | The instrument's held effects (§8.13) | Punch-in FX |
+| **FX** | The held effects a controller plays (§8.13) | Punch-in FX |
 | **● Rec** | Records onto the armed track | a punch |
 
 Two rules that go with them. **KEEP always makes a take;** it never puts
@@ -1852,15 +1786,6 @@ has no tip.
 | Normalize (cue) | Bring the loudest lane's loudest moment to just under full scale, the lanes kept in balance |
 | Reverse (cue) | Play the clip backwards, or forwards again |
 | Fades (cue) | The fades' curve: equal power, linear, S-curve or exponential. Drag the corners for their length |
-| Instrument ▴ | Play mode as a drawer. Folded: the track keys and the tricks as small pads, still live. Unfolded: the reel and every pad, and the computer's keys play it |
-| Keys (instrument) | Lit while the computer's keys play the instrument: R is STOP then, not ● Rec, and 1 drops track 1 out. A tap on the lanes, or on this, gives them back to editing |
-| A pad | Hold it: dim when touched, bright when it's heard, on the next grid line. Let go and it stops, in time. Bright with a ring: another hand is playing it |
-| Playing from | Touch, the keys and every controller play at once; this picks which legends the pads show, and the controller MIDI learn binds |
-| ⌗ (instrument) | Where this device's presses land: at once, or the next 16th, 8th, beat or bar |
-| Lead | How long a press takes to be heard from the Pi: play that far ahead of the beat |
-| MIDI learn | Every pad shows its key on the controller (– for none). Tap a pad, then play a key or turn a knob on the controller. Esc cancels |
-| Catch, Grab, Drop, Keep (instrument) | The Studio's verbs from the instrument: the last pass onto the armed track, the last bars onto the cue lane, the open cue clip onto the armed track, and the feed (or the open cue clip) as a take. C, G, ↵, K |
-| Edit / Play (phone) | On a phone: Play makes the bottom panel the instrument; Edit gives the drawers back. Play's lamp lights while a pad sounds |
 | Studio (rig) | Back to the Studio |
 | Socket | Drag from it to another socket to plug a cable in, or choose it and then where it goes. A pull on a plug unplugs it. Choose it to see what it carries |
 | Plug it into | Plug a cable from the chosen socket into this one: it writes the setting the cable is |
@@ -1873,11 +1798,6 @@ has no tip.
 | Label it | Name what's plugged into this jack: it shows on the tap and the track's input. A label routes nothing |
 | Restart (rig) | Restart Hindsight so the dashed amber cables take effect. The ring starts empty, so capture anything you want to keep first |
 | Done (rig) | Close the inspector and let go of the chosen socket |
-| Punch-in FX | ROLL, FILTER, ECHO, CRUSH: hold, like a trick. Slide your finger up or down on one to move its amount, which every screen shows; a controller's velocity, mod wheel and aftertouch move it too. T Y U I |
-| Bend | Drag left or right to nudge the tape's speed, up to 8 % either way; let go and it springs back to the tape. A controller's pitch wheel does the same |
-| Formula (tape mods) | A starting point for the tape's sound: each sets WOW, FLUTTER, DRIVE and AGE. Saved with the tape, and ↶ undoes it. Program change 0–3 on a controller |
-| A tape mod's knob | Drag up or down, or use the arrow keys: heard as it moves, saved with the tape when you let go, one step of undo. CC 21–24 on a controller |
-| Tape mods (phone) | On a phone the tape mods are the instrument's second page: swipe across the panel, or tap here |
 
 ## 10. When something's off
 
