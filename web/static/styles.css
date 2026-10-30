@@ -1571,6 +1571,10 @@ dialog.sheet::backdrop { background: var(--scrim); }
 /* ---------- help ---------- */
 /* Help mode: tapping a control shows its tip instead of using it. */
 body.help-mode [data-tip] { outline: 1px dashed color-mix(in srgb, var(--accent) 65%, transparent); outline-offset: 2px; }
+/* Its tip floats over the foot of the page, so the page keeps that much
+   room at the end of what it shows, before the bar: the last of a List
+   scrolls clear of it (--tip-h, measured by lib/help/help.js; J5.1). */
+body.help-mode main { margin-bottom: calc(var(--tip-h, 0px) + 24px); }
 .tip-pop {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 70;

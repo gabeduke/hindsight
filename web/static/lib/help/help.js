@@ -13,6 +13,7 @@
 // already repeat when held.
 
 import { tipFor, controlFor } from './tips.js';
+import { measureInto } from '../ui/measure.js';
 
 export const HINTS = {
   take: {
@@ -53,6 +54,9 @@ export function initHelp({ page, doc = document } = {}) {
   pop.setAttribute('role', 'status');
   pop.hidden = true;
   doc.body.appendChild(pop);
+  // It floats over the foot of the page: the page keeps its height clear at
+  // its end (--tip-h, styles.css), so what is under it scrolls out.
+  measureInto(pop, '--tip-h');
   function show(title, text, link) {
     pop.replaceChildren();
     const h = doc.createElement('b');
