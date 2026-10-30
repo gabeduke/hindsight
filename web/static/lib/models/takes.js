@@ -16,13 +16,14 @@
 //   - when told (heard) that the Pi's take revision moved: the changes
 //     socket's takes_rev, from whichever of the bar's and the Studio's is
 //     open (lib/tape/changes.js). A nudge, not the list (decision 0013);
-//   - on its own poll, which is the fallback: every POLL_MS, as the pages
-//     polled before it, unless the push has been heard in the last
-//     PUSH_QUIET_MS, when it asks only once the list is STALE_MS old.
-//     Never while the document is hidden;
-//   - when asked (refresh), as a page that has just written a take does,
-//     and when get() or find() is asked for a list it doesn't trust: none
-//     yet, or none the push or a poll vouches for.
+//   - when asked (refresh), as a page that has just written a take does;
+//   - when get() or find() is asked for a list it can't vouch for: none
+//     yet, one POLL_MS old with no push heard in the last PUSH_QUIET_MS,
+//     or one STALE_MS old with it. That is the fallback poll: the shown
+//     room's tick (ctx.every, every POLL_MS as before) calls get(), so a
+//     room not shown, or a page that lists nothing (the Studio), asks
+//     nothing, and a shown one asks every POLL_MS without the push and
+//     every STALE_MS with it.
 // Asks never overlap: one asked for while another is out is made once more
 // when that one ends, and every caller in between shares it.
 
@@ -30,7 +31,7 @@ import { timedFetch } from '../link.js';
 
 export const JAMS_PATH = '/api/jams';
 
-/** POLL_MS is the fallback poll with no push heard: the pages' own, before. */
+/** POLL_MS is how old a list may grow with no push heard: the pages' poll, before. */
 export const POLL_MS = 5000;
 /** STALE_MS is how old the list may grow while the push is heard. */
 export const STALE_MS = 30000;
@@ -39,8 +40,7 @@ export const PUSH_QUIET_MS = 4000;
 
 /**
  * createTakes makes the page's takes. The env is for tests: fetch (default
- * lib/link.js's timedFetch), now() in ms, setInterval/clearInterval, and the
- * document whose visibility gates the poll.
+ * lib/link.js's timedFetch) and now() in ms.
  *
  * It answers:
  *   list()        the takes as last answered, newest first, or null before
@@ -50,23 +50,19 @@ export const PUSH_QUIET_MS = 4000;
  *                 asks the Pi now, and answers the list. force leaves
  *                 If-None-Match off, so the list is answered (and listeners
  *                 told) even when it hasn't changed
- *   get()         the list: as held, when the push or a poll vouches for
- *                 it, else as refresh() answers it
+ *   get()         the list: as held, when the push or a recent answer
+ *                 vouches for it, else as refresh() answers it
  *   find(name)    the take called name, or null: from get(), asking once
  *                 more if it isn't there (a take this page has just made)
  *   heard(m)      a message from the changes socket ({takes_rev, …}): a
  *                 revision not heard before asks the Pi
  *   onChange(fn)  fn(list) each time an answer differs from the last; a
  *                 way off
- *   start()       starts the poll (once); answers stop()
  */
 export function createTakes(env = {}) {
   const {
     fetch: fetchImpl = (u, o) => timedFetch(u, o),
     now = () => Date.now(),
-    setInterval: every = (f, ms) => globalThis.setInterval(f, ms),
-    clearInterval: unevery = (h) => globalThis.clearInterval(h),
-    doc = globalThis.document,
   } = env;
 
   let list = null;
@@ -76,7 +72,6 @@ export function createTakes(env = {}) {
   let rev = null;          // the takes_rev last heard
   let out = null;          // the ask out, a promise of the list
   let again = null;        // {force}: asked for while one was out
-  let poll = null;
   const listeners = new Set();
 
   const pushed = () => now() - pushAt < PUSH_QUIET_MS;
@@ -138,14 +133,5 @@ export function createTakes(env = {}) {
       refresh().catch(() => { /* the next word or the poll asks again */ });
     },
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    start() {
-      if (!poll) {
-        poll = every(() => {
-          if (doc?.hidden || trusted() || out) return;
-          refresh().catch(() => { /* the next tick */ });
-        }, POLL_MS);
-      }
-      return () => { if (poll) unevery(poll); poll = null; };
-    },
   };
 }

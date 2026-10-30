@@ -36,9 +36,8 @@ showPresses(document);
 const tapes = initNav(document, { layers });
 // The page's takes (lib/models/takes.js): the one list every room and the
 // bar read, asked for when the tape's changes socket says it moved (the
-// engine feeds it) and on its own slow poll.
+// engine feeds it), and by the shown room's tick when it can't vouch for it.
 const takes = createTakes();
-takes.start();
 let router = null;
 const engine = createEngine({ tapes, takes, onToast: toast, go: (url, opts) => router?.go(url, opts) });
 const link = watchLink(() => {});

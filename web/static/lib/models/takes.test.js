@@ -27,14 +27,10 @@ function pi(takes = [{ name: 'jam_a.wav' }]) {
 
 function rig(takes) {
   const p = pi(takes);
-  let t = 0, tick = null, polls = 0;
-  const doc = { hidden: false };
-  const m = createTakes({
-    fetch: p.fetch, now: () => t, doc,
-    setInterval: (f) => { polls++; tick = f; return 1; }, clearInterval: () => { tick = null; },
-  });
+  let t = 0;
+  const m = createTakes({ fetch: p.fetch, now: () => t });
   const flush = () => new Promise((r) => setImmediate(r));
-  return { p, m, doc, flush, advance: (ms) => { t += ms; }, tick: () => tick?.(), polls: () => polls };
+  return { p, m, flush, advance: (ms) => { t += ms; } };
 }
 
 test('get asks once, then answers the list it holds while it is fresh', async () => {
@@ -128,14 +124,10 @@ test('a takes_rev not heard before asks the Pi; the same one, or none, does not'
   assert.equal(p.asks.length, 4, 'a Pi that restarted counts from nought: news too');
 });
 
-test('the poll asks every POLL_MS with no push, and only once the list is STALE_MS old while the push is heard', async () => {
-  const { p, m, tick, advance, flush, polls } = rig();
-  const stop = m.start();
-  m.start();
-  assert.equal(polls(), 1, 'start twice is one poll');
-  tick(); await flush();
-  assert.equal(p.asks.length, 1);
-  advance(POLL_MS); tick(); await flush();
+test('get asks every POLL_MS with no push, and only once the list is STALE_MS old while the push is heard', async () => {
+  const { p, m, advance, flush } = rig();
+  await m.get();
+  advance(POLL_MS); await m.get();
   assert.equal(p.asks.length, 2, 'no push: as the pages polled');
 
   // The socket says its takes_rev each second.
@@ -144,27 +136,16 @@ test('the poll asks every POLL_MS with no push, and only once the list is STALE_
   for (let s = 0; s < STALE_MS / 1000 - 1; s++) {
     advance(1000);
     m.heard({ takes_rev: 1 });
-    if (s % 5 === 4) { tick(); await flush(); }
+    if (s % 5 === 4) await m.get();
   }
   assert.equal(p.asks.length, base, 'nothing asked while the push vouches for the list');
-  advance(1000); m.heard({ takes_rev: 1 }); tick(); await flush();
+  advance(1000); m.heard({ takes_rev: 1 }); await m.get();
   assert.equal(p.asks.length, base + 1, 'a stale list is asked for even so');
 
   // The socket goes quiet: back to POLL_MS.
-  advance(PUSH_QUIET_MS + POLL_MS); tick(); await flush();
+  assert.ok(POLL_MS > PUSH_QUIET_MS);
+  advance(POLL_MS); await m.get(); // quiet for more than PUSH_QUIET_MS
   assert.equal(p.asks.length, base + 2);
-  stop();
-});
-
-test('the poll is quiet while the document is hidden', async () => {
-  const { p, m, doc, tick, advance, flush } = rig();
-  m.start();
-  doc.hidden = true;
-  advance(POLL_MS * 3); tick(); await flush();
-  assert.equal(p.asks.length, 0);
-  doc.hidden = false;
-  tick(); await flush();
-  assert.equal(p.asks.length, 1);
 });
 
 test('find asks once more for a take the list it holds has not got', async () => {
@@ -182,7 +163,7 @@ test('a failed ask throws to its caller and leaves the list as it was', async ()
   const { m } = rig();
   await m.get();
   const before = m.list();
-  const bad = createTakes({ fetch: async () => ({ status: 500, ok: false }), setInterval: () => 0, clearInterval() {}, doc: { hidden: false } });
+  const bad = createTakes({ fetch: async () => ({ status: 500, ok: false }) });
   await assert.rejects(bad.refresh(), /HTTP 500/);
   assert.equal(bad.list(), null);
   assert.equal(m.list(), before);
