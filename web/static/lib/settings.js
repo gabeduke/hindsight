@@ -200,9 +200,11 @@ const PAGE = { start: readDevicePrefs(), pending: new Set() };
  * needs a reload, and one Reload for the section applies them all (an
  * installed phone app has no reload of its own). Flip one back and the
  * Reload goes away. It will not run while this page holds a phone recording.
+ * With no previews there is no section at all.
  */
 export function featuresGroup({ prefs = DEVICE_PREFS, read = readDevicePrefs, write = writeDevicePref, reload = () => location.reload(), busy = busyNow, session = PAGE } = {}) {
   const feats = prefs.filter((p) => p.feature);
+  if (!feats.length) return null;
   const sec = el('section', 'set-features');
   sec.append(el('h4', 'set-section', 'Preview features'));
   sec.append(el('p', 'set-intro', 'Try-outs for this device only. The Pi and the other kits are unaffected, and none needs a restart.'));
@@ -520,7 +522,8 @@ export function initSettings() {
       }
       body.append(p);
     }
-    body.append(featuresGroup());
+    const previews = featuresGroup();
+    if (previews) body.append(previews);
     body.append(el('h4', 'set-section', 'On the Pi'), el('p', 'set-intro set-restart-note', RESTART_NOTE));
     const groups = [];
     for (const s of data.settings) {
