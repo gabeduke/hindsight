@@ -153,19 +153,16 @@ touching `view.js`, `overview.js`, `share.js`, `rising.js` or `page.js`, check b
   Download
 - **Export as take** — produces a new take with declick fades at the region's
   edges
-- **Rising notes (bench)** — at 860px and wider a take with MIDI is two
-  columns; press Play and bars grow out of the keys and rise, drum hits
-  flash their pads; pause freezes the picture; tapping the wave to seek
-  redraws it; a region loop wraps the rise with it
-- **Rising notes (phone)** — the header's Notes button opens the pane
-  fullscreen with its own Play and bar.beat readout; the back gesture or the
-  header's back link closes it and playback carries on
+- **Rising notes** — MIDI ▸ folds out the lanes and the piano roll; press
+  Play and bars grow out of the keys and rise, drum hits flash their pads;
+  pause freezes the picture; tapping the wave to seek redraws it; a region
+  loop wraps the rise with it
 - **Speed chip** — ½× slows the audio and the rise together with the pitch
   kept; a region loop ignores it and plays at 1×
 
 The rest of the UI is checked by the user flows: `node scripts/flows.mjs`
 (`make flows`) drives Gabe's journeys in Playwright against a demo it boots
-itself, on a tablet and a desktop profile. The stories, how to run them and
+itself, on a tablet, a desktop and a phone profile. The stories, how to run them and
 how to write a new one are in [flows.md](flows.md).
 
 The push on a real kit, which the demo never shows (TLS, HTTP/2 to Caddy, a

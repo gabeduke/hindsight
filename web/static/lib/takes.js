@@ -20,6 +20,7 @@ import { parseBpm, tagOf, familyCounts, familySticker, cutsBack, freedBy } from 
 import { takeTitle } from '/lib/rooms/takename.js';
 import { icon } from '/lib/ui/icons.js';
 import { GESTURE } from '/lib/ui/press.js';
+import { saveFile } from '/lib/wave/share.js';
 
 /** setStripe puts one printed stripe on a spine, in place of the one it wore. */
 function setStripe(el, n) {
@@ -1165,12 +1166,7 @@ export class TakesList {
   bulkExport() {
     const names = [...this.selected];
     if (!names.length) return;
-    const a = document.createElement('a');
-    a.href = exportURL(names);
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    saveFile(exportURL(names));
     this.onToast?.(names.length === 1 ? 'Exporting 1 take…' : `Exporting ${names.length} takes…`);
   }
 

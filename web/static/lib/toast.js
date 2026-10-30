@@ -87,12 +87,13 @@ export function takeNextToast() {
 // by what they did ("rename", "flag moved"); this names the thing.
 const SUBJECTS = { rename: 'name', tempo: 'tempo', selection: 'selection', downbeat: 'downbeat', lanes: 'lanes' };
 
-// How Undo names a step: "Undo the rename", "Undone: deleting a flag".
+// How Undo names a step: "Undo the rename", "Undone: taking a note out". A
+// note is a flag to the Pi, and a note on screen.
 const PHRASES = {
   rename: 'the rename', tempo: 'the tempo change', selection: 'the selection change',
   downbeat: 'the downbeat move', lanes: 'the lane change',
-  'flag added': 'adding a flag', 'flag moved': 'moving a flag',
-  'flag renamed': 'renaming a flag', 'flag deleted': 'deleting a flag',
+  'flag added': 'adding a note', 'flag moved': 'moving a note',
+  'flag renamed': 'the note’s words', 'flag deleted': 'taking a note out',
 };
 
 /** undoPhrase names an operation the Pi reports ("flag deleted") for Undo. */
@@ -102,6 +103,6 @@ export function undoPhrase(what) {
 
 /** undoSkipped is the message for an Undo the Pi skipped. */
 export function undoSkipped(what) {
-  const thing = SUBJECTS[what] || (String(what).startsWith('flag') ? 'flag' : 'take');
+  const thing = SUBJECTS[what] || (String(what).startsWith('flag') ? 'note' : 'take');
   return `Not undone: the ${thing} has changed since`;
 }

@@ -1,18 +1,18 @@
 // web/static/lib/room/open.js
-// Open: a take's page (docs/superpowers/specs/2026-10-15-
-// flow-design.md, "Open: one page to dig in"). It is the take page as it
-// stands -- the waveform, the selection, the tempo, the MIDI -- with the
-// rooms' words laid over it: ✎ Note, GRAB beside KEEP, the take's notes one
-// line each, its tag, and what was made from it (From this take) or came
-// before it (Earlier bounces). The page (lib/wave/page.js) hands this module
-// a handle on its take, its flags and its clock, and the page's takes
+// Open: a take's page (docs/architecture/take-page.md, "Open"). It is the
+// take page -- the waveform, the selection, the tempo, the MIDI -- with the
+// rooms' words laid over it: the notes drawer docked beside the waveform (a
+// sheet from ✎ on a phone, with the list under the keys), GRAB beside KEEP,
+// the take's tag, and what was made from it (From this take) or came before
+// it (Earlier bounces). The page (lib/wave/page.js) hands this module a
+// handle on its take, its flags and its clock, and the page's takes
 // (h.takes, lib/models/takes.js); nothing the page does is copied.
 //
 // Every class made here is room-open-*, which only this module makes, so the
 // stylesheet's rules for it reach nothing else (AGENTS.md: scope a new rule
 // to the thing you are adding).
 
-import { notesOf, noteSpan, sendToStudio, forgetNote, fmtAt } from './notes.js';
+import { notesOf, sendToStudio, forgetNote, fmtAt } from './notes.js';
 import { keepLabel, selectionKeepLength } from '../rooms/keeplabel.js';
 import { takeGrabSpan, takeGrabLabel, takeStartN, loadedLoopBars, readPick } from '../rooms/grab.js';
 import { tagStore } from '../tags.js';
@@ -20,9 +20,8 @@ import { openTagManager } from '../tags-dialog.js';
 import { fold, familyOf } from '../shelf.js';
 import { takeTitle } from '../rooms/takename.js';
 import { takeHref } from '../bar/take-source.js';
-import { icon } from '../ui/icons.js';
 import { layersOf } from '../ui/layers.js';
-import { createNotesDrawer } from './drawer.js';
+import { createNotesDrawer, createNotesList } from './drawer.js';
 
 function el(tag, cls, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -61,39 +60,24 @@ export function familyLines(list, name) {
   return { from, madeFrom: src ? line(src) : null, earlier };
 }
 
+/** WIDE is where the drawer docks beside the waveform: the page's own grid. */
+export const WIDE = '(min-width: 860px)';
+
 export function mount(h) {
   forgetNote(); // a take's GRAB left a note for the Studio: this page is not it
   document.body.classList.add('room-open-on');
   const take = h.take;
   const sr = h.sampleRate;
   const notes = () => notesOf(h.state().flags, sr);
-  const spanOpts = () => ({ sampleRate: sr, bpm: h.state().grid.bpm, total: h.total });
-
-  // --- the page: the notes, and what was made from the take --------------------
-  // ✎ Note, here as well as in the bar: on a phone the bar's own keys are
-  // folded away until the player is opened, and this is where the notes are.
-  const noteHead = el('button', 'icon-btn room-open-note-btn', { type: 'button', 'data-tip': 'room-open-note' }, '✎ Note');
-  const head = el('div', 'room-open-head', {}, el('h2', 'room-open-h', { text: 'Notes' }), noteHead);
-  const list = el('ol', 'room-open-notes', { 'aria-label': 'Notes' });
-  const none = el('p', 'room-open-none', { text: 'No notes yet. ✎ Note puts one at the playhead.' });
-  const family = el('div', 'room-open-family');
-  const section = el('section', 'room-open', { 'aria-label': 'Notes and what was made from this take' }, head, list, none, family);
-  const col = document.querySelector('.wave-col');
-  const toolbar = col && col.querySelector('.toolbar');
-  if (toolbar) toolbar.after(section); else col?.append(section);
-
-  // --- ✎ Note: in the bar's own keys, where the flag was ---------------------
-  const flagNow = $('flag-now');
-  const noteKey = el('button', 'icon-btn tb-flag room-open-note', { id: 'room-open-note', type: 'button', 'aria-label': 'Note at the playhead', 'data-tip': 'room-open-note' });
-  noteKey.innerHTML = icon('note');
-  if (flagNow) { flagNow.hidden = true; flagNow.before(noteKey); }
-  for (const k of [noteKey, noteHead]) k.addEventListener('click', () => writeAt(h.state().cursor));
 
   // --- the notes drawer (lib/room/drawer.js), as in the rooms ---------------------
-  // ✎ opens it at the playhead. Open's header has the take's name, ★ and
-  // tag, so the drawer leaves them out. Docked beside the waveform, and the
-  // list above going, are Open's pass (the-studio-space.md, step 10).
-  const drawer = createNotesDrawer({ doc: document, layers: layersOf(document), toast: h.toast, head: false });
+  // Docked beside the waveform from 860 px, always there, without its own
+  // name, ★ and tag (the header has them); on a phone ✎ brings it up as a
+  // sheet, and the list sits under the keys.
+  const drawer = createNotesDrawer({
+    doc: document, layers: layersOf(document), toast: h.toast, head: false,
+    dock: { into: $('notes-dock'), when: matchMedia(WIDE) },
+  });
   const source = {
     name: h.file,
     sampleRate: sr,
@@ -102,58 +86,35 @@ export function mount(h) {
     notes,
     bpm: () => h.state().grid.bpm || 0,
     frame: () => h.state().cursor,
+    dropouts: () => h.state().dropouts || [],
     // The page's own: optimistic, each sent in order (lib/flags.js), and
     // its Undo for a note taken out.
-    async add(frame, words) { const id = h.addNote(frame); if (id) h.editNote(id, words); },
+    async add(frame, words) { h.addNote(frame, words); },
     async edit(id, words) { h.editNote(id, words); },
     async remove(id) { h.removeNote(id); },
     async seek(frame, { play = false } = {}) { h.seek(frame); if (play && !h.playing()) await h.togglePlay(); },
     async grab(span) { location.href = await sendToStudio(h.file, span); },
     onChange: (fn) => h.onRedraw(fn),
   };
+  if (drawer.docked) drawer.open(source, { focus: false });
+  // Narrowed, the list under the keys is drawn afresh: it slept while docked.
+  matchMedia(WIDE).addEventListener?.('change', () => { if (drawer.docked) drawer.open(source, { focus: false }); else list.draw(source, { force: true }); });
 
-  // --- the notes: number, time, words, ▶, GRAB, ✕ -----------------------------
-  let notesSig = '';
-  function renderNotes() {
-    const ns = notes();
-    const sig = JSON.stringify(ns.map((n) => [n.id, n.frame, n.label]));
-    if (sig === notesSig) return;
-    notesSig = sig;
-    const focused = document.activeElement?.closest?.('.room-open-notes li')?.dataset.id;
-    const focusCls = (document.activeElement?.className || 'room-open-words').split(' ')[0];
-    list.replaceChildren(...ns.map((n) => {
-      const num = el('span', 'room-open-n', { 'aria-hidden': 'true', text: String(n.n) });
-      const at = el('span', 'room-open-at', { 'aria-hidden': 'true', text: n.at });
-      const words = el('input', 'room-open-words', { type: 'text', maxlength: '120', value: n.label, placeholder: 'what you heard…', 'aria-label': `Note ${n.n}, at ${n.at}: its words` });
-      words.value = n.label;
-      words.addEventListener('change', () => h.editNote(n.id, words.value.trim()));
-      words.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); words.blur(); }
-        if (e.key === 'Escape') { e.preventDefault(); words.value = n.label; words.blur(); }
-      });
-      const play = el('button', 'icon-btn room-open-play', { type: 'button', 'aria-label': `Play from note ${n.n}, at ${n.at}` }, '▶');
-      play.addEventListener('click', async () => { h.seek(n.frame); if (!h.playing()) await h.togglePlay(); });
-      const span = noteSpan(ns, n.id, spanOpts());
-      const go = el('button', 'icon-btn room-open-grab-note', { type: 'button', 'aria-label': `GRAB from note ${n.n} onto the Studio’s cue lane`, 'data-tip': 'room-open-grab-note', disabled: !span }, 'GRAB');
-      go.addEventListener('click', () => noteToStudio(n.id));
-      const out = el('button', 'icon-btn room-open-out', { type: 'button', 'aria-label': `Take note ${n.n} out` }, '✕');
-      out.addEventListener('click', () => h.removeNote(n.id));
-      return el('li', 'room-open-note-row', { 'data-id': n.id }, num, at, words, play, go, out);
-    }));
-    none.hidden = ns.length > 0;
-    if (focused) list.querySelector(`li[data-id="${CSS.escape(focused)}"] .${focusCls}`)?.focus();
+  // ✎: the drawer, its words ready to go at the frame. In the bar's own
+  // keys, and F from the keyboard.
+  function writeAt(frameAt, opts) {
+    drawer.open(source, { at: frameAt, ...opts });
   }
+  $('note-now')?.addEventListener('click', () => writeAt(h.state().cursor));
+  h.onNoteKey?.(() => writeAt(h.state().cursor));
+  // A pin on the waveform is its note: the cursor goes to its words.
+  h.onPin?.((f) => writeAt(f.frame, { note: f.id }));
 
-  async function noteToStudio(id) {
-    const span = noteSpan(notes(), id, spanOpts());
-    if (!span) return;
-    try { location.href = await sendToStudio(h.file, span); } catch (e) { h.toast(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad'); }
-  }
-
-  // ✎ Note: the drawer, its words ready to go at the frame.
-  function writeAt(frameAt) {
-    drawer.open(source, { at: frameAt });
-  }
+  // A phone's list, under the keys: the drawer's rows.
+  const here = $('notes-here');
+  const list = createNotesList({ doc: document, toast: h.toast });
+  here?.append(el('h2', 'room-open-h', { text: 'Notes' }), list.list, list.none);
+  list.none.textContent = 'No notes yet. The pencil in the bar writes one where the take is.';
 
   // --- the tag: the take's one tag, beside its star ------------------------------
   // #take-tag: the page's header and its take menu's Tag… know it by its id.
@@ -198,9 +159,8 @@ export function mount(h) {
   // N starts at the tape's loop in bars, as the feed's GRAB does. The take's
   // own tempo says how long a bar is; with none, N is twice as many seconds.
   let grabN = takeStartN({ stored: readPick() });
-  const grabKey = el('button', 'icon-btn room-open-grab', { type: 'button', 'data-tip': 'room-open-grab' });
+  const grabKey = $('take-grab');
   const keepKey = $('save-take');
-  if (keepKey) keepKey.after(grabKey); else $('send-btn')?.before(grabKey);
   const grabSpan = () => {
     const st = h.state();
     return takeGrabSpan({ region: st.region, playhead: st.cursor, total: h.total, sampleRate: sr, bpm: st.grid.bpm, n: grabN });
@@ -210,7 +170,7 @@ export function mount(h) {
     if (!span) return;
     try { location.href = await sendToStudio(h.file, span); } catch (e) { h.toast(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad'); }
   }
-  grabKey.addEventListener('click', grabNow);
+  grabKey?.addEventListener('click', grabNow);
   let grabSig = '';
   function renderGrab() {
     const st = h.state();
@@ -220,7 +180,7 @@ export function mount(h) {
       if (keepKey.textContent !== k) keepKey.textContent = k;
     }
     const words = takeGrabLabel({ n: grabN, bpm: st.grid.bpm, selection: !!st.region });
-    if (words === grabSig) return;
+    if (words === grabSig || !grabKey) return;
     grabSig = words;
     grabKey.textContent = words;
     const what = st.region ? 'the selection' : st.grid.bpm > 0 ? `the ${grabN} bar${grabN === 1 ? '' : 's'} before the playhead` : `the ${2 * grabN} seconds before the playhead`;
@@ -228,16 +188,10 @@ export function mount(h) {
   }
   loadedLoopBars().then((bars) => { grabN = takeStartN({ loopBars: bars, stored: readPick() }); renderGrab(); });
 
-  // Send to ▾ goes: its Tape and Clipboard were GRAB, which has its own key
-  // beside KEEP, and its Crate went with the crate.
-  // wave/page.js shows the button once the Pi says it has a tape, so it is
-  // taken out of sight for good rather than hidden.
-  const sendBtn = $('send-btn');
-  if (sendBtn) sendBtn.style.display = 'none';
-  const sendMenu = $('send-menu');
-  if (sendMenu) sendMenu.style.display = 'none';
-
   // --- From this take, Earlier bounces ---------------------------------------------
+  const family = el('div', 'room-open-family');
+  const section = el('section', 'room-open', { 'aria-label': 'What was made from this take' }, family);
+  (here || document.querySelector('.wave-col'))?.after(section);
   async function drawFamily() {
     let jams = [];
     try { jams = await h.takes.get(); } catch { /* the lines just don't show */ }
@@ -252,13 +206,14 @@ export function mount(h) {
 
   // --- each redraw -----------------------------------------------------------------
   function onRedraw() {
-    renderNotes();
+    if (!drawer.docked) list.draw(source);
     renderGrab();
   }
   h.onRedraw(onRedraw);
   renderTag();
+  list.draw(source);
   onRedraw();
   // ✎ on the bar arrives with the drawer open at the frame that was heard.
   if (h.arrivalNote != null) writeAt(h.arrivalNote);
-  return { section, drawer };
+  return { section, drawer, list };
 }

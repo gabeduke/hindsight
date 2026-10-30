@@ -109,6 +109,18 @@ the desk (the lit tab, a bar of another shape) changes in place.
   Listening Room at 1000 px and wider draws it as a dock of its own, so
   there it morphs into the dock rather than holding still: J2.10, a todo
   flow, says when it stops.)
+- **Into a take and back: the dolly.** Open is a page of its own, so
+  opening a take is a cross-document View Transition. `lib/ui/dolly.js`,
+  loaded render-blocking in the head of `shell.html` and `wave.html`, says
+  its type on both sides of the move (`pageswap`, `pagereveal`):
+  `dolly-in` into Open, `dolly-out` back out (`dollyType`; a take to the
+  next take, or a page to the rig or the guide, crossfades). For either,
+  `css/rooms-motion.css` names `.appbar` and `#np` so they hold still, and
+  the room grows past you and fades as the take's page comes up from a
+  little further off (`--t-room`, `--ease-out`), or the reverse. Less
+  motion has no page transition at all (the opt-in is under
+  `prefers-reduced-motion: no-preference`). Safari 18.0 has no `types`
+  there, and crossfades.
 - **The router says how to draw it** before `startViewTransition`, on the
   html element, so it works in Safari 18.0 (no transition `types`):
   `data-turn` is `right` or `left` (the way the camera turns, `turnOf`) or
@@ -214,8 +226,8 @@ panel (the Studio's four input chips, one input menu): it shows for one at
 a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
 (a key of its own beside Catch), the tape's name, the tempo on the bar's
 display, the ruler's ⌗ (the View menu) and a track's input chip; on Open,
-the take's name. Open's More, Send to and lane menus are still their own,
-to move in Open's pass.
+the take's name and More. Open's lane menus are still their own
+(`OWN_MENUS`).
 
 **Sheets** (`lib/ui/sheet.js`). A sheet or a drawer that comes up from
 the foot and follows the finger is `createSheet(el, {layers, kind, modal,
@@ -238,6 +250,14 @@ away (`onHide`); the sheet only moves it. Its first user is the phone's
 player (`lib/bar/player.js`, `bar.md`); the notes drawer is the second
 (`lib/room/drawer.js`, `rooms.md`, *The notes drawer*), with a half-way
 detent.
+
+**A height the CSS reads** (`lib/ui/measure.js`) is measured, never
+written into a stylesheet: `measureInto(el, prop, {root, RO})` writes
+`el`'s height, as drawn, into the custom property `prop` on the page's
+`<html>`, once per change (0 hidden), and answers its disconnect. The bar's
+`--np-h` (`measureBar`, `bar.md`) and help mode's tip, `--tip-h`
+(`lib/help/help.js`, `take-page.md`), are its; every reader has a `0px`
+fallback.
 
 **Recording from this phone** (`lib/phone/recorder.js`). One recorder per
 page, `phoneRecorder(doc)`, on the page's `#phone-sheet`: Capture's and the
@@ -322,8 +342,11 @@ usually was landed on the brand.
   - In the Studio the tape's name (`#tape-name`) opens the tape's menu
     (`lib/tape/page.js` `renderTapeMenu`; its words, `lib/tape/tape-menu.js`):
     *The tapes*, each with its tempo and parts and the loaded one ticked,
-    and New tape; Rename…, Duplicate; Share the mix, Bounce the loop,
-    Bounce the whole tape, Export stems and Play the last bounce
+    and New tape; Rename…, Duplicate; Download the mix and Share the mix…
+    (Share only where the browser can share files, after Download with a
+    mouse and before it on a touch screen: `orderExportKeys`,
+    `lib/wave/share.js`), Bounce the loop, Bounce the whole tape, Export
+    stems and Play the last bounce
     (`lib/rooms/bounce.js`); Record from this phone…; and Delete this
     tape…. Delete asks in `#confirm` (never the browser's prompt) by the
     tape's name and what is on it, then, the Pi keeping the tape it has

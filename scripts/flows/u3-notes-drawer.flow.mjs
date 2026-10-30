@@ -2,6 +2,8 @@
 // in the Listening Room is there when ✎ is pressed in the Studio and on the
 // take's page; Back puts the drawer away and leaves the room where it was;
 // the Sketchbook is gone. docs/flows.md#u3, listening-back.md.
+import { aTake } from './room.mjs';
+
 export default {
   id: 'U3',
   title: 'One notes drawer, in both rooms and on Open',
@@ -10,8 +12,7 @@ export default {
     const { page, api } = t;
     const take = await t.given('a take on the shelf', () => api.keep(20));
     await t.given('the Listening Room is open', () => page.goto(`${t.base}/takes.html`));
-    // A phone starts on the List (J2.7); a tablet and wider on the shelf wall.
-    await t.given('the take is playing', () => t.tap(page.locator('#view-room .room-cassette:visible, #takes .take.spine:visible').first()));
+    await t.given('the take is playing', () => t.tap(aTake(page)));
     await t.poll(() => document.getElementById('np')?.dataset.source === 'take' && document.getElementById('np-play')?.classList.contains('playing'));
     const up = () => t.poll(() => {
       const d = document.getElementById('notes-drawer');
@@ -43,8 +44,9 @@ export default {
     t.expect('Done puts it away', await away());
 
     await t.step('open the take’s page', () => page.goto(`${t.base}/wave.html?file=${encodeURIComponent(take.name)}`));
-    await t.poll(() => !!document.getElementById('room-open-note'), null, 10_000);
-    await t.step('tap ✎ Note', () => t.tap(page.locator('.room-open-note-btn')));
+    await t.poll(() => !!document.getElementById('notes-drawer'), null, 10_000);
+    // A phone's ✎ is the mini player's; wider, the bar's own.
+    await t.step('tap ✎', () => t.tap(page.locator('#note-now')));
     t.expect('the drawer comes up on Open', await up());
     t.expect('with the same note', JSON.stringify(await rows()) === '["verse"]', await rows());
     await t.step('write “chorus”, Enter', async () => { await page.keyboard.type('chorus'); await page.keyboard.press('Enter'); });

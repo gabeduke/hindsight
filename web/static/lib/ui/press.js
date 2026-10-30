@@ -154,6 +154,34 @@ export function pressMachine({
 }
 
 /**
+ * swallowLift catches the click a finger's hold leaves behind when it lands
+ * off the key that held (`key`): what the hold opened can come up under the
+ * finger, and its lift is no press of that (a cue clip's drawer, whose grip
+ * a lift once pulled to full height). The key's own click is left to its
+ * pressMachine, which swallows it. Call it from onHold while the finger is
+ * still down (the machine's active()); it lets go GESTURE.LIFT_GRACE_MS
+ * after the lift, or at once if the touch is taken instead (no click
+ * follows a cancel, and the next tap's must not be eaten).
+ */
+export function swallowLift(doc, key, { setTimer = setTimeout } = {}) {
+  const off = (e) => {
+    if (key.contains(e.target)) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const done = (e) => {
+    doc.removeEventListener('pointerup', done, true);
+    doc.removeEventListener('pointercancel', done, true);
+    const stop = () => doc.removeEventListener('click', off, true);
+    if (e.type === 'pointercancel') stop();
+    else setTimer(stop, GESTURE.LIFT_GRACE_MS);
+  };
+  doc.addEventListener('click', off, true);
+  doc.addEventListener('pointerup', done, true);
+  doc.addEventListener('pointercancel', done, true);
+}
+
+/**
  * bindPress makes a pressMachine of opts and wires it to el, and returns it.
  * Besides pressMachine's own, opts take:
  *   onDown(e)  called before the machine sees a pointerdown (the Listening

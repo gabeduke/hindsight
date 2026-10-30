@@ -49,9 +49,9 @@ sideways scroll).
   foot of the phone's player pulled up, under the thumb; the display's OUT
   is hidden there. Both open the output sheet (`wireOutput`'s keys), and
   `paintDisplay` writes both.
-- **Its height is measured** (`measureBar`: one `ResizeObserver` writing
-  `--np-h` on the root), never written into the CSS; every reader has its
-  `0px` fallback.
+- **Its height is measured** (`measureBar`, on `lib/ui/measure.js`'s
+  `measureInto`: one `ResizeObserver` writing `--np-h` on the root), never
+  written into the CSS; every reader has its `0px` fallback.
 - **The display says what plays** (`lib/bar/display.js`): where it is, then
   three keys on the LCD, each a value over its legend: the tempo (in the
   Studio, with the tape, the tempo menu; elsewhere a readout), the source
@@ -83,7 +83,14 @@ sideways scroll).
   `.np-zones` are `display: contents` there): the reels and the display as
   its art at the top, the strip, a space, then the transport, the verb and
   the modes in the thumb's reach, and the foot. On its side it keeps the
-  stacked zones.
+  stacked zones. The bar's menus (Catch's, the tempo's, the source's) open
+  over it (`css/bar.css`): the source's once opened under it, where no tap
+  reached it.
+- **The flows hold the phone's bar to its shape** (`scripts/flows/layout.mjs`,
+  `bar-*`; `docs/flows.md`, *Layout checks*), on every screen where it
+  shows: the mini player one row, its full width, no key over another, a
+  window a finger wide, ▶ at one x for every source; the player pulled up
+  with every key on the screen and |◀ ▶ ● on one row.
 
 ## The transport
 

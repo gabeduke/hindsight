@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pennant, drawPennant, drawPennantName, PENNANT_TOP } from './pennant.js';
+import { pennant, drawPennant, drawPennantName, drawPin, pinTag, PENNANT_TOP } from './pennant.js';
 
 /** A 2d context that writes down what it is asked to do. */
 function recorder(textWidth = 40) {
@@ -50,4 +50,14 @@ test('a name is written beside the pennant, and says where it ends', () => {
   assert.equal(right, 50 + 12 + 40 + 6);
   // A long name is held to 140 px, and so is where it ends.
   assert.equal(drawPennantName(recorder(500), 0, 'x', { pinH: 16, ink: '#fff' }), 12 + 140 + 6);
+});
+
+test('a note’s pin is a tag with its number, wider for two figures', () => {
+  assert.deepEqual(pinTag(100.4, 3, 16), { x: 100, y: PENNANT_TOP, w: 14, h: 14 });
+  assert.deepEqual(pinTag(100, 12, 16), { x: 100, y: PENNANT_TOP, w: 18, h: 14 });
+  const ctx = recorder();
+  const right = drawPin(ctx, 50, 7, { pinH: 16, bottom: 200, ink: '#e5a50a', numInk: '#fff', font: 'x' });
+  assert.equal(right, 64, 'it answers where the tag ends, for the words');
+  assert.ok(ctx.calls.some((c) => c[0] === 'fillText' && c[1] === '7'), 'its number is written on it');
+  assert.ok(ctx.calls.some((c) => c[0] === 'fillRect' && c[1] === 50 && c[2] === 16 && c[4] === 184), 'and its line goes through the audio');
 });

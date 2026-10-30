@@ -40,6 +40,7 @@ import { named } from '../rooms/words.js';
 import { followLoop, readPick, writePick, readSource, writeSource } from '../rooms/grab.js';
 import { splitKey, barTop } from '../ui/menu.js';
 import { layersOf } from '../ui/layers.js';
+import { revealAbove } from '../ui/reveal.js';
 import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
 import { recallNote, raiseUndo } from './replaced.js';
 import { GESTURE } from '../ui/press.js';
@@ -541,6 +542,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   }
 
   let playRaf = 0;
+  let shown = false; // the drawer as render last showed it: opening is from shut to open
   function tickPlayhead() {
     if (playRaf || !audition.playing) return;
     const step = () => {
@@ -578,9 +580,12 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     const b = st.board, g = grabOf(), d = st.detail;
     const open = st.open && (!!g || st.grabbing);
     const active = !ctx || ctx.active();
-    setOpen(body, active && open);
+    const opening = active && open && !shown;
+    shown = active && open;
+    setOpen(body, shown);
     setFold(body, active && open && !st.unfolded);
     el.panel.hidden = !open;
+    if (opening) revealLanes(); // the boxes it reads are laid out as it reads them
     // GRAB on the feed: its words follow the tempo, and the picker its N.
     const hasGrid = !!d?.tape?.grid;
     const k = grabKey(st.n, hasGrid);
@@ -803,6 +808,18 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     el.grip.addEventListener('pointercancel', () => { press = null; lift?.end(false); });
   }
 
+  // On a phone the drawer is a sheet over the foot of the page, docked above
+  // the mini player: opening, it brings the cue lane (its clip) and the
+  // armed track (where DROP lands) up into sight above it, under the
+  // header. The other tracks are a scroll away.
+  function revealLanes() {
+    if (!sheetMode() || el.panel.hidden) return;
+    const armed = st.detail?.rec_track;
+    revealAbove([doc.getElementById('cue-row'), armed ? doc.querySelectorAll('#lanes > .tape-track')[armed - 1] : null], el.panel, {
+      ceiling: doc.querySelector('.appbar')?.getBoundingClientRect().bottom ?? 0, reduced: reducedMotion(),
+    });
+  }
+
   // On a phone the buffer is a sheet: its grip pulls it up or down to the
   // inspector's three heights -- peek, half, full -- and held, then dragged,
   // lifts the buffer onto a lane.
@@ -980,6 +997,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
       st.noted = false; // the next show looks for a GRAB made meanwhile
       audition.stop();
       lift?.end(false);
+      shown = false;
       setOpen(body, false);
       setFold(body, false);
     },

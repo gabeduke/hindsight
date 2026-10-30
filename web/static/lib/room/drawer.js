@@ -11,7 +11,8 @@
 // GRAB and ✕.
 //
 // It is a sheet from the foot (lib/ui/sheet.js), on the page's stack, so a
-// swipe down, Back, Escape and Done put it away. It draws a take it is
+// swipe down, Back, Escape and Done put it away; or, on Open on a tablet and
+// wider, docked beside the waveform and always there (`dock`). It draws a take it is
 // handed as a *source*, which says what the take is and does what is asked
 // of it; the shell makes one of the take in the bar (notes.js barNotes) and
 // Open one of its page (lib/room/open.js). The drawer keeps nothing of the
@@ -40,6 +41,8 @@ import { takeTitle } from '../rooms/takename.js';
  *   seek(frame, {play}) the take to a frame, and playing, if asked: a promise
  *   grab(span)          { from, to } onto the Studio's cue lane: a promise
  *   onChange(fn)        fn() whenever the take changes; answers a way off
+ *   dropouts()          (optional) where the capture lost audio, frames: a
+ *                       row each among the notes, that can't be edited
  */
 
 /** atLine is what the drawer says over the words: where they will go. */
@@ -47,14 +50,9 @@ export function atLine(frame, sampleRate) {
   return `at ${fmtAt(frame, sampleRate)}`;
 }
 
-/**
- * createNotesDrawer makes the drawer, put away, at the end of `doc.body`.
- * `head` false leaves out the take's name, ★ and tag, for a page whose
- * header has them (Open). Answers { el, open(source, {at}), close(),
- * refresh(), isOpen, source, destroy() }. `open` on a drawer already open
- * moves its ✎ to `at`.
- */
-export function createNotesDrawer({ doc = globalThis.document, layers, toast = () => {}, head: withHead = true, clock, reduced } = {}) {
+// make is a doc's element maker: a tag, its classes, its attributes (`text`
+// its words), and its children.
+function maker(doc) {
   const mk = (tag, cls, attrs = {}, ...kids) => {
     const e = doc.createElement(tag);
     if (cls) e.className = cls;
@@ -71,6 +69,94 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
     b.innerHTML = icon(name);
     return b;
   };
+  return { mk, keyWith };
+}
+
+/**
+ * createNotesList makes a take's notes as the drawer lists them, each its
+ * number, its time (a tap goes there), its words (edited in place), ▶,
+ * GRAB and ✕: the drawer's own list, and the one under a phone's keys on
+ * Open. A source's dropouts are rows among them, in time: ⚠, the time, what
+ * happened and ▶, from a second before, to hear what was lost; nothing to
+ * edit. Answers { list, none, draw(source, {force}) }; `draw` redraws only
+ * when the notes have changed, and a row being written in keeps its focus.
+ */
+export function createNotesList({ doc = globalThis.document, toast = () => {}, id = null } = {}) {
+  const { mk, keyWith } = maker(doc);
+  const fail = (what) => (e) => toast(`Couldn’t ${what}: ${e.message}`, 'bad');
+  const list = mk('ol', 'notes-list', { id: id && `${id}-list`, 'aria-label': 'Notes' });
+  const none = mk('p', 'notes-none', { id: id && `${id}-none`, text: 'No notes yet. Write what you hear, and Enter puts it here.' });
+  let sig = '';
+  function row(s, n, ns) {
+    const num = mk('span', 'notes-n', { 'aria-hidden': 'true', text: String(n.n) });
+    const time = mk('button', 'notes-time mono', { type: 'button', 'aria-label': `Go to note ${n.n}, at ${n.at}`, text: n.at });
+    time.addEventListener('click', () => Promise.resolve(s.seek(n.frame)).catch(fail('go there')));
+    const w = mk('input', 'notes-row-words', { type: 'text', maxlength: '120', placeholder: 'what you heard…', 'aria-label': `Note ${n.n}, at ${n.at}: its words` });
+    w.value = n.label;
+    w.addEventListener('change', () => {
+      const v = w.value.trim();
+      if (v !== n.label) s.edit(n.id, v).catch(fail('save the note'));
+    });
+    w.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); w.blur(); }
+      // Escape puts the words back, and the drawer stays: the field keeps it.
+      if (e.key === 'Escape') { e.preventDefault(); w.value = n.label; w.blur(); }
+    });
+    const play = keyWith('play', 'notes-play', { 'aria-label': `Play from note ${n.n}, at ${n.at}` });
+    play.addEventListener('click', () => Promise.resolve(s.seek(n.frame, { play: true })).catch(fail('play it')));
+    const span = noteSpan(ns, n.id, { sampleRate: s.sampleRate, bpm: s.bpm(), total: s.total });
+    const grab = mk('button', 'icon-btn notes-grab', { type: 'button', 'aria-label': `GRAB from note ${n.n} onto the Studio’s cue lane`, 'data-tip': 'notes-grab', disabled: !span, text: 'GRAB' });
+    grab.addEventListener('click', () => { if (span) s.grab(span).catch(fail('GRAB it into the Studio')); });
+    const out = keyWith('close', 'notes-out', { 'aria-label': `Take note ${n.n} out` });
+    out.addEventListener('click', () => s.remove(n.id).catch(fail('take the note out')));
+    return mk('li', 'notes-row', { 'data-id': n.id }, num, time, w, play, grab, out);
+  }
+  function dropRow(s, frame) {
+    const at = fmtAt(frame, s.sampleRate);
+    const from = Math.max(0, frame - s.sampleRate);
+    const time = mk('button', 'notes-time mono', { type: 'button', 'aria-label': `Go to a second before the dropout at ${at}`, text: at });
+    time.addEventListener('click', () => Promise.resolve(s.seek(from)).catch(fail('go there')));
+    const play = keyWith('play', 'notes-play', { 'aria-label': `Play from a second before the dropout at ${at}` });
+    play.addEventListener('click', () => Promise.resolve(s.seek(from, { play: true })).catch(fail('play it')));
+    return mk('li', 'notes-row notes-drop', {},
+      mk('span', 'notes-n notes-n-drop', { 'aria-hidden': 'true', text: '⚠' }),
+      time, mk('span', 'notes-drop-words', { text: 'Dropout: the capture lost audio here' }), play);
+  }
+  return {
+    list, none,
+    draw(s, { force = false } = {}) {
+      if (!s) return;
+      const ns = s.notes();
+      const drops = s.dropouts?.() || [];
+      none.hidden = ns.length + drops.length > 0;
+      const next = JSON.stringify([ns.map((n) => [n.id, n.frame, n.label]), drops, s.bpm()]);
+      if (next === sig && !force) return;
+      sig = next;
+      const focused = doc.activeElement?.closest?.('.notes-row')?.dataset.id;
+      const rows = [...ns.map((n) => ({ frame: n.frame, el: () => row(s, n, ns) })), ...drops.map((f) => ({ frame: f, el: () => dropRow(s, f) }))]
+        .sort((a, b) => a.frame - b.frame);
+      list.replaceChildren(...rows.map((r) => r.el()));
+      if (focused) list.querySelector(`li[data-id="${globalThis.CSS?.escape ? CSS.escape(focused) : focused}"] .notes-row-words`)?.focus();
+    },
+    /** focus puts the cursor in a note's words. */
+    focus(noteId) {
+      list.querySelector(`li[data-id="${globalThis.CSS?.escape ? CSS.escape(noteId) : noteId}"] .notes-row-words`)?.focus();
+    },
+  };
+}
+
+/**
+ * createNotesDrawer makes the drawer, put away, at the end of `doc.body`.
+ * `head` false leaves out the take's name, ★ and tag, for a page whose
+ * header has them (Open). `dock` ({ into, when }) docks it in `into`
+ * whenever `when` (a MediaQueryList) matches: there it is always shown, with
+ * no grabber or Done, and its ✎ follows the take until the words are begun.
+ * Answers { el, open(source, {at, focus, note}), close(), refresh(), isOpen,
+ * docked, source, destroy() }. `open` on a drawer already open moves its ✎
+ * to `at`; `note` puts the cursor in that note's words instead.
+ */
+export function createNotesDrawer({ doc = globalThis.document, layers, toast = () => {}, head: withHead = true, dock = null, clock, reduced } = {}) {
+  const { mk, keyWith } = maker(doc);
 
   // --- the markup --------------------------------------------------------------
   const grabber = mk('div', 'notes-grabber', { 'aria-hidden': 'true' });
@@ -83,10 +169,9 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
   const at = mk('label', 'notes-at mono', { id: 'notes-at', for: 'notes-words' });
   const words = mk('input', 'notes-words', { id: 'notes-words', type: 'text', maxlength: '120', placeholder: 'What you heard…', autocomplete: 'off', enterkeyhint: 'done' });
   const write = mk('form', 'notes-write', { id: 'notes-write', 'data-tip': 'notes-write' }, at, words);
-  const list = mk('ol', 'notes-list', { id: 'notes-list', 'aria-label': 'Notes' });
-  const none = mk('p', 'notes-none', { id: 'notes-none', text: 'No notes yet. Write what you hear, and Enter puts it here.' });
+  const notes = createNotesList({ doc, toast, id: 'notes' });
   const el = mk('section', 'notes-drawer', { id: 'notes-drawer', role: 'dialog', 'aria-label': 'Notes' },
-    grabber, mk('div', 'notes-body', {}, head, write, list, none));
+    grabber, mk('div', 'notes-body', {}, head, write, notes.list, notes.none));
   el.hidden = true;
   tagPanel.hidden = true;
   doc.body.append(el);
@@ -94,6 +179,22 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
   let src = null;
   let off = null;
   let aim = 0; // the frame ✎ was pressed at: where the words go
+  const docked = () => !!dock?.when?.matches;
+
+  function attach(source) {
+    if (src === source) return;
+    off?.();
+    src = source;
+    words.value = '';
+    off = source.onChange?.(() => render()) || null;
+    if (withHead) tagStore.load();
+    notes.draw(src, { force: true });
+  }
+  function detach() {
+    off?.();
+    off = null;
+    src = null;
+  }
 
   const sheet = createSheet(el, {
     layers, kind: 'drawer',
@@ -103,19 +204,41 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
     detents: () => [0, Math.round((el.offsetHeight || 0) * 0.45)],
     closed: () => Math.max(el.offsetHeight || 0, (globalThis.innerHeight || 0) - (el.offsetTop || 0)),
     handles: [grabber, head],
+    when: () => !docked(),
     onShow: () => { el.hidden = false; },
     onHide: () => {
       // Back, Escape and a swipe don't blur: a field being written in
       // saves now (its change), while the drawer still has its take.
       if (el.contains(doc.activeElement)) doc.activeElement.blur?.();
+      // Put away to be docked: it keeps its take, and stays in sight.
+      if (docked()) return;
       el.hidden = true;
-      off?.();
-      off = null;
-      src = null;
+      detach();
     },
     ...(clock ? { clock } : {}),
     ...(reduced ? { reduced } : {}),
   });
+
+  // Docked or a sheet, as the screen is now: a sheet up as the screen
+  // widens goes away and the drawer stands in the dock with its take.
+  function place() {
+    if (!dock) return;
+    const on = docked();
+    el.classList.toggle('notes-docked', on);
+    // Docked, it is a part of the page beside the take, not a dialog over it.
+    el.setAttribute('role', on ? 'complementary' : 'dialog');
+    if (on) {
+      if (sheet.isOpen) sheet.close('program');
+      if (el.parentElement !== dock.into) dock.into.append(el);
+      el.hidden = false;
+    } else {
+      if (el.parentElement !== doc.body) doc.body.append(el);
+      if (!sheet.isOpen) el.hidden = true;
+    }
+    render();
+  }
+  dock?.when?.addEventListener?.('change', place);
+  place();
 
   // --- the take: its name, ★ and tag ---------------------------------------------
   const fail = (what) => (e) => toast(`Couldn’t ${what}: ${e.message}`, 'bad');
@@ -155,6 +278,11 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
   done.addEventListener('click', () => sheet.close('program'));
 
   // --- ✎ at 0:09, and the words: Enter adds ------------------------------------------
+  // Docked, nobody pressed ✎: the words go where the take was when they
+  // were begun.
+  words.addEventListener('focus', () => {
+    if (src && docked() && !words.value) { aim = src.frame() ?? aim; render(); }
+  });
   write.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!src) return;
@@ -174,34 +302,6 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
     if (src === s) { aim = s.frame() ?? aim; render(); }
   });
 
-  // --- the notes: number, time, words, ▶, GRAB, ✕ ---------------------------------------
-  let sig = '';
-  function row(n, ns) {
-    const s = src;
-    const num = mk('span', 'notes-n', { 'aria-hidden': 'true', text: String(n.n) });
-    const time = mk('button', 'notes-time mono', { type: 'button', 'aria-label': `Go to note ${n.n}, at ${n.at}`, text: n.at });
-    time.addEventListener('click', () => Promise.resolve(s.seek(n.frame)).catch(fail('go there')));
-    const w = mk('input', 'notes-row-words', { type: 'text', maxlength: '120', placeholder: 'what you heard…', 'aria-label': `Note ${n.n}, at ${n.at}: its words` });
-    w.value = n.label;
-    w.addEventListener('change', () => {
-      const v = w.value.trim();
-      if (v !== n.label) s.edit(n.id, v).catch(fail('save the note'));
-    });
-    w.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); w.blur(); }
-      // Escape puts the words back, and the drawer stays: the field keeps it.
-      if (e.key === 'Escape') { e.preventDefault(); w.value = n.label; w.blur(); }
-    });
-    const play = keyWith('play', 'notes-play', { 'aria-label': `Play from note ${n.n}, at ${n.at}` });
-    play.addEventListener('click', () => Promise.resolve(s.seek(n.frame, { play: true })).catch(fail('play it')));
-    const span = noteSpan(ns, n.id, { sampleRate: s.sampleRate, bpm: s.bpm(), total: s.total });
-    const grab = mk('button', 'icon-btn notes-grab', { type: 'button', 'aria-label': `GRAB from note ${n.n} onto the Studio’s cue lane`, 'data-tip': 'notes-grab', disabled: !span, text: 'GRAB' });
-    grab.addEventListener('click', () => { if (span) s.grab(span).catch(fail('GRAB it into the Studio')); });
-    const out = keyWith('close', 'notes-out', { 'aria-label': `Take note ${n.n} out` });
-    out.addEventListener('click', () => s.remove(n.id).catch(fail('take the note out')));
-    return mk('li', 'notes-row', { 'data-id': n.id }, num, time, w, play, grab, out);
-  }
-
   let atSaid = '';
   function render() {
     if (!src) return;
@@ -209,21 +309,15 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
     const label = `Notes on ${takeTitle(t)}`;
     if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
     if (withHead) drawHead(t);
+    // Docked and not being written in, ✎ is where the take is.
+    if (docked() && doc.activeElement !== words && !words.value) aim = Math.max(0, Math.round(src.frame() ?? aim));
     const said = atLine(aim, src.sampleRate);
     if (said !== atSaid) {
       atSaid = said;
       at.innerHTML = icon('note', { size: 16 });
       at.append(` ${said}`);
     }
-    const ns = src.notes();
-    const next = JSON.stringify([ns.map((n) => [n.id, n.frame, n.label]), src.bpm()]);
-    none.hidden = ns.length > 0;
-    if (next === sig) return;
-    sig = next;
-    // A row being written in keeps its focus across the redraw.
-    const focused = doc.activeElement?.closest?.('.notes-row')?.dataset.id;
-    list.replaceChildren(...ns.map((n) => row(n, ns)));
-    if (focused) list.querySelector(`li[data-id="${globalThis.CSS?.escape ? CSS.escape(focused) : focused}"] .notes-row-words`)?.focus();
+    notes.draw(src);
   }
   function drawHead(t) {
     if (doc.activeElement !== name) {
@@ -241,27 +335,28 @@ export function createNotesDrawer({ doc = globalThis.document, layers, toast = (
 
   return {
     el,
-    /** open shows `source`'s notes, with ✎ at `at` (its frame now by default) and the words ready. */
-    open(source, { at: frame } = {}) {
-      if (src !== source) {
-        off?.();
-        src = source;
-        sig = '';
-        words.value = '';
-        off = source.onChange?.(() => render()) || null;
-        if (withHead) tagStore.load();
-      }
+    /**
+     * open shows `source`'s notes, with ✎ at `at` (its frame now by
+     * default) and the words ready; `focus` false leaves the cursor where it
+     * is, and `note` puts it in that note's words.
+     */
+    open(source, { at: frame, focus = true, note = null } = {}) {
+      attach(source);
       aim = Math.max(0, Math.round(frame ?? source.frame() ?? 0));
       render();
-      if (!sheet.isOpen) sheet.open();
-      words.focus({ preventScroll: true });
+      if (!docked() && !sheet.isOpen) sheet.open();
+      if (note != null) notes.focus(note);
+      else if (focus) words.focus({ preventScroll: !docked() });
     },
     close: () => sheet.close('program'),
     refresh: render,
-    get isOpen() { return sheet.isOpen; },
+    get isOpen() { return docked() ? !!src : sheet.isOpen; },
+    get docked() { return docked(); },
     get source() { return src; },
     destroy() {
+      dock?.when?.removeEventListener?.('change', place);
       sheet.destroy();
+      detach();
       el.remove();
     },
   };

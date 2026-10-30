@@ -1,5 +1,7 @@
 // J2.6 Tidy up: select takes, delete them, and get them back with Undo.
 // docs/flows.md#j26
+import { aTake } from './room.mjs';
+
 export default {
   id: 'J2.6',
   title: 'Select, delete and undo on the shelf',
@@ -9,11 +11,11 @@ export default {
     const take = await t.given('another take on the shelf', () => api.keep(5));
     const count = (await api.takes()).length;
     await t.given('the Listening Room is open', () => page.goto(`${t.base}/takes.html`));
-    await page.locator('#view-room .room-cassette').first().waitFor();
+    await aTake(page).waitFor();
 
-    // Hold a spine to start selecting (⇧-click with a mouse); the held take
-    // is the first one picked.
-    await t.step('hold a spine', () => t.hold(page.locator('#view-room .room-cassette').first()));
+    // Hold a spine, or a row of the List on a phone, to start selecting
+    // (⇧-click with a mouse); the held take is the first one picked.
+    await t.step('hold a spine', () => t.hold(aTake(page)));
     t.expect('the select bar comes up', await t.poll(() => !document.getElementById('select-bar')?.hidden));
     await t.step('delete it', () => page.locator('#sel-delete').click());
     const toast = page.locator('#toasts .toast').filter({ hasText: /Deleted/ }).first();

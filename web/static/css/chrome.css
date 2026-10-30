@@ -176,9 +176,6 @@ body.help-mode .app-menu-btn { background: var(--accent); color: var(--on-accent
   body.selecting #toasts { bottom: calc(144px + env(safe-area-inset-bottom)); }
   body.selecting { padding-bottom: calc(131px + env(safe-area-inset-bottom)); }
   .tip-pop { bottom: calc(76px + env(safe-area-inset-bottom)); }
-  /* The take page's notes, open, are the whole screen. */
-  body.notes-open .appnav { display: none; }
-  body.notes-open { padding-bottom: 0; }
 }
 
 @media (hover: hover) {
