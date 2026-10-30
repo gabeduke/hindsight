@@ -71,3 +71,4 @@ rules; the story behind each is here. A new decision is the next number,
 - [0059](0059-the-studio-on-one-screen.md) The Studio on one screen: a touch head is name, ●, input and ›
 - [0060](0060-controller-pads-play-now.md) A controller's pads play now, not on a 16th
 - [0061](0061-grab-lands-on-the-cue-lane.md) GRAB lands on the cue lane; a clip's drawer above the bar
+- [0062](0062-a-new-tempo-moves-the-bar-lines.md) A new tempo moves the bar lines, not the audio

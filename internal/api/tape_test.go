@@ -1103,7 +1103,7 @@ func TestTapeCueGrabFromATakeAndLaunch(t *testing.T) {
 }
 
 // A tempo with no bars re-grids a tape that has audio: the bar lines move,
-// and the clip and the loop keep their frames (docs/plan/tempo.md). Nudges
+// and the clip and the loop keep their frames (docs/decisions/0062). Nudges
 // in a row are one step of undo, and a punch makes it wait.
 func TestATempoReGridsATapeWithAudio(t *testing.T) {
 	r, a := newTapeAPIWithAPI(t)

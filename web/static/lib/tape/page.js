@@ -4132,7 +4132,7 @@ async function tap() {
 
 // renderTempo fills the tempo's panel, from the bar's display: the tempo
 // to type, −1 and +1, TAP, and under a line the grid's bars counted half or
-// twice as many. A new tempo re-grids the tape (docs/plan/tempo.md): the
+// twice as many. A new tempo re-grids the tape (docs/decisions/0062): the
 // bar lines, the click and the clock move, and the audio, the clips and the
 // loop stay where they are. A bar count relabels the grid's frames, which
 // are the loop's until a re-grid. Each is a step of undo; nudges and taps

@@ -1,9 +1,7 @@
 // J1.17 Set the tempo with audio down: the tempo on the bar's display opens
 // its panel, where I type a tempo, nudge it a BPM with +1 and −1, or TAP
 // it; the bar lines move to it and the part on track 1 and the loop stay
-// where they were (a re-grid: docs/plan/tempo.md). Todo until Gabe picks a
-// way to change the tempo (that spec's decision 1); the re-grid prototype
-// passes it. docs/flows.md#j117
+// where they were (a re-grid: docs/decisions/0062). docs/flows.md#j117
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const bpmOf = (g) => (g ? (g.bars * 4 * 60 * 48000) / g.frames : 0);
@@ -12,7 +10,6 @@ const near = (a, b) => Math.abs(a - b) < 0.05;
 export default {
   id: 'J1.17',
   title: 'Set the tempo with audio down',
-  status: 'todo',
   checksMenus: ['#tempo-menu'],
   async run(t) {
     const { page, api } = t;

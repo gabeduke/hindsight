@@ -390,7 +390,7 @@ func (a *API) handleTapePatch(w http.ResponseWriter, r *http.Request) {
 			if tm := b.Tempo; tm != nil && tm.Bars == 0 {
 				// No bars: a re-grid, on any tape. The bar lines move to the
 				// new tempo and the audio, the loop and the clips keep their
-				// frames: nothing is stretched (docs/plan/tempo.md).
+				// frames: nothing is stretched (docs/decisions/0062).
 				if rec != nil && rec.Tape == t.ID {
 					return tape.WaitsForRecording(fmt.Errorf("%w: the tempo waits until it ends; the punch counts bars", tape.ErrRecording))
 				}
