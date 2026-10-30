@@ -259,11 +259,12 @@ export function mountTapePage(ctx) {
     ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { poll(true); fetchClipboard(); } });
     ctx.every(() => { if (!document.hidden) poll(); }, POLL_MS);
     ctx.every(() => { if (!document.hidden) fetchClipboard(); }, 2000);
-    // While the Studio is shown, the Pi's word that the tape changed polls
+    // While the Studio is shown, it borrows the page's transport: the Pi's
+    // word that the tape changed, on the page's one socket, polls the Studio
     // now, not at the next tick, and the bar's tape is the Studio's to poll
-    // and play (the socket feeds both). Hidden, the bar has it back, and
-    // follows the tape in the other rooms. ctx opens it on each visit, after
-    // show()'s poll, and closes it on hide.
+    // and play. Hidden, the bar has it back, and follows the tape in the
+    // other rooms. ctx borrows it on each visit, after show()'s poll, and
+    // hands it back on hide; the socket stays open throughout.
     ctx.socket(followTheTape);
   })();
   return {

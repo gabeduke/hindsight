@@ -20,16 +20,27 @@ export default {
   async run(t) {
     const { page, api } = t;
     const tape = await t.given('a fresh tape', () => api.tape('Keys'));
-    // listening resolves when a /api/tapes/changes socket opened from now on
-    // has carried its first message: the page hears the Pi.
-    const listening = () => new Promise((resolve) => {
-      const quit = setTimeout(() => { page.off('websocket', onWs); resolve(false); }, 5000);
-      function onWs(ws) {
-        if (!ws.url().includes('/api/tapes/changes')) return;
-        ws.once('framereceived', () => { clearTimeout(quit); page.off('websocket', onWs); resolve(true); });
-      }
-      page.on('websocket', onWs);
+    // listening resolves when a /api/tapes/changes socket carries a message
+    // from now on: the page hears the Pi. The page holds one such socket
+    // across rooms (docs/architecture/push.md, *One socket a page*), so it
+    // may be the one already open or one opened after the call.
+    const socks = [];
+    page.on('websocket', (ws) => {
+      if (!ws.url().includes('/api/tapes/changes')) return;
+      const s = { frames: 0 };
+      socks.push(s);
+      ws.on('framereceived', () => { s.frames++; });
     });
+    const listening = () => {
+      const seen = socks.map((s) => s.frames);
+      return (async () => {
+        for (let i = 0; i < 50; i++) {
+          if (socks.some((s, j) => s.frames > (seen[j] ?? 0))) return true;
+          await t.wait(100);
+        }
+        return false;
+      })();
+    };
     const studioListens = listening();
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     await page.locator('#np-play').waitFor({ state: 'visible' });
@@ -134,7 +145,7 @@ export default {
       // hold there.
       const take = t.profile === 'phone' ? null : await t.given('a take on the shelf', () => api.keep(5));
 
-      // The Listening Room: the bar's own socket hears the keyboard.
+      // The Listening Room: the page's socket, the bar's again, hears the keyboard.
       const barListens = listening();
       await t.step('go to the Listening Room', () => t.tap(page.locator('.appnav a[data-tab="room"]')));
       t.expect('the Listening Room is shown', await t.poll(() => location.pathname === '/takes.html'));
