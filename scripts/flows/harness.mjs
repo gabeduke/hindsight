@@ -287,7 +287,9 @@ export function apiFor(base, { dir = null } = {}) {
 //
 // known is the baseline (layout-known.json): findings already there when
 // the checks came in. They show as "known" and don't fail; a new one does.
-export async function runFlow(browser, flow, profileName, { base, api, shots, storyboard = null, known = new Set() }) {
+// bar is the run's memory of where the phone's ▶ stood (checkLayout's):
+// one Map for the whole run, so ▶ is held to one x across the flows.
+export async function runFlow(browser, flow, profileName, { base, api, shots, storyboard = null, known = new Set(), bar = new Map() }) {
   const profile = PROFILES[profileName];
   const context = await browser.newContext({ ...profile, serviceWorkers: 'block' });
   const page = await context.newPage();
@@ -329,7 +331,7 @@ export async function runFlow(browser, flow, profileName, { base, api, shots, st
     if (!at || at.layout || page.isClosed() || page.url() === 'about:blank') return;
     // A finding already reported on an earlier screen is marked again, so
     // the report says each one once, where it first showed.
-    at.layout = (await checkLayout(page, { touch: profile.hasTouch })).map((f) => {
+    at.layout = (await checkLayout(page, { touch: profile.hasTouch, bar })).map((f) => {
       const k = findingKey(f);
       if (f.severity === 'fail' && known.has(`${profileName}|${k}`)) f = { ...f, severity: 'known' };
       if (seenLayout.has(k)) return { ...f, again: true };

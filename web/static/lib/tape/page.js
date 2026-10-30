@@ -60,6 +60,7 @@ import { mountCueLane } from './cuelane.js';
 import { layersOf } from '../ui/layers.js';
 import { menu, splitKey, menuItem, barTop } from '../ui/menu.js';
 import { icon } from '../ui/icons.js';
+import { revealAbove } from '../ui/reveal.js';
 import { tapeRowSub, deleteWords, afterDelete } from './tape-menu.js';
 
 // A hidden Studio's dock nodes (#multi-bar, #clip-editor) are out of the
@@ -1414,9 +1415,7 @@ function revealPicked() {
     if (!lane) return;
     // Under the inspector's sheet, when it's open; else under the action bar.
     const cover = inspecting() ? $(inspecting()) : bar;
-    const over = lane.canvas.getBoundingClientRect().bottom + 8 - cover.getBoundingClientRect().top;
-    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (over > 0) window.scrollBy({ top: over, behavior: still ? 'auto' : 'smooth' });
+    revealAbove([lane.canvas], cover, { reduced: matchMedia('(prefers-reduced-motion: reduce)').matches });
   }, 550);
 }
 const selNow = () => ({ picked: state.picked, multi: state.multi });

@@ -52,6 +52,11 @@ A few rules hold the page together:
   list keeps its scroll; the list also restores it when the browser reloads
   it instead. The take menu's *Previous take* and *Next take* step through
   the takes in the order the list last showed.
+- **Help mode's tip floats over the foot of the page**, in both rooms and
+  on Open: its height is measured into `--tip-h` (`lib/ui/measure.js`), and
+  while help mode is on the page's `<main>` keeps that much room (and 24 px)
+  at its end, before the bar, so whatever is under the tip scrolls clear of
+  it. A phone's List once had its last takes under it for good (J5.1).
 - **Tips live in one file,** `lib/help/tips.js`, and the guide's §9 table is
   the same list; a node test fails if they differ or if any `data-tip` in the
   UI has no tip.

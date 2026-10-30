@@ -162,7 +162,7 @@ touching `view.js`, `overview.js`, `share.js`, `rising.js` or `page.js`, check b
 
 The rest of the UI is checked by the user flows: `node scripts/flows.mjs`
 (`make flows`) drives Gabe's journeys in Playwright against a demo it boots
-itself, on a tablet and a desktop profile. The stories, how to run them and
+itself, on a tablet, a desktop and a phone profile. The stories, how to run them and
 how to write a new one are in [flows.md](flows.md).
 
 ### A CSS change that should change nothing
