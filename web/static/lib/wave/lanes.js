@@ -178,10 +178,11 @@ export class Lanes {
     c.card.hidden = this.hidden.has(c.track.name);
     c.card.classList.toggle('collapsed', collapsed);
     c.chev.textContent = collapsed ? '▸' : '▾';
-    const notes = c.track.notes.length;
+    // What was played, never "notes": on Open a note is one you wrote.
+    const n = c.track.notes.length;
     c.meta.textContent = c.track.kind === 'drums'
-      ? `${notes} notes · triggers`
-      : `${notes} notes · ${c.track.device} · piano roll`;
+      ? `${n} hits · triggers`
+      : `${n} played · ${c.track.device} · piano roll`;
     c.body.style.height = `${laneLayout(c.track, collapsed).h}px`;
   }
 
@@ -205,7 +206,7 @@ export class Lanes {
           this.applyCollapse(c);
           this.draw();
         }),
-        item(other === 'drums' ? 'Show as drums' : 'Show as notes', () => {
+        item(other === 'drums' ? 'Show as drums' : 'Show as a piano roll', () => {
           this.setKind(c.track.name, other);
           this.onKindChange?.(c.track.name, other);
         }),

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   startOpen,
-  CARRY_KEY, FRAME_KEY, CARRY_LIMIT_MS, FRAME_LIMIT_MS, createCarry, resumeAt, mayCarry, studioVisit, openTheTape, takePageState,
+  CARRY_KEY, FRAME_KEY, CARRY_LIMIT_MS, FRAME_LIMIT_MS, createCarry, resumeAt, mayCarry, openTheTape, takePageState,
 } from './carry.js';
 import { takeSource } from './take-source.js';
 
@@ -230,28 +230,11 @@ test('coming back visible does not let go a newer record', () => {
 
 // --- the Studio, the take page, going for the tape ----------------------------------
 
-test('the Studio\'s own page is transparent: the Room\'s record stands, and nothing is wired', () => {
-  const { carry, clock } = aCarry();
-  const win = aWindow();
-  carry.leave(left());
-  const orig = carry.wire;
-  let wired = 0;
-  carry.wire = (...a) => { wired++; return orig(...a); };
-  assert.equal(studioVisit(carry), 'transparent');
-  assert.equal(wired, 0);
-  assert.equal(win.target.count() + win.doc.count(), 0);
-  clock.t += 20_000; // a while in the Studio
-  const rec = carry.read();
-  assert.equal(rec.take, 'jam_a.wav', 'back in the Room it is still there');
-  assert.equal(rec.playing, true);
-});
-
 test('Room -> Studio by its tab -> Room: the take is still there, and has played on', async () => {
   const room = aCarry();
   const win = aWindow();
   room.carry.wire(win.target, win.doc, () => left({ frame: 10 * SR }));
   win.target.fire('pagehide'); // leaving the Room by the Studio tab
-  studioVisit(room.carry);
   room.clock.t += 30_000;
   const s = aSource();
   const how = await room.carry.arrive(room.carry.peek(), { find: async () => s, load: () => s.src });
@@ -265,7 +248,6 @@ test('Room -> GRAB / Open in the Studio -> Room: the old take is not brought bac
   room.carry.wire(win.target, win.doc, () => left());
   room.carry.forTheTape();
   win.target.fire('pagehide');
-  studioVisit(room.carry);
   room.clock.t += 20_000;
   assert.equal(room.carry.peek(), null, 'the Studio was for the tape');
   assert.equal(room.storage.getItem(CARRY_KEY), null, 'and the mark is let go');

@@ -16,9 +16,11 @@ after `styles.css`, and a test reads them through `cssOf(page)`
 
 The shared modules beside them go in `lib/ui/`: `layers.js` (the one stack),
 `menu.js`, `press.js` (tap, double tap, hold: one table of thresholds),
-`keys.js` and `icons.js` (an SVG icon sprite in place of the unicode
-glyphs) so far; `sheet.js` (detents, swipe, flick) comes with the phone's
-sheet, and `dom.js` with its first user. Each lands with its first user,
+`keys.js`, `icons.js` (an SVG icon sprite in place of the unicode
+glyphs), `sheet.js` (detents, swipe, flick), `measure.js` (a height the
+CSS reads, measured: the bar's, help mode's tip) and `reveal.js` (what a
+sheet over a phone's foot would cover, scrolled up above it) so far;
+`dom.js` comes with its first user. Each lands with its first user,
 never as a sweep.
 
 ## Icons

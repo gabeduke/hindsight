@@ -11,8 +11,10 @@
 //
 // The socket is kept open by lib/socket.js, with lib/live.js's reconnect
 // and dead-socket rules: the beat is what keeps it from being taken for a
-// dead one. A view opens it on show and closes it on hide, as Capture does
-// its meters' socket, so it is quiet in a room not shown.
+// dead one. A page holds one, the transport's (lib/models/transport.js),
+// from the tape's mount to the page's end, whatever room is shown: a room
+// switch neither closes it nor opens another (push.md, *One socket a
+// page*).
 //
 // A press on the keyboard (docs/architecture/push.md, *The keyboard's press*)
 // comes on it too, the moment it is made, under `press`: the banner's
@@ -80,7 +82,7 @@ export function revisions({ firstSeen = false } = {}) {
  * on each message with a takes_rev, new or not (the beat is how the takes
  * model knows the push is there). The first
  * the socket says is taken as seen: whoever opens it polls as they do (the
- * Studio on show, the bar as it takes the tape back), and counting it as
+ * transport, as it loads), and counting it as
  * news would ask the Pi twice. A change in the moment between that poll
  * and the socket's first word waits for the next poll, as it did before.
  * After a reconnect, a revision that moved while the socket was down is

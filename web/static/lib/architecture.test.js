@@ -320,7 +320,6 @@ const OWN_HISTORY = [
   // [file, how many pushState calls, why it is still its own]
   ['lib/shell/router.js', 1, 'a room’s entry'],
   ['lib/ui/layers.js', 1, 'the stack’s one entry, where there is no CloseWatcher'],
-  ['lib/wave/page.js', 1, 'Open’s notes pane on a phone, until it is the notes drawer (listening-back.md, step 2)'],
 ];
 
 test('Guardrail 12: only the router and the stack (lib/ui/layers.js) push history entries', () => {
@@ -357,7 +356,6 @@ test('Guardrail 12: the Studio’s Escape is the stack’s; its page keeps it on
 const OWN_MENUS = [
   // [file, how many aria-haspopup, why it is still its own]
   ['lib/wave/lanes.js', 1, 'Open’s lane menus, until Open’s pass (step 10)'],
-  ['lib/wave/page.js', 1, 'Open’s menus shut one another by it, until Open’s pass'],
   ['lib/room/open.js', 1, 'the tag key opens a sheet, not a menu'],
 ];
 
@@ -379,12 +377,176 @@ test('Guardrail 13: a menu or a ▾ panel is lib/ui/menu.js’s', () => {
 test('Guardrail 14: only the takes model (lib/models/takes.js) asks /api/jams; every list of takes is the page’s', () => {
   // docs/architecture/push.md, *The takes' revision*: one list a page, asked
   // for when the Pi says it moved. A module with a fetch of its own asks the
-  // Pi again for what the page already holds.
+  // Pi again for what the page already holds. The takes model reads them by
+  // noun from the protocol client, the one module that names the route.
   const found = [];
   for (const [f, raw] of gestureLiterals()) {
-    if (f === 'lib/models/takes.js') continue;
+    if (f === 'lib/models/protocol.js') continue;
     const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
     if (/['"`]\/api\/jams\b/.test(src)) found.push(f);
   }
   assert.deepEqual(found, [], 'asks /api/jams itself: take the page’s takes (ctx.takes, the engine’s, or createTakes on a page of its own) instead');
+});
+
+// ---- the components: lib/components/ ---------------------------------------
+// The kit (docs/architecture/components.md; docs/plan/components.md, 1.5): a
+// component draws inside the root it is given, from its models' snapshots,
+// and does at window or document level only what goes through cx
+// (lib/components/mount.js). Enforced by directory, over every module under
+// lib/components/, the contract's own included (comments stripped, tests
+// left out), with no list of exceptions: a module moves in once it keeps
+// every rule.
+const COMPONENT_RULES = [
+  [/\b(fetch|timedFetch)\s*\(|\bXMLHttpRequest\b|\bEventSource\b/, 'asks the Pi: that is a model’s'],
+  [/\bWebSocket\b|\bconnectSocket\b|\bwatchChanges\b/, 'opens a socket: the push is a model’s'],
+  [/['"`]\/api(?![\w-])/, 'names a route: that is lib/models/protocol.js’s'],
+  // The window and the document only as cx.on's target (taken out first,
+  // below): a look-up, a listener of its own, document.onkeydown, the
+  // root's ownerDocument or its defaultView all reach outside its root.
+  [/\b(window|document|globalThis|ownerDocument|defaultView)\b/, 'reaches outside its root: the window and the document are cx.on’s targets and nothing else (a sheet or a drag’s ghost is a lib/ui interface)'],
+  [/(^|[^.\w$])addEventListener\s*\(/m, 'listens on the window: cx.on'],
+  [/\bsetInterval\s*\(/, 'polls: a model asks, and cx.loop steps what is drawn'],
+  [/hindsight:/, 'says or hears a page-wide event: a model’s onChange, a verb, or a callback the surface passes'],
+  [/\bnew\s+Audio\b|\bAudioContext\b/, 'makes audio: the engine’s'],
+  [/(?<![.\w$])(location|history)\s*[.=[]/, 'moves the page: cx.go, or the stack'],
+  [/<[a-z][^<>]*\sid\s*=|\.id\s*=\s*['"`]|setAttribute\(\s*['"]id['"]/i, 'writes an id of its own: cx.id(), from its root’s'],
+];
+
+/** componentFiles is every module under lib/components/, tests left out. */
+function componentFiles() {
+  const out = [];
+  const walk = (dir) => {
+    for (const d of fs.readdirSync(path.join(STATIC, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${d.name}`;
+      if (d.isDirectory()) walk(rel);
+      else if (d.name.endsWith('.js') && !d.name.endsWith('.test.js')) out.push(rel);
+    }
+  };
+  walk('lib/components');
+  return out;
+}
+
+// componentCode is a module as Guardrail 15 reads it: its comments out (a
+// // is one only after a space, a bracket or a line's start, so a string
+// such as 'a//b' keeps the rest of its line), and cx.on's window or
+// document, the one place either may be named, taken out.
+function componentCode(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[\s;{}(),])\/\/.*$/gm, '$1')
+    .replace(/\bcx\.on\(\s*(window|document)\b/g, 'cx.on(');
+}
+
+test('Guardrail 15: a component draws inside its root, from its models, and reaches the page only through cx', () => {
+  const files = componentFiles();
+  assert.ok(files.includes('lib/components/mount.js'), 'the walk finds lib/components/');
+  const found = [];
+  for (const f of files) {
+    const src = componentCode(read(f));
+    for (const [re, why] of COMPONENT_RULES) if (re.test(src)) found.push(`${f}: ${why}`);
+    // A hold of its own: a timer beside a press.
+    if (/\bsetTimeout\s*\(/.test(src) && /pointerdown/.test(src)) found.push(`${f}: a hold of its own: pressMachine or bindPress (lib/ui/press.js)`);
+  }
+  assert.deepEqual(found, []);
+});
+
+test('Guardrail 15 reads what a component must not do, and lets be what it may', () => {
+  const caught = (src) => COMPONENT_RULES.filter(([re]) => re.test(componentCode(src))).length > 0;
+  for (const bad of [
+    'fetch("/x")', 'timedFetch(u)', 'const u = `/api${p}`', "x('/api/jams')", 'new WebSocket(u)',
+    'document.getElementById("np")', 'root.ownerDocument.getElementById("x")', 'root.ownerDocument.addEventListener("keydown", f)',
+    'el.ownerDocument.defaultView.addEventListener("resize", f)', 'document.onkeydown = f', 'window.addEventListener("keydown", f)',
+    'addEventListener("keydown", f)', 'setInterval(f, 100)', 'dispatchEvent(new CustomEvent("hindsight:verb"))',
+    'new Audio(src)', 'location.href = "/"', 'history.back()', 'root.innerHTML = `<b id="x"></b>`', "root.innerHTML = '<b class=\"a\" id=\\'x\\'></b>'",
+    'el.id = "np-play"', 'el.setAttribute("id", "x")', "const s = 'a//b'; document.body.append(x)",
+  ]) assert.ok(caught(bad), `caught: ${bad}`);
+  for (const fine of [
+    'cx.on(window, "keydown", f)', 'cx.on(document, "keydown", f)', 'key.addEventListener("click", f)',
+    'el.id = cx.id("play")', 'root.innerHTML = `<b data-id="x"></b>`', 'model.history.length', 'take.location',
+    'const top = 1; // document.body, in a comment', "const href = 'http://x'",
+  ]) assert.ok(!caught(fine), `let be: ${fine}`);
+});
+
+// compounds is a selector as its compound selectors, each with the
+// combinator before it (' ' for a descendant), what is inside brackets kept
+// whole and a :has() left out (laying out around a root is not reaching
+// into it).
+function compounds(sel) {
+  let flat = '';
+  let depth = 0;
+  for (let i = 0; i < sel.length; i++) {
+    if (depth === 0 && sel.startsWith(':has(', i)) {
+      let d = 0, j = i + 4;
+      for (; j < sel.length; j++) { if (sel[j] === '(') d++; else if (sel[j] === ')' && --d === 0) break; }
+      i = j;
+      continue;
+    }
+    const c = sel[i];
+    if (c === '(' || c === '[') depth++;
+    else if (c === ')' || c === ']') depth--;
+    flat += depth > 0 && /\s/.test(c) ? '' : c;
+  }
+  const out = [];
+  let comb = '';
+  for (const m of flat.trim().matchAll(/\s*([>+~])\s*|\s+|([^\s>+~]+)/g)) {
+    if (m[2]) { out.push({ comb, text: m[2] }); comb = ' '; } else comb = m[1] ?? ' ';
+  }
+  return out;
+}
+
+test('Guardrail 15: each component is { id, root, needs, css, mount }, has its harness check, and its stylesheet is its own', async () => {
+  const { lacks } = await import('./components/mount.js');
+  const { rules } = await import('./stylesheets.js');
+  const dirs = fs.readdirSync(path.join(STATIC, 'lib/components'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+  assert.ok(dirs.length > 0, 'a component, or this checks nothing');
+  const sheets = fs.readdirSync(STATIC, { recursive: true }).filter((f) => f.endsWith('.css')).map((f) => f.split(path.sep).join('/'));
+  const pages = fs.readdirSync(STATIC, { recursive: true }).map((f) => f.split(path.sep).join('/'))
+    .filter((f) => /\.(js|html)$/.test(f) && !f.endsWith('.test.js'));
+  const word = (c) => new RegExp(`(?<![\\w-])${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
+  const problems = [];
+  for (const id of dirs) {
+    const file = `lib/components/${id}/index.js`;
+    if (!fs.existsSync(path.join(STATIC, file))) { problems.push(`${id}: a component is its directory’s index.js`); continue; }
+    const def = (await import(`./components/${id}/index.js`)).default;
+    const missing = lacks(def);
+    if (missing.length) { problems.push(`${file}: exports no good ${missing.join(', ')}`); continue; }
+    if (def.id !== id) problems.push(`${file}: its id is ${def.id}, its directory ${id}`);
+    if (!fs.existsSync(path.join(STATIC, '..', '..', 'scripts', 'components', `${id}.check.mjs`))) problems.push(`${id}: no harness check (scripts/components/${id}.check.mjs)`);
+    if (!sheets.includes(def.css)) { problems.push(`${id}: its stylesheet ${def.css} is not under web/static`); continue; }
+    const root = word(`.${def.root}`);
+    // Its own: every selector starts at its root, and goes into it, never
+    // beside it (.root + .x styles something else).
+    const own = rules(read(def.css), { file: def.css });
+    for (const r of own) {
+      for (const sel of r.sel) {
+        const c = compounds(sel);
+        if (!c.length || !root.test(c[0].text) || !c[0].text.startsWith(`.${def.root}`)) problems.push(`${def.css}:${r.line}: ${sel} doesn’t start at its root, .${def.root}`);
+        else if (c[1] && /[+~]/.test(c[1].comb)) problems.push(`${def.css}:${r.line}: ${sel} styles beside its root, not inside it`);
+      }
+    }
+    // The classes it owns: those its stylesheet styles that nothing outside
+    // its directory writes. Another stylesheet naming one, or naming its
+    // root before a combinator, reaches inside it.
+    const elsewhere = pages.filter((f) => !f.startsWith(`lib/components/${id}/`)).map(read);
+    const owned = [...new Set(own.flatMap((r) => r.sel.flatMap((s) => [...s.matchAll(/\.([\w-]+)/g)].map((m) => m[1]))))]
+      .filter((c) => c !== def.root && !elsewhere.some((src) => word(c).test(src)));
+    for (const sheet of sheets.filter((f) => f !== def.css)) {
+      for (const r of rules(read(sheet), { file: sheet })) {
+        for (const sel of r.sel) {
+          const c = compounds(sel);
+          const into = c.slice(0, -1).some((x) => root.test(x.text));
+          const names = owned.find((o) => word(`.${o}`).test(c.map((x) => x.text).join(' ')));
+          if (into || names) problems.push(`${sheet}:${r.line}: ${sel} reaches inside .${def.root}, the ${id} component’s`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(problems, []);
+});
+
+test('Guardrail 15 reads a selector’s compounds: what is inside brackets whole, a :has() left out', () => {
+  const texts = (s) => compounds(s).map((c) => `${c.comb}|${c.text}`);
+  assert.deepEqual(texts('.np .a > .b'), ['|.np', ' |.a', '>|.b']);
+  assert.deepEqual(texts('.np+.x'), ['|.np', '+|.x']);
+  assert.deepEqual(texts(':is(.np, .x) .y'), ['|:is(.np,.x)', ' |.y']);
+  assert.deepEqual(texts('body:has(.np .a:not(.b)) .toast'), ['|body', ' |.toast']);
+  assert.deepEqual(texts('.np[data-size="mini"] .x'), ['|.np[data-size="mini"]', ' |.x']);
 });

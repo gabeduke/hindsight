@@ -5,7 +5,7 @@
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v186';
+const CACHE = 'hindsight-shell-v190';
 const SHELL = [
   '/',
   '/index.html',
@@ -17,6 +17,7 @@ const SHELL = [
   '/css/bar.css',
   '/css/rooms-motion.css',
   '/css/notes.css',
+  '/css/display.css',
   '/app.js',
   '/lib/flags.js',
   '/lib/update.js',
@@ -31,17 +32,23 @@ const SHELL = [
   '/lib/takes.js',
   '/lib/models/takes.js',
   '/lib/models/transport.js',
+  '/lib/models/protocol.js',
+  '/lib/components/mount.js',
+  '/lib/components/display/index.js',
   '/lib/toast.js',
   '/lib/client.js',
   '/lib/trash.js',
   '/lib/playall.js',
   '/lib/wakelock.js',
   '/lib/ui/press.js',
+  '/lib/ui/dolly.js',
   '/lib/ui/keys.js',
   '/lib/ui/icons.js',
   '/lib/ui/layers.js',
   '/lib/ui/menu.js',
   '/lib/ui/sheet.js',
+  '/lib/ui/measure.js',
+  '/lib/ui/reveal.js',
   '/lib/theme.js',
   '/lib/nav.js',
   '/lib/shelf.js',
@@ -74,7 +81,6 @@ const SHELL = [
   '/lib/wave/near.js',
   '/lib/wave/onset.js',
   '/lib/wave/cut-label.js',
-  '/lib/wave/send.js',
   '/lib/edit/gestures.js',
   '/lib/edit/editor-bar.js',
   '/lib/edit/curves.js',
@@ -223,7 +229,7 @@ const SHELL = [
   '/fonts/caveat-500.woff2',
   '/fonts/caveat-700.woff2',
   '/manifest.json',
-  '/icons/ui.svg?v=c8b28c4c',
+  '/icons/ui.svg?v=c634899d',
   '/icons/icon-192.png?v=3',
   '/icons/icon-small.svg?v=3',
   '/icons/favicon-32.png?v=3',

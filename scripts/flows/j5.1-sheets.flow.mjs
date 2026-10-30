@@ -50,6 +50,13 @@ export default {
   allowHttpErrors: true, // the demo has no route to GitHub's releases
   async run(t) {
     const { page, api } = t;
+    // A phone's List long enough to reach under help mode's tip: eight rows
+    // at 844 px did, and its last rows could not be scrolled out from under
+    // it (the page kept no room for it).
+    const many = t.profile === 'phone' ? await t.given('a dozen takes on the shelf', async () => {
+      const one = await api.keep(5);
+      return api.copies(one.name, Array.from({ length: 11 }, (_, i) => new Date(Date.now() - (i + 1) * 3_600_000)));
+    }) : null;
     const menuOpen = () => t.poll(() => !document.getElementById('app-menu')?.hidden);
     const menuShut = () => t.poll(() => document.getElementById('app-menu')?.hidden);
     const pick = async (name, sel) => {
@@ -120,6 +127,17 @@ export default {
       await pick('Help mode', '#help');
       t.expect('help mode is on, and its item checked', await t.poll(() => document.body.classList.contains('help-mode')
         && document.getElementById('help').getAttribute('aria-checked') === 'true'));
+      if (many && room === 'takes.html') {
+        await t.step('scroll to the end of the List', async () => {
+          await page.mouse.wheel(0, 4000);
+          await t.wait(500);
+        });
+        const end = await page.evaluate(() => {
+          const rows = [...document.querySelectorAll('#takes .take.spine:not(.folded)')].filter((r) => r.getClientRects().length);
+          return { rows: rows.length, last: Math.round(rows.at(-1)?.getBoundingClientRect().bottom ?? NaN), tip: Math.round(document.querySelector('.tip-pop').getBoundingClientRect().top) };
+        });
+        t.expect('its tip floats over the foot of the page, and the List still scrolls its last take clear of it', end.rows >= 12 && end.last <= end.tip, end);
+      }
       const before = await page.evaluate(() => location.pathname);
       await t.step('tap the other room’s tab', () => t.tap(page.locator('.appnav a:not([aria-current="page"])')));
       t.expect('it explains the tab and stays in the room', await t.poll(() => !!document.querySelector('.tip-pop:not([hidden]) .tip-pop-done'))
@@ -153,6 +171,7 @@ export default {
       .filter((e) => !e.hidden).map((e) => e.querySelector('.menu-word')?.textContent))) === JSON.stringify(['Settings', 'The rig', 'Help mode', 'The guide', 'Releases']));
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('Escape shuts it, on the take’s page', await menuShut() && await page.evaluate(() => location.pathname) === '/wave.html');
+    await many?.clear();
 
     // The frame: the same header on every page.
     const seen = {};

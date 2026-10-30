@@ -14,7 +14,7 @@ take or a tape (a note, a tag, a star; a part, a section, the loop).
 |---|---|---|
 | **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), a cue part's drawer, a take's selection |
 | **BOUNCE** | makes a take from a tape, by playing it through the mixer | the tape's name's menu |
-| **Share the mix** | sends a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3` | the tape's name's menu; Bounce's refusal |
+| **Download the mix** · **Share the mix…** | a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3`. Download saves it as it arrives; Share offers it on a toast (a phone shares only from a tap), Download beside it. Share only where the browser can share files, in `exportWays`' order (`lib/wave/share.js`) | the tape's name's menu; Bounce's refusal (offers it) |
 | **GRAB** | puts a part on the cue lane, with a lane per input and its handles | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
 | **DROP** | lays a cue part on a track (it stays on the lane) | a cue part's drawer, ↵, a drag; a range's Paste |
 | **CATCH** | puts the last pass on the armed track | the Studio |
@@ -44,9 +44,9 @@ toast, Recently deleted) the day goes before the time (`{ day: true }`).
 Never the file (`jam_….wav`) or its date stamp. A cue part's drawer names a
 take's grab the same way (`grabTitle`, `lib/buffer/model.js`), from the grab's
 `take` and `take_label` (the take's name when it was grabbed), not from its
-`sources`, which the Pi writes for its own lines. Open's own page still
-titles a take by its date stamp (`lib/wave/page.js` `stampOf`), until
-Open's pass.
+`sources`, which the Pi writes for its own lines. Open says it so too: its
+header, *from …* under it, a deleted take's toast, KEEP's *in … on the
+shelf*.
 
 ## The library
 
@@ -103,9 +103,11 @@ One drawer for a take's notes, the same in the Studio, the Listening Room
 and on Open (decided in `listening-back.md`, *One notes drawer*; flows J2.4
 and U3). **✎ is the only pencil, and it means a note here, now**: ✎ on the
 bar opens the drawer on the take in the bar at the frame being heard; the
-take plays on, and the URL stays. On Open, ✎ Note (in the bar's own keys,
-and at the head of the page's *Notes*) opens it at the playhead, and ✎ on
-the bar arriving at Open opens it at the frame that was heard.
+take plays on, and the URL stays. On Open it is docked beside the
+waveform (below); ✎ in the bar's own keys (the phone's mini player too)
+and F put its words at the playhead, a tap on a pin puts the cursor in
+that note's words, and ✎ on the bar arriving at Open opens it at the frame
+that was heard.
 
 From the top: the take's name (edited in place; a take with none shows
 `takeTitle`), ★ and its tag (a `menu()`: the tags, *No tag*, *Edit
@@ -117,14 +119,24 @@ puts them back), ▶ (plays from it), GRAB (from it to the next note or
 eight bars, onto the Studio's cue lane: `noteSpan`) and ✕. With the tape in
 the bar ✎ is hidden, as it was: notes on tapes are in `backlog.md`.
 
-- **`lib/room/drawer.js` `createNotesDrawer({doc, layers, toast, head})`**
-  makes it, put away, at the end of `<body>` (`#notes-drawer`, every class
-  `notes-*`, styled by `css/notes.css`), and answers `{el, open(source,
-  {at}), close(), refresh(), isOpen, source, destroy()}`. It is a
-  `createSheet` (`kind: 'drawer'`, a half-way detent), on the page's
-  stack: a swipe down on its grabber or head, Back, Escape and Done put it
-  away. `head: false` leaves out the name, ★ and tag, for Open, whose
-  header has them.
+- **`lib/room/drawer.js` `createNotesDrawer({doc, layers, toast, head,
+  dock})`** makes it, put away, at the end of `<body>` (`#notes-drawer`,
+  every class `notes-*`, styled by `css/notes.css`), and answers `{el,
+  open(source, {at, focus, note}), close(), refresh(), isOpen, docked,
+  source, destroy()}`. It is a `createSheet` (`kind: 'drawer'`, a half-way
+  detent), on the page's stack: a swipe down on its grabber or head, Back,
+  Escape and Done put it away. `head: false` leaves out the name, ★ and
+  tag, for Open, whose header has them. `dock: {into, when}` docks it in
+  `into` while `when` (a MediaQueryList) matches (`.notes-docked`): always
+  shown, no grabber, head or Done, no drag; its ✎ follows the take until
+  the words are begun (focused), and a sheet up as the screen widens goes
+  away and the drawer stands in the dock with its take. `focus: false`
+  opens it without taking the keys (Open's arrival: Space still plays);
+  `note` puts the cursor in that note's words.
+- **`createNotesList({doc, toast, id})`** is the drawer's list on its own:
+  `{list, none, draw(source, {force}), focus(noteId)}`, the rows the
+  drawer draws (number, time, words, ▶, GRAB, ✕). Open's phone list under
+  the keys is one.
 - **It keeps nothing of the take's.** It draws a *source* it is handed:
   `take()`, `notes()`, `sampleRate`, `total`, `bpm()`, `frame()` (the
   frame heard now, null when it isn't), `add`, `edit`, `remove`, `patch`, `seek(frame,
@@ -140,8 +152,8 @@ the bar ✎ is hidden, as it was: notes on tapes are in `backlog.md`.
   view has notes of its own (`architecture.test.js`, guardrail 9).
 - **Open's** (`lib/room/open.js`) is its own, on Open's stack, on a source
   over the page's handle (`addNote`, `editNote`, `removeNote`: optimistic,
-  in order, with the page's Undo for a note taken out; `onRedraw(fn)`
-  answers a way to let it go). Docking it beside
-  the waveform, and the page's own list going, are Open's pass
-  (`the-studio-space.md`, step 10).
+  in order, with the page's Undo for a note taken out; `onRedraw(fn)`,
+  `onPin(fn)` and `onNoteKey(fn)` each answer a way to let it go), docked
+  in `#notes-dock` from 860 px (`WIDE`, the page's grid) and a sheet
+  under it, with `createNotesList` in `#notes-here` under the keys.
 

@@ -1,6 +1,8 @@
 // J1.4 Catch the last pass: start a tape from a tempo, arm a track, play,
 // and CATCH the pass that just went by onto the armed track.
 // docs/flows.md#j14
+import { mini, pullUp, putAway } from './player.mjs';
+
 const BPM = 120;
 const BARS = 2; // a 4 s pass, so the flow waits two of them, not twenty
 
@@ -36,6 +38,9 @@ export default {
     const shown = await t.poll((bpm) => document.getElementById('np-tempo')?.textContent.includes(bpm) && document.getElementById('np-tempo').textContent, String(BPM));
     t.expect('the bar’s display reads the tempo', shown, await page.locator('#np-tempo').innerText());
     t.expect('and the header has no tempo of its own', await page.evaluate(() => !document.querySelector('.appbar #tape-sub, .appbar .tape-sub')));
+    // On a phone the display is the player's, pulled up.
+    const phone = await mini(page);
+    if (phone) t.expect('the player comes up', await t.step('pull the player up', () => pullUp(t)));
     await t.step('tap the tempo on the bar’s display', () => t.tap(page.locator('#np-tempo')));
     const tempo = await t.poll(() => {
       const m = document.getElementById('tempo-menu');
@@ -49,6 +54,7 @@ export default {
     t.expect('its menu opens beside it with the bar counts, this one among them', !!tempo?.beside && tempo.on && tempo.rows.includes(`${BARS} bars at ${BPM.toFixed(1)} BPM`), tempo);
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('Escape shuts it, in the Studio', await t.poll(() => document.getElementById('tempo-menu')?.hidden && location.pathname === '/tape.html'));
+    if (phone) t.expect('the player goes down', await t.step('put the player away', () => putAway(t)));
 
     // ● on track 2 arms it alone.
     const arm = page.locator('#lanes .tt-arm').nth(1);
@@ -75,7 +81,9 @@ export default {
     // what to catch over the pair, and a pick catches.
     // It goes down under the finger as Catch does, in the first frame: a
     // key's 1 px, and darker, since its orange (Catch's) hides a key's own
-    // down face.
+    // down face. On a phone the pair a finger wide is the player's, pulled
+    // up (the mini player's is J4.4's).
+    if (phone) t.expect('the player comes up', await t.step('pull the player up', () => pullUp(t)));
     await page.evaluate(() => {
       const key = document.getElementById('catch-more');
       const seen = window.__morePress = { first: null };

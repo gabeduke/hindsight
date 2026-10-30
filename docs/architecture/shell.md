@@ -15,7 +15,9 @@ The takes list is one per page, the takes model (`lib/models/takes.js`;
 `push.md`, *The takes' revision*): asked for when the changes socket says
 the list moved, on its own slow poll otherwise, and guarded by the
 `/api/jams` ETag, so an unchanged list does not re-render and interrupt a
-playing preview. Nothing else on a page asks `/api/jams`
+playing preview. It reads the list through the protocol client
+(`lib/models/protocol.js`; `components.md`), the one module that names
+`/api/jams`, and nothing else on a page asks it
 (`architecture.test.js`, Guardrail 14): the shell's boot makes the model
 and hands it to the engine and to every view (`ctx.takes`); Open's page
 (`wave/page.js`) makes its own, unfed, and hands it to Open (`h.takes`).
@@ -42,8 +44,9 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 
 - `engine`, `go(url)`, `tapes`, `takes`, `toast`, `link`: shared. A view never creates
   the bar's audio and never assigns `location` to a room path. `takes` is
-  the page's takes model (`lib/models/takes.js`): `list()`, `get()`,
-  `find(name)`, `refresh({force})`, `onChange(fn)`. A view lists takes from
+  the page's takes model (`lib/models/takes.js`): `snapshot()` (`{v,
+  list}`), `list()`, `get()`, `find(name)`, `refresh({force})`,
+  `onChange(fn)`. A view lists takes from
   it, never from `/api/jams`; a `TakesList` is made with it (`takes:`), and
   a view draws on its `onChange` while shown (`TakesList.behind()`), its
   own tick then asking the Pi nothing while the model vouches for its list.
@@ -60,7 +63,9 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 - `layers`: the view's scope of the shell's one stack of open things
   (below). A menu, sheet, drawer or selection the view opens goes on it with
   its `onClose`, and whatever is still open when the view is hidden is
-  closed then, as its slots are taken out.
+  closed then, as its slots are taken out. A scope's `scope()` is a share
+  of it, a component's (`components.md`): its `closeAll` closes what it
+  opened, and the view's closes that too.
 - `headerSlot`, `dockSlot`, `barSlot`: **Slots**. What a view adds to the
   header, the dock or the bar is in the page only while it is shown: `hide()`
   takes the nodes **out of the document** and `show()` puts them back. So
@@ -109,6 +114,18 @@ the desk (the lit tab, a bar of another shape) changes in place.
   Listening Room at 1000 px and wider draws it as a dock of its own, so
   there it morphs into the dock rather than holding still: J2.10, a todo
   flow, says when it stops.)
+- **Into a take and back: the dolly.** Open is a page of its own, so
+  opening a take is a cross-document View Transition. `lib/ui/dolly.js`,
+  loaded render-blocking in the head of `shell.html` and `wave.html`, says
+  its type on both sides of the move (`pageswap`, `pagereveal`):
+  `dolly-in` into Open, `dolly-out` back out (`dollyType`; a take to the
+  next take, or a page to the rig or the guide, crossfades). For either,
+  `css/rooms-motion.css` names `.appbar` and `#np` so they hold still, and
+  the room grows past you and fades as the take's page comes up from a
+  little further off (`--t-room`, `--ease-out`), or the reverse. Less
+  motion has no page transition at all (the opt-in is under
+  `prefers-reduced-motion: no-preference`). Safari 18.0 has no `types`
+  there, and crossfades.
 - **The router says how to draw it** before `startViewTransition`, on the
   html element, so it works in Safari 18.0 (no transition `types`):
   `data-turn` is `right` or `left` (the way the camera turns, `turnOf`) or
@@ -214,8 +231,8 @@ panel (the Studio's four input chips, one input menu): it shows for one at
 a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
 (a key of its own beside Catch), the tape's name, the tempo on the bar's
 display, the ruler's ⌗ (the View menu) and a track's input chip; on Open,
-the take's name. Open's More, Send to and lane menus are still their own,
-to move in Open's pass.
+the take's name and More. Open's lane menus are still their own
+(`OWN_MENUS`).
 
 **Sheets** (`lib/ui/sheet.js`). A sheet or a drawer that comes up from
 the foot and follows the finger is `createSheet(el, {layers, kind, modal,
@@ -239,6 +256,14 @@ player (`lib/bar/player.js`, `bar.md`); the notes drawer is the second
 (`lib/room/drawer.js`, `rooms.md`, *The notes drawer*), with a half-way
 detent.
 
+**A height the CSS reads** (`lib/ui/measure.js`) is measured, never
+written into a stylesheet: `measureInto(el, prop, {root, RO})` writes
+`el`'s height, as drawn, into the custom property `prop` on the page's
+`<html>`, once per change (0 hidden), and answers its disconnect. The bar's
+`--np-h` (`measureBar`, `bar.md`) and help mode's tip, `--tip-h`
+(`lib/help/help.js`, `take-page.md`), are its; every reader has a `0px`
+fallback.
+
 **Recording from this phone** (`lib/phone/recorder.js`). One recorder per
 page, `phoneRecorder(doc)`, on the page's `#phone-sheet`: Capture's and the
 Studio's ● Phone (`initPhone` wires a room's key to it), the tape's menu's
@@ -257,9 +282,9 @@ it.
 
 | Part | What it is |
 |---|---|
-| `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf; from the page's takes, `createEngine({takes})`, or a model of its own when a page hands none), `backToTape`, `setSource`, `playing()`, `snapshot()`, `onChange` |
+| `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf; from the page's takes, `createEngine({takes})`, or a model of its own when a page hands none), `backToTape`, `tapeUnlessPlaying()` (in the Studio, the tape back in the bar when what it holds isn't playing; the Studio's view calls it as it is shown: *In the Studio, the tape*, `bar.md`), `setSource`, `playing()`, `snapshot()`, `onChange` |
 | `engine.audio` | `adopt`, `owns`, `release`, `audioFor`: the take in the bar belongs to the engine, so a shelf row torn down never stops it, and two shelves never hold two elements for one take. Engine media is never in a view's subtree (a removed media element pauses) |
-| `engine.transport` | The page's transport (`lib/models/transport.js`; *The transport*, `bar.md`), made with the engine and loaded (`load(id)`) once the Pi has a tape. `ingest({tape, live})` (the Studio's poll feeds it), `delegate({play, stop, locate, setLoop, poll})` (▶ in the Studio goes through the tape page's transport; the Studio lends it while it is shown and hands it back, `delegate(null)`, on hide, so it polls the tape itself in the other rooms). While it polls the tape itself it watches `/api/tapes/changes` (`lib/tape/changes.js`) and polls on each new revision. `onPress(fn)` hears each press on the keyboard (see *The keyboard's press*, `push.md`), and `heardPress(p)` is the Studio's socket handing one on; `onTakes(fn)` and `heardTakes(m)` the same for each message's `takes_rev`, which the engine hands to the page's takes model (*The takes' revision*, `push.md`) |
+| `engine.transport` | The page's transport (`lib/models/transport.js`; *The transport*, `bar.md`), made with the engine and loaded (`load(id)`) once the Pi has a tape. `ingest({tape, live})` (the Studio's poll feeds it), `delegate({play, stop, locate, setLoop, poll, nudge})` (▶ in the Studio goes through the tape page's transport; the Studio borrows it while it is shown, through `ctx.socket`, and hands it back, `delegate(null)`, on hide, so it polls the tape itself in the other rooms). It holds the page's one `/api/tapes/changes` socket (`lib/tape/changes.js`) from `load(id)` on, whoever has it (*One socket a page*, `push.md`): a new revision polls it, or the Studio while lent. `onPress(fn)` hears each press on the keyboard (see *The keyboard's press*, `push.md`); `onTakes(fn)` each message's `takes_rev`, which the engine hands to the page's takes model (*The takes' revision*, `push.md`) |
 | `engine.tape` | The bar's tape source (`lib/bar/tape-source.js`): the transport drawn (the LCD, the display, the overview), `setLevels` (the Studio's reels), and this phone's stream, whose place `pos()` is when it plays here. Null until the Pi has a tape |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
@@ -322,8 +347,11 @@ usually was landed on the brand.
   - In the Studio the tape's name (`#tape-name`) opens the tape's menu
     (`lib/tape/page.js` `renderTapeMenu`; its words, `lib/tape/tape-menu.js`):
     *The tapes*, each with its tempo and parts and the loaded one ticked,
-    and New tape; Rename…, Duplicate; Share the mix, Bounce the loop,
-    Bounce the whole tape, Export stems and Play the last bounce
+    and New tape; Rename…, Duplicate; Download the mix and Share the mix…
+    (Share only where the browser can share files, after Download with a
+    mouse and before it on a touch screen: `orderExportKeys`,
+    `lib/wave/share.js`), Bounce the loop, Bounce the whole tape, Export
+    stems and Play the last bounce
     (`lib/rooms/bounce.js`); Record from this phone…; and Delete this
     tape…. Delete asks in `#confirm` (never the browser's prompt) by the
     tape's name and what is on it, then, the Pi keeping the tape it has

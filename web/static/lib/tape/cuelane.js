@@ -9,7 +9,7 @@
 // output.
 
 import { say, named } from '../rooms/words.js';
-import { pressMachine, CUE_PRESS } from '../ui/press.js';
+import { pressMachine, swallowLift, CUE_PRESS } from '../ui/press.js';
 import { Loop } from '../objects/motion.js';
 import { ringOf } from '../buffer/cueclip.js';
 
@@ -284,7 +284,9 @@ export function mountCueLane({ container, getTape, getLaneView, getPos = () => N
       const machine = pressMachine({
         ...CUE_PRESS,
         onTap: () => onLaunch?.(now(), { now: !!lastShift }),
-        onHold: () => select(now()),
+        // The drawer it opens can come up under the finger (a phone's, as
+        // the lanes fold): the lift presses nothing there.
+        onHold: () => { if (machine.active()) swallowLift(document, chip); select(now()); },
       });
       let lastShift = false;
       chip.addEventListener('pointerdown', (e) => { machine.down(e); onPointerDown(e, clip, machine); });

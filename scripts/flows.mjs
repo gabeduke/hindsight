@@ -1,7 +1,7 @@
 // Runs the user flows (docs/flows.md) in a real browser against the demo.
 //
 //   npm install --no-save playwright@1.49.0 && npx playwright install chromium
-//   node scripts/flows.mjs                     # every flow on its profiles (tablet + desktop unless it says)
+//   node scripts/flows.mjs                     # every flow on its profiles (tablet, desktop, phone unless it says)
 //   node scripts/flows.mjs J2.2 J1.1           # just these
 //   node scripts/flows.mjs --profile=phone     # only that device's runs (tablet,desktop,phone,pixel,upright)
 //   node scripts/flows.mjs --json=out.json     # results for a machine to read
@@ -65,13 +65,16 @@ const api = apiFor(base, { dir: demo?.dir });
 // A fake microphone, allowed without asking: recording from a phone (J4.1).
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
 const results = [];
+// Where the phone's ▶ stood, for the whole run (layout.mjs, bar-play-x).
+const bar = new Map();
 try {
   for (const flow of flows) {
-    // A flow may name the profiles it makes sense on (a phone-only sheet):
-    // those by default, else the tablet and the desktop. --profile narrows.
-    const own = flow.profiles ?? ['tablet', 'desktop'];
+    // A flow may name the profiles it makes sense on (a tablet's budget, a
+    // phone-only sheet): those, else the tablet, the desktop and the phone.
+    // --profile narrows.
+    const own = flow.profiles ?? ['tablet', 'desktop', 'phone'];
     for (const p of picked ? own.filter((q) => picked.includes(q)) : own) {
-      const r = { ...await runFlow(browser, flow, p, { base, api, shots, storyboard, known }), file: flow.file };
+      const r = { ...await runFlow(browser, flow, p, { base, api, shots, storyboard, known, bar }), file: flow.file };
       console.log(`${scenario(r)}\n  => ${r.ok ? 'pass' : r.status === 'todo' ? 'todo' : 'FAIL'}\n`);
       results.push(r);
     }

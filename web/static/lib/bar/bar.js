@@ -25,7 +25,7 @@ import { measureBar, hereWord, deviceOf } from './slots.js';
 const $ = (id) => document.getElementById(id);
 
 export class NowPlaying {
-  constructor({ onEject, onTouch, onNote, onGrabFeed, canOutput = () => false } = {}) {
+  constructor({ onEject, onTouch, onPause, onNote, onGrabFeed, canOutput = () => false } = {}) {
     this.root = $('np');
     this.src = null;
     this.canOutput = canOutput;
@@ -70,7 +70,11 @@ export class NowPlaying {
       if (!s) return;
       onTouch?.();
       // The source's own say first: the tape's sound waiting for a tap.
-      if (!s.press?.()) { if (s.playing()) s.pause(); else s.play(); }
+      if (!s.press?.()) {
+        // A pause by ▶ is the person's: the page hears it (onPause), as the
+        // Studio, which puts the tape back in the bar (engine.js).
+        if (s.playing()) { s.pause(); onPause?.(); } else s.play();
+      }
       this.kick();
     });
     $('np-loop').addEventListener('click', () => { onTouch?.(); if (this.src) this.src.setLoop(!this.src.loop); });

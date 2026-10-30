@@ -27,6 +27,22 @@ function aTake(trim = null) {
   return { audio, player, t };
 }
 
+// Gabe's bar once read "BAR -1.4" for a take: before its downbeat the bars
+// counted up from below zero. There the counter is the take's time.
+test('a take: its counter is its time before its downbeat, and bars by its own tempo from it', () => {
+  const { audio, player, t } = aTake();
+  const s = takeSource({ ...t, bpm: 120, downbeat_frame: 4 * SR }, player);
+  audio.currentTime = 3;
+  assert.equal(s.lcd().unit, '', 'no bar before the downbeat');
+  assert.equal(s.lcd().big, '0:03.0');
+  audio.currentTime = 4;
+  assert.deepEqual([s.lcd().unit, s.lcd().big], ['BAR', '1.1']);
+  audio.currentTime = 5; // two beats at 120 BPM
+  assert.deepEqual([s.lcd().unit, s.lcd().big], ['BAR', '1.3']);
+  const plain = takeSource(t, player); // no tempo: always its time
+  assert.equal(plain.lcd().unit, '');
+});
+
 test('a take: Loop with a selection takes the playhead back to In at Out', () => {
   const { audio, player, t } = aTake({ start_frame: 2 * SR, end_frame: 4 * SR });
   const s = takeSource(t, player);

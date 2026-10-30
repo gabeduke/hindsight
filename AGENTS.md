@@ -53,7 +53,7 @@ node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' \
   'web/static/lib/rooms/*.test.js' 'web/static/lib/buffer/*.test.js' \
   'web/static/lib/room/*.test.js' 'web/static/lib/rig/*.test.js' \
   'web/static/lib/shell/*.test.js' 'web/static/lib/ui/*.test.js' \
-  'web/static/lib/models/*.test.js'
+  'web/static/lib/models/*.test.js' 'web/static/lib/components/*.test.js'
 ./scripts/test-release-scripts.sh
 gofmt -l . && go vet ./... && go test -race ./...
 ```
@@ -284,8 +284,8 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   shows it. ([0061](docs/decisions/0061-grab-lands-on-the-cue-lane.md))
 - **A take is named by `takeTitle`** (`lib/rooms/takename.js`), wherever a
   person reads it: its name, or the time on its spine. Never a take's file
-  or its date stamp on screen (Open's page is the one still to move, in
-  Open's pass). ([0049](docs/decisions/0049-one-name-for-a-take.md))
+  or its date stamp on screen.
+  ([0049](docs/decisions/0049-one-name-for-a-take.md))
 - **The Listening Room** is the shelf wall and the List
   (`docs/architecture/rooms.md`, *The library*). Its toolbar is the search
   (`#shelf-q`: give it behaviour by its id, wherever the header puts it),
@@ -357,6 +357,15 @@ proof-of-concept shortcuts don't come back
   rows are `menuItem`s. The test fails on an `aria-haspopup` a script sets
   up outside `menu.js`, and lists the ones still their own, with why, in
   `OWN_MENUS`. ([0056](docs/decisions/0056-one-menu.md))
+- **Components** (`docs/architecture/components.md`): a module under
+  `lib/components/` draws inside the root it is given, from its models'
+  snapshots, and reaches the page only through `cx` (`mountComponent`,
+  `lib/components/mount.js`): no fetch or route; the window and the
+  document only as `cx.on`'s target (no look-up, no listener of its own);
+  no `setInterval`, no `hindsight:` event, no id but `cx.id()`'s. Its stylesheet starts every
+  selector at its root, and no other reaches inside it. Guardrail 15 has
+  no list of exceptions: a module moves in once it keeps every rule. Each
+  component has a harness check: `node scripts/components.mjs <id>`.
 
 ## Getting code onto a Pi
 

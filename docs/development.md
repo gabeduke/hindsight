@@ -97,6 +97,20 @@ The JavaScript under `web/static/lib/` has tests under node's built-in
 runner — no package.json, no dependencies. The globs name each directory, so
 the full command is in `AGENTS.md`, kept in step with `ci.yml`.
 
+### One component, in the harness
+
+```sh
+node scripts/components.mjs display    # or no id, for every component
+```
+
+Mounts the component alone on its fixtures (`testdata/protocol/`), at the
+phone's, the tablets' and the desktop's sizes in both schemes, and runs
+the flows' layout checks on its root: about a second a run, no demo and no
+Go. It needs Playwright and axe-core as the flows do (`docs/flows.md`).
+`--profile=phone`, `--scheme=dark` narrow it; `--storyboard=dir` keeps a
+picture of each. What it checks: `docs/architecture/components.md`, *The
+harness*. A component change runs this first, then the flows.
+
 ### On a Mac
 
 - `go test ./...` builds the capture path, which is cgo against PortAudio:
@@ -153,20 +167,23 @@ touching `view.js`, `overview.js`, `share.js`, `rising.js` or `page.js`, check b
   Download
 - **Export as take** — produces a new take with declick fades at the region's
   edges
-- **Rising notes (bench)** — at 860px and wider a take with MIDI is two
-  columns; press Play and bars grow out of the keys and rise, drum hits
-  flash their pads; pause freezes the picture; tapping the wave to seek
-  redraws it; a region loop wraps the rise with it
-- **Rising notes (phone)** — the header's Notes button opens the pane
-  fullscreen with its own Play and bar.beat readout; the back gesture or the
-  header's back link closes it and playback carries on
+- **Rising notes** — MIDI ▸ folds out the lanes and the piano roll; press
+  Play and bars grow out of the keys and rise, drum hits flash their pads;
+  pause freezes the picture; tapping the wave to seek redraws it; a region
+  loop wraps the rise with it
 - **Speed chip** — ½× slows the audio and the rise together with the pitch
   kept; a region loop ignores it and plays at 1×
 
 The rest of the UI is checked by the user flows: `node scripts/flows.mjs`
 (`make flows`) drives Gabe's journeys in Playwright against a demo it boots
-itself, on a tablet and a desktop profile. The stories, how to run them and
+itself, on a tablet, a desktop and a phone profile. The stories, how to run them and
 how to write a new one are in [flows.md](flows.md).
+
+The push on a real kit, which the demo never shows (TLS, HTTP/2 to Caddy, a
+network between): `node scripts/push-probe.mjs https://<kit-name>` opens the
+Studio and the Listening Room there and says whether the page held one
+changes socket, heard in both rooms (`docs/architecture/push.md`, *One
+socket a page*). It only reads.
 
 ### A CSS change that should change nothing
 

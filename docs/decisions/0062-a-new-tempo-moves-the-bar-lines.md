@@ -48,5 +48,5 @@ drifts); stretch only ever offline, for a bounce.
 ## See
 
 `docs/architecture/tape.md` (*The model*), `docs/architecture/bar.md` (the
-tempo's panel), J1.17 in `docs/flows.md`. What is still open (one tempo on
+tempo's panel), J1.20 in `docs/flows.md`. What is still open (one tempo on
 screen, what `follow` means) is `docs/plan/tempo.md`.

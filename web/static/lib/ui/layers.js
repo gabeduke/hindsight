@@ -214,7 +214,7 @@ export function createLayers({
     rec.open = false;
     const i = stack.indexOf(rec);
     if (i >= 0) stack.splice(i, 1);
-    rec.scope?.delete(rec);
+    for (const s of rec.scopes || []) s.delete(rec);
     const w = rec.watcher;
     rec.watcher = null;
     if (w) { try { w.destroy(); } catch (e) { onError(e); } }
@@ -345,13 +345,20 @@ export function createLayers({
     });
   }
 
-  function scope() {
+  // scope is a share of the stack: what is opened through it, which its
+  // closeAll closes and nothing else. A scope's own scope() is a share of
+  // it (a component's, inside a view's): what that opens is its parent's
+  // too, so the view's closeAll closes it as well. A layer belongs to the
+  // scopes it was first opened through, and opening it again changes none.
+  function scope(parent = null) {
     const mine = new Set();
-    return Object.freeze({
+    const self = Object.freeze({
       open(spec) {
-        const l = open(spec);
+        const had = spec?.el ? stack.find((r) => r.spec.el === spec.el) : null;
+        const claim = !had || !had.scopes?.length;
+        const l = parent ? parent.open(spec) : open(spec);
         const rec = stack.find((r) => r.handle === l);
-        if (rec && !rec.scope) { rec.scope = mine; mine.add(rec); }
+        if (rec && claim && !mine.has(rec)) { (rec.scopes ||= []).push(mine); mine.add(rec); }
         return l;
       },
       top,
@@ -360,7 +367,10 @@ export function createLayers({
       /** closeAll closes what this scope opened (the kinds asked, or all). */
       closeAll: ({ kinds = null, reason = 'program' } = {}) => closeAll({ kinds, reason, only: mine }),
       get size() { return mine.size; },
+      /** scope is a share of this scope. */
+      scope: () => scope(self),
     });
+    return self;
   }
 
   // A press outside a menu or popover closes it (on the window, first:

@@ -426,8 +426,8 @@ from the playhead (`heardNow`) and parked when nothing waits; a pad new to
 the lane comes in peeled off the feed above it (`cue-peel`, a fade with
 reduced motion). The drawer is the buffer's code (`lib/buffer/buffer.js`)
 reading the open clip as a board (`lib/buffer/cueclip.js` `boardOf`):
-mounted in the dock above the bar (`ctx.dockSlot`; a sheet over the lanes on
-a phone), opened by GRAB on the clip it made and by a held pad, on the
+mounted in the dock above the bar (`ctx.dockSlot`; on a phone a sheet over
+the foot of the page, below), opened by GRAB on the clip it made and by a held pad, on the
 page's stack as a drawer (Escape, Back and ✕ close it), and gone when its
 clip leaves the lane. It says which clip it is open on with
 `hindsight:cue-selected`, which lights the pad, and every change it sends
@@ -436,6 +436,20 @@ clip leaves the lane. It says which clip it is open on with
 note, the bar's feed) leaves the clip's id in sessionStorage
 (`lib/buffer/replaced.js` `remember`), and the Studio opens on it once
 (`recallNote`), with its Undo when it took an untouched clip's place.
+
+**On a phone** the drawer is a sheet at the inspector's heights (peek,
+half, full), docked above the mini player as the inspector is, so it never
+covers ▶. Opening, it brings the cue lane (its clip) and the armed track
+(where DROP lands) into sight above it, under the header
+(`lib/ui/reveal.js` `revealAbove`, which the clip bar's and the inspector's
+reveal use too); the other tracks are a scroll away, the page keeping the
+drawer's height clear at its end. A folded track's head there is its name
+alone, a label: a 22 px strip has no room for ● at a finger's 44 px
+(decision 0059), and ● is back as the lanes unfold. The hold on a pad that
+opens it lets go without pressing what came up under the finger
+(`lib/ui/press.js` `swallowLift`: its lift once pulled the drawer's grip to
+full height). Decided 2026-10-30 with the day's calls handed over (J1.6's
+story on a phone changed with it); Gabe may overrule any of it.
 
 **The feed strip** in the Studio is the ribbon with GRAB, KEEP and Flag in
 one row. A tap on GRAB or KEEP takes the last length and its ▾ picks

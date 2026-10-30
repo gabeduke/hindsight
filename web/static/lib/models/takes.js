@@ -8,9 +8,11 @@
 // family lines and its ◂ ▸. None of them asks /api/jams for itself, so a
 // page asks once for all of them, and only when the list may have moved.
 //
-// It has no DOM. It knows the list the Pi last answered and its ETag, asks
-// again with If-None-Match (an unchanged list is a 304, costing the Pi one
-// directory listing), and tells its listeners when the list changed.
+// It has no DOM, and names no route: it reads 'takes' from the page's
+// protocol client (protocol.js), or a fixture's (fixture.js). It knows the
+// list the Pi last answered and its ETag, asks again with that version (an
+// unchanged list is a 304, costing the Pi one directory listing), and tells
+// its listeners when the list changed.
 //
 // When it asks:
 //   - when told (heard) that the Pi's take revision moved: the changes
@@ -27,9 +29,7 @@
 // Asks never overlap: one asked for while another is out is made once more
 // when that one ends, and every caller in between shares it.
 
-import { timedFetch } from '../link.js';
-
-export const JAMS_PATH = '/api/jams';
+import { createProtocol } from './protocol.js';
 
 /** POLL_MS is how old a list may grow with no push heard: the pages' poll, before. */
 export const POLL_MS = 5000;
@@ -39,13 +39,17 @@ export const STALE_MS = 30000;
 export const PUSH_QUIET_MS = 4000;
 
 /**
- * createTakes makes the page's takes. The env is for tests: fetch (default
- * lib/link.js's timedFetch) and now() in ms.
+ * createTakes makes the page's takes. env: protocol (the page's client,
+ * protocol.js; a fixture's in the tests and the components' harness), and
+ * now() in ms for tests.
  *
  * It answers:
- *   list()        the takes as last answered, newest first, or null before
- *                 the first answer
- *   etag          the ETag of that list, or null
+ *   snapshot()    {v, list}: the list as last answered (null before the
+ *                 first answer) and its version, the ETag. Frozen, and the
+ *                 same object until either moves (docs/plan/components.md,
+ *                 2.1)
+ *   list()        snapshot().list, kept until its callers move
+ *   etag          snapshot().v, kept until its callers move
  *   refresh({force})
  *                 asks the Pi now, and answers the list. force leaves
  *                 If-None-Match off, so the list is answered (and listeners
@@ -61,7 +65,7 @@ export const PUSH_QUIET_MS = 4000;
  */
 export function createTakes(env = {}) {
   const {
-    fetch: fetchImpl = (u, o) => timedFetch(u, o),
+    protocol = createProtocol(),
     now = () => Date.now(),
   } = env;
 
@@ -73,24 +77,23 @@ export function createTakes(env = {}) {
   let out = null;          // the ask out, a promise of the list
   let again = null;        // {force}: asked for while one was out
   const listeners = new Set();
+  let snap = Object.freeze({ v: null, list: null });
 
   const pushed = () => now() - pushAt < PUSH_QUIET_MS;
   const trusted = () => list !== null && now() - at < (pushed() ? STALE_MS : POLL_MS);
 
   async function ask(force) {
     const asked = now();
-    const headers = {};
-    if (etag && !force) headers['If-None-Match'] = etag;
-    const res = await fetchImpl(JAMS_PATH, { headers, cache: 'no-store' });
+    const res = await protocol.read('takes', { v: force ? null : etag });
     if (res.status === 304 && list !== null) { at = asked; return list; }
     if (!res.ok) throw new Error(`takes: HTTP ${res.status}`);
-    const body = await res.json();
-    const next = Array.isArray(body) ? body : [];
-    const tag = res.headers?.get?.('ETag') ?? null;
+    const next = Array.isArray(res.body) ? res.body : [];
+    const tag = res.v ?? null;
     const changed = force || tag === null || tag !== etag || list === null;
     list = next;
     etag = tag;
     at = asked;
+    if (changed) snap = Object.freeze({ v: etag, list });
     if (changed) for (const fn of [...listeners]) { try { fn(list); } catch (e) { console.error(e); } }
     return list;
   }
@@ -116,6 +119,7 @@ export function createTakes(env = {}) {
   }
 
   return {
+    snapshot: () => snap,
     list: () => list,
     get etag() { return etag; },
     refresh,
