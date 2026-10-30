@@ -55,6 +55,9 @@ type API struct {
 	env   *audio.Envelope
 	midi  MIDISource
 	takes *audio.TakeList
+	// takesRev is the take list's revision, said on /api/tapes/changes
+	// (takes_rev.go).
+	takesRev *takesRev
 
 	// renderSlot lets one share render run at a time. Each is an ffmpeg
 	// encode of up to ten minutes of audio; two at once on a Pi compete with
@@ -126,8 +129,9 @@ func (a *API) background(f func()) {
 func (a *API) WaitBackground() { a.bg.Wait() }
 
 func New(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, env *audio.Envelope, m MIDISource) *API {
+	takes := audio.NewTakeList(cfg.OutputDir)
 	return &API{cfg: cfg, cap: cap, saver: saver, env: env, midi: m,
-		takes: audio.NewTakeList(cfg.OutputDir), renderSlot: make(chan struct{}, 1)}
+		takes: takes, takesRev: newTakesRev(takes.ETag), renderSlot: make(chan struct{}, 1)}
 }
 
 // acquireRender waits for the render slot, or gives up when ctx ends -- a
@@ -163,6 +167,7 @@ func (a *API) midiState() (bool, *float64) {
 }
 
 func (a *API) SetupRoutes(r *mux.Router) {
+	r.Use(a.pokeTakesAfterWrites)
 	r.HandleFunc("/api/status", a.handleStatus).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc("/api/update", a.handleUpdateGet).Methods(http.MethodGet)
 	r.HandleFunc("/api/update", a.handleUpdatePost).Methods(http.MethodPost)
@@ -365,6 +370,7 @@ func (a *API) handleJams(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	a.takesRev.saw(tag)
 
 	// An ETag lets the client skip re-rendering the list entirely when nothing
 	// changed, which is what keeps a playing preview from being disturbed. It
