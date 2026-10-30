@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.30.7 — 2026-10-30
+
+- Review fixes for ▶ in the Studio: it is ▶ stopping a take or the feed that gives the bar back to the tape, not any stop, so Play all carries on in the Studio (25528645)
+- ▶ in the Studio plays the tape: a take stopped in the Listening Room gives the bar back to the tape, and a take's counter shows its time before its downbeat, not BAR -1.4 (e93a4ef8)
+
+
 ## v2026.10.30.6 — 2026-10-30
 
 - Merge main into phone-checks again, with the service worker cache at v187 (efc0d33e)
