@@ -33,7 +33,8 @@ request. Why things are the way they are is in `docs/decisions/`.
   `ctx`, the router, moving between rooms, one way to close things, menus,
   the bar's engine, the frame (the header), waking up.
 - [bar.md](architecture/bar.md): the bar: its zones, what shows for each
-  source, its widths, its display, its fold.
+  source, its widths, its display, its fold, and the page's transport
+  model it draws.
 - [rooms.md](architecture/rooms.md): the rooms' words (the vocabulary,
   the verbs, a take's one name) and the Listening Room as a library.
 - [css-and-motion.md](architecture/css-and-motion.md): the stylesheets
