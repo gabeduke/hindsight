@@ -13,9 +13,11 @@ folder is the notes beside them.
 | `smk-37-elite` | M-VAVE SMK-37 Elite | Planned | MIDI name `SMK-37` (a guess) | the real MIDI port name, its ports, what each control sends |
 | `scarlett-solo-4g` | Focusrite Scarlett Solo 4th Gen | Planned: the self-contained kit | nothing yet | the USB id, which capture channel is which |
 | `zoom-r20` | Zoom R20 | No: a reference, and a tester's recorder | nothing yet | the USB ids, if its USB audio is ever used |
+| `zoom-ams-24` | Zoom AMS-24 | USB; drawn by its MIDI port, since the capture is on the Sidekick | MIDI name `AMS-24` (a guess) | the USB id, the MIDI port name, which channel is which |
+| `aks-mini` | Behringer AKS mini | USB MIDI; no USB audio, its sound comes in through an interface | MIDI name `AKS` (a guess) | the real MIDI port name, the USB id |
 
 A profile that matches nothing is inert: the rig never reaches for it. The
-Scarlett and the R20 are inert for now. The MPC Sample and the SMK-37 match a
+Scarlett and the R20 are inert for now. The MPC Sample, the SMK-37, the AMS-24 and the AKS mini match a
 MIDI port by a guessed name: right, the rig draws a named card; wrong, it
 draws the generic one it always did. **No USB id is matched until it has been
 read off a unit.** The four new ones are `placeholder: true`, the flag the rig

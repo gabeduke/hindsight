@@ -132,6 +132,8 @@ func TestNewProfilesMatchByNameOnly(t *testing.T) {
 		"MPC Sample MIDI 1": "mpc-sample",
 		"SMK-37 Elite":      "smk-37-elite",
 		"Bento":             "bento",
+		"AMS-24":            "zoom-ams-24",
+		"AKS mini":          "aks-mini",
 	} {
 		p, ok := ForMIDI(name)
 		if !ok || p.ID != want {
@@ -141,7 +143,12 @@ func TestNewProfilesMatchByNameOnly(t *testing.T) {
 	if p, ok := ForMIDI("MPC Live II"); ok && p.ID == "mpc-sample" {
 		t.Errorf("an MPC Live II was taken for an MPC Sample")
 	}
-	for _, id := range []string{"mpc-sample", "smk-37-elite", "scarlett-solo-4g", "zoom-r20"} {
+	for _, name := range []string{"EP-136 K.O. Sidekick", "Bento", "MPC Sample"} {
+		if p, ok := ForMIDI(name); ok && (p.ID == "aks-mini" || p.ID == "zoom-ams-24") {
+			t.Errorf("ForMIDI(%q) took it for %s", name, p.ID)
+		}
+	}
+	for _, id := range []string{"mpc-sample", "smk-37-elite", "scarlett-solo-4g", "zoom-r20", "zoom-ams-24", "aks-mini"} {
 		for _, p := range Profiles() {
 			if p.ID == id && !p.Placeholder {
 				t.Errorf("%s names ports nobody has read off a unit, so it must stay a placeholder", id)

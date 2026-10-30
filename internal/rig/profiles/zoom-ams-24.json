@@ -1,0 +1,119 @@
+{
+  "id": "zoom-ams-24",
+  "name": "Zoom AMS-24",
+  "short": "AMS-24",
+  "maker": "Zoom",
+  "match": {"midi": "AMS-24"},
+  "placeholder": true,
+  "note": "A USB audio interface (2 in, 4 out). It also shows a MIDI port, which is why the rig lists it among the MIDI devices: Hindsight records from one interface, the one chosen as the input in Settings, and draws any other card only by its MIDI. Its USB id and which channel is which are not captured, so it draws no taps. The MIDI name to match is a guess.",
+  "source": "https://zoomcorp.com/en/us/audio-interface/audio-interfaces/ams-series/",
+  "ports": [
+    {"id": "in1", "label": "IN 1", "kind": "audio", "dir": "in", "about": "XLR/TRS combo jack: mic, line or guitar. +48 V phantom power."},
+    {"id": "in2", "label": "IN 2", "kind": "audio", "dir": "in", "about": "XLR/TRS combo jack: mic, line or guitar. +48 V phantom power."},
+    {"id": "out-l", "label": "OUT L", "kind": "audio", "dir": "out", "about": "Output A, balanced 6.35 mm TRS, left."},
+    {"id": "out-r", "label": "OUT R", "kind": "audio", "dir": "out", "about": "Output A, balanced 6.35 mm TRS, right."},
+    {"id": "phones-a", "label": "PHONES A", "kind": "audio", "dir": "out", "about": "3.5 mm stereo headphone output A."},
+    {"id": "phones-b", "label": "PHONES B", "kind": "audio", "dir": "out", "about": "3.5 mm stereo headphone output B."},
+    {"id": "usb", "label": "USB-C", "kind": "usb", "dir": "both", "in": 2, "out": 4, "about": "USB Audio Class 2.0: 2 in, 4 out, up to 96 kHz at 24-bit. Bus-powered."}
+  ],
+  "hardware": {
+    "extending": "A second USB audio interface beside the Sidekick: a pair of mic, line or guitar inputs, and the natural place to plug a synth with no USB audio of its own (the AKS mini's headphone out). Hindsight records from one interface at a time, so using it means choosing it as the input in Settings, in place of the Sidekick. To activate the profile: set match.usb to the captured \"1686:xxxx\" id, confirm the MIDI port's name, work out which capture channel is which input and where each playback pair lands, add taps and returns, and drop 'placeholder'. Everything under \"hardware\" is ignored by the Go loader: it is notes for people, and for a later registry (docs/hardware/README.md, Later: sharing profiles). To fill this profile from a real unit, follow 'Capturing an unknown device' in docs/hardware/README.md, then flip statuses from 'unconfirmed' or 'to-capture' to 'owner'.",
+    "kinds": [
+      "audio-interface"
+    ],
+    "usb": [
+      {
+        "vid": "0x1686",
+        "pid": null,
+        "status": "hinted"
+      }
+    ],
+    "names": [
+      "AMS-24",
+      "ZOOM AMS-24",
+      "ZOOM"
+    ],
+    "connection": {
+      "to_pi": "owner",
+      "note": "Plugged into the jam-space Pi (Oct 2026). Hindsight shows it only as a MIDI device: the capture is on the Sidekick, and the rig draws one interface."
+    },
+    "audio": {
+      "status": "sourced",
+      "inputs": "Two XLR/TRS combo jacks; gain -inf to +58 dB, or -inf to +50 dB set to GUITAR; +48 V phantom power.",
+      "outputs": "OUTPUT A on two balanced 6.35 mm TRS jacks (+10 dBu max); headphone outputs A and B on 3.5 mm stereo jacks (30 mW + 30 mW into 32 ohm).",
+      "usb_audio": "USB Audio Class 2.0, 2 recording and 4 playback channels; 44.1, 48, 88.2 and 96 kHz at 24-bit.",
+      "switches": "MUSIC/STREAMING (inputs independent, or summed into one signal), LOOPBACK (mixes the computer's playback into what it records), DIRECT MONITOR.",
+      "$comment": "Which playback pair feeds Output A and which feeds headphones B is not stated by Zoom's page; read it off the unit before adding returns."
+    },
+    "midi": {
+      "status": "owner",
+      "ports": "Shows a MIDI port on the Pi. Zoom's page lists no MIDI function, so it most likely carries nothing musical; treat it as no MIDI until aseqdump shows otherwise.",
+      "$comment": "This port is what puts the AMS-24 in the rig's MIDI list."
+    },
+    "storage": {
+      "status": "sourced",
+      "present": false
+    },
+    "controls": {
+      "status": "unconfirmed",
+      "$comment": "Gain knobs per input, the MUSIC/STREAMING, LOOPBACK and DIRECT MONITOR switches, and output levels are what Zoom's page implies. Read the layout off the unit before drawing a labelled diagram."
+    },
+    "quirks": [
+      {
+        "text": "LOOPBACK on would record the tape's own playback back into the ring when Hindsight plays out through it. Leave it off for capture.",
+        "status": "sourced"
+      },
+      {
+        "text": "STREAMING mode sums both inputs into one signal; MUSIC mode keeps them apart, which is what separate taps need.",
+        "status": "sourced"
+      },
+      {
+        "text": "Shows a MIDI port on the Pi although Zoom's page lists no MIDI.",
+        "status": "owner"
+      }
+    ],
+    "unknowns": [
+      {
+        "question": "USB product id",
+        "how": "Plug it into the Pi and run: lsusb | grep -i zoom   (record the id after 1686:); cat /proc/asound/card*/usbid"
+      },
+      {
+        "question": "The MIDI port's name, and whether it sends anything",
+        "how": "amidi -l ; cat /proc/asound/cards ; aseqdump -p <client:port> while turning its knobs and flipping its switches"
+      },
+      {
+        "question": "Does its audio enumerate on the Pi with both capture channels and all four playback channels?",
+        "how": "arecord -l ; aplay -l ; arecord -D hw:<card> --dump-hw-params ; aplay -D hw:<card> --dump-hw-params   (look at CHANNELS and RATE)"
+      },
+      {
+        "question": "Which playback pair lands on Output A and which on headphones B",
+        "how": "speaker-test -D hw:<card> -c 4 -t wav, listening on each output"
+      },
+      {
+        "question": "Does the Pi's USB power budget hold with it and the Sidekick both plugged in, phantom power on?",
+        "how": "dmesg | grep -iE 'under-voltage|usb' after a few minutes of capture"
+      }
+    ],
+    "hindsight": {
+      "behavior": "inform-only",
+      "role": "A second interface on the jam-space Pi. Today it can replace the Sidekick as the capture input, not record beside it.",
+      "notes": [
+        "Recording from the AMS-24 and the Sidekick at once would need two interfaces in one ring, on two USB clocks that drift apart; Hindsight does not do that."
+      ]
+    },
+    "images": [
+      "ams-24-top",
+      "ams-24-side"
+    ],
+    "refs": {
+      "zoom-product": {
+        "title": "AMS Series (Zoom)",
+        "url": "https://zoomcorp.com/en/us/audio-interface/audio-interfaces/ams-series/"
+      },
+      "zoom-manual-de": {
+        "title": "AMS-24 Bedienungsanleitung (Zoom, PDF)",
+        "url": "https://zoomcorp.com/documents/2445/D_AMS-24.pdf"
+      }
+    }
+  }
+}
