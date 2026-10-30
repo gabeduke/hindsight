@@ -106,7 +106,10 @@ knobs are in git (`web/static/lib/play/`, before that date). Until then a
 controller plays them: one in the Pi through the bus
 (`internal/api/controls.go`, its defaults held to `lib/play/controls.js`),
 or the SMK-37's FX page (`keyboard.md`). No page shows the tape mods
-either: the keyboard's encoders set them, and its screen shows them.
+either: the keyboard's encoders set them, and its screen shows them. Every
+page forgets the switch's stored keys as it loads (`lib/play/flag.js`
+`forgetRetired`, from `initNav`), so a release from before then, picked
+from Releases, finds Play mode off on a phone that had it on.
 
 **Latency, in use** (`latency.go`; [decision 0016](../decisions/0016-measure-latency-in-use.md)).
 Every press, set and release a hand plays is timed to the moment it is
