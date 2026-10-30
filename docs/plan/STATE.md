@@ -1,6 +1,6 @@
 # State of Hindsight
 
-**As of 2026-10-29.** What is open, one or two lines each, with a pointer to
+**As of 2026-10-30.** What is open, one or two lines each, with a pointer to
 where its detail lives. Keep it current and short; when an item closes,
 delete it. How things work is in `docs/architecture.md` (an index of
 `docs/architecture/`); why, and what Gabe has decided, in

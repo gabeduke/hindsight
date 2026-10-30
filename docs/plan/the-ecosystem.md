@@ -52,7 +52,7 @@ counts are close, not exact.
   fetched by about seven modules, `/api/status` polled by eight.
 - **A few files own whole pages**: `lib/tape/page.js` (5,160 lines, about
   140 page-wide ids), `lib/wave/page.js` (2,013, with a bar of its own),
-  `TakesList` (1,171). Pieces talk through fifteen `document` events
+  `TakesList` (1,171). Pieces talk through about fifteen `document` events
   (`hindsight:tape-state`, `play-transport`, `verb`, …) instead of
   interfaces. About a hundred modules already have no DOM, and the notes
   drawer (`createNotesDrawer`, given a `source`) and `mountCueLane` already
