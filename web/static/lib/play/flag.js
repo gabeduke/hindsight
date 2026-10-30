@@ -15,7 +15,8 @@ export function latencyOn() {
 // (docs/architecture/tape.md, *When a pad lands*). Nothing reads them now,
 // but a release from before then, picked from Releases, would: a phone that
 // had Play mode on would get the strip and EDIT | PLAY back over its mini
-// player. So every page forgets them as it loads (lib/nav.js, initNav).
+// player. So a page with the header forgets them as it loads (lib/nav.js,
+// initNav), at the address it was loaded from: storage is an address's.
 export const RETIRED = ['hindsight.play', 'hindsight.play.strip', 'hindsight.play.from', 'hindsight.play.webmidi', 'hindsight.play.midi'];
 
 /**

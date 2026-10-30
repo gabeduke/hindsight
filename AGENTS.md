@@ -306,8 +306,8 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
 proof-of-concept shortcuts don't come back
 ([0051](docs/decisions/0051-ui-architecture-guardrails.md)):
 
-- **Controller → Model → Renderer:** views under `lib/room/`, `lib/rooms/`
-  and `lib/play/` read structured state from controllers and models and
+- **Controller → Model → Renderer:** views under `lib/room/` and
+  `lib/rooms/` read structured state from controllers and models and
   call explicit controller methods; they never scrape text out of the DOM
   or `.click()` a hidden control. The test checks it where it went wrong:
   `lib/room/doorway.js` hears the bar through `np.onChange`, never by

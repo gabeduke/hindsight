@@ -261,7 +261,7 @@ sheet says so.
 **Settings**, first in the menu (**☰**, top right on every page), changes how
 Hindsight records without touching the Pi's files. It opens on the version
 with Releases, the guide and the rig (§3.2), then what's recording now (*Recording from Scarlett Solo 4th Gen, 2
-channels*), then two parts.
+channels*), then the Pi's settings, after any Preview features.
 
 - **Preview features**, when a release has any, come first, always open:
   each a switch that reads *On* or *Off*. They are for this device
@@ -1338,8 +1338,8 @@ is something to jam with and to work on before it goes on the tape.
   peeled off the feed, and its drawer opens above the bar.
 - A selection on the feed has two verbs: **GRAB** (onto the cue lane) and
   **KEEP** (a take, on the shelf). Every KEEP says what it keeps: *KEEP 2m*
-  on the feed's key, *KEEP 41s* on a selection, *KEEP 4 BARS* in a part's
-  drawer, and *KEEP 30s* on the instrument's pad.
+  on the feed's key, *KEEP 41s* on a selection, and *KEEP 4 BARS* in a
+  part's drawer.
 - On a take, **GRAB** is the same key: the selection, or the last N bars
   before the playhead (at the take's tempo; twice N seconds without one),
   with N starting at the loop's length. In the Listening Room it is on
