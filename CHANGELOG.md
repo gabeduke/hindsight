@@ -5,6 +5,18 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.30.2 — 2026-10-30
+
+- Docs only: the walkthrough's notes say Play mode is still to be retired, and where the worksheet lives (11f040e9)
+- Docs only, no change to the app: the walkthrough's notes, Gabe's stories of how he uses Hindsight and what's decided so far (52361323)
+- A controller's DROP refused for too many lanes, or a part longer than the tape, says so on the keyboard; the guide says where CATCH and DROP land (0589051e)
+- The Pi's buffer routes and crate methods that nothing calls are gone: PATCH /api/clipboard, its keep and audio, and /api/tapes/cue/add (1213c2a4)
+- A controller's DROP lands where the Studio's DROP key says, and its CATCH goes onto every armed track, as the tablet's: one set of verbs on the Pi for every surface (347b289b)
+- Spec: setting the tempo once audio is down (05af021c)
+- Docs only: STATE.md is as of 2026-10-30, and the spec's event count is approximate (79b88e61)
+- Docs only: the ecosystem spec, Hindsight as components on every surface, waiting on Gabe's walkthrough (173e741e)
+
+
 ## v2026.10.30.1 — 2026-10-30
 
 - The notes drawer keeps a name typed before Back, says when a note's time can't play, and follows the bar (92abfc4c)
