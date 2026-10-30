@@ -21,7 +21,8 @@ was coming up with. Hindsight started there.
     overdub.
 - **Keep should be a slider, not a fixed length.** He always needs more
   tape than he has audio, so pruning is his first step every time. Save
-  the clip he wants instead. (worksheet: `keep-last`)
+  the clip he wants instead. (The ecosystem review's worksheet, row
+  `keep-last`; `the-ecosystem.md` links the review.)
 - Both reach back into the memory and take a piece: one move with two
   ends to drag and a choice of where it goes, the tape or the shelf.
   *Capture.*
@@ -58,7 +59,7 @@ was coming up with. Hindsight started there.
   background running or recording audio.
 - Gabe has no iPhone, but if Hindsight becomes a product it builds for iOS
   too. Plan for it now so it isn't a re-architecture later. *The tape's
-  format and the sync protocol are the contract every engine meets, with
+  format and the sync protocol should be the contract every engine meets, with
   shared conformance tests; no one codebase is the contract.*
 
 ## Playing with other people
@@ -122,8 +123,8 @@ was coming up with. Hindsight started there.
 
 ## Decided
 
-- **Play mode's per-device flag is retired.** Gabe didn't remember what it
-  was. Its strip is either merged into the app or deleted; the Pi's
+- **Play mode's per-device flag is to be retired** (not done yet: it is
+  still in `device-prefs.js`). Gabe didn't remember what it was. Its strip is either merged into the app or deleted; the Pi's
   momentary tricks, which the keyboard's FX page plays, aren't part of
   that call.
 - **The phone is a surface the checks cover**, like the tablet and the
