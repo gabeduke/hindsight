@@ -44,20 +44,27 @@ the client, kept open by `lib/socket.js`'s `connectSocket`, the reconnect
 and dead-socket rules `lib/live.js` had, moved so both use them. A watch
 takes its socket's first rev as seen, not news: whoever opens one polls as
 they do, and counting it would ask the Pi twice; after a reconnect, a rev
-that moved while it was down is news. The Studio (`lib/tape/page.js`) holds
-it through `ctx.socket` (*The shell*, `shell.md`), so it is open only while the Studio
-is shown, and with it the bar's hand-over: opening it lends the page's
-transport (`lib/models/transport.js`) to the Studio, closing it hands it
-back (`delegate(null)`). A nudge
+that moved while it was down is news.
+
+**One socket a page.** The page's transport (`lib/models/transport.js`,
+made by the bar's engine and drawn by the bar's tape source) holds the
+page's one changes socket, from `load(id)` to `destroy()`, whatever room is
+shown: it is not a view's. The Studio (`lib/tape/page.js`) borrows the
+transport through `ctx.socket` (*The shell*, `shell.md`) while it is
+shown (`delegate(hands)`, handed back with `delegate(null)`), and a nudge
+then goes to its hands (`nudge`), not to the transport's own poll. A room
+switch used to close one socket and open another: over a kit's HTTPS name
+that is a TLS handshake each time, with nobody listening in between, and
+the Studio closed the bar's while it was still connecting (Chrome's
+console: *WebSocket is closed before the connection is established*). J1.14
+fails if the page opens a second socket or closes one while it connects;
+`scripts/push-probe.mjs <https://kit-name>` checks the same on a real kit,
+through Caddy and HTTP/2, which the demo never has. A nudge
 asks `poll-gate.js`'s `nudge()`, which polls at once with no poll out, or
 has the poll that is out poll once more when it ends (`end()` says so),
-never two at once. The page's transport (`lib/models/transport.js`, made
-by the bar's engine and drawn by the bar's tape source) is not a view: its
-socket's life is tied to `del` instead. It watches from `load(id)` while it
-is not lent to the Studio (`!del`), and closes on `delegate(d)` and on
-`destroy()`. With a take in the bar (`setActive(false)`) it stays open
-for the keyboard's presses (*The keyboard's press*), but its nudges poll
-nothing until the tape is back. Its polls go through a gate of their
+never two at once. With a take in the bar (`setActive(false)`) the socket
+carries the keyboard's presses (*The keyboard's press*) as ever, but its
+nudges poll nothing until the tape is back. Its polls go through a gate of their
 own on the same rules (a tick skipped while one is out, a wake-up forced,
 a nudge, a press or the hand-back asked for once), with a 4 s timeout so a
 poll lost in a sleep frees the gate. The 200 ms and 500 ms polls stay, as
@@ -92,9 +99,8 @@ the tape off the socket is a 404, and the page polls the list as it did.
 In the page, every message with a `takes_rev` (beats included) goes to
 `watchChanges`'s `onTakes`, and on to the page's takes model
 (`lib/models/takes.js`, `heard`): through the page's transport
-(`onTakes`), from its own socket or, while the Studio is shown, from the
-Studio's (`heardTakes`), as the presses go; the engine hands each to the
-model it was made with. The model asks `/api/jams` (with If-None-Match)
+(`onTakes`), from the page's one socket, as the presses go; the engine
+hands each to the model it was made with. The model asks `/api/jams` (with If-None-Match)
 when a `takes_rev` is one it hasn't heard, the first included (its list
 may be older than the socket). Its fallback poll is its readers' own
 ticks: `get()` answers the list it holds while it can vouch for it, and
@@ -133,13 +139,12 @@ changes socket sends it at once, with the revision as it is then:
 Only the keyboard's presses are sent (another controller's say nothing),
 whether or not Hindsight has its screen. In the page, `watchChanges({onNudge,
 onPress})` reads it with `pressOf` (`lib/tape/changes.js`), and a message
-whose rev moved is a nudge as well. The bar's tape source hands each press
-to `onPress` listeners, from its own socket or, while the Studio is shown,
-from the Studio's (`heardPress`); the engine's listener is the bar's note
+whose rev moved is a nudge as well. The page's transport hands each press
+to its `onPress` listeners; the engine's is the bar's note
 (`lib/bar/press-note.js`, `#np-press`), which puts the words over the
 display, after the keyboard's icon, for what is left of the second, and
-lights ▶ or ● (`.kb-lit`, `data-kb` the role). The Studio lights the
-track's head itself (`lightTrackHead`). The note is out of the layout,
+lights ▶ or ● (`.kb-lit`, `data-kb` the role). The Studio, while it is shown, lights the
+track's head itself (`lightTrackHead`, its own `onPress`). The note is out of the layout,
 over the display alone (in the phone's mini player, over the whole window,
 reels and all, since the display there is too narrow), and lets taps
 through, so nothing on the bar moves. `#np-press` is a live region
@@ -150,8 +155,7 @@ by its `data-kb` and its words, and goes by emptying them, never by
 **Every press answers, whatever the bar holds.** The keyboard plays the
 tape, not the bar's source, so the note shows over the display in every
 room with the shell's bar: over the tape, the live feed or a take alike,
-in the Studio (through its socket) and anywhere else (through the bar's,
-which stays open for presses while a take is in the bar). Open's page
+on the page's one socket, which stays open with a take in the bar. Open's page
 (`wave.html`) has no tape source and no note.
 
 J1.15 presses PLAY, STOP, a refused CATCH, GRAB and DROP on a keyboard in

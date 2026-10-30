@@ -15,19 +15,23 @@
 //     view; every AWAY_EVERY'th tick out of the bar, so where it plays stays
 //     true for the header's output button;
 //   - at once when the changes socket (lib/tape/changes.js) says the tape
-//     moved: a nudge, not the state (decision 0013). The socket is its own
-//     while nobody has borrowed it, and stays open with a take in the bar
-//     for the keyboard's presses and the take list's revision, which it
-//     hands on (onPress, onTakes);
+//     moved: a nudge, not the state (decision 0013). The socket is the
+//     page's one, open from load() to destroy() whoever holds the
+//     transport, so a room switch never closes it or opens another (a
+//     WebSocket over TLS costs a handshake, and the gap is deaf); with a
+//     take in the bar its nudges wait for the tape to be back, and it hands
+//     on the keyboard's presses and the take list's revision (onPress,
+//     onTakes);
 //   - at once, forced, when the page comes back into view (wake);
 //   - shortly after each command it sends, and when asked (refresh).
 // One poll at a time (lib/tape/poll-gate.js): a nudge while one is out asks
 // once more when it ends, never beside it.
 //
 // While the Studio is shown it borrows the transport (delegate): the
-// Studio's own 200 ms poll and socket feed it (ingest), and its ▶ ■, locate
-// and loop go through the Studio's hands, so the Studio's state and the
-// bar's are one. Handed back (delegate(null)), it asks the Pi at once.
+// Studio's own 200 ms poll feeds it (ingest), its ▶ ■, locate and loop go
+// through the Studio's hands, and a nudge goes to the Studio's (nudge), so
+// the Studio's state and the bar's are one. Handed back (delegate(null)),
+// it asks the Pi at once.
 
 import { refusal } from '../tape/refusal.js';
 import { watchChanges } from '../tape/changes.js';
@@ -75,8 +79,9 @@ export const SETTLE_MS = 150;
  *   setActive(on) in the bar, or a take in it instead
  *   wake()        the page is back in view
  *   delegate(hands), ingest({tape, live})
- *                 the Studio borrowing it, and feeding it
- *   heardPress(p), onPress(fn), heardTakes(m), onTakes(fn)
+ *                 the Studio borrowing it ({play, stop, locate, setLoop,
+ *                 poll, nudge}), and feeding it
+ *   onPress(fn), onTakes(fn)
  *                 the socket's presses and take revisions, handed on
  *   onChange(fn)  fn() on every change to any of it; a way off
  *   changed()     tells the listeners (something drawn from it changed)
@@ -139,17 +144,22 @@ export function createTransport(env = {}) {
     timer = later(tick, POLL_MS);
   };
 
-  // The changes socket: open while it is ours (not borrowed), with a take in
-  // the bar too, for the presses; its nudges wait for the tape to be back.
+  // The changes socket: the page's one, from load() to destroy(). Lent to
+  // the Studio, a nudge is the Studio's to act on; with a take in the bar it
+  // waits for the tape to be back.
   let changes = null;
   const pressListeners = new Set();
   const heardPress = (p) => { for (const f of pressListeners) f(p); };
   const takesListeners = new Set();
   const heardTakes = (m) => { for (const f of takesListeners) f(m); };
+  const nudged = (m) => {
+    if (del) { del.nudge?.(m); return; }
+    if (active && !hidden()) ask();
+  };
   const syncChanges = () => {
-    const on = loaded && !stopped && !del;
+    const on = loaded && !stopped;
     if (on && !changes) {
-      changes = watch({ onNudge: () => { if (active && !del && !hidden()) ask(); }, onPress: heardPress, onTakes: heardTakes });
+      changes = watch({ onNudge: nudged, onPress: heardPress, onTakes: heardTakes });
     } else if (!on && changes) { changes.close(); changes = null; }
   };
 
@@ -256,7 +266,7 @@ export function createTransport(env = {}) {
     },
     /** refresh asks the Pi now, after a change made elsewhere. */
     refresh: () => (del?.poll ? del.poll() : ask()),
-    setActive(on) { active = on; syncChanges(); if (on && !del) ask(); },
+    setActive(on) { active = on; if (on && !del) ask(); },
     wake() { if (active && !del && !hidden()) poll(true); },
     ingest({ tape: nextTape, live: nextLive } = {}) {
       if (nextTape) { t = nextTape; id = nextTape.id || id; }
@@ -267,12 +277,9 @@ export function createTransport(env = {}) {
       const was = del;
       del = d;
       if (d) gen++;
-      syncChanges();
       if (was && !d && active && !hidden()) ask();
     },
-    heardPress,
     onPress(fn) { pressListeners.add(fn); return () => pressListeners.delete(fn); },
-    heardTakes,
     onTakes(fn) { takesListeners.add(fn); return () => takesListeners.delete(fn); },
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     changed: fire,

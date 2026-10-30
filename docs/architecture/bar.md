@@ -125,8 +125,9 @@ the loop, |◂'s `start()`, a bar's `step()` and `tempo()` (`{bpm, bars,
 barFrames}` from the grid, or null), and the commands `play()`, `stop()`,
 `locate(frame)` and `setLoop(on)`. It asks every 500 ms in the bar, one
 tick in ten with a take in it, at once on the changes socket's nudge
-(`push.md`), and never two at once; the Studio lends it its own poll and
-keys while shown (`delegate`, `ingest`).
+(`push.md`), and never two at once; that socket is the page's one, held
+from `load` to `destroy` whatever room is shown. The Studio lends it its
+own poll, keys and nudge while shown (`delegate`, `ingest`).
 
 The bar's tape source (`lib/bar/tape-source.js`) draws it: the LCD, the
 display, the overview and the levels, and this phone's stream (where it is
