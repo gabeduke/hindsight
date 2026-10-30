@@ -19,7 +19,7 @@ import {
 } from './align.js';
 import { roundRectPath } from '../objects/cassette-geom.js';
 import {
-  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, barEvery, barPx, bpm as bpmOf, barBeat, tappedBpm, TAP_RESET_MS, fmtSecs,
+  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, barEvery, barPx, bpm as bpmOf, barBeat, tappedBpm, SLOWEST_BEAT_MS, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
   trimBounds, trimTo, trimmed, repeatRoom, repeatCount, groupMove, fadeOptions, fadeOption, clipFades, keyStep, FADE_SHAPES, fadeCurve, fadeTo,
 } from './geometry.js';
@@ -4215,7 +4215,7 @@ function renderTempo(panel) {
   });
   const tap = key('TAP', 'Tap the tempo', () => {
     const at = performance.now();
-    if (tempoTaps.length && at - tempoTaps[tempoTaps.length - 1] > TAP_RESET_MS) tempoTaps.length = 0;
+    if (tempoTaps.length && at - tempoTaps[tempoTaps.length - 1] > SLOWEST_BEAT_MS) tempoTaps.length = 0;
     tempoTaps.push(at);
     const b = tappedBpm(tempoTaps);
     tap.textContent = b ? 'TAP' : `TAP ${tempoTaps.length}`;

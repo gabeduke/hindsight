@@ -133,10 +133,10 @@ export function bpm(grid, sampleRate) {
 }
 
 /**
- * TAP_RESET_MS: a tap this long after the last starts counting again. Two
- * seconds is a beat at 30 BPM, slower than any tempo a tape takes.
+ * SLOWEST_BEAT_MS is a beat at the slowest tempo a tape takes, 20 BPM: two
+ * taps further apart than this are not one beat, so the count starts again.
  */
-export const TAP_RESET_MS = 2000;
+export const SLOWEST_BEAT_MS = 60000 / 20;
 
 /**
  * tappedBpm is the tempo of taps at `times` (ms, oldest first): the mean of
