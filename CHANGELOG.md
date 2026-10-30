@@ -5,6 +5,18 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.30.6 — 2026-10-30
+
+- Merge main into phone-checks again, with the service worker cache at v187 (efc0d33e)
+- Review fixes for Download beside Share: a key already in its place keeps the keyboard's focus, and the docs name every caller (01d85e80)
+- Exporting from the Studio offers Download: the mix as an MP3, and a clip as a WAV, save to a folder on a computer, with Share beside them where the browser can share (e9ed03b7)
+- Tests only: the flows run on the phone too, and check its bar keeps its shape: the mini player one row, its full width, no key over another, ▶ in one place (83ca2a35)
+- On a phone, a cue clip's drawer docks above the mini player and brings the cue lane and the armed track into sight, so ▶ is never under it (b5a2a4bf)
+- On a phone, the tempo's and the source's menus open over the player pulled up, where no tap reached them (41fdceca)
+- With help mode on, a phone's List scrolls its last takes clear of the tip, which had covered them for good (06d1787e)
+- Under the hood, nothing on screen: a height the stylesheets read is measured in one place (lib/ui/measure.js), the bar's and next help mode's tip (ec5e94ab)
+
+
 ## v2026.10.30.5 — 2026-10-30
 
 - Open's page asks phones for a fresh shell (0e576b16)
