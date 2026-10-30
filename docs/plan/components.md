@@ -2,9 +2,9 @@
 
 > A spec, not yet agreed. It works out the ecosystem's steps 4 and 5
 > (`the-ecosystem.md`, Direction B) and the protocol under them. Nothing in
-> it is built but the takes model (#225). Gabe, 2026-10-30: *"get to a
-> point where we're not trying to make changes to the entire app but to
-> small individual components in a more targeted way."*
+> it is built but the verbs (#224) and the takes model (#225). Gabe,
+> 2026-10-30: *"get to a point where we're not trying to make changes to the
+> entire app but to small individual components in a more targeted way."*
 
 Each decision has a recommendation. *For Gabe*, at the end, lists the ones
 that change a rule he made.
@@ -87,7 +87,7 @@ ecosystem's `mount(root, model, {layers, toast})` with the models plural
 | `layers` | its scope of the page's stack: what it opens closes on hide and unmount | `ctx.layers` |
 | `floor()` | where its menus stop above the bar | today `barTop(document)` (`lib/ui/menu.js`), which reads `#np` from anywhere |
 | `toast`, `go` | words for a person; a move to another room | `ctx.toast`, `ctx.go` |
-| `id(name)` | an id unique to this mount, for `aria-controls` and `<label for>` | new |
+| `id(name)` | the id of a part of it: its root's id and the name (`np` and `play` make `np-play`), for `aria-controls`, `<label for>` and the flows | new |
 
 No `every` and no `socket`: polling and sockets are the models'.
 
@@ -102,7 +102,9 @@ No `every` and no `socket`: polling and sockets are the models'.
   does the gating, so a component remembers nothing about being hidden:
   its watchers, keys and loops go quiet on hide and wake on show, and its
   layers close. Its own `show` measures; its own `hide` stops what it runs
-  outside `cx` (an audition).
+  outside `cx` (an audition). In a view that is mounted out of sight
+  (decision 0048) its components are mounted hidden and hidden again before
+  their first show, which the gating covers: show replays every watcher.
 - **unmount** is real, unlike a view's `destroy`, which the router never
   calls: a workspace that rearranges (the ecosystem's step 6) and the
   harness (4) both unmount. `mountComponent` takes off everything that went
@@ -119,8 +121,8 @@ never:
 - touches the DOM outside `root`: no `document.getElementById`,
   `document.querySelector` or `document.body` (a drag's ghost, a sheet: a
   `lib/ui` interface);
-- uses an id the page knows: its ids are `cx.id()`'s, and the surface finds
-  it by its root;
+- writes an id of its own: the surface gives the root its id, and every id
+  inside is `cx.id()`'s, made from it;
 - says or hears a page-wide event (`hindsight:*`): it calls a verb, or a
   callback the surface passed in;
 - keeps a press machine, menu, layer or sheet of its own: taps, double taps
@@ -133,7 +135,17 @@ never:
 bar's zones and `data-for` stay (decision 0047), but there is one copy of
 its keys where there are two now (`#np` is written out in `shell.html` and
 again in `wave.html`). A key is still declared in markup, in its slot,
-never appended by a script.
+never appended by a script; it is named in the template (`data-part="play"`)
+and given its id at mount (`cx.id('play')`).
+
+**The flows keep finding it.** A root given the id `np` makes `#np-play`,
+`#np-grabber` and the rest as they are now, so the nineteen `#np…` ids the
+flows select stay. About a dozen of the bar's 45 ids don't start with `np`
+(`#position`, `#rec`, `#catch-pass`, `#catch-more`, `#click`,
+`#tape-overview`, `#out-strip` and its parts). They are renamed in the
+extraction (`#np-position`…), with each flow's selector and the LCD ids in
+the guardrail *Step 5a* moved to the new names in the same PR: the
+selectors change, never what a flow expects.
 
 **1.4 Its stylesheet.** A component is a place, so decision 0033 holds as it
 is: one file in `css/` per component (the Transport's is today's
@@ -142,18 +154,26 @@ in `sw.js`'s `SHELL`, and read by tests through `cssOf(page)`. Three rules
 make it the component's alone:
 
 - **Scoped to its root.** Every selector in it starts at the root's class
-  (`.np`), and no other stylesheet names that class. A surface places the
-  root; it never styles inside it.
+  (`.np`). Another stylesheet may name the root only to place it (the root
+  itself: where it sits, its size, `#np`'s view-transition name in
+  `css/rooms-motion.css`) or to lay out around it (`body:has(.np)`, as
+  `styles.css` keeps the toasts above the bar); never to style what is
+  inside it. `styles.css` does that once today, Play mode's toggle
+  (`.np > .play-toggle`), which goes with Play mode's flag.
 - **Laid out by its own width**: a container query on its root, as
   `bar.css` already has on `.np-row-1`, never the viewport's `@media`,
   which is a surface's. So the harness can mount it at any size and see
-  what a page would.
+  what a page would. `bar.css` has six viewport `@media` blocks today, and
+  sets the dock's `--dock-b` on `body`: the first become container queries,
+  the second goes to the surface's stylesheet.
 - **Told its state on its root**, never by the page's body classes:
-  `bar.css` keys rules on `body.tape-page`, `body.shelf-page`,
-  `body.np-fold`, `body.selecting` and `body.notes-open` today, and
-  `styles.css` styles Play mode's toggle inside the bar
-  (`.np > .play-toggle`), which goes with Play mode's flag. Those move in
-  the Transport's extraction.
+  `bar.css` keys rules on `body.player-open` (thirty times), `body.np-fold`,
+  `body.tape-page`, `body.shelf-page`, `body.main-page`, `body.wave-page`,
+  `body.selecting` and `body.notes-open`. They become attributes on the
+  root (`data-size` and `data-source` are already there), set from the
+  models and the surface.
+
+All of that moves in the Transport's extraction.
 
 A component reads only tokens for its colours, type and materials
 (`the-play-look.md`), so a theme restyles it wherever it is mounted.
@@ -168,8 +188,8 @@ left out, as Guardrails 11 to 14 read them). It fails on:
 - `hindsight:`, `new Audio`, `location.`;
 - an id written in (`id="`, or `.id =` given a string);
 - a `setTimeout` beside a `pointerdown` in one file (a hold of its own);
-- in its stylesheet, a selector that doesn't start at its root, and
-  anywhere else, a rule that names its root (`rules()`,
+- in its stylesheet, a selector that doesn't start at its root, and in any
+  other, a selector that reaches inside its root (`rules()`,
   `lib/stylesheets.js`);
 - a component that doesn't export `{ id, needs, css, mount }`, or has no
   harness check (`scripts/components/<id>.check.mjs`).
@@ -195,8 +215,9 @@ no DOM):
 - **Verbs**: async methods named for what they do. Each resolves with the
   Pi's answer or throws a `Refusal` (3.4). A press shows at once: what was
   asked and not yet answered is in the snapshot (`pending`), as the bar's
-  tape source keeps `want` today (`lib/bar/tape-source.js`). So decision
-  0018 (*every press answers*) is the model's job, not each key's.
+  tape source keeps `want` today (`lib/bar/tape-source.js`). So a tap
+  answers at once wherever it is made, as decision 0018 asks of the
+  keyboard's presses, and that is the model's job, not each key's.
 - **`heard(m)`**: a message from the push socket (3.3), fed by the page's
   one socket. A version not heard before asks the Pi.
 - **It asks only while someone looks.** `cx.watch` tells it who is shown,
@@ -208,7 +229,7 @@ no DOM):
 
 | Model | The state it owns | Push or poll | Its verbs (the route today) |
 |---|---|---|---|
-| `tape` | the loaded tape (its tracks, parts, sections, grid, loop and cue lane) and the Pi's state around it (the armed tracks, the inputs, undo and redo); the list of tapes | `rev`, then one `GET /api/tapes/state` for the page. Today the Studio polls it at 200 ms (`lib/tape/page.js` `poll`) and the bar at 500 ms (`tapeSource`), handing over by `delegate` and `ingest` | `edit(op)` (`/api/tapes/edit`); `rename`, `setLoop`, the sections (`PATCH /api/tapes`); `undo`, `redo`; `load`, `create`, `clone`, `remove`; `catch`; `record`, `punchOut` (`/api/tapes/record`); `paste` (`/api/tapes/drop`); `launch` (`/api/tapes/cue`); `grab(from)`, from the feed, an armed input or a take's span (`/api/tapes/cue/grab`); `drop` (`/api/tapes/cue/drop`); `mixdown`, `send` |
+| `tape` | the loaded tape (its tracks, parts, sections, grid, loop and cue lane) and the Pi's state around it (the armed tracks, the inputs, undo and redo); the list of tapes | `rev`, then one `GET /api/tapes/state` for the page. Today the Studio polls it at 200 ms (`lib/tape/page.js` `poll`) and the bar at 500 ms (`tapeSource`), handing over by `delegate` and `ingest` | `edit(op)`, the sections' ops among them (`/api/tapes/edit`); `rename`, `setLoop`, `arm`, `setInput`, `setClick` (`PATCH /api/tapes`); `undo`, `redo`; `load`, `create`, `clone`, `remove`; `catch`; `record`, `punchOut` (`/api/tapes/record`); `paste` (`/api/tapes/drop`); `launch` (`/api/tapes/cue`); `grab(from)`, from the feed, an armed input or a take's span (`/api/tapes/cue/grab`); `drop` (`/api/tapes/cue/drop`); `mixdown`, `send` |
 | `transport` | what the bar plays (the tape, a take or the feed), playing, where (heard, at, the sample rate), the loop, the tempo, where it plays (jam room, phone, both; this device), the alignment | the tape's `rev`; a take and the feed are local (the engine's audio); the playhead runs on the ticker between answers | `play`, `stop`, `locate` (`/api/tapes/transport`); `setSource`, `loadTake`, `eject`; `setOutput` (`PUT /api/tapes/output`); `setTempo`, `halve`, `double` (`PATCH /api/tapes`, then `tempo.md`'s re-grid); `tapLoop`, a free loop's tap (`/api/tapes/tap`) |
 | `takes` | the take list and its ETag; the trash | `takes_rev` (#225) | `keep(from)`, the feed's last seconds or a span of it (`/api/trigger`) or a cue clip (`/api/tapes/cue/keep`); `remove(names)` (`/api/delete`), `restore` (`/api/trash/restore`), `star(names)`, `exportURL(names)` |
 | `take` | one take: its name, ★, tag, tempo, notes, family, peaks | `takes_rev`, then `GET /api/take` if its entry moved | `rename`, `star`, `tag` (`PATCH /api/take`); `note`, `editNote`, `removeNote` (`/api/take/flags`); `undo` (`/api/take/undo`); `cut` (`/api/cut`); `remove` |
@@ -225,14 +246,19 @@ The phone's recorder (`lib/phone/recorder.js`, `phoneRecorder`) already has
 the shape (one per page, `state()`, `onChange`, its verbs) and is handed to
 components as it is.
 
-**2.3 Fixture models.** Every model is made over a link: `createTape({ link
-})`, where the link (`lib/models/link.js`, new) is the page's protocol
-client: reads with versions, verbs, the one `Refusal`, and the page's one
-socket fanned out to each model's `heard`. A fixture link
-(`lib/models/fixture.js`) answers reads from a JSON snapshot and records
-verbs, so `createTape({ link: fixtureLink(json) })` is a tape with no Pi. A
-fixture can script a verb's answer or its refusal (`{refuse: {play:
-'no_audio_out'}}`), so a component's refused press is checked too.
+**2.3 Fixture models.** Every model is made over the page's protocol
+client: `createTape({ protocol })`. The client (`lib/models/protocol.js`,
+new) is the one module that names a route: models ask it by noun and verb
+(`read('tape')`, `verb('transport', {action})`), and it answers with
+versions, throws the one `Refusal`, and fans the page's one socket out to
+each model's `heard`. It is built on what is there, not beside it:
+`lib/link.js` (`timedFetch`, `onResume`, the *Reconnecting…* note, already
+on `ctx.link`) and `lib/socket.js` (`connectSocket`). A fixture
+(`lib/models/fixture.js`) is a protocol client that answers reads from a
+JSON snapshot and records verbs, so `createTape({ protocol: fixture(json)
+})` is a tape with no Pi. It can script a verb's answer or its refusal
+(`{refuse: {play: 'no_audio_out'}}`), so a component's refused press is
+checked too.
 
 - **The snapshots** are what the Pi answers, saved:
   `testdata/protocol/<noun>/<case>.json` (an empty tape, four tracks
@@ -241,8 +267,9 @@ fixture can script a verb's answer or its refusal (`{refuse: {play:
   new fixture cuts no release.
 - **They can't drift**: a Go test in `internal/api` checks that the demo's
   answer to each read still has its fixture's shape.
-- `fixture.js` is for tests and the harness only, as `lib/bar/bar-harness.js`
-  is, and stays out of `SHELL`.
+- `fixture.js` is for tests and the harness only, and stays out of
+  `SHELL`. It names no route and opens nothing, so no guardrail needs to
+  skip it.
 
 **2.4 Where today's code fights it.** Work, in the PR that moves each
 caller:
@@ -266,8 +293,10 @@ caller:
   `keeps`, `cue-select`, `cue-selected`, `np-fold`…). Each becomes a model's
   `onChange` or a verb.
 - **Each model's PR moves every caller of its routes and adds a guardrail
-  naming them**, as Guardrail 14 does for `/api/jams`: a route is the
-  model's once nothing else asks it, and no list of exceptions is kept.
+  naming them**, as Guardrail 14 does for `/api/jams` (which then names
+  `lib/models/protocol.js` in place of `takes.js`): a route is the
+  protocol client's once nothing else asks it, and no list of exceptions is
+  kept.
 
 ## 3. The protocol, surface ↔ engine
 
@@ -276,7 +305,8 @@ for KEEP, GRAB, DROP, CATCH and the transport: the tablet's routes and a
 controller's pads call the same methods. Recommended next:
 
 - **Every write is a named method on the Pi**, as the verbs are. The edits
-  (`edit.go`, `timeedit.go`) and `PATCH /api/tapes`'s fields become the
+  (`internal/tape/edit.go`, `timeedit.go`) and `PATCH /api/tapes`'s fields
+  become the
   pocket kit's named edits (`{edit: "part.add", id, base, made, by}`), so a
   tap on the tablet and a phone's sync are one path.
 - **The routes stay as they are until then.** The models are their only
@@ -289,7 +319,7 @@ body (`v`) and as its ETag, and answers 304 to `If-None-Match`, as
 | Noun | Read | Version |
 |---|---|---|
 | tape, transport | `GET /api/tapes/state` | `rev` (`Engine.Changes()`). It is on the socket but not in the answer today: add it, so a model drops an answer older than one it holds instead of counting its own polls (`lib/tape/poll-gate.js`). The pocket kit's `version` (the edits its home has applied) for the tape document, when there is one |
-| takes, take | `GET /api/jams`, `GET /api/take` | `takes_rev` (#225); a take's own ETag |
+| takes, take | `GET /api/jams`, `GET /api/take` | `takes_rev` (#225); a take's own ETag, new (`/api/take` sends none today) |
 | feed | `/api/status`'s capture half | `feed_rev`, new: it moves on healthy, waiting, saving, a save, an error. The levels stay a stream |
 | rig | `/api/rig`, `/api/settings`, `/api/tapes/controls`, `/api/status`'s other half | `rig_rev`, new |
 
@@ -299,8 +329,9 @@ goes on saying versions, not the state.
 - **Why.** One way in for each noun's state: the same read serves the first
   load, a wake, a missed message and a nudge. Many edits make one read. And
   the pocket kit chose the same for engines (*Down as snapshots*). The cost
-  is a read after the nudge, about 20 ms on the Wi-Fi (`push.md`); look
-  again only if the push, timed at the rig (`STATE.md`), is too slow.
+  is a read after the nudge, about 20 ms of the 30–50 ms the push takes
+  (`STATE.md`, *The push, timed*); look again only if that timing, at the
+  rig, says it is too slow.
 - **One socket for every noun**: `{rev, takes_rev, feed_rev, rig_rev,
   at_ms}`, and the tape's `version` once it has one, beats included, with
   the events that are not state (the keyboard's `press`) beside them, as
@@ -327,8 +358,8 @@ banner's `words`, which the route, the keyboard and the page all read:
 - `reason: "recording"` becomes `code: "recording"`, and `reason` stays for
   one protocol version.
 - A failure that isn't the Pi's (offline, a timeout) is thrown in the same
-  shape by the link (`code: "offline"`), so a component handles one kind
-  of `Refusal`.
+  shape by the protocol client (`code: "offline"`), so a component handles
+  one kind of `Refusal`.
 
 **3.5 Versioning.** Recommended: one integer for this protocol, said in the
 socket's first message and by the pocket kit's `GET /api/kit` (which says
@@ -362,8 +393,8 @@ cuts no release.
   `scripts/flows/harness.mjs`, each in light and dark.
 - **The flows' layout rules, imported, never copied**: `checkLayout` from
   `scripts/flows/layout.mjs` (covered, offscreen, menu-offscreen, clipped,
-  target-size, small-touch), and the small-screen bar check that the
-  phone-checks work is adding to the flows. `checkLayout` needs a `root`, so
+  target-size, small-touch), and any check added there later, such as one
+  for the bar's keys on a phone. `checkLayout` needs a `root`, so
   it counts only what is inside the component: a new option, built first. A
   component starts with no findings: nothing of it goes into
   `layout-known.json` or `layout-allow.mjs`.
@@ -402,8 +433,8 @@ AGENTS.md's list (decision 0024).
 
 1. `lib/components/mount.js` (`mountComponent`, `cx`) and its tests, and
    Guardrail 15 over an empty `lib/components/`.
-2. `lib/models/link.js` and `fixture.js`; the takes model moved onto the
-   link, with `snapshot()`; `testdata/protocol/` and its Go shape test.
+2. `lib/models/protocol.js` and `fixture.js`; the takes model moved onto
+   the client, with `snapshot()`; `testdata/protocol/` and its Go shape test.
 3. The harness: `scripts/components.mjs`, and `checkLayout`'s `root`.
 
 **Models**, each moving every caller of its routes and adding its route
@@ -416,7 +447,7 @@ refusals' one table, `GET /api/kit`.
 
 | | Component | What moves | Models | What it fixes on the way | Flows that must not move |
 |---|---|---|---|---|---|
-| 1 | Transport | `lib/bar/bar.js` `NowPlaying`, `display.js`, `fold.js`, `player.js`, `slots.js`, `take-keys.js`, `source-menu.js`, `phone-key.js`, `press-note.js`; `#np`'s markup out of `shell.html` into its template; `css/bar.css` | transport, tape, takes (the source menu), the phone's recorder | its `$('np-…')` lookups; the `MutationObserver` that reads `body.tape-page` to know whether the tempo opens a menu (the surface says so); a `window` keydown that reads `dialog[open]` off the page; `barTop`; the `matchMedia` for the phone's player; `hindsight:np-fold` | J1.12, J1.13, J1.15, J1.16, J2.3, J4.4 |
+| 1 | Transport | `lib/bar/bar.js` `NowPlaying`, `display.js`, `fold.js`, `player.js`, `slots.js`, `take-keys.js`, `source-menu.js`, `phone-key.js`, `press-note.js`; `#np`'s markup out of `shell.html` into its template; `css/bar.css` | transport, tape, takes (the source menu), the phone's recorder | its `$('np-…')` lookups; the `MutationObserver` that reads `body.tape-page` to know whether the tempo opens a menu (the surface says so); a `window` keydown that reads `dialog[open]` off the page; `lib/tape/page.js` reaching into the bar for ●, Catch and the click (`$('rec')`, `$('catch-pass')`, `$('click')`: they become the Transport's keys on the tape's verbs); `barTop`; the `matchMedia` for the phone's player; `hindsight:np-fold` | J1.10, J1.12, J1.13, J1.15, J1.16, J2.3, J4.1, J4.4 |
 | 2 | Library: the List | `lib/takes.js` `TakesList`, and its *Recently deleted* row (`lib/trash.js` `TrashList`) | takes, take, transport (a row plays in the bar) | six fetches of its own (`/api/take`, `/api/peaks`, `/api/take/undo`, `/api/delete`); its two holds, a row's and select's, on `bindPress` as the wall's spines already are (`SPINE_PRESS`); select mode onto the stack (`STATE.md`, *Leftovers*); `#select-btn` and `#sel-*` | J2.5, J2.6, J2.7 |
 | 3 | Library: the wall | `lib/room/doorway.js`, `shelves.js` (pure, as it is), the wall's half of `lib/shell/views/room.js` | takes, transport | its `$()` lookups; the search found as `#shelf-q` (*For Gabe*); Sort ▾ and the chips as the library's state, shared with the List | J2.2, J2.7 |
 | 4 | Take: the notes drawer | `lib/room/drawer.js` `createNotesDrawer`, its `source` the take model (`barNotes`, `lib/room/notes.js`, becomes it) | take, transport, tape (a note's GRAB) | appending itself to `doc.body`: it mounts in the root the surface gives it, docked or as a sheet | U3, J2.4 |
@@ -426,7 +457,7 @@ Open's bar (its own markup in `wave.html`, driven by `lib/wave/page.js`)
 moves onto the Transport in a PR of its own, in Open's pass. Then Capture
 (`lib/rooms/studio.js`: the ribbon, KEEP, GRAB, Flag; feed, tape and
 takes), the clip's drawer (`lib/buffer/`), Rig (`lib/rig/page.js`), and the
-Tape editor last (`lib/tape/page.js`: about 140 ids, sixteen `window` and
+Tape editor last (`lib/tape/page.js`: about 140 ids, about eighteen `window` and
 `document` listeners, the holds in `STATE.md`'s *Leftovers*). Tempo is
 built new on the contract (`tempo.md`), not extracted: the first component
 that never lived in a page.
