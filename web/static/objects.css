@@ -107,19 +107,6 @@
      marker a name is written in. The tape itself, --mask, is a shade
      darker at night and stays in styles.css. */
   --marker:       #14252b;
-
-  /* Play mode's pad controller: a dark box with rubber pads, dark in any
-     room, as an instrument on a stand is. A lit pad is the cassette's orange
-     under dark ink; a lit track key takes its track's colour. */
-  --pad-chassis:    #0b0c0d;
-  --pad-face:       #1d1e21;
-  --pad-face-armed: #26272b;
-  --pad-edge:       rgba(255,255,255,.18);
-  --pad-rule:       rgba(255,255,255,.08);
-  --pad-legend:     #ecebe6;
-  --pad-legend-dim: #8f8e88;
-  --pad-lit:        #e0662a;
-  --pad-lit-ink:    #1c2430;
 }
 
 /* ---------- Rooms P5: the Listening Room (lib/room/) ----------
@@ -127,8 +114,8 @@
    room-design.md, "Look and materials"): the wall at dusk and the lamp's
    glow, walnut, the floorboards and the rug, the chair's leather,
    cardboard, masking tape and paper, the brass plates, and the deck's
-   silver. A room is a place, not chrome: the same in both schemes, as the
-   pad controller is. Its words are cream on the dark wall and dark ink on
+   silver. A room is a place, not chrome: the same in both schemes, as an
+   object is. Its words are cream on the dark wall and dark ink on
    paper, each on its own plate or card; every pair here passes 4.5:1. */
 :root {
   /* The wall at dusk, and the lamp. */
@@ -299,17 +286,4 @@
   --rig-lamp-off:   #3a3b3f;
   --rig-lamp-rec:   #e8423d;
   --rig-amber:      #ffb547;
-}
-
-/* ---------- Rooms P4: punch-in FX and tape mods (lib/play/fx.js, mods.js) ---------- */
-:root {
-  /* The pad controller's FX: a teal rim and meter, as on the K.O.'s punch-in
-     row, and the knobs' black wells, grey caps and amber pointers. A chosen
-     formula is a paper label under marker. */
-  --pad-fx:         #2fb3a7;
-  --pad-fx-rim:     rgba(47,179,167,.45);
-  --knob-well:      #141516;
-  --knob-hi:        #4a4b50;
-  --knob-pointer:   #ffb547;
-  --formula-paper:  #e6d8b0;
 }

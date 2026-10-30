@@ -54,10 +54,3 @@ export function bufferKeepLength({ frames, barFrames = 0, sampleRate = 48000 }) 
 /** selectionKeepLength is what KEEP keeps of a span held on the ribbon. */
 export const selectionKeepLength = (seconds) => lengthWords(seconds);
 
-/**
- * keptByK is what the K key, and the instrument's KEEP pad, will keep: the
- * open buffer (it claims K while it is open), else the feed.
- */
-export function keptByK({ feed = '', buffer = '' } = {}) {
-  return buffer || feed || '';
-}

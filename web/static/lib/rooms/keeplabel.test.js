@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { lengthWords, keepLabel, feedKeepLength, bufferKeepLength, selectionKeepLength, keptByK, keepAria } from './keeplabel.js';
+import { lengthWords, keepLabel, feedKeepLength, bufferKeepLength, selectionKeepLength, keepAria } from './keeplabel.js';
 
 test('a length reads short: seconds, then minutes', () => {
   assert.equal(lengthWords(30), '30s');
@@ -78,13 +78,6 @@ test('a selection of the feed keeps its own length', () => {
   assert.equal(selectionKeepLength(95), '1m35s');
   assert.equal(selectionKeepLength(7.84), '7.8s');
   assert.equal(selectionKeepLength(0), '');
-});
-
-test('K keeps the open buffer, else the feed: the pad names the one it will', () => {
-  assert.equal(keptByK({ feed: '2m', buffer: '4 BARS' }), '4 BARS');
-  assert.equal(keptByK({ feed: '2m', buffer: null }), '2m');
-  assert.equal(keptByK({ feed: '', buffer: '' }), '');
-  assert.equal(keptByK({}), '');
 });
 
 test('the feed key’s accessible name contains what is written on it', () => {

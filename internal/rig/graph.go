@@ -390,7 +390,7 @@ func (b *builder) kit() {
 		Socket{ID: "kit.midi", Label: "MIDI IN", Kind: "midi", Dir: "in", About: "MIDI recorded beside each take, as a .mid."},
 	)
 	if b.in.Controller {
-		k.Sockets = append(k.Sockets, Socket{ID: "kit.controls", Label: "CONTROLS", Kind: "midi", Dir: "in", About: "A controller's notes and knobs, played into the instrument strip."})
+		k.Sockets = append(k.Sockets, Socket{ID: "kit.controls", Label: "CONTROLS", Kind: "midi", Dir: "in", About: "A controller's notes and knobs, playing the tape's pads."})
 	}
 	b.g.Kit = k
 	if t := b.in.Tape; t != nil {
@@ -553,7 +553,7 @@ func (b *builder) midiCables(d *Device, port MIDIPort) {
 			})
 		if b.in.Controller {
 			b.both(Cable{ID: "controls:" + d.ID, From: out, To: "kit.controls", Kind: "midi", Writes: keyControl,
-				About: name + " plays the instrument strip (TAPE_CONTROLLER)."},
+				About: name + " plays the tape's pads (TAPE_CONTROLLER)."},
 				func(get func(string) string) bool { return names(list(get(keyControl)), name) })
 		}
 	}

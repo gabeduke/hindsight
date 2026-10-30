@@ -123,8 +123,9 @@ was coming up with. Hindsight started there.
 
 ## Decided
 
-- **Play mode's per-device flag is to be retired** (not done yet: it is
-  still in `device-prefs.js`). Gabe didn't remember what it was. Its strip is either merged into the app or deleted; the Pi's
+- **Play mode's per-device flag is to be retired** (done: the switch and
+  its strip are deleted, and the Pads can come back as a component;
+  `architecture/tape.md`, *When a pad lands*). Gabe didn't remember what it was. Its strip is either merged into the app or deleted; the Pi's
   momentary tricks, which the keyboard's FX page plays, aren't part of
   that call.
 - **The phone is a surface the checks cover**, like the tablet and the

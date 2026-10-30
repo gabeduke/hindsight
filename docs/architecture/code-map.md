@@ -24,7 +24,7 @@ web/static/lib/tape    the Studio's tape: lanes, parts, ranges, the cue lane
 web/static/lib/rooms   the Studio around the tape: feed, KEEP, bounce, words
 web/static/lib/buffer  the buffer: GRAB, trim, DROP
 web/static/lib/room    the Listening Room: the shelf, the drawn room, Open's words, the notes drawer
-web/static/lib/play    the instrument strip (Play mode); the Pi's clock and the latency readouts
+web/static/lib/play    the control bus's one list (controls.js); the Pi's clock and the latency readouts; the tests' stand-in document
 web/static/lib/rig     the rig page
 web/static/lib/objects the physical things: reels, cassettes, VU meters, the shared ticker
 web/static/lib/scene   the scene contract the renderers follow

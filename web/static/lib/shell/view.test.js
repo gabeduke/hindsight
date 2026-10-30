@@ -342,12 +342,12 @@ test('what a view adds to a slot is in the page only while it is shown, and goes
   const part = t.el('div', 'room-header');
   const editor = t.el('div', 'clip-editor');
   const sit = t.el('button', 'room-sit');
-  const strip = t.el('div', 'play-strip');
+  const strip = t.el('div', 'bar-first');
   const ids = (e) => e.children.map((c) => c.id);
   await t.v.show();
   assert.deepEqual(ids(t.header), ['room-header', 'appbar-end']);
   assert.deepEqual(ids(t.dock), ['clip-editor', 'np'], 'the dock’s part goes in before #np, with no wrapper');
-  assert.deepEqual(ids(t.np), ['play-strip', 'np-open', 'room-sit', 'np-scrub']);
+  assert.deepEqual(ids(t.np), ['bar-first', 'np-open', 'room-sit', 'np-scrub']);
   await t.v.hide();
   assert.deepEqual(ids(t.header), ['appbar-end'], 'a hidden view leaves nothing in the header');
   assert.deepEqual(ids(t.dock), ['np']);
@@ -355,7 +355,7 @@ test('what a view adds to a slot is in the page only while it is shown, and goes
   await t.v.show();
   assert.deepEqual(ids(t.header), ['room-header', 'appbar-end']);
   assert.deepEqual(ids(t.dock), ['clip-editor', 'np']);
-  assert.deepEqual(ids(t.np), ['play-strip', 'np-open', 'room-sit', 'np-scrub']);
+  assert.deepEqual(ids(t.np), ['bar-first', 'np-open', 'room-sit', 'np-scrub']);
 });
 
 test('a slot’s remove takes the node out for good', async () => {

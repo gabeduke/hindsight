@@ -2,28 +2,28 @@
 // The one list of what can be played or done, whatever does the playing
 // (docs/superpowers/specs/2026-10-15-instrument-strip-design.md, "One bus"):
 //
-//   touch    ─┐
-//   keys     ─┤                         held     → Surface → press / release
-//   Web MIDI ─┼→ controls.js, by kind   amount   → set (P4)
-//   Pi MIDI  ─┘                         latched  → the tape's mods (P4)
-//                                       command  → catch · grab · drop · keep · transport
+//   Pi MIDI  ─→ controls.js, by kind   held     → press / release
+//                                      amount   → set
+//                                      latched  → the tape's mods
+//                                      command  → catch · grab · drop · keep · transport
 //
 // Each action has an `id` (a pad's id is the name the Pi knows it by,
-// internal/tape/trick.go), a `kind`, the keys that play it -- `play` while
-// the strip has the keyboard, `edit` while the page has it -- and its default
-// `midi`, the starting profile a controller gets before MIDI LEARN. The
-// keyboard's tables (keymap.js), the buffer's keys (lib/buffer/keys.js),
-// the Web MIDI adapter (midi.js) and the Pi's own copy of the defaults
-// (internal/api/controls.go, held to this file by a test) all come from
-// here, so the key table in the spec is written once.
+// internal/tape/trick.go), a `kind`, the keys that play it -- `play` was
+// the instrument strip's while it had the keyboard, `edit` the page's -- and
+// its default `midi`, the starting profile a controller gets before MIDI
+// LEARN. The Pi's own copy of the defaults (internal/api/controls.go, held
+// to this file by a test), the buffer's keys (lib/buffer/keys.js) and the
+// Studio's (lib/rooms/keys.js) come from here, so the key table in the spec
+// is written once. The strip and its Web MIDI went on 2026-10-30; the list
+// stays whole, for the Pi and for the Pads when they come back
+// (docs/architecture/tape.md, *When a pad lands*).
 //
 // Keys are physical codes (`KeyQ`, not `q`), so an instrument's layout stays
 // under the same fingers on any keyboard. `Shift+` in front means with ⇧.
 //
 // `needs: 'rooms'` is an action that belongs to the two rooms (their verbs
-// and the click's new key). The rooms are the only layout, so the strip
-// always has them (strip.js); `has` still answers for each need, so a table
-// can be read without them (the tests do).
+// and the click's new key). The rooms are the only layout; `has` still
+// answers for each need, so a table can be read without them (the tests do).
 // `soon` is an action whose sound or data isn't built yet (the crate's
 // pads): listed so the table is whole and the keys are taken, but nothing
 // plays it until it lands.
@@ -102,7 +102,7 @@ const BY_ID = new Map(CONTROLS.map((c) => [c.id, c]));
 /** control is the action with this id, or undefined. */
 export const control = (id) => BY_ID.get(id);
 
-/** The ids of the pads the strip draws, in order. */
+/** The ids of the pads, in order. */
 export const TRACK_PADS = CONTROLS.filter((c) => c.group === 'tracks').map((c) => c.id);
 export const TRICK_PADS = CONTROLS.filter((c) => c.group === 'tricks').map((c) => c.id);
 export const FX_PADS = CONTROLS.filter((c) => c.group === 'fx' && c.kind === HELD).map((c) => c.id);
