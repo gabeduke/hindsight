@@ -379,12 +379,99 @@ test('Guardrail 13: a menu or a ▾ panel is lib/ui/menu.js’s', () => {
 test('Guardrail 14: only the takes model (lib/models/takes.js) asks /api/jams; every list of takes is the page’s', () => {
   // docs/architecture/push.md, *The takes' revision*: one list a page, asked
   // for when the Pi says it moved. A module with a fetch of its own asks the
-  // Pi again for what the page already holds.
+  // Pi again for what the page already holds. The takes model reads them by
+  // noun from the protocol client, the one module that names the route.
   const found = [];
   for (const [f, raw] of gestureLiterals()) {
-    if (f === 'lib/models/takes.js') continue;
+    if (f === 'lib/models/protocol.js') continue;
     const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
     if (/['"`]\/api\/jams\b/.test(src)) found.push(f);
   }
   assert.deepEqual(found, [], 'asks /api/jams itself: take the page’s takes (ctx.takes, the engine’s, or createTakes on a page of its own) instead');
+});
+
+// ---- the components: lib/components/ ---------------------------------------
+// The kit (docs/architecture/components.md; docs/plan/components.md, 1.5): a
+// component draws inside the root it is given, from its models' snapshots,
+// and does at window or document level only what goes through cx
+// (lib/components/mount.js). Enforced by directory, over every file under
+// lib/components/ (comments stripped, tests left out), with no list of
+// exceptions: a module moves in once it keeps every rule.
+const COMPONENT_RULES = [
+  [/\bfetch\(/, 'fetches: asking the Pi is a model’s'],
+  [/\bWebSocket\b|\bconnectSocket\b/, 'opens a socket: the push is a model’s'],
+  [/['"`]\/api\//, 'names a route: that is lib/models/protocol.js’s'],
+  [/\bdocument\s*\.\s*(getElementById|querySelector|querySelectorAll|body)\b/, 'reaches outside its root (a sheet or a drag’s ghost is a lib/ui interface)'],
+  [/\b(window|document|globalThis|self)\s*\.\s*addEventListener\b|(^|[^.\w$])addEventListener\(/m, 'listens on the window or the document: cx.on'],
+  [/\bsetInterval\(/, 'polls: a model asks, and cx.loop steps what is drawn'],
+  [/hindsight:/, 'says or hears a page-wide event: a model’s onChange, a verb, or a callback the surface passes'],
+  [/\bnew\s+Audio\b/, 'makes audio: the engine’s'],
+  [/\blocation\s*[.=]|\bhistory\s*\./, 'moves the page: cx.go, or the stack'],
+  [/\bid="|\.id\s*=\s*['"`]|setAttribute\(\s*['"]id['"]/, 'writes an id of its own: cx.id(), from its root’s'],
+];
+
+/** componentFiles is every module under lib/components/, tests left out. */
+function componentFiles() {
+  const out = [];
+  const walk = (dir) => {
+    for (const d of fs.readdirSync(path.join(STATIC, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${d.name}`;
+      if (d.isDirectory()) walk(rel);
+      else if (d.name.endsWith('.js') && !d.name.endsWith('.test.js')) out.push(rel);
+    }
+  };
+  walk('lib/components');
+  return out;
+}
+
+test('Guardrail 15: a component draws inside its root, from its models, and reaches the page only through cx', () => {
+  const files = componentFiles();
+  assert.ok(files.includes('lib/components/mount.js'), 'the walk finds lib/components/');
+  const found = [];
+  for (const f of files) {
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    for (const [re, why] of COMPONENT_RULES) if (re.test(src)) found.push(`${f}: ${why}`);
+    // A hold of its own: a timer beside a press.
+    if (/\bsetTimeout\(/.test(src) && /pointerdown/.test(src)) found.push(`${f}: a hold of its own: pressMachine or bindPress (lib/ui/press.js)`);
+  }
+  assert.deepEqual(found, []);
+});
+
+// reaches is what a selector reaches into: its compounds before the last,
+// with what is inside :has() left out (laying out around a root is not
+// reaching into it) and the spaces inside brackets closed up.
+function reaches(sel) {
+  return sel.replace(/\(([^()]*)\)/g, (m) => m.replace(/\s+/g, '')).replace(/:has\([^()]*\)/g, '')
+    .split(/\s*[>+~]\s*|\s+/).filter(Boolean).slice(0, -1);
+}
+
+test('Guardrail 15: each component is { id, root, needs, css, mount }, has its harness check, and its stylesheet is its own', async () => {
+  const { lacks } = await import('./components/mount.js');
+  const { rules } = await import('./stylesheets.js');
+  const dirs = fs.readdirSync(path.join(STATIC, 'lib/components'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+  assert.ok(dirs.length > 0, 'a component, or this checks nothing');
+  const sheets = fs.readdirSync(STATIC, { recursive: true }).filter((f) => f.endsWith('.css')).map((f) => f.split(path.sep).join('/'));
+  const problems = [];
+  for (const id of dirs) {
+    const file = `lib/components/${id}/index.js`;
+    if (!fs.existsSync(path.join(STATIC, file))) { problems.push(`${id}: a component is its directory’s index.js`); continue; }
+    const def = (await import(`./components/${id}/index.js`)).default;
+    const missing = lacks(def);
+    if (missing.length) { problems.push(`${file}: exports no good ${missing.join(', ')}`); continue; }
+    if (def.id !== id) problems.push(`${file}: its id is ${def.id}, its directory ${id}`);
+    if (!fs.existsSync(path.join(STATIC, '..', '..', 'scripts', 'components', `${id}.check.mjs`))) problems.push(`${id}: no harness check (scripts/components/${id}.check.mjs)`);
+    if (!sheets.includes(def.css)) { problems.push(`${id}: its stylesheet ${def.css} is not under web/static`); continue; }
+    const cls = def.root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const at = new RegExp(`\\.${cls}(?![\\w-])`);
+    const starts = new RegExp(`^\\.${cls}(?![\\w-])`);
+    for (const r of rules(read(def.css), { file: def.css })) {
+      for (const sel of r.sel) if (!starts.test(sel)) problems.push(`${def.css}:${r.line}: ${sel} doesn’t start at its root, .${def.root}`);
+    }
+    for (const sheet of sheets.filter((f) => f !== def.css)) {
+      for (const r of rules(read(sheet), { file: sheet })) {
+        for (const sel of r.sel) if (reaches(sel).some((c) => at.test(c))) problems.push(`${sheet}:${r.line}: ${sel} reaches inside .${def.root}, the ${id} component’s`);
+      }
+    }
+  }
+  assert.deepEqual(problems, []);
 });

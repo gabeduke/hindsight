@@ -84,7 +84,7 @@ jobs:
       - name: JS unit tests
         # Each directory is named, so a new one under lib/ is invisible here
         # until it is added. lib/objects/ is the object library.
-        run: node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' 'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' 'web/static/lib/tape/*.test.js' 'web/static/lib/edit/*.test.js' 'web/static/lib/bar/*.test.js' 'web/static/lib/objects/*.test.js' 'web/static/lib/play/*.test.js' 'web/static/lib/scene/*.test.js' 'web/static/lib/rooms/*.test.js' 'web/static/lib/buffer/*.test.js' 'web/static/lib/room/*.test.js' 'web/static/lib/rig/*.test.js' 'web/static/lib/shell/*.test.js' 'web/static/lib/ui/*.test.js' 'web/static/lib/models/*.test.js'
+        run: node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' 'web/static/lib/phone/*.test.js' 'web/static/lib/help/*.test.js' 'web/static/lib/tape/*.test.js' 'web/static/lib/edit/*.test.js' 'web/static/lib/bar/*.test.js' 'web/static/lib/objects/*.test.js' 'web/static/lib/play/*.test.js' 'web/static/lib/scene/*.test.js' 'web/static/lib/rooms/*.test.js' 'web/static/lib/buffer/*.test.js' 'web/static/lib/room/*.test.js' 'web/static/lib/rig/*.test.js' 'web/static/lib/shell/*.test.js' 'web/static/lib/ui/*.test.js' 'web/static/lib/models/*.test.js' 'web/static/lib/components/*.test.js'
 
       - name: Release script tests
         run: ./scripts/test-release-scripts.sh
@@ -175,6 +175,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ env.PLAYWRIGHT }}
 
+      # Each component alone, on fixtures (testdata/protocol/), at the
+      # phone's, the tablets' and the desktop's sizes, light and dark, with
+      # the flows' layout checks on its root: seconds, no demo. Its pictures
+      # go into the storyboard, under components/.
+      - name: Components
+        run: node scripts/components.mjs --storyboard=storyboard/components --json=components.json
+
       # Each scenario prints as Given/When/Then; the layout checks run on
       # every screen. No LLM: the review is its own opt-in workflow
       # (ux-review.yml).
@@ -183,7 +190,8 @@ jobs:
           CGO_ENABLED=0 go build -o /tmp/hindsight ./cmd/hindsight
           HINDSIGHT_BIN=/tmp/hindsight node scripts/flows.mjs --shots=flow-shots --json=flows.json --storyboard=storyboard
 
-      # The storyboard (storyboard/index.html: every screen, pass or fail),
+      # The storyboard (storyboard/index.html: every screen, pass or fail;
+      # storyboard/components/index.html, every component at every size),
       # and the failures' screenshots.
       - name: Keep the storyboard
         if: always()
@@ -194,4 +202,5 @@ jobs:
             storyboard/
             flow-shots/
             flows.json
+            components.json
           if-no-files-found: ignore

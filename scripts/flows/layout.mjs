@@ -58,9 +58,11 @@ const PIN = `window.__layoutPin = { pinned: ${pinned}, scrolls: ${scrolls}, unde
 
 // geometry runs in the page: the covered, offscreen, clipped and
 // small-touch checks over every visible control, and menu-offscreen over
-// every open menu.
-function geometry({ touch, MENU, PIN }) {
+// every open menu; those inside `root` (a selector) alone, when it is given.
+function geometry({ touch, MENU, PIN, root }) {
   if (!window.__layoutPin) (0, eval)(PIN);
+  const scope = root ? document.querySelector(root) : document;
+  if (!scope) return [{ rule: 'root', severity: 'fail', el: root, msg: 'the root to check is not in the page' }];
   const CONTROL = 'button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=tab], [role=slider], [tabindex]:not([tabindex="-1"])';
   const W = innerWidth, H = innerHeight;
   const name = (el) => {
@@ -79,7 +81,7 @@ function geometry({ touch, MENU, PIN }) {
   };
   const { pinned, scrolls } = window.__layoutPin;
   const out = [];
-  for (const el of document.querySelectorAll(CONTROL)) {
+  for (const el of scope.querySelectorAll(CONTROL)) {
     if (!shown(el) || el.disabled) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) continue;
@@ -125,7 +127,7 @@ function geometry({ touch, MENU, PIN }) {
   }
   // An open menu stays on the screen, all of it: unlike a control above,
   // one wholly off it counts (its rows are what a person came for).
-  for (const m of document.querySelectorAll(MENU)) {
+  for (const m of scope.querySelectorAll(MENU)) {
     if (m.closest('dialog') || !shown(m)) continue;
     const r = m.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) continue;
@@ -153,13 +155,13 @@ const allowance = (f) => ALLOW.find((a) => a.rule === f.rule &&
   (!a.el || a.el.test(f.el)) && (!a.by || (f.by && a.by.test(f.by))));
 
 // sample is one look at the page: the geometry checks and axe's.
-async function sample(page, touch) {
-  const found = await page.evaluate(geometry, { touch, MENU, PIN }).catch(() => []);
+async function sample(page, touch, root = null) {
+  const found = await page.evaluate(geometry, { touch, MENU, PIN, root }).catch(() => []);
   // axe in the page by evaluate, not a script tag, so no CSP stops it.
-  const axeFound = await page.evaluate(async ([src, pin]) => {
+  const axeFound = await page.evaluate(async ([src, pin, root]) => {
     if (!window.axe) (0, eval)(src);
     if (!window.__layoutPin) (0, eval)(pin);
-    const r = await window.axe.run(document, { runOnly: { type: 'rule', values: ['target-size'] }, resultTypes: ['violations'] });
+    const r = await window.axe.run(root ? document.querySelector(root) : document, { runOnly: { type: 'rule', values: ['target-size'] }, resultTypes: ['violations'] });
     // A control partly under an open sheet, menu or panel is meant to be,
     // as the covered check above has it: the ⋯ menu over the feed's keys.
     const layers = [...document.querySelectorAll('dialog[open], [role=menu]:not([hidden]), .menu:not([hidden]), [role=dialog]:not([hidden])')]
@@ -189,7 +191,7 @@ async function sample(page, touch) {
       msg: [(n.any[0]?.message || n.failureSummary || v.help).replace(/\s+/g, ' ').slice(0, 160),
         ...n.any.flatMap((c) => c.relatedNodes ?? []).slice(0, 3).map((x) => `near ${x.target.join(' ')}`)].join('; '),
     })).filter((f) => !(/obscured/.test(f.msg) && (underLayer(f.el) || underPinned(f.el)))));
-  }, [axe(), PIN]).catch((e) => [{ rule: 'axe', severity: 'warn', el: '', msg: `axe didn't run: ${e.message.split('\n')[0]}` }]);
+  }, [axe(), PIN, root]).catch((e) => [{ rule: 'axe', severity: 'warn', el: '', msg: `axe didn't run: ${e.message.split('\n')[0]}` }]);
   return [...found, ...axeFound];
 }
 
@@ -216,13 +218,15 @@ async function settle(page) {
 // checkLayout answers the findings on the page once it has settled, and
 // only those it finds twice, 400 ms apart: a fault of the layout stays,
 // one of a moment (something still arriving) doesn't, and a check that
-// fails a flow must not fail it by chance.
-export async function checkLayout(page, { touch }) {
+// fails a flow must not fail it by chance. With `root` (a selector), only
+// what is inside it is checked: one component, in its harness
+// (scripts/components.mjs), where the page around it is not its fault.
+export async function checkLayout(page, { touch, root = null }) {
   await settle(page);
-  const first = new Set((await sample(page, touch)).map(findingKey));
+  const first = new Set((await sample(page, touch, root)).map(findingKey));
   await page.waitForTimeout(400);
   const seen = new Set();
-  return (await sample(page, touch)).filter((f) => {
+  return (await sample(page, touch, root)).filter((f) => {
     const k = findingKey(f);
     if (seen.has(k) || (f.severity === 'fail' && !first.has(k))) return false;
     seen.add(k);

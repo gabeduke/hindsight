@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTakes, JAMS_PATH, POLL_MS, STALE_MS, PUSH_QUIET_MS } from './takes.js';
+import { createTakes, POLL_MS, STALE_MS, PUSH_QUIET_MS } from './takes.js';
+import { createProtocol } from './protocol.js';
+
+// The takes are read through the page's protocol client: the route is its.
+const JAMS_PATH = '/api/jams';
+const over = (fetch) => createProtocol({ fetch });
 
 // A Pi that answers /api/jams with `takes` under an ETag that moves when
 // they do, and a 304 when If-None-Match is the one it has; each ask is
@@ -28,7 +33,7 @@ function pi(takes = [{ name: 'jam_a.wav' }]) {
 function rig(takes) {
   const p = pi(takes);
   let t = 0;
-  const m = createTakes({ fetch: p.fetch, now: () => t });
+  const m = createTakes({ protocol: over(p.fetch), now: () => t });
   const flush = () => new Promise((r) => setImmediate(r));
   return { p, m, flush, advance: (ms) => { t += ms; } };
 }
@@ -81,7 +86,7 @@ test('a refresh in the moment between an ask ending and the queued one starting 
 test('a list\'s age is timed from the ask, so a room\'s 5 s tick asks every tick, however long the Pi took to answer', async () => {
   const p = pi();
   let t = 0;
-  const m = createTakes({ fetch: async (u, o) => { const r = await p.fetch(u, o); t += 300; return r; }, now: () => t });
+  const m = createTakes({ protocol: over(async (u, o) => { const r = await p.fetch(u, o); t += 300; return r; }), now: () => t });
   await m.get();          // asked at 0, answered at 300
   t = POLL_MS;            // the next tick
   await m.get();
@@ -163,8 +168,29 @@ test('a failed ask throws to its caller and leaves the list as it was', async ()
   const { m } = rig();
   await m.get();
   const before = m.list();
-  const bad = createTakes({ fetch: async () => ({ status: 500, ok: false }) });
+  const bad = createTakes({ protocol: over(async () => ({ status: 500, ok: false })) });
   await assert.rejects(bad.refresh(), /HTTP 500/);
   assert.equal(bad.list(), null);
   assert.equal(m.list(), before);
+});
+
+test('snapshot is the list and its version, frozen, and the same object until either moves', async () => {
+  const { p, m, advance } = rig();
+  const empty = m.snapshot();
+  assert.deepEqual(empty, { v: null, list: null }, 'nothing before the first answer');
+  assert.ok(Object.isFrozen(empty));
+  await m.get();
+  const first = m.snapshot();
+  assert.notEqual(first, empty);
+  assert.deepEqual(first, { v: '"1"', list: [{ name: 'jam_a.wav' }] });
+  assert.equal(first.list, m.list(), 'list() and etag are its old names');
+  assert.equal(first.v, m.etag);
+  advance(POLL_MS);
+  await m.get();
+  assert.equal(p.asks.at(-1), '"1"');
+  assert.equal(m.snapshot(), first, 'a 304 leaves the very same snapshot');
+  p.set([{ name: 'jam_b.wav' }]);
+  await m.refresh();
+  assert.notEqual(m.snapshot(), first);
+  assert.deepEqual(m.snapshot(), { v: '"2"', list: [{ name: 'jam_b.wav' }] });
 });

@@ -60,6 +60,11 @@ export const SETTLE_MS = 150;
  * It answers:
  *   load(id)      the tape loaded on the Pi: starts asking about it
  *   ready, id     a tape is in; its id
+ *   snapshot()    {v, id, tape, live}: the tape and its live state as last
+ *                 answered (or a press or a locate shown ahead of the
+ *                 answer), frozen, the same object until one of them moves;
+ *                 v counts the moves. What runs on between answers
+ *                 (playing(), pos()) is read on the ticker, not from here
  *   tape          the tape as last answered ({name, length, loop, grid, …}), or null
  *   live          its live state ({playing, heard, count_in, output_mode, …}), or null
  *   sampleRate, length
@@ -101,6 +106,7 @@ export function createTransport(env = {}) {
   // An answer that came after the press and agrees with it ends the hold.
   const agreed = () => { if (want && !!(live && live.playing) === want.playing) want = null; };
   let del = null;
+  let snap = null, moves = 0; // snapshot()'s
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
 
@@ -205,6 +211,10 @@ export function createTransport(env = {}) {
     get id() { return id; },
     get tape() { return t; },
     get live() { return live; },
+    snapshot() {
+      if (!snap || snap.id !== id || snap.tape !== t || snap.live !== live) snap = Object.freeze({ v: ++moves, id, tape: t, live });
+      return snap;
+    },
     get sampleRate() { return sr(); },
     get length() { return t ? t.length : 1; },
     playing,

@@ -1,0 +1,39 @@
+{
+  "tape": {
+    "version": 2,
+    "id": "tape-2",
+    "name": "Sunday night, the long one with the Stylophone",
+    "sample_rate": 48000,
+    "length": 5760000,
+    "created": "2026-10-30T09:00:00Z",
+    "rec_tracks": [2],
+    "grid": { "frames": 554112, "bars": 4 },
+    "loop": { "in": 0, "out": 1108224, "on": true },
+    "tracks": [
+      { "n": 1, "bus": "a", "gain_db": 0, "pan": 0, "clips": [] },
+      { "n": 2, "bus": "a", "gain_db": 0, "pan": 0, "clips": [] },
+      { "n": 3, "bus": "a", "gain_db": 0, "pan": 0, "clips": [] },
+      { "n": 4, "bus": "a", "gain_db": 0, "pan": 0, "clips": [] }
+    ]
+  },
+  "loaded": true,
+  "live": {
+    "playing": true,
+    "pos": 180000,
+    "out": 180000,
+    "pending": 0,
+    "heard": 180000,
+    "delivered": 180000,
+    "late": 0,
+    "output": "demo",
+    "delta": 0,
+    "aligned": "exact",
+    "cycles": [],
+    "failed": [],
+    "output_mode": "phone"
+  },
+  "undo": 3,
+  "redo": 0,
+  "sources": [],
+  "bpm": 83.16
+}
