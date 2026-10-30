@@ -1,8 +1,8 @@
-// K5 On the FX page, hold pads for Play mode's effects, with nothing in
-// undo, and turn the tape's FX on the encoders. The pads and the four mod
-// knobs (CC 21-24, the SMK-37 profile's) are built; their values on the
-// keyboard's screen are drawn by internal/surface and seen by the virtual
-// keyboard, not here. docs/flows.md#k5.
+// K5 On the FX page, hold pads for the tape's tricks and effects, with
+// nothing in undo, and turn the tape's FX on the encoders. The pads and the
+// four mod knobs (CC 21-24, the SMK-37 profile's) are built; their values on
+// the keyboard's screen are drawn by internal/surface and seen by the
+// virtual keyboard, not here. docs/flows.md#k5.
 
 const BREAK_DOWN = [0x99, 40, 100];
 const BREAK_UP = [0x89, 40, 0];
@@ -10,7 +10,7 @@ const DRIVE_TO = (v) => [0xbf, 23, v]; // encoder 3, CC 23 on channel 16: mod.dr
 
 export default {
   id: 'K5',
-  title: 'Hold the keyboard’s pads for Play mode, and turn the tape’s FX',
+  title: 'Hold the keyboard’s pads for the tape’s tricks, and turn the tape’s FX',
   profiles: ['tablet'],
   async run(t) {
     const { api } = t;
@@ -22,7 +22,7 @@ export default {
       const undoBefore = (await api.tapeStateFull()).undo;
       await t.step('hold BREAK on the keyboard', () => kb.press(BREAK_DOWN));
       const held = await api.until(async () => (await api.tapeStateLive())?.tricks?.includes('break'), 'BREAK to be held', 3000).catch(() => false);
-      t.expect('Play mode holds BREAK', !!held);
+      t.expect('the tape holds BREAK', !!held);
       await t.step('let BREAK go', () => kb.press(BREAK_UP));
       const let_ = await api.until(async () => !(await api.tapeStateLive())?.tricks?.includes('break'), 'BREAK to be let go', 3000).catch(() => false);
       t.expect('BREAK is let go', !!let_);

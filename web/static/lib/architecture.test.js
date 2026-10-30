@@ -89,12 +89,7 @@ test('Guardrail 5: Unified Media Player provides FeedSource and 3-way source sel
   );
 });
 
-test('Guardrail 6: Instrument strip mounts inside #np Media Player and Studio swimlanes have a collapse toggle', () => {
-  const stripJs = read('lib/play/strip.js');
-  assert.ok(
-    stripJs.includes('np.prepend(') || stripJs.includes('np.insertBefore('),
-    'lib/play/strip.js must mount #play-strip inside #np as part of the Media Player object',
-  );
+test('Guardrail 6: Studio swimlanes have a collapse toggle', () => {
   const tapeHtml = read('shell.html');
   assert.ok(
     tapeHtml.includes('id="tracks-fold-btn"'),

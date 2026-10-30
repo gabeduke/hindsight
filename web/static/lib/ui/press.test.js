@@ -70,7 +70,6 @@ test('the table is the values the app used before it was one table', () => {
     DOUBLE_WIDE_PX: 24,
     GRACE_MS: 600,
     LIFT_GRACE_MS: 400,
-    OUTRANK_MS: 400,
   });
   assert.ok(Object.isFrozen(GESTURE) && Object.isFrozen(GESTURE.HOLD), 'nothing changes them at run time');
 });

@@ -59,7 +59,7 @@ test('objects.css carries the materials it claims to', () => {
   // the header names should have brought its tokens with it.
   const tokens = new Set(declarations(objects).map(([t]) => t));
   for (const t of ['--reel-metal', '--oxide', '--trace', '--paper-hi', '--stripe-1',
-    '--cas-mid', '--hub', '--pack', '--vu-face', '--vu-needle', '--tape-pack', '--pad-face', '--pad-lit',
+    '--cas-mid', '--hub', '--pack', '--vu-face', '--vu-needle', '--tape-pack',
     '--lcd-ink', '--grease-mark', '--marker',
     // The Listening Room's (Rooms P5): a room is a place, not chrome.
     '--room-wall', '--room-ink', '--room-plate-hi', '--room-walnut', '--room-paper', '--room-paper-ink',

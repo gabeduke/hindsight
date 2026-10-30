@@ -121,7 +121,10 @@ firmware (`keyboard.md`). What is not built yet, and still looks it:
   ([decision 0016](../decisions/0016-measure-latency-in-use.md);
   `GET /api/latency`, the rig's line). Next, Gabe at the rig reads the
   numbers on the Pi 5, which choose step 2's buffers. Its step 7, the
-  SMK-37, is above.
+  SMK-37, is above. Since Play mode's strip went (2026-10-30) no page plays
+  the pads, so a touch is no longer timed (`page→room`, `page→phone`; a
+  controller's `midi→room` is), and no page shows the tape mods: both wait
+  for the instrument's shape (`tape.md`, *When a pad lands*).
 - **An auto-install trigger** for releases ([decision 0012](../decisions/0012-agents-install-releases.md); `backlog.md`).
 
 Leftovers, to fold in as each is touched:
@@ -129,9 +132,8 @@ Leftovers, to fold in as each is touched:
 1. **What is still on its own path** is listed, with why, by the
    ratchets: `OWN_HISTORY` and `OWN_MENUS` in `lib/architecture.test.js`,
    `TYPED` in `lib/ui/icons.test.js`. Also off the stack: the Listening
-   Room's select mode (`lib/takes.js`), the buffer's lift and Play's learn
-   mode (they claim their Escape), and a previewed Insert, Delete time or
-   Paste.
+   Room's select mode (`lib/takes.js`), the buffer's lift (it claims its
+   Escape), and a previewed Insert, Delete time or Paste.
 2. **The presses still their own machines**, with only their numbers in
    `GESTURE` (`lib/ui/press.js`; most hold, then drag, which
    `pressMachine` doesn't do yet): the Takes list's two holds, the tape's

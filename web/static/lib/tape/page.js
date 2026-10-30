@@ -356,35 +356,16 @@ async function poll(force = false) {
     // then is one asked for.
     const bare = state.tape && !state.tape.grid && state.tape.tracks.every((tr) => tr.clips.length === 0);
     const s = await api(`/api/tapes/state?${q()}${bare ? '&suggest=1' : ''}`, { timeout: POLL_TIMEOUT_MS });
-    const at = performance.now();
     link.ok('tape');
     if (g !== gen || !gate.current(mine)) return;
     if (!s.loaded) { await follow(); return; }
     apply(s);
-    // Play mode (lib/play) listens for this and takes its grid and its ring
-    // from it. This event out and `hindsight:play-transport` in are the whole
-    // coupling: it imports nothing from here, and this page knows nothing
-    // about it. `heard` is after apply(), so on this phone it is what this
-    // phone hears; `at` is when the answer arrived.
+    // The Studio's buffer (lib/buffer) reads these: the tape as the Pi has
+    // it, the armed track and its input, the sources, the ruler's snap,
+    // what the lanes show, and the playhead as it lands on the tape. It
+    // imports nothing from here, and this page knows nothing about it.
     const t = state.tape;
     document.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
-      bpm: s.bpm || 0,
-      playing: !!state.live?.playing,
-      heard: state.live ? state.live.heard : 0,
-      at,
-      rate: t.sample_rate,
-      bar_frames: t.grid ? t.grid.frames / t.grid.bars : 0,
-      bars: t.grid ? t.grid.bars : 0,
-      loop: t.loop,
-      output: state.live?.output_mode || '',
-      // Play mode's pads the Pi holds now, whoever holds them, and a
-      // mixdown's state: the strip puts its pads right against the one, and
-      // says the FX wait during the other (lib/play/held.js, fx.js).
-      tricks: state.live?.tricks || [],
-      mixdown: state.live?.mixdown?.state || '',
-      // The Studio's buffer (lib/buffer) reads these: the tape as the Pi has
-      // it, the armed track and its input, the sources, the ruler's snap,
-      // what the lanes show, and the playhead as it lands on the tape.
       tape: t,
       rec_track: state.recTrack,
       rec_tracks: state.recTracks, // several, with multi-arm: DROP takes the first
@@ -4789,8 +4770,6 @@ function wire() {
   $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('np-output').click(); });
   $('jam-only-share').addEventListener('click', () => { $('jam-only').close(); shareMix(); });
   $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('np-output').click(); });
-  // Play mode's Space (lib/play): exactly ▶, disabled when ▶ is.
-  document.addEventListener('hindsight:play-transport', () => { if (viewActive()) $('np-play').click(); });
   // The Studio's buffer (lib/buffer) changed the clipboard: the range's Paste
   // and Insert follow it now, not at the next fetch. And it dropped onto the
   // tape: show that now too.

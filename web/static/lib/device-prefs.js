@@ -11,7 +11,7 @@
 // A toggle here owns nothing: it points at the module that does. Adding one
 // is adding a line.
 
-import { on as playOn, setOn as playSetOn, latencyOn, setLatencyOn } from './play/flag.js';
+import { latencyOn, setLatencyOn } from './play/flag.js';
 import { listOn, setListOn } from './room/library.js';
 
 /**
@@ -22,15 +22,6 @@ import { listOn, setListOn } from './room/library.js';
  * functions that read and write it.
  */
 export const DEVICE_PREFS = [
-  {
-    id: 'play',
-    feature: true,
-    label: 'Play mode',
-    note: 'The instrument strip above the tape’s bar: held pads, the reel as the loop’s ring, and a MIDI controller to play them.',
-    reload: true, // lib/play/mount.js reads the flag once, when the page loads
-    get: playOn,
-    set: playSetOn,
-  },
   {
     // The Listening Room's Shelf | List switches this too, and remembers it here.
     id: 'library-list',

@@ -76,9 +76,9 @@ queued, and forgets the passes, so one tape's pass is never caught onto
 another. Panics in the render goroutine and the device callback are
 recovered and reported in the state; the dashcam keeps rolling.
 
-**When a pad lands** (`trick.go`, `landing`). Play mode's pads, from a
-page or a controller, are quantised to the line the player was playing
-to: the line nearest what they heard at the moment the press reached the
+**When a pad lands** (`trick.go`, `landing`). The tape's pads, from a
+controller or a client of `GET /api/tapes/play`, are quantised to the line
+the player was playing to: the line nearest what they heard at the moment the press reached the
 Pi, worked out from the lead (`heardAt`, the blocks rendered ahead and the
 device's latency). A hit up to half a unit after a line, and never more
 than 100 ms, goes back to it; anything later goes on to the next. A line
@@ -95,6 +95,18 @@ way down, REV jumps back twice the lateness, DOUBLE forward by it. With no outpu
 doesn't hear), or no straight play from the line to the render head, a
 press lands on the transport's own target, the next line after the
 render head.
+
+No page plays the pads now. The web's instrument strip, a drawer above the
+Studio's bar behind the per-device Play mode switch, went on 2026-10-30
+with the switch: its folded row alone was twelve controls, and the Studio
+on a tablet holds 44 (J1.16). The pads can come back in the **Pads**
+component (`docs/plan/the-ecosystem.md`, *The components*, where Pads are
+so far the cue lane's clips) once the instrument's shape is settled; the strip, its Web MIDI and its tape mods'
+knobs are in git (`web/static/lib/play/`, before that date). Until then a
+controller plays them: one in the Pi through the bus
+(`internal/api/controls.go`, its defaults held to `lib/play/controls.js`),
+or the SMK-37's FX page (`keyboard.md`). No page shows the tape mods
+either: the keyboard's encoders set them, and its screen shows them.
 
 **Latency, in use** (`latency.go`; [decision 0016](../decisions/0016-measure-latency-in-use.md)).
 Every press, set and release a hand plays is timed to the moment it is
@@ -137,10 +149,13 @@ heard, and the Pi keeps the figures, never sending them anywhere.
   (`lib/play/latency.js`).
 - *The page's clock.* The Play socket answers `{"t":"clock","c"}` with the
   Pi's time as it read the ping and as it answered; `lib/play/piclock.js`
-  takes the offset from the quickest of the last sixteen trips, and
-  `link.js` adds `touch` (the event's `timeStamp`) and `sent` to each
-  press, set and release once it has one. The stream's player says on the
-  same clock which output frame its speaker plays.
+  takes the offset from the quickest of the last sixteen trips, and a
+  client adds `touch` (the event's `timeStamp`) and `sent` to each press,
+  set and release once it has one. The stream's player says on the same
+  clock which output frame its speaker plays. No page opens the socket
+  since the strip went, so no page learns the clock and the phone's stream
+  reports its delay alone: `page→room` and `page→phone` take no new
+  figures, and `midi→room` goes on as before.
 - *Not timed yet.* A controller's transport keys (PLAY, STOP) go through
   the verb queue (`api/controls.go`, `queueVerb`) to `Verbs.Transport`,
   not the engine's inbox: they carry no stamp.
@@ -360,7 +375,7 @@ own code, and none of them touches the clipboard, which is left to a
 range's Cut, Copy and Paste, unseen (`POST /api/clipboard` still takes the
 old buffer's GRAB, which nothing in the web sends; `docs/plan/backlog.md`).
 Launching one is a
-performance, like Play mode's pads, so it stays out of the state and out of
+performance, like the tape's pads, so it stays out of the state and out of
 undo (`cuelive.go`): a launch or stop rides the transport's action queue
 with quantum `bar` (`now` for Shift), and the render goroutine keeps the
 voices, rendering each from the output frame it started at, looped, its

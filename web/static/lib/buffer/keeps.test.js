@@ -1,7 +1,7 @@
 // web/static/lib/buffer/keeps.test.js
-// The drawer's KEEP names what it keeps, and tells the instrument's pad
-// (F1 of the flow spec). The real drawer, built from shell.html's own
-// templates on a stand-in document, opened on a cue clip.
+// The drawer's KEEP names what it keeps (F1 of the flow spec). The real
+// drawer, built from shell.html's own templates on a stand-in document,
+// opened on a cue clip.
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -36,8 +36,6 @@ async function withBuffer(lane, fn) {
     sel.append(save);
     const viz = doc.createElement('div'); viz.id = 'viz-wrap';
     doc.body.append(feed, keysRow, sel, viz);
-    const heard = [];
-    doc.addEventListener('hindsight:keeps', (e) => heard.push(e.detail));
     const b = mountBuffer(doc, { feed, keysRow, ribbon: null, toast: () => {} });
     assert.ok(b, 'the drawer was built');
     // The tape page's poll: a 4-track tape at 120 BPM, nothing on it, its
@@ -55,7 +53,7 @@ async function withBuffer(lane, fn) {
     } }));
     tapeState();
     const open = (id) => doc.dispatchEvent(new CustomEvent('hindsight:cue-select', { detail: { id } }));
-    await fn({ doc, heard, tapeState, open, set: (c) => { clips = c; }, poll: async () => { tapeState(); await flush(); } });
+    await fn({ doc, tapeState, open, set: (c) => { clips = c; }, poll: async () => { tapeState(); await flush(); } });
   } finally {
     mock.timers.reset();
     Object.assign(globalThis, saved);
@@ -63,46 +61,29 @@ async function withBuffer(lane, fn) {
   }
 }
 
-test('the drawer’s KEEP says its length, and tells the pad while it is open', async () => {
-  await withBuffer([clip(4)], async ({ doc, heard, open }) => {
+test('the drawer’s KEEP says its length', async () => {
+  await withBuffer([clip(4)], async ({ doc, open }) => {
     open('c1');
     await flush();
     assert.equal(doc.getElementById('buffer-keep-len').textContent, '4 BARS');
     assert.match(doc.getElementById('buffer-keep').getAttribute('aria-label'), /^KEEP 4 BARS/);
-    assert.deepEqual(heard.at(-1), { buffer: '4 BARS' }, 'the pad is told what K keeps');
   });
 });
 
-test('with no clip open, KEEP names nothing and the pad is told so', async () => {
-  await withBuffer([clip(4)], async ({ doc, heard }) => {
+test('with no clip open, KEEP names nothing', async () => {
+  await withBuffer([clip(4)], async ({ doc }) => {
     await flush();
     assert.equal(doc.getElementById('buffer-keep-len').textContent, '');
-    assert.ok(heard.every((d) => d.buffer === ''), 'never a length');
   });
 });
 
-test('each poll says it again, for a pad that mounted after the drawer did', async () => {
-  await withBuffer([clip(4)], async ({ heard, poll, open }) => {
-    open('c1');
-    await flush();
-    const before = heard.length;
-    await poll();
-    assert.ok(heard.length > before, 'the poll announced again with nothing changed');
-    assert.deepEqual(heard.at(-1), { buffer: '4 BARS' });
-  });
-});
-
-test('a trimmed clip changes the words, and one gone from the lane lets go of the length', async () => {
-  await withBuffer([clip(4)], async ({ doc, heard, set, poll, open }) => {
+test('a trimmed clip changes the words', async () => {
+  await withBuffer([clip(4)], async ({ doc, set, poll, open }) => {
     open('c1');
     await flush();
     set([clip(2)]);
     await poll();
     assert.equal(doc.getElementById('buffer-keep-len').textContent, '2 BARS');
-    assert.deepEqual(heard.at(-1), { buffer: '2 BARS' });
-    set([]);
-    await poll();
-    assert.deepEqual(heard.at(-1), { buffer: '' });
   });
 });
 

@@ -577,23 +577,19 @@ they no longer ship in the binary.
 - [demo] Set tape speed to 50% → the tape plays an octave lower and at half
   tempo.
 
-## 8.13 The instrument strip (a preview)
+## 8.13 Playing the tape from a controller
 
-**Checks — the strip:**
+**Checks — the pads on a controller:**
 
-- [demo] Hold W with the strip unfolded → REV lights dim, then bright, and the
-  reel turns backwards; let go → it turns forwards again.
-- [demo] Hold a pad on one browser → the same pad lights on another.
-- [demo] Tap the lanes → the KEYS lamp goes out, and 2 arms track 2.
 - [rig] Plug the SMK-37 into the Pi, set *Plays the tape*, restart; hit a pad
-  → it lights on the laptop and the phone, and the tape does what it says.
-- [demo] Hold Y and slide a finger up FILTER → the top end closes, the meter
-  climbs on every screen; let go → it sweeps open over a sixteenth.
-- [demo] Hold U through a bar and let go → the echo rings on, then dies.
-- [demo] Drag DRIVE up and let go → ↶ undoes it in one step.
+  → it lights on the keyboard, and the tape does what it says.
+- [rig] Hold a pad on the SMK-37 and the same pad on a second controller,
+  let go of one → the tape still does it until both let go.
 - [rig] With the SMK-37: strike a pad softly and hard (FILTER), sweep the mod
   wheel, push the pitch wheel, turn CC 21–24, send program change 2 → each
-  does what it says, and the strip shows it.
+  does what it says.
+- [rig] Turn DRIVE on encoder 3 and leave it a second → ↶ undoes it in one
+  step.
 
 ## 8.14 Words in the two rooms
 

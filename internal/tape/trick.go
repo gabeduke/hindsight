@@ -27,7 +27,7 @@ import (
 // reaches it through an inbox that never drops a release, because a dropped
 // release is a pad stuck down with no key that lets it up.
 
-// The pads, by the names the page gives them (web/static/lib/play/keymap.js).
+// The pads, by the names the bus's list gives them (web/static/lib/play/controls.js).
 const (
 	PadTrack1  = "track1"
 	PadTrack2  = "track2"
@@ -516,7 +516,7 @@ func (e *Engine) logMoves(out uint64, m *Mix) {
 
 // queueRelease queues pad i's release on quantum's next line, and no sooner
 // than one whole line after its press: a tap shorter than a sixteenth still
-// plays a sixteenth, as the page's surface promises (lib/play/surface.js).
+// plays a sixteenth.
 func (e *Engine) queueRelease(i int, quantum string, heard int64, out uint64, m *Mix, st Stamp) {
 	p := &e.perf
 	at, _, _ := e.landing(quantum, heard, out, m) // a release has nothing to anchor
