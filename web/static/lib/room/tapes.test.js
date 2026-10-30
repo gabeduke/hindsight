@@ -41,7 +41,9 @@ test('the name’s menu: the tapes and New tape; Rename…, Duplicate; the mix a
   assert.deepEqual(groups, [
     ['[The tapes]', 'New tape'],
     ['Rename…', 'Duplicate'],
-    ['Share the mix', 'Bounce the loop', 'Bounce the whole tape', 'Export stems', 'Play the last bounce'],
+    // The markup's order; renderTapeMenu hides Share where the browser
+    // can't share files, and puts it first on a touch screen (orderExportKeys).
+    ['Download the mix', 'Share the mix…', 'Bounce the loop', 'Bounce the whole tape', 'Export stems', 'Play the last bounce'],
     ['Record from this phone…'],
     ['Delete this tape…'],
   ]);

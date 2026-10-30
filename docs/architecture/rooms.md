@@ -14,7 +14,7 @@ take or a tape (a note, a tag, a star; a part, a section, the loop).
 |---|---|---|
 | **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), a cue part's drawer, a take's selection |
 | **BOUNCE** | makes a take from a tape, by playing it through the mixer | the tape's name's menu |
-| **Share the mix** | sends a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3` | the tape's name's menu; Bounce's refusal |
+| **Download the mix** · **Share the mix…** | a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3`. Download saves it as it arrives; Share offers it on a toast (a phone shares only from a tap), Download beside it. Share only where the browser can share files, in `exportWays`' order (`lib/wave/share.js`) | the tape's name's menu; Bounce's refusal (offers it) |
 | **GRAB** | puts a part on the cue lane, with a lane per input and its handles | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
 | **DROP** | lays a cue part on a track (it stays on the lane) | a cue part's drawer, ↵, a drag; a range's Paste |
 | **CATCH** | puts the last pass on the armed track | the Studio |

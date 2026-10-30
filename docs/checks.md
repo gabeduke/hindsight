@@ -497,8 +497,9 @@ they no longer ship in the binary.
   second half is a copy of the first.
 - [demo] Tap a clip, **Reverse** in the action bar → its waveform turns round
   and it plays backwards; ↶ turns it back.
-- [demo] Double-click a clip, **Share as WAV** → the share sheet (or a download)
-  offers *<tape> track 1.wav*.
+- [demo] Double-click a clip, **Download as WAV** → the browser downloads
+  *<tape> track 1.wav*; **Share as WAV…**, where the browser can share files,
+  → the share sheet offers it.
 - [demo] Clone a tape, delete the original, then play the clone → it plays
   fully; no audio was lost.
 - [demo] Copy a selection on a take page, then Paste it on a tape → it's

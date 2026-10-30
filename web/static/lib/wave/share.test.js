@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload, gainText } from './share.js';
+import { fmtRegionText, looksLikeMP3, canShareFiles, shareOrDownload, gainText, exportWays, orderExportKeys, saveFile, exportActions } from './share.js';
 
 test('region text is tenths with an en dash, or whole take', () => {
   assert.equal(fmtRegionText({ start: 48000 * 12.34, end: 48000 * 41.87 }, 48000), '0:12.3 – 0:41.8');
@@ -144,4 +144,103 @@ test('a Level gain reads with its sign, to the tenth', () => {
   assert.equal(gainText(24), '+24.0 dB');
   assert.equal(gainText(-1), '−1.0 dB');
   assert.equal(gainText(0), '0 dB');
+});
+
+// --- Download, and Share beside it ----------------------------------------
+// A computer's share sheet has no folder: Chrome on a Mac, over the kit's
+// HTTPS address, can share files, and its sheet lists apps. An export that
+// offered only the sheet there left no way to keep the file.
+
+test('export always offers Download, and Share beside it where the browser can share', () => {
+  assert.deepEqual(exportWays({ share: false, fine: true }), ['download']);
+  assert.deepEqual(exportWays({ share: false, fine: false }), ['download']);
+  // With a mouse, Download first: a Mac's Chrome over HTTPS.
+  assert.deepEqual(exportWays({ share: true, fine: true }), ['download', 'share']);
+  // On a touch screen, the share sheet first: it is how a phone saves too.
+  assert.deepEqual(exportWays({ share: true, fine: false }), ['share', 'download']);
+});
+
+test('exportWays asks the browser: can it share files, and is its pointer a mouse', () => {
+  const mouse = [
+    stub('isSecureContext', true),
+    stub('navigator', { canShare: () => true, share: async () => {} }),
+    stub('matchMedia', (q) => ({ matches: q === '(pointer: fine)' })),
+  ];
+  try { assert.deepEqual(exportWays(), ['download', 'share']); } finally { for (const u of mouse.reverse()) u(); }
+  const touch = [
+    stub('isSecureContext', true),
+    stub('navigator', { canShare: () => true, share: async () => {} }),
+    stub('matchMedia', () => ({ matches: false })),
+  ];
+  try { assert.deepEqual(exportWays(), ['share', 'download']); } finally { for (const u of touch.reverse()) u(); }
+});
+
+// Two keys in a parent, by name, for orderExportKeys' before(); moves
+// counts the times one was moved (a move drops the keyboard's focus).
+function keys() {
+  const list = [];
+  let moves = 0;
+  const key = (name) => ({
+    name, hidden: false,
+    get nextElementSibling() { return list[list.indexOf(this) + 1] ?? null; },
+    before(other) { moves++; list.splice(list.indexOf(other), 1); list.splice(list.indexOf(this), 0, other); },
+  });
+  const download = key('download'), share = key('share');
+  list.push(share, download); // the wrong way round, to see it put right
+  return { download, share, moves: () => moves, names: () => list.filter((k) => !k.hidden).map((k) => k.name) };
+}
+
+test('orderExportKeys leaves keys already in order where they are', () => {
+  const k = keys();
+  orderExportKeys(k.download, k.share, ['download', 'share']);
+  orderExportKeys(k.download, k.share, ['download', 'share']);
+  orderExportKeys(k.download, k.share, ['download']);
+  assert.equal(k.moves(), 1);
+  orderExportKeys(k.download, k.share, ['share', 'download']);
+  orderExportKeys(k.download, k.share, ['share', 'download']);
+  assert.equal(k.moves(), 2);
+});
+
+test('orderExportKeys shows the keys in exportWays order, Share hidden where it cannot share', () => {
+  let k = keys();
+  orderExportKeys(k.download, k.share, ['download', 'share']);
+  assert.deepEqual(k.names(), ['download', 'share']);
+  k = keys();
+  orderExportKeys(k.download, k.share, ['share', 'download']);
+  assert.deepEqual(k.names(), ['share', 'download']);
+  k = keys();
+  orderExportKeys(k.download, k.share, ['download']);
+  assert.deepEqual(k.names(), ['download']);
+  assert.equal(k.share.hidden, true);
+});
+
+test('saveFile downloads a Blob as its name, or the Pi’s address as the Pi names it', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const b = browser();
+  try {
+    saveFile(new Blob(['x']), 'Song 2026-10-30.mp3');
+    saveFile('/api/tapes/clip?id=a&clip=c1');
+    assert.equal(b.doc.clicks.length, 2);
+    assert.match(b.doc.clicks[0].href, /^blob:/);
+    assert.equal(b.doc.clicks[0].download, 'Song 2026-10-30.mp3');
+    assert.deepEqual(b.doc.clicks[1], { href: '/api/tapes/clip?id=a&clip=c1', download: '' });
+  } finally { b.restore(); }
+});
+
+test('a rendered file’s toast offers Download, and Share where it can, each doing what it says', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const shared = [];
+  const b = browser({ share: async (d) => { shared.push(d.files[0].name); } });
+  try {
+    const blob = new Blob([new Uint8Array(2048)], { type: 'audio/mpeg' });
+    assert.deepEqual(exportActions(blob, 'mix.mp3', 'mix', 'audio/mpeg', ['download']).map((a) => a.label), ['Download']);
+    const [dl, sh] = exportActions(blob, 'mix.mp3', 'mix', 'audio/mpeg', ['download', 'share']);
+    assert.deepEqual([dl.label, sh.label], ['Download', 'Share']);
+    dl.run();
+    assert.equal(b.doc.clicks.length, 1);
+    assert.equal(b.doc.clicks[0].download, 'mix.mp3');
+    assert.equal(await sh.run(), 'shared');
+    assert.deepEqual(shared, ['mix.mp3']);
+    assert.equal(b.doc.clicks.length, 1);
+  } finally { b.restore(); }
 });
