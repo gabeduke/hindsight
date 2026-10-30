@@ -333,7 +333,10 @@ button.np-lcd-key { cursor: pointer; }
 /* The tape on a phone: Catch needs the jam room. */
 .np :is(#catch-pass, #catch-more).jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
 /* Its menu (page.js renderCatchMenu): menu.js's rows; why one can't go yet wraps under it. */
-.catch-menu { z-index: 60; min-width: 230px; max-width: calc(100vw - 16px); }
+.catch-menu { min-width: 230px; max-width: calc(100vw - 16px); }
+/* The bar's menus open over the phone's player pulled up (z 50), where its
+   Catch and its display are: under it, the source's couldn't be tapped. */
+:is(.catch-menu, .tempo-menu, .np-source-menu) { z-index: 60; }
 .catch-menu-head { padding: 6px 12px 8px; }
 .catch-menu > .menu-item > .menu-sub { white-space: normal; }
 .catch-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
