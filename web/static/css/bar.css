@@ -34,9 +34,8 @@
 }
 .np[hidden] { display: none; }
 .np .out-strip { min-height: 32px; font-size: 13px; }
-/* Select mode's actions take the foot of the takes page; the take page's
-   notes, full screen on a phone, have their own Play. */
-:is(body.selecting, body.notes-open) .np { display: none; }
+/* Select mode's actions take the foot of the takes page. */
+body.selecting .np { display: none; }
 .np-dock { flex: none; position: sticky; bottom: 0; z-index: 18; display: flex; flex-direction: column; }
 .np-dock[hidden] { display: none; }
 
@@ -296,9 +295,9 @@ button.np-lcd-key { cursor: pointer; }
 .np .tb-click { gap: 4px; }
 /* Open ›: its word and the chevron. */
 .np .np-open { width: 66px; flex-direction: row; gap: 2px; padding: 0 0 0 6px; white-space: nowrap; }
-/* Open's own keys at the end: In, Out and ⚑. */
-.np .tb-point, .np .tb-flag { width: auto; min-width: 52px; padding: 0 12px; font: 700 14px var(--label-font); letter-spacing: .1em; text-transform: uppercase; }
-.np .tb-flag { color: var(--flag); font-size: 18px; }
+/* Open's own keys at the end: In, Out and ✎. */
+.np .tb-point { width: auto; min-width: 52px; padding: 0 12px; font: 700 14px var(--label-font); letter-spacing: .1em; text-transform: uppercase; }
+.np .tb-note { color: var(--flag); }
 .np .tb-point.pending { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- the verb: Catch and its ▾; the feed's GRAB ---------- */
@@ -482,7 +481,6 @@ button.np-lcd-key { cursor: pointer; }
 @media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) { body:has(.np) { --dock-b: env(safe-area-inset-bottom); } }
 @media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
   body:has(.np:not([hidden])) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px)); }
-  body.wave-page.notes-open { padding-bottom: 0; }
   body.selecting:has(.np) { padding-bottom: calc(var(--dock-b, 0px) + 70px); }
   body:has(.np:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px) + 12px); }
 

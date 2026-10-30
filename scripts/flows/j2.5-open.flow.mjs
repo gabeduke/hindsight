@@ -25,8 +25,12 @@ export default {
       return { left: Math.round(r.left), right: Math.round(r.right), W: innerWidth, scrollW: document.scrollingElement.scrollWidth };
     });
     t.expect('Open › is on the screen, at the bar’s end, and the page has no sideways scroll', end.left >= 0 && end.right <= end.W && end.scrollW <= end.W, end);
+    // The page arriving keeps its View Transition, to say which way it went.
+    await page.addInitScript(() => addEventListener('pagereveal', (e) => { window.__vt = e.viewTransition; }));
     await t.step('tap Open › on the bar', () => t.tap(page.locator('#np-open')));
     await page.waitForURL(/wave\.html\?file=/, { timeout: 10_000 });
+    const way = await page.evaluate(() => (window.__vt ? [...window.__vt.types] : null));
+    t.expect('it dollies in to the take, the header and the bar holding still', Array.isArray(way) && way.includes('dolly-in'), way);
     t.expect('the take page opens for that take', page.url().includes(encodeURIComponent(name)) || page.url().includes(name), page.url());
     // Its title fills in once the take loads ("…" until then).
     t.expect('it shows the take\'s name', await t.poll(() => (document.getElementById('take-name')?.textContent ?? '…').trim() !== '…', null, 8000));
@@ -61,6 +65,20 @@ export default {
     t.expect('its header: ‹, the take’s name, its star and tag, then ↶ and ☰; no ◂ ▸, ⋯ or 🗑 of their own',
       head[0] === 'back' && head[1] === 'take-name' && head[2] === 'take-star' && head.slice(-2).join() === 'take-undo,app-menu-btn'
       && !head.some((k) => ['take-prev', 'take-next', 'menu-btn', 'take-trash'].includes(k)), head);
+    // Its page (listening-back.md, "Open, on a tablet and wider").
+    const layout = await page.evaluate(() => {
+      const r = (id) => document.getElementById(id)?.getBoundingClientRect();
+      const wave = r('wave-canvas'), dock = r('notes-drawer');
+      return {
+        docked: document.getElementById('notes-drawer')?.parentElement?.id === 'notes-dock' && dock.height > 0 && dock.left >= wave.right,
+        keys: [...document.querySelectorAll('.tb-row.verbs > .icon-btn, .tb-row.verbs > .menu-anchor > .icon-btn')].map((k) => k.id),
+        folds: ['fine-btn', 'midi-btn'].map((id) => document.getElementById(id)?.getAttribute('aria-expanded')),
+        midi: !document.getElementById('midi-btn').hidden,
+        gone: ['flag-prev', 'flags-list', 'send-btn'].filter((id) => document.getElementById(id)).concat(document.querySelector('.hints') ? ['hints'] : []),
+      };
+    });
+    t.expect('beside the waveform the notes drawer, docked; under it GRAB, KEEP and More, then Fine tune ▸ and MIDI ▸ (this take has MIDI), folded; no ◂⚑ ⚑▸, ⚑ N, Send to or hints card',
+      layout.docked && layout.keys.join() === 'take-grab,save-take,more-btn' && layout.folds.join() === 'false,false' && layout.midi && !layout.gone.length, layout);
     await t.step('tap the take’s name', () => t.tap(page.locator('#take-name')));
     const menu = await t.poll(() => {
       const m = document.getElementById('take-menu');

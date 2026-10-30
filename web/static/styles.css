@@ -1428,7 +1428,7 @@ dialog.sheet::backdrop { background: var(--scrim); }
    >=860px sets `main { display: grid; align-items: start }` unscoped. */
 .wave-main { padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 /* The page's own column: everything the phone shows. On the bench it is the
-   left column and scrolls on its own; the pane beside it does not scroll. */
+   left column and scrolls on its own, the notes drawer docked beside it. */
 .wave-col { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; }
 /* Nothing in the column shrinks: on the bench it scrolls instead. */
 .wave-col > * { flex: none; }
@@ -1445,6 +1445,11 @@ dialog.sheet::backdrop { background: var(--scrim); }
   -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
 }
 .wave-error { padding: 24px; color: var(--danger); }
+/* − Fit + over the waveform's lower right, above the grips (30 px): small
+   keys on the oxide, out of the way of a finger moving along the take. */
+.wave-wrap { position: relative; }
+.wave-zoom { position: absolute; right: 6px; bottom: 36px; display: flex; gap: 4px; }
+.wave-zoom .icon-btn { min-width: var(--tap); min-height: var(--tap); padding: 0 8px; font: 600 13px var(--font); opacity: .85; }
 
 /* The toolbar, in rows that fit a 320px phone. */
 .toolbar { display: flex; flex-direction: column; gap: 8px; }
@@ -1476,25 +1481,30 @@ dialog.sheet::backdrop { background: var(--scrim); }
 /* display: block, so the label truncates with an ellipsis rather than
    spilling: a centred flex label never truncates. */
 .tb-row.verbs .icon-btn { flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; display: block; line-height: 42px; text-align: center; }
-/* With Send to showing there are four verbs, and at phone width they
-   can't share one line without clipping. Each keeps at least its own text,
-   and the row wraps rather than shrinking it; with three they still split
-   the line evenly. More is one of them: wrapped on a line of its own it fills
-   the line like the rest, not two-thirds of it. */
+/* GRAB, KEEP and More: each keeps at least its own text, and the row wraps
+   rather than shrinking it. GRAB, the primary, takes the most room. */
 .tb-row.verbs { flex-wrap: wrap; }
 .tb-row.verbs .icon-btn { min-width: max-content; }
-/* Send to (the take page): its menu opens from the row's left, each place
-   with a line under it saying what it will do. */
-.send-menu { left: 8px; right: auto; min-width: 260px; max-width: min(360px, calc(100vw - 32px)); }
-.send-menu > button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.send-menu > button b { font-weight: 600; }
-.send-menu > button[hidden] { display: none; } /* Open makes Tape and Clipboard over as GRAB */
+.tb-row.verbs .take-grab { flex-grow: 2; }
+.tb-row.verbs .more-anchor { flex: 1 1 0; display: flex; min-width: max-content; }
 .menu-sub { font-size: 12.5px; line-height: 1.35; color: var(--ink-dim); white-space: normal; }
 /* Save as take's name, in the verbs' place: the field takes the width. */
 .tb-row.save-name { display: flex; align-items: center; gap: 8px; }
 .save-name input { flex: 1 1 auto; min-width: 0; min-height: 42px; box-sizing: border-box; padding: 0 12px; font: inherit; }
 .save-name .icon-btn { flex: none; min-height: 42px; }
-.tb-row.footer { flex-wrap: wrap; justify-content: space-between; }
+/* Fine tune ▸ and MIDI ▸ (Open): a row that folds out what is under it, its
+   chevron turning down when it is out. */
+.fold-key {
+  appearance: none; display: flex; align-items: center; gap: 6px; width: 100%;
+  min-height: 44px; padding: 0 4px; border: 0; border-top: 1px solid var(--line); background: none;
+  color: var(--ink-dim); font: 600 12px var(--label-font, var(--font)); letter-spacing: .14em; text-transform: uppercase; cursor: pointer;
+}
+.fold-key[hidden] { display: none; }
+.fold-key .i { transition: transform var(--t-release) var(--ease-out); }
+.fold-key[aria-expanded="true"] .i { transform: rotate(90deg); }
+.take-fold { display: flex; flex-direction: column; gap: 8px; }
+.take-fold[hidden] { display: none; }
+.tb-row.fine-keys { flex-wrap: wrap; }
 .speed-seg { margin-left: auto; }
 .speed-seg button { min-height: 32px; min-width: 40px; }
 .speed-seg button:disabled { opacity: .35; cursor: default; }
@@ -1586,16 +1596,8 @@ body.help-mode main { margin-bottom: calc(var(--tip-h, 0px) + 24px); }
 }
 .tip-pop b { font-size: 13px; color: var(--ink); }
 .tip-pop a { color: var(--link); font-size: 12.5px; }
-/* First-run hints: once per device per page. */
-.hints {
-  border: 1px solid var(--rule); border-radius: 12px; background: var(--panel);
-  padding: 10px 12px; font-size: 13px;
-}
-.hints b { color: var(--ink); }
-.hints ul { margin: 6px 0 8px; padding-left: 18px; color: var(--ink-dim); }
-.hints li { margin: 3px 0; }
-.hints-actions { display: flex; align-items: center; justify-content: space-between; }
-.hints-actions a { color: var(--link); font-size: 13px; }
+/* Help mode on a page with HINTS (help.js): what matters most there. */
+.tip-pop-hints { margin: 4px 0; padding-left: 18px; color: var(--ink-dim); }
 
 /* ---------- the guide page ---------- */
 /* guide.html alone: docs/guide.md rendered by lib/help/markdown.js and cut
@@ -1867,12 +1869,11 @@ body.help-mode main { margin-bottom: calc(var(--tip-h, 0px) + 24px); }
   color: var(--ink); font: 600 12px var(--font); padding: 6px 12px; min-height: 32px; cursor: pointer;
 }
 .lane-show-all { font-size: 12px; align-self: flex-start; padding: 4px 2px; }
-/* The phone's notes view keeps a strip of the waveform on top. */
-.notes-strip { display: none; width: 100%; height: 28px; background: var(--well); flex: none; }
-
 /* ---------- rising notes ---------- */
+/* The piano roll, under MIDI ▸ with the lanes. */
+.notes-pane[hidden] { display: none; }
 .notes-pane {
-  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 320px;
   border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); overflow: hidden;
 }
 .notes-chips {
@@ -1890,63 +1891,38 @@ body.help-mode main { margin-bottom: calc(var(--tip-h, 0px) + 24px); }
 .chip[aria-pressed="true"] { color: var(--ink-faint); }
 .chip[aria-pressed="true"] .chip-swatch { background: transparent !important; box-shadow: inset 0 0 0 1px var(--ink-faint); }
 .chip:disabled { opacity: .45; cursor: default; }
-.notes-bar { color: var(--ink-dim); font-size: 12px; min-width: 3.5em; text-align: right; }
 .notes-canvas { display: block; width: 100%; flex: 1; min-height: 0; touch-action: manipulation; }
-/* The chips row's phone-only controls (bar.beat and Play) exist because the
-   fullscreen pane covers the page's own action row. */
-.phone-only { display: none; }
+/* On a phone the take's notes are under its keys (lib/room/open.js); wider,
+   the drawer is docked beside the waveform and the dock is the grid's
+   second column. */
+.notes-here { display: flex; flex-direction: column; gap: 8px; }
+.notes-dock { display: none; }
 
-/* Below the bench the pane is a phone thing: gone until opened, then over
-   everything under the top bar. history.pushState makes the back gesture
-   close it (page.js). */
-@media (max-width: 859.98px) {
-  .notes-pane:not([hidden]) { display: none; }
-  /* Open: the body becomes a viewport-high column, the page's own column
-     is hidden, and the pane takes what is left under the top bar. Sized by
-     flex rather than by --topbar-h, because this page's bar is taller than
-     the variable (two-line title, Notes button). */
-  body.notes-open { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-  /* margin: 0 and width: 100% because main's `margin: 0 auto` would otherwise
-     shrink it to its content inside the flex-column body. */
-  body.notes-open .wave-main { flex: 1; min-height: 0; padding: 0; display: flex; margin: 0; width: 100%; box-sizing: border-box; }
-  body.notes-open .wave-col { display: none; }
-  body.notes-open .notes-pane:not([hidden]) {
-    display: flex; flex: 1; min-height: 0;
-    border: none; border-radius: 0;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  body.notes-open .phone-only { display: inline-flex; }
-  body.notes-open .notes-strip { display: block; }
-  body.notes-open .notes-bar { display: inline; }
-}
-
-
-/* The bench: 860px and up (the 1024x600 tablet in landscape). With a pane,
-   the page is a viewport-high two-column grid, left column scrolling on its
-   own. Without one (a take with no MIDI) the phone layout simply widens,
-   as before. grid-template-columns and max-width are set explicitly
-   because the takes page's >=860px rule sets both on a bare `main`. */
+/* The bench: 860px and up (the 1024x600 tablet in landscape). The page is a
+   viewport-high grid from its first paint: the take's column, scrolling on
+   its own, and the notes drawer docked beside it. grid-template-columns and
+   max-width are set explicitly because the takes page's >=860px rule sets
+   both on a bare `main`. */
 @media (min-width: 860px) {
-  .wave-canvas { height: 55vh; }
   /* Viewport-high body, the grid takes what is under the top bar. Not
      calc(100dvh - var(--topbar-h)): this page's bar is taller than the
-     variable, and the 16px difference clipped the keyboard. */
-  body.wave-page:has(.notes-pane:not([hidden])) { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+     variable. */
+  body.wave-page { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
   /* margin: 0 and width: 100% because main's `margin: 0 auto` would otherwise
      shrink it to its content inside the flex-column body. */
-  .wave-main:has(.notes-pane:not([hidden])) {
-    display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 14px;
+  .wave-main {
+    display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px;
     align-items: stretch; max-width: none;
     flex: 1; min-height: 0; box-sizing: border-box; margin: 0; width: 100%;
   }
-  .wave-main:has(.notes-pane:not([hidden])) .wave-col { overflow-y: auto; min-height: 0; }
-  .wave-main:has(.notes-pane:not([hidden])) .wave-canvas { height: 34vh; min-height: 200px; }
+  .wave-col { overflow-y: auto; min-height: 0; }
+  .wave-canvas { height: 42vh; min-height: 200px; }
   /* The waveform takes the width; its keys keep a hand's span. */
   .wave-main .toolbar { max-width: 820px; }
-  .wave-main:has(.notes-pane:not([hidden])) .lanes { max-height: none; overflow-y: visible; }
-  /* The take menu's MIDI row: the pane is beside the waveform here. A menu
-     row's display (.menu > .menu-item) is outranked, not tied. */
-  .menu > .menu-item.notes-btn { display: none; }
+  .notes-here { display: none; }
+  /* A block, not a flex box: a flex item's z-index counts even unpositioned,
+     and the drawer's (a sheet's, over the page) would lift it over ☰'s menu. */
+  .notes-dock { display: block; min-height: 0; }
 }
 
 /* ---------- the tape page ---------- */
@@ -2518,7 +2494,6 @@ body > main.view[hidden][data-view],
 body:not(.tape-page) #out-banner,
 body:not(.tape-page) #chan-diag,
 body:not(.shelf-page) #select-bar { display: none; }
-.step-group { display: inline-flex; gap: 4px; }
 
 /* A menu opens under its own button, scrolls when it's long, and a title's
    menu opens from its left. */
@@ -2901,12 +2876,6 @@ body.selecting.shelf-page .take.spine .take-check { top: 13px; right: 12px; }
 .detail-flags { display: flex; gap: 8px; flex-wrap: wrap; }
 .detail-flag { appearance: none; border: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 4px; background: var(--mask); color: var(--marker); font: 13px var(--font); }
 .detail-flag > span:first-child { color: var(--flag); }
-/* The take page's flags sheet: the pane's chips, one to a line, to play from. */
-.flags-items { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: min(60vh, calc(100dvh - 170px)); overflow-y: auto; }
-.flags-item { width: 100%; min-height: var(--tap); justify-content: flex-start; font-size: 14px; }
-.flags-item .flag-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.flags-item .flag-at { font-family: var(--mono); }
-.sheet-inner p.flags-none { font-family: var(--font); word-break: normal; }
 .detail-flag .flag-at { font-family: var(--mono); color: var(--ink-dim); }
 /* A family in the pane (lib/shelf-detail.js renderFamily): the ‹ key back to
    the spine a take is folded into, where it came from, and on the spine the
@@ -4323,18 +4292,7 @@ body:not(.room-rack) .shelf-title,
    words laid over it. */
 .room-open { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 12px; }
 .room-open-h { margin: 0; font: 600 12px var(--label-font, var(--font)); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
-.room-open-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.room-open-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.room-open-note-row { display: flex; align-items: center; gap: 8px; min-height: 44px; }
-.room-open-n { flex: none; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--flag); color: #1c2430; font: 700 12px var(--font); }
 .room-open-at { flex: none; min-width: 38px; font: 500 13px var(--mono); color: var(--ink-dim); }
-.room-open-words { flex: 1 1 0; min-width: 0; height: 40px; padding: 0 8px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); font: 500 15px var(--font); }
-.room-open-words::placeholder { color: var(--ink-faint); }
-.room-open-words:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-.room-open-note-row .icon-btn { flex: none; min-width: 44px; min-height: 44px; padding: 0 8px; }
-.room-open-note-row .room-open-grab-note { font-size: 12px; }
-.room-open-none { margin: 0; color: var(--ink-dim); font-size: 14px; }
-.room-open-none[hidden] { display: none; }
 .room-open-family { display: flex; flex-direction: column; gap: 10px; }
 .room-open-family:empty { display: none; }
 .room-open-fam { display: flex; flex-direction: column; gap: 4px; }
@@ -4345,12 +4303,7 @@ body:not(.room-rack) .shelf-title,
 .room-open-fam-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-open-tag { min-height: 32px; padding: 0 10px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
 .room-open-tag.on { border: 0; background: var(--stripe); color: var(--stripe-ink); }
-.room-open-note { color: var(--flag); }
-.room-open-note-btn { min-height: 40px; color: var(--ink); }
 dialog.room-open-pick .room-open-pick-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
-@media (min-width: 860px) {
-  .room-open-note-row .room-open-words { font-size: 14px; }
-}
 
 /* ---------- Rooms P6: the rig (rig.html, lib/rig/) ---------- */
 /* The kit drawn as gear on a desk, with the cables that are its settings.

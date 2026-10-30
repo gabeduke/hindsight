@@ -94,6 +94,9 @@ export class GestureSurface {
       this.lastTap = null;
       return;
     }
+    // A finger, or a pen, takes a bigger target than a mouse (the take
+    // page's pins and grips).
+    this.coarse = e.pointerType === 'touch' || e.pointerType === 'pen';
     const h = this.hit(p.x, p.y);
     // Every one-finger gesture carries the pointer that owns it, so a palm or
     // a stray second pointer can neither finalize nor cancel it.

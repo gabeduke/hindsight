@@ -91,3 +91,19 @@
 :root[data-turn="fade"]::view-transition-group(appbar),
 :root[data-turn="fade"]::view-transition-group(np),
 :root[data-turn="fade"]::view-transition-group(tab-lit) { animation-duration: var(--t-room); }
+
+/* The dolly (lib/ui/dolly.js): opening a take moves in to it, ‹ Takes
+   moves back out. The page you leave grows past you and fades as the take's
+   page comes up from a little further off, and the reverse going back; the
+   header and the bar hold still, crossfading what changes on them. Without
+   the opt-in (less motion) there is no transition at all. */
+:root:is(:active-view-transition-type(dolly-in), :active-view-transition-type(dolly-out)) .appbar { view-transition-name: appbar; }
+:root:is(:active-view-transition-type(dolly-in), :active-view-transition-type(dolly-out)) #np { view-transition-name: np; }
+:root:active-view-transition-type(dolly-in)::view-transition-old(root) { animation: dolly-past var(--t-room) var(--ease-out) both; }
+:root:active-view-transition-type(dolly-in)::view-transition-new(root) { animation: dolly-near var(--t-room) var(--ease-out) both; }
+:root:active-view-transition-type(dolly-out)::view-transition-old(root) { animation: dolly-away var(--t-room) var(--ease-out) both; }
+:root:active-view-transition-type(dolly-out)::view-transition-new(root) { animation: dolly-back var(--t-room) var(--ease-out) both; }
+@keyframes dolly-past { to { transform: scale(1.12); opacity: 0; } }
+@keyframes dolly-near { from { transform: scale(.94); opacity: 0; } }
+@keyframes dolly-away { to { transform: scale(.94); opacity: 0; } }
+@keyframes dolly-back { from { transform: scale(1.12); opacity: 0; } }

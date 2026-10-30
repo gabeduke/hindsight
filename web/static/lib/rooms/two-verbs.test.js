@@ -55,7 +55,7 @@ test('the ribbon names the selection’s KEEP when it is told to, and only then'
   assert.doesNotMatch(read('../../app.js'), /keepWords/, 'Capture does not');
 });
 
-test('a take’s GRAB: Open, the notes, and the take page’s Send to (the sheet that carried one is gone, F5a)', () => {
+test('a take’s GRAB: Open, the notes, and no Send to (the sheet that carried one is gone, F5a)', () => {
   const doorway = read('../room/doorway.js');
   const chair = read('../room/open.js');
   assert.match(chair, /rooms\/grab\.js/, 'Open gets its span and its N from lib/rooms/grab.js');
@@ -63,6 +63,6 @@ test('a take’s GRAB: Open, the notes, and the take page’s Send to (the sheet
   // The shelf has no GRAB key of its own: a tap plays, and GRAB is on Open.
   assert.doesNotMatch(doorway, /'room-studio'|sendToStudio|takeGrabSpan/, 'the doorway no longer carries a take’s GRAB');
   assert.doesNotMatch(chair, /'to the studio'/, 'a note’s key says GRAB');
-  assert.match(chair, /send-btn/, 'the take page’s Send to ▾ is taken out of sight by Open (F8): GRAB is its Tape and its Clipboard');
+  assert.doesNotMatch(read('../../wave.html'), /send-btn|send-menu/, 'the take page has no Send to ▾: GRAB is its Tape and its Clipboard');
   assert.doesNotMatch(chair, /send-grab/, 'and has no GRAB of its own');
 });
