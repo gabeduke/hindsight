@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.10.31.1 — 2026-10-31
+
+- The AKS mini's notes say why its keys can be silent (794856eb)
+- The rig names a Zoom AMS-24 and a Behringer AKS mini (69267b35)
+- Docs only: STATE.md's queue drops what merged on 2026-10-30, and notes the tempo PR held, the flows' phone-width blind spot and a flaky Go test (a5692762)
+- Docs only: STATE.md's queue for the component migration, one component per session (43f15d05)
+
+
 ## v2026.10.30.8 — 2026-10-30
 
 - Nothing changes on screen: a part's menus close inside its room's, and the components' guardrail reads more of what it forbids (db3df84d)
