@@ -5,6 +5,18 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.01.2 — 2026-11-01
+
+- J1.20 reuses a take on the shelf instead of keeping one, and STATE.md says why (7040f9df)
+- The guide's tempo tip says what tips.js says (414fb11a)
+- The tempo's help tip stays as short as it was (09f03561)
+- Setting the tempo works on a phone: J1.20 pulls the player up first (dc282062)
+- Record the tempo decision: a new tempo moves the bar lines, not the audio; J1.17 is a core flow (ca177e3e)
+- Review fixes: a field in a menu panel keeps its arrows; a tempo and bars together are refused; a refused tempo puts the field back (630d996a)
+- Name the tap tempo's reset for what it is: a beat at 20 BPM; the guide says the tempo's menu sets it (741452ef)
+- Set the tempo any time: a new BPM moves the bar lines and leaves the audio (prototype) (49b2ee29)
+
+
 ## v2026.11.01.1 — 2026-11-01
 
 - Note in STATE.md that a press waits while nothing plays the tape, and that J5.1 fails on the phone in its setup (62e389f1)
