@@ -16,7 +16,9 @@ export default {
   async run(t) {
     const { page, api } = t;
     const tape = await t.given('a fresh tape at 96 BPM', () => api.tape('Tempo', 96, 4));
-    const take = await t.given('a take on the shelf', () => api.keep(20));
+    // A take already on the shelf (a long one), else one kept: every kept take
+    // stays in the run's library, and the List's flows read how long it is.
+    const take = await t.given('a take on the shelf', async () => (await api.takes()).find((x) => x.duration_seconds >= 12 && x.has_peaks) || api.keep(20));
     const st = await api.tapeState();
     const bar = st.grid.frames / st.grid.bars;
     const dropped = await t.given('4 bars of it on track 1', () => api.post(`/api/tapes/drop?id=${encodeURIComponent(tape.id)}`,
