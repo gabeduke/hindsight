@@ -30,6 +30,19 @@ and still looks it:
 
 ## Known bugs
 
+- **A press waits while nothing plays the tape.** With the interface off,
+  only a listening phone pulls the tape along (`Output.paceStep`). Once
+  the last phone leaves, a stop, a locate or the 6 s drop-pause's own
+  stop is queued for an output frame that never comes (`renderLoop` →
+  `drain`); it lands only when the next phone joins, and that phone first
+  hears what was rendered ahead. Seen on the rig on 2026-10-23. Gabe
+  asked for it to be listed, not fixed yet.
+- **J5.1 on the phone throws in its setup on a Mac** (seen 2026-11-01,
+  also without the `checkLayout` change): `api.copies` in
+  `scripts/flows/harness.mjs` hits `EEXIST` linking the kept take to a
+  copy's name (`jam_<date>_<time>.mid`), with a dozen takes dated whole
+  hours back. The kept take is named by one clock and the copies by
+  another; look at the zone before blaming the flow's dates.
 - **The first turn to the Listening Room freezes the Studio** about
   0.6–0.9 s at 4× CPU in headless Chromium (later turns 0.25–0.5 s),
   measured before the shelf wall replaced the stage. Re-measure, on the
@@ -105,16 +118,6 @@ and still looks it:
      - setting the tempo at any time (#223): held, since its flow
        (J1.20) has no phone path and fails there, where the tempo is in
        the player pulled up; the PR says what is needed;
-     - the flows' phone profile can't see a page wider than the phone:
-       with `isMobile` an overflowing page zooms out, so `checkLayout`'s
-       offscreen misses it; check `clientWidth` too (found by the
-       harness, #238);
-     - a flaky Go test: `TestTheTakesRevisionMovesTheMomentAWriteChangesTheList`
-       (`internal/api/takes_rev_test.go`, from #225) failed in CI on
-       main's code with "no message within 300ms: i/o timeout" (run
-       41103214833, a docs-only PR). It looks like a race between the
-       socket subscribing and the write: wait for the socket's first
-       message before the write, and don't widen the 300 ms.
   1. **Transport** (the bar): `components.md` §6, row 1. It amends
      AGENTS.md and decision 0047 (call 1).
   2. **Library: the List.**
