@@ -139,10 +139,10 @@ and still looks it:
   `architecture/tape.md`, *When a pad lands*).
 - **Calls taken for Gabe on 2026-10-30, his to overrule:**
   - `tempo.md`'s recommendations: move the bar lines now, varispeed later;
-  - the phone's cue drawer docks above the mini player;
-  - ▶ in the Studio, with nothing playing, plays the tape;
-  - Export always offers Download;
-  - Open's selection bar as #220 recommends.
+  - the phone's cue drawer docks above the mini player (0063);
+  - ▶ in the Studio, with nothing playing, plays the tape (0064);
+  - Export always offers Download (0065);
+  - Open's selection bar as #220 recommends (0066).
 - **`the-ecosystem.md` is the map.** Landed so far:
   - step 2, one verb set (#224);
   - step 4's first models: takes (#225), the tape's transport (#231).
