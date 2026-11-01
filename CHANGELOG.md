@@ -5,6 +5,15 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.01.3 — 2026-11-01
+
+- A refused ▶ that answers late leaves the press made after it showing (9d0ca9e0)
+- STATE.md: the Transport is four PRs, its model done; the phone-width bug closed by #243 (04c13f5f)
+- J1.13 checks the bar's shape on a phone too, against the screen's width (61fa5419)
+- A ▶ or ■ the Pi refuses shows the tape's real state at once, not a second later (218ba196)
+- ▶ ■, where the tape plays, the tempo and a free loop's tap go through one transport on every page (a31342c2)
+
+
 ## v2026.11.01.2 — 2026-11-01
 
 - J1.20 reuses a take on the shelf instead of keeping one, and STATE.md says why (7040f9df)
