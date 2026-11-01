@@ -181,6 +181,15 @@ test('its verbs go to the Pi, answer what it said, ask again shortly after, and 
   await assert.rejects(r.m.play(), (e) => e instanceof Refusal && e.message === 'no output' && e.status === 409);
   assert.equal(r.m.snapshot().pending, null, 'a refused ▶ is no longer pending');
   assert.equal(r.m.playing(), false, 'and the Pi\'s ■ shows at once');
+  // A late refusal leaves a later press be.
+  let no;
+  r.send = () => new Promise((res) => { no = () => res({ ok: false, status: 409, json: async () => ({ error: 'no output' }) }); });
+  const first = r.m.play();
+  r.send = async () => ({ ok: true, json: async () => ({}) });
+  r.m.stop();
+  no();
+  await assert.rejects(first);
+  assert.equal(r.m.snapshot().pending, false, 'the ■ pressed after it is still pending');
   r.send = async () => ({ ok: false, status: 409, json: async () => ({ error: 'armed', reason: 'recording' }) });
   await assert.rejects(r.m.setTempo(120), (e) => e.recording && e.code === 'recording' && !!e.detail);
   r.send = async () => { throw new Error('Failed to fetch'); };
