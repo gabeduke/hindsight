@@ -122,6 +122,8 @@ export function createTransport(env = {}) {
   let del = null;
   let snap = null, moves = 0; // snapshot()'s
   const pendingNow = () => (want && now() < want.until ? want.playing : null);
+  // A ▶ or ■ the Pi refused is no longer pending: the Pi's state shows at once.
+  const refused = (e) => { want = null; fire(); throw e; };
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
 
@@ -253,12 +255,12 @@ export function createTransport(env = {}) {
     play() {
       want = { playing: true, until: now() + HOLD_MS };
       fire();
-      return send('play');
+      return send('play').catch(refused);
     },
     stop() {
       want = { playing: false, until: now() + HOLD_MS };
       fire();
-      return send('stop');
+      return send('stop').catch(refused);
     },
     locate(frame) {
       if (!t) return Promise.resolve(null);
