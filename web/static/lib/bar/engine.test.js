@@ -53,7 +53,7 @@ test('a tape made after the engine was (a Pi'+"'"+'s first) is mounted by setTap
   assert.equal(engine.tape, null);
   engine.setTapes({ loaded: 't1' });
   assert.equal(engine.tape.kind, 'tape');
-  assert.equal(engine.transport.id, 't1', 'and the transport asks about it');
+  assert.equal(engine.transport.snapshot().id, 't1', 'and the transport asks about it');
   const held = engine.tape;
   engine.setTapes({ loaded: 't1' });
   assert.equal(engine.tape, held, 'asking again keeps the tape it has');
@@ -322,10 +322,10 @@ test('loadTakeByName loads and plays a take from the Pi without a TakesList', as
 });
 
 // Step 5a: the Studio feeds the page's transport (engine.transport) with
-// ingest, the bar's tape source with setLevels, and lends the transport ▶/■,
-// Loop and |◂ through its own transport() so stopping while recording toasts
-// the kept take.
-test('■ in the Studio while recording goes through the delegated transport() and toasts the kept take', async () => {
+// ingest, the bar's tape source with setLevels, and lends the transport its
+// hands (around), which every verb is sent inside, the bar's ▶/■, Loop and
+// |◂ among them, so stopping while recording toasts the kept take.
+test('■ in the Studio while recording is sent inside the Studio\'s hands, which toast the kept take', async () => {
   const { engine, $, click, frames, w } = await open();
   const tape = engine.tape;
   const transport = engine.transport;
@@ -335,13 +335,12 @@ test('■ in the Studio while recording goes through the delegated transport() a
 
   const calls = [];
   transport.delegate({
-    play: () => calls.push(['play']),
-    stop: () => {
-      calls.push(['stop']);
-      w.toasts.push('Kept 4 bars from aux on track 1');
+    around: (name, args) => {
+      calls.push(name === 'locate' ? ['locate', args.pos] : name === 'setLoop' ? ['loop', args.on] : [name]);
+      if (name === 'stop') w.toasts.push('Kept 4 bars from aux on track 1');
+      return Promise.resolve({});
     },
-    locate: (pos) => calls.push(['locate', pos]),
-    setLoop: (on) => calls.push(['loop', on]),
+    poll: () => {},
   });
   tape.setLevels(['#e05a47', '#d89b2b'], () => [-12, -18]);
 
@@ -365,7 +364,7 @@ test('■ in the Studio while recording goes through the delegated transport() a
   assert.equal($('position').textContent, '2.1');
   assert.equal($('np-levels').children.length, 2, 'per-track reel level bars are drawn');
 
-  // Pressing ■ in the Studio calls the delegate's stop(), which toasts the kept take.
+  // Pressing ■ in the Studio is sent inside the Studio's hands, which toast the kept take.
   click($('np-play'));
   assert.deepEqual(calls, [['stop']]);
   assert.ok(w.toasts.includes('Kept 4 bars from aux on track 1'));

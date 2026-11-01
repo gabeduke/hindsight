@@ -24,8 +24,8 @@ const clone = (v) => (v == null ? v : structuredClone(v));
  *
  * It answers protocol.js's read(noun, {v}) and nouns, and:
  *   verb(noun, name, body)  records {noun, name, body} in calls, then
- *                 answers or throws its Refusal: the methods the real
- *                 client gains as each model's verbs move onto it
+ *                 answers or throws its Refusal, as protocol.js's verb
+ *                 does (the tape's id it is sent for is not recorded)
  *   watch({onNudge, onPress, onTakes})
  *                 the changes socket, as lib/tape/changes.js's
  *                 watchChanges is: answers {close()}
@@ -79,34 +79,6 @@ export function fixture(snapshots = {}, { refuse = {}, answers = {} } = {}) {
   });
 }
 
-// What a fixture answers the transport, as the Pi's /api/tapes/state would
-// be: until the transport's model is on the protocol client (the spec's
-// models step), it is made over the fetch, send and socket its tests stand
-// in for. Its one read is the tape's state, its commands are ▶ ■, a locate
-// and the loop, and asking which tape is loaded answers the fixture's.
-function transportEnv(fx) {
-  const answer = (ok, body, status = ok ? 200 : 409) => ({ ok, status, json: async () => body });
-  return {
-    fetch: async () => {
-      const r = await fx.read('tape');
-      return answer(r.ok, r.body, r.status);
-    },
-    send: async (_url, o = {}) => {
-      if (!o.method) return answer(true, { loaded: fx.peek('tape')?.tape?.id ?? null });
-      const body = JSON.parse(o.body || '{}');
-      const [noun, name, args] = body.action ? ['transport', body.action, body.pos == null ? {} : { pos: body.pos }]
-        : body.loop ? ['tape', 'setLoop', body.loop]
-          : ['tape', 'patch', body];
-      try {
-        return answer(true, await fx.verb(noun, name, args));
-      } catch (e) {
-        return answer(false, { error: e.message, reason: e.reason || undefined }, e.status || 409);
-      }
-    },
-    watch: (h) => fx.watch(h),
-  };
-}
-
 /** MAKERS make each model a component may need over a fixture, and set it going. */
 const MAKERS = {
   takes(fx) {
@@ -115,16 +87,16 @@ const MAKERS = {
     // A fixture with no takes is a mistake in the check: ready says so.
     return { model: takes, ready: takes.refresh(), stop: () => sock.close() };
   },
-  transport(fx, { onError = null } = {}) {
+  transport(fx) {
     const state = fx.peek('tape');
     // The transport follows the Pi to whichever tape is loaded: a fixture
     // of one that isn't would have it ask for ever.
     if (state && !state.loaded) throw new TypeError('a tape fixture for the transport is the loaded tape’s: loaded: true');
-    const transport = createTransport({ ...transportEnv(fx), onError });
+    const transport = createTransport({ protocol: fx });
     const id = state?.tape?.id;
     if (!id) return { model: transport, ready: Promise.resolve(), stop: () => transport.destroy() };
     const ready = new Promise((resolve) => {
-      const off = transport.onChange(() => { if (transport.tape) { off(); resolve(); } });
+      const off = transport.onChange(() => { if (transport.snapshot().tape) { off(); resolve(); } });
     });
     transport.load(id);
     transport.setActive(true);
@@ -138,14 +110,14 @@ export const MODELS = Object.freeze(Object.keys(MAKERS));
 /**
  * fixtureModels makes the models named in `needs` over the fixture `fx`:
  * {models, ready, stop()}. ready is a promise of each model holding the
- * fixture's first answer; stop() ends their polls and sockets. opts.onError
- * hears what the transport's refused presses say, as the bar's toast does.
+ * fixture's first answer; stop() ends their polls and sockets. A refused
+ * verb throws its Refusal to whoever pressed, as on the page.
  */
-export function fixtureModels(fx, needs, opts = {}) {
+export function fixtureModels(fx, needs) {
   const made = needs.map((noun) => {
     const make = MAKERS[noun];
     if (!make) throw new TypeError(`no fixture model for ${noun}: one of ${MODELS.join(', ')}`);
-    return [noun, make(fx, opts)];
+    return [noun, make(fx)];
   });
   return {
     models: Object.freeze(Object.fromEntries(made.map(([noun, m]) => [noun, m.model]))),

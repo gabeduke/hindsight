@@ -4,6 +4,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { outName, outDelay, switchOutput } from './out-switch.js';
+import { Refusal } from '../models/protocol.js';
 
 let store, puts;
 beforeEach(() => {
@@ -16,14 +17,17 @@ beforeEach(() => {
   puts = [];
 });
 
-// fetch answers each PUT with ok, or with the error in `fail` for that mode.
-function fakeFetch(fail = {}, log = []) {
-  globalThis.fetch = async (url, init) => {
-    const { mode } = JSON.parse(init.body);
-    log.push(`put ${mode}`);
-    puts.push(mode);
-    if (fail[mode]) return { ok: false, status: 409, json: async () => ({ error: fail[mode] }) };
-    return { ok: true, status: 200, json: async () => ({}) };
+// transport is the page's (lib/models/transport.js): its setOutput answers
+// ok, or throws the Refusal in `fail` for that mode.
+let transport;
+function fakeTransport(fail = {}, log = []) {
+  transport = {
+    async setOutput(mode) {
+      log.push(`put ${mode}`);
+      puts.push(mode);
+      if (fail[mode]) throw new Refusal({ status: 409, message: fail[mode] });
+      return {};
+    },
   };
 }
 
@@ -50,9 +54,9 @@ test('names and delays read as the sheet says them', () => {
 
 test('choosing a phone starts the sound before the Pi is asked, and remembers the listener', async () => {
   const log = [];
-  fakeFetch({}, log);
+  fakeTransport({}, log);
   const player = fakePlayer({ log });
-  const ok = await switchOutput('phone', { player, toast: () => assert.fail('no toast') });
+  const ok = await switchOutput('phone', { player, transport, toast: () => assert.fail('no toast') });
   assert.equal(ok, true);
   assert.deepEqual(log, ['start', 'put phone']);
   assert.equal(localStorage.getItem('tape.listener'), '1');
@@ -60,10 +64,10 @@ test('choosing a phone starts the sound before the Pi is asked, and remembers th
 
 test('a phone that never starts puts the tape back in the jam room', async () => {
   const log = [];
-  fakeFetch({}, log);
+  fakeTransport({}, log);
   const player = fakePlayer({ startFails: true, log });
   const toasts = [];
-  const ok = await switchOutput('phone', { player, toast: (m, k) => toasts.push([m, k]) });
+  const ok = await switchOutput('phone', { player, transport, toast: (m, k) => toasts.push([m, k]) });
   assert.equal(ok, false);
   assert.deepEqual(puts, ['phone', 'jam']);
   assert.ok(log.includes('stop'));
@@ -71,10 +75,10 @@ test('a phone that never starts puts the tape back in the jam room', async () =>
 });
 
 test('a refused switch says why and stops what it started', async () => {
-  fakeFetch({ both: 'the tape is mixing down' });
+  fakeTransport({ both: 'the tape is mixing down' });
   const player = fakePlayer();
   const toasts = [];
-  const ok = await switchOutput('both', { player, toast: (m, k) => toasts.push([m, k]) });
+  const ok = await switchOutput('both', { player, transport, toast: (m, k) => toasts.push([m, k]) });
   assert.equal(ok, false);
   assert.equal(player.active, false);
   assert.deepEqual(puts, ['both']);
@@ -82,11 +86,11 @@ test('a refused switch says why and stops what it started', async () => {
 });
 
 test('back to the jam room stops the sound here and forgets the listener', async () => {
-  fakeFetch();
+  fakeTransport();
   localStorage.setItem('tape.listener', '1');
   const player = fakePlayer();
   player.active = true;
-  const ok = await switchOutput('jam', { player, toast: () => assert.fail('no toast') });
+  const ok = await switchOutput('jam', { player, transport, toast: () => assert.fail('no toast') });
   assert.equal(ok, true);
   assert.equal(player.active, false);
   assert.equal(localStorage.getItem('tape.listener'), null);

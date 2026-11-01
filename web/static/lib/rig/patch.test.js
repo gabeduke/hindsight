@@ -27,7 +27,7 @@ test('track → bus moves it, at once and undoably; its own bus is nothing', () 
 });
 
 test('OUT → a phone plays it there as well', () => {
-  assert.deepEqual(writeFor(g, 'phones.in', 'kit.out'), { method: 'PUT', url: '/api/tapes/output', body: { mode: 'both' } });
+  assert.deepEqual(writeFor(g, 'phones.in', 'kit.out'), { verb: ['transport', 'setOutput'], body: { mode: 'both' } });
   assert.deepEqual(outputWrite('jam').body, { mode: 'jam' });
 });
 

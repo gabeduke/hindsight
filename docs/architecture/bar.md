@@ -119,19 +119,31 @@ sideways scroll).
 
 What the bar shows of the tape, and what its keys send, is the page's
 transport (`lib/models/transport.js`), one per page, made by the engine
-(`engine.transport`, `shell.md`) and loaded with the Pi's tape. It has no
-DOM: the tape and its `live` state as `/api/tapes/state` last answered,
-`snapshot()` of them (`{v, id, tape, live}`, frozen, the same object until
-one moves; what a component draws from, `components.md`), `playing()` (through a count-in and a mixdown's tail, a press held
+(`engine.transport`, `shell.md`) over the page's protocol client
+(`components.md`) and loaded with the Pi's tape. It has no DOM and names
+no route: the tape and its `live` state as the tape's read last answered,
+`snapshot()` of them (`{v, id, tape, live, pending}`, frozen, the same
+object until one moves; what a component draws from, `components.md`),
+`playing()` (through a count-in and a mixdown's tail, a press held
 `HOLD_MS` over answers already on their way, nothing on an answer
 `STALE_MS` old), `pos()` (run on at its rate, round the loop at its Out),
-the loop, |◂'s `start()`, a bar's `step()` and `tempo()` (`{bpm, bars,
-barFrames}` from the grid, or null), and the commands `play()`, `stop()`,
-`locate(frame)` and `setLoop(on)`. It asks every 500 ms in the bar, one
+`sampleRate()`, `looping()`, |◂'s `start()`, a bar's `step()` and
+`tempo()` (`{bpm, bars, barFrames}` from the grid, or null). Its verbs,
+each answering the Pi's answer or throwing a `Refusal` to whoever pressed:
+`play()`, `stop()`, `locate(frame)`, `setLoop(on)`, `setOutput(mode)`
+(the output sheet's choice, through `switchOutput`, and the rig's),
+`setTempo(bpm)` and `setBars(n)` (the tempo's panel, a re-grid: decision
+0062), and `tapLoop(body)` and `tapCancel()` (a free loop's tap). The bar's
+tape source catches a refusal of its own keys and says it (*The tape: …*);
+the Studio's keys say it in theirs. It asks every 500 ms in the bar, one
 tick in ten with a take in it, at once on the changes socket's nudge
-(`push.md`), and never two at once; that socket is the page's one, held
-from `load` to `destroy` whatever room is shown. The Studio lends it its
-own poll, keys and nudge while shown (`delegate`, `ingest`).
+(`push.md`), shortly after each verb, and never two at once; that socket
+is the page's one, held from `load` to `destroy` whatever room is shown.
+The Studio lends it its own poll, its nudge and the hands each verb is
+sent inside while shown (`delegate({around, poll, nudge})`, `ingest`):
+`around` drops a Studio poll the verb overtakes and says what a stop's
+punch kept, whoever pressed. Guardrail 16 fails on a module other than the
+protocol client naming the transport's routes.
 
 The bar's tape source (`lib/bar/tape-source.js`) draws it: the LCD, the
 display, the overview and the levels, and this phone's stream (where it is

@@ -5,22 +5,62 @@
 // a route renamed on the Pi is a line here and nothing else, and a model
 // made over a fixture (fixture.js, the same three methods) runs with no Pi.
 //
-// What it speaks for so far: the takes (GET /api/jams). The tape and the
-// transport join when their models move onto it (the spec's models step),
-// with the verbs they send; until then they ask the Pi themselves.
+// What it speaks for so far: the takes (GET /api/jams), and the transport
+// (lib/models/transport.js): the tape's state it reads, which tape is
+// loaded, and its verbs, ▶ ■ and a locate, the loop, where it plays, the
+// tempo and a free loop's tap. The tape's own edits join when the tape's
+// model moves onto it; until then the Studio asks the Pi itself.
 //
 // It has no DOM. Built on lib/link.js's timedFetch, so a read lost in a
-// sleep ends as a failure rather than never.
+// sleep ends as a failure rather than never; a verb is never timed out (a
+// press the Pi took and answered late is still the Pi's).
 
 import { timedFetch } from '../link.js';
+import { refusal } from '../tape/refusal.js';
+import { watchChanges } from '../tape/changes.js';
 
-/** READS are the routes a read asks, by noun: where it is, and how it is asked. */
+const at = (path, id) => (id == null ? path : `${path}?id=${encodeURIComponent(id)}`);
+
+/**
+ * READS are the routes a read asks, by noun: where it is (from the read's
+ * options), and how long a read may wait before it is taken for lost.
+ */
 const READS = Object.freeze({
   takes: Object.freeze({ path: () => '/api/jams' }),
+  // The loaded tape and its live state: the transport's poll.
+  tape: Object.freeze({ path: ({ id }) => at('/api/tapes/state', id), ms: 4000 }),
+  // The list of tapes and which is loaded: the transport following the Pi.
+  tapes: Object.freeze({ path: () => '/api/tapes' }),
 });
 
 /** NOUNS are the nouns this client reads. */
 export const NOUNS = Object.freeze(Object.keys(READS));
+
+/**
+ * VERBS are the routes a verb sends, by noun and name: the method, the
+ * path, and the body made from the verb's arguments. A route's id is the
+ * verb's option (the tape it is for), never its body's.
+ */
+const VERBS = Object.freeze({
+  transport: Object.freeze({
+    play: { method: 'POST', path: '/api/tapes/transport', id: true, body: () => ({ action: 'play' }) },
+    stop: { method: 'POST', path: '/api/tapes/transport', id: true, body: () => ({ action: 'stop' }) },
+    locate: { method: 'POST', path: '/api/tapes/transport', id: true, body: ({ pos }) => ({ action: 'locate', pos }) },
+    setLoop: { method: 'PATCH', path: '/api/tapes', id: true, body: (loop) => ({ loop }) },
+    // Where it plays: the jam room, a phone, both. The Pi's one output, so no id.
+    setOutput: { method: 'PUT', path: '/api/tapes/output', body: ({ mode }) => ({ mode }) },
+    // A re-grid (decision 0062): a new BPM over the same bars, or the same
+    // frames counted as another number of bars.
+    setTempo: { method: 'PATCH', path: '/api/tapes', id: true, body: ({ bpm }) => ({ tempo: { bpm } }) },
+    setBars: { method: 'PATCH', path: '/api/tapes', id: true, body: ({ bars }) => ({ bars }) },
+    // A free loop's tap onto the armed tracks, and starting it over.
+    tapLoop: { method: 'POST', path: '/api/tapes/tap', id: true, body: (b) => b },
+    tapCancel: { method: 'DELETE', path: '/api/tapes/tap', id: true, body: () => null },
+  }),
+});
+
+/** VERB_NAMES are the verbs this client sends, as noun.name. */
+export const VERB_NAMES = Object.freeze(Object.entries(VERBS).flatMap(([noun, vs]) => Object.keys(vs).map((n) => `${noun}.${n}`)));
 
 /**
  * Refusal is the one kind of error a model's verb throws (the spec's 3.4):
@@ -45,7 +85,9 @@ export class Refusal extends Error {
 
 /**
  * createProtocol makes the page's client. env is for tests: fetch(url,
- * init) (default lib/link.js's timedFetch).
+ * init, ms) for reads (default lib/link.js's timedFetch), send(url, init)
+ * for verbs (default fetch), and watch (lib/tape/changes.js's
+ * watchChanges).
  *
  * It answers:
  *   read(noun, {v})  a promise of the Pi's answer: {ok, status, v, body}.
@@ -53,22 +95,55 @@ export class Refusal extends Error {
  *                    the version already held, an answer that hasn't moved
  *                    is {ok: false, status: 304, body: null}. body is the
  *                    parsed JSON of an OK answer, else null. It rejects
- *                    only when the Pi couldn't be asked.
+ *                    only when the Pi couldn't be asked. The tape's read
+ *                    takes {id}, the tape it asks about.
+ *   verb(noun, name, args, {id})
+ *                    sends a verb (VERBS), for the tape `id`: a promise of
+ *                    the Pi's answer, its parsed body ({} with none), or a
+ *                    Refusal: the Pi's no, or 'offline' when it couldn't
+ *                    be asked
+ *   watch({onNudge, onPress, onTakes})
+ *                    the page's changes socket (lib/tape/changes.js):
+ *                    answers {close()}
  *   nouns            what it reads (NOUNS)
  */
 export function createProtocol(env = {}) {
-  const { fetch: fetchImpl = (u, o) => timedFetch(u, o) } = env;
+  const {
+    fetch: fetchImpl = (u, o, ms) => timedFetch(u, o, ms),
+    send: sendImpl = (u, o) => globalThis.fetch(u, o),
+    watch = watchChanges,
+  } = env;
   return Object.freeze({
     nouns: NOUNS,
-    async read(noun, { v = null } = {}) {
+    async read(noun, { v = null, id = null } = {}) {
       const r = READS[noun];
       if (!r) throw new TypeError(`the protocol reads no ${noun}`);
       const headers = {};
       if (v) headers['If-None-Match'] = v;
-      const res = await fetchImpl(r.path(), { headers, cache: 'no-store' });
+      const res = await fetchImpl(r.path({ id }), { headers, cache: 'no-store' }, r.ms);
       const tag = res.headers?.get?.('ETag') ?? null;
       if (!res.ok) return { ok: false, status: res.status, v: tag, body: null };
       return { ok: true, status: res.status, v: tag, body: await res.json() };
     },
+    async verb(noun, name, args = {}, { id = null } = {}) {
+      const d = VERBS[noun]?.[name];
+      if (!d) throw new TypeError(`the protocol sends no ${noun}.${name}`);
+      const body = d.body(args);
+      let res;
+      try {
+        res = await sendImpl(d.id ? at(d.path, id) : d.path, {
+          method: d.method, cache: 'no-store',
+          headers: body == null ? undefined : { 'Content-Type': 'application/json' },
+          body: body == null ? undefined : JSON.stringify(body),
+        });
+      } catch (e) {
+        throw new Refusal({ code: 'offline', message: e.message });
+      }
+      const b = await res.json().catch(() => ({}));
+      if (res.ok) return b;
+      const why = refusal(res.status, b);
+      throw new Refusal({ status: res.status, message: why.message, reason: why.reason, recording: why.recording, detail: why.detail, code: typeof b.code === 'string' ? b.code : '' });
+    },
+    watch: (handlers) => watch(handlers),
   });
 }

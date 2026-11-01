@@ -1,6 +1,6 @@
 # State of Hindsight
 
-**As of 2026-10-30.** What is open, one or two lines each, with a pointer to
+**As of 2026-11-01.** What is open, one or two lines each, with a pointer to
 where its detail lives. Keep it current and short; when an item closes,
 delete it. How things work is in `docs/architecture.md` (an index of
 `docs/architecture/`); why, and what Gabe has decided, in
@@ -63,13 +63,6 @@ and still looks it:
   handlers in `lib/tape/page.js` before blaming the flow); J1.3's second
   hold-drag on the feed ribbon once didn't open the selection at
   `FLOWS_CPU=4`.
-- **The flows' phone runs can't see a page wider than the phone.** On the
-  phone profile (`isMobile`) a page that overflows is zoomed out, and
-  `innerWidth`, which `layout.mjs`'s offscreen check measures against,
-  grows with it: in the components' harness a 480 px root on the 390 px
-  phone measured 496 and passed. The harness measures against the
-  screen's `clientWidth` as well (its `screen` check); `checkLayout`
-  should too, and then the flows' phone runs may find what they missed.
 - **Two copies of the display's keys** until the Transport's extraction:
   the bar's (`shell.html`, `css/bar.css` `.np-lcd-*`) and the `display`
   component's (`lib/components/display`, `css/display.css`), which only
@@ -125,8 +118,23 @@ and still looks it:
   Start each session fresh from this file and `components.md`. The queue:
   0. **Left from 2026-10-30**: nothing open (#223, setting the tempo at
      any time, merged 2026-11-01 with J1.20's phone path).
-  1. **Transport** (the bar): `components.md` §6, row 1. It amends
-     AGENTS.md and decision 0047 (call 1).
+  1. **Transport** (the bar): `components.md` §6, row 1, in four PRs.
+     a. **Its model**: done, #244 (2026-11-01). The transport is on the
+        protocol client with its output, tempo and tap verbs and
+        `snapshot()` (`architecture/bar.md`, *The transport*); Guardrail
+        16; J1.13 runs on the phone (J1.10 and J1.16 say why they don't).
+        Gabe tries it on the tablet and the phone before b.
+     b. **The tape model**, with the Studio's 200 ms poll moved into it
+        (one poller, not the Studio's and the bar's), and its verbs for
+        ●, Catch and the click (`record`, `punchOut`, `catch`,
+        `setClick`), so `lib/tape/page.js` stops reaching into the bar
+        for `$('rec')`, `$('catch-pass')`, `$('click')`.
+     c. **The engine split** from `NowPlaying`: the sources
+        (`tape-source.js`, `take-source.js`, `feed-source.js`) into
+        `lib/models/`, and the transport's source verbs (`setSource`,
+        `loadTake`, `eject`).
+     d. **The extraction** into `lib/components/transport/`. It amends
+        AGENTS.md and decision 0047 (call 1).
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
@@ -134,9 +142,8 @@ and still looks it:
   5. **Pads** (the cue lane). They need `lib/ui/drag.js` first.
 
   In between, the models still to build (step 4): `feed`, `take`, `rig`,
-  `tape`, and the rest of `transport`. #231 built only the tape's
-  transport: no source, output or tempo verbs, and getters rather than
-  `snapshot()`. Then the one push socket at `/api/changes` (call 3).
+  and `tape` and the transport's source verbs (1b, 1c). Then the one push
+  socket at `/api/changes` (call 3).
 - **The walkthrough's specs** wait on Gabe's questions:
   - `reach-back.md` (Catch and Keep as one move);
   - `song-sections.md` (templates you fill in);

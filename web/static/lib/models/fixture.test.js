@@ -58,22 +58,20 @@ test('the takes model, made over a fixture, holds its list and hears it move', a
 
 test('the transport, made over a fixture, holds the tape, and its presses are recorded or refused', async () => {
   const fx = fixture({ tape: saved('tape/stopped.json') }, { refuse: { play: { code: 'no_audio_out', message: 'no output device' } } });
-  const errors = [];
-  const { models, ready, stop } = fixtureModels(fx, ['transport'], { onError: (m) => errors.push(m) });
+  const { models, ready, stop } = fixtureModels(fx, ['transport']);
   await ready;
   const s = models.transport.snapshot();
   assert.equal(s.tape.name, 'Tape 1');
   assert.equal(s.live.output_mode, 'jam');
   assert.deepEqual(models.transport.tempo().bars, 4);
-  models.transport.play();
-  models.transport.stop();
-  models.transport.locate(1000);
-  models.transport.setLoop(false);
-  await new Promise((r) => setTimeout(r, 5));
+  await assert.rejects(models.transport.play(), (e) => e.code === 'no_audio_out' && e.message === 'no output device', 'the refused ▶ says why, to whoever pressed it');
+  await models.transport.stop();
+  await models.transport.locate(1000);
+  await models.transport.setLoop(false);
+  await models.transport.setTempo(90);
   assert.deepEqual(fx.calls.map((c) => [c.noun, c.name, c.body]), [
-    ['transport', 'play', {}], ['transport', 'stop', {}], ['transport', 'locate', { pos: 1000 }], ['tape', 'setLoop', { on: false }],
+    ['transport', 'play', {}], ['transport', 'stop', {}], ['transport', 'locate', { pos: 1000 }], ['transport', 'setLoop', { on: false }], ['transport', 'setTempo', { bpm: 90 }],
   ]);
-  assert.deepEqual(errors, ['no output device'], 'the refused ▶ says why, as the bar does');
   stop();
   assert.deepEqual(MODELS, ['takes', 'transport']);
   assert.throws(() => fixtureModels(fx, ['rig']), /no fixture model for rig/);

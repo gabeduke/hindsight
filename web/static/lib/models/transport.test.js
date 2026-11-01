@@ -3,6 +3,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTransport, HOLD_MS, STALE_MS, POLL_MS } from './transport.js';
+import { createProtocol, Refusal } from './protocol.js';
 
 const SR = 48000;
 const BAR = 2.5 * SR;
@@ -34,21 +35,19 @@ function fakeWatch() {
 // and run by the test (run()).
 function rig(answer, env = {}) {
   const r = { now: 1000, polls: [], sent: [], errors: [], later: [], w: fakeWatch(), hidden: false };
-  r.fetch = async (url) => { r.polls.push(url); return { ok: true, json: async () => answer(url) }; };
-  r.send = async (url, o = {}) => {
-    if (o.method) { r.sent.push({ url, ...JSON.parse(o.body) }); return { ok: true, json: async () => ({}) }; }
+  // Which tape is loaded (/api/tapes) is asked, not polled.
+  r.fetch = async (url) => {
+    if (url !== '/api/tapes') r.polls.push(url);
     return { ok: true, json: async () => answer(url) };
   };
+  r.send = async (url, o = {}) => { r.sent.push({ url, ...JSON.parse(o.body || '{}') }); return { ok: true, json: async () => ({}) }; };
   r.run = () => { const l = r.later.splice(0); for (const f of l) f(); };
   model = r.m = createTransport({
-    fetch: (u, o) => r.fetch(u, o),
-    send: (u, o) => r.send(u, o),
+    protocol: createProtocol({ fetch: (u, o) => r.fetch(u, o), send: (u, o) => r.send(u, o), watch: r.w.watch }),
     now: () => r.now,
     hidden: () => r.hidden,
     setTimeout: (f) => { r.later.push(f); return r.later.length; },
     clearTimeout: () => {},
-    watch: r.w.watch,
-    onError: (m) => r.errors.push(m),
     ...env,
   });
   return r;
@@ -61,13 +60,12 @@ test('nothing is asked before a tape is loaded; load asks at once and opens the 
   await settle();
   assert.equal(r.polls.length, 0);
   assert.equal(r.w.open, 0);
-  assert.equal(r.m.ready, false);
+  assert.equal(r.m.snapshot().tape, null);
   r.m.load('t1');
   await settle();
   assert.deepEqual(r.polls, ['/api/tapes/state?id=t1']);
   assert.equal(r.w.open, 1);
-  assert.equal(r.m.ready, true);
-  assert.equal(r.m.tape.name, 'Tape 1');
+  assert.equal(r.m.snapshot().tape.name, 'Tape 1');
 });
 
 test('run on between answers, round the loop at its Out', async () => {
@@ -123,8 +121,8 @@ test('loaded somewhere else, it follows the tape the Pi has', async () => {
   await settle();
   await settle();
   assert.ok(r.polls.some((u) => u.startsWith('/api/tapes/state?id=t2')), JSON.stringify(r.polls));
-  assert.equal(r.m.id, 't2');
-  assert.equal(r.m.tape.name, 'Tape 2');
+  assert.equal(r.m.snapshot().id, 't2');
+  assert.equal(r.m.snapshot().tape.name, 'Tape 2');
 });
 
 test('▶ then ■ before an answer says so stops it, and the Pi has the last word', async () => {
@@ -133,11 +131,13 @@ test('▶ then ■ before an answer says so stops it, and the Pi has the last wo
   r.m.load('t1');
   await settle();
   const sent = [];
-  r.m.delegate({ play: () => sent.push('play'), stop: () => sent.push('stop') });
+  // Lent to the Studio: each verb is sent inside its hands.
+  r.m.delegate({ around: (name, _args, run) => { sent.push(name); return run(); } });
   // The bar's ▶ toggles from playing(): two presses inside one poll.
   const press = () => { if (r.m.playing()) r.m.stop(); else r.m.play(); };
   press();
   assert.equal(r.m.playing(), true, 'playing as soon as ▶ is pressed');
+  assert.equal(r.m.snapshot().pending, true, 'and the snapshot says it was asked');
   press();
   assert.deepEqual(sent, ['play', 'stop'], 'the second press stops it, not a second play');
   assert.equal(r.m.playing(), false);
@@ -150,27 +150,75 @@ test('▶ then ■ before an answer says so stops it, and the Pi has the last wo
   assert.equal(r.m.playing(), true);
 });
 
-test('its own commands go to the Pi, ask again shortly after, and a refusal is heard', async () => {
+test('its verbs go to the Pi, answer what it said, ask again shortly after, and a refusal is thrown', async () => {
   const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
   r.m.load('t1');
   await settle();
   r.later.length = 0;
   await r.m.play();
   await r.m.stop();
-  r.m.setLoop(false);
-  await settle();
+  await r.m.setLoop(false);
+  await r.m.setOutput('both');
+  await r.m.setTempo(96.5);
+  await r.m.setBars(8);
+  await r.m.tapLoop({ tracks: [1] });
+  await r.m.tapCancel();
   assert.deepEqual(r.sent, [
     { url: '/api/tapes/transport?id=t1', action: 'play' },
     { url: '/api/tapes/transport?id=t1', action: 'stop' },
     { url: '/api/tapes?id=t1', loop: { on: false } },
+    { url: '/api/tapes/output', mode: 'both' },
+    { url: '/api/tapes?id=t1', tempo: { bpm: 96.5 } },
+    { url: '/api/tapes?id=t1', bars: 8 },
+    { url: '/api/tapes/tap?id=t1', tracks: [1] },
+    { url: '/api/tapes/tap?id=t1' },
   ]);
   const before = r.polls.length;
   r.run();
   await settle();
   assert.ok(r.polls.length > before, 'each asks what the Pi made of it');
   r.send = async () => ({ ok: false, status: 409, json: async () => ({ error: 'no output' }) });
-  await r.m.play();
-  assert.equal(r.errors.length, 1);
+  await assert.rejects(r.m.play(), (e) => e instanceof Refusal && e.message === 'no output' && e.status === 409);
+  assert.equal(r.m.snapshot().pending, null, 'a refused ▶ is no longer pending');
+  assert.equal(r.m.playing(), false, 'and the Pi\'s ■ shows at once');
+  // A late refusal leaves a later press be.
+  let no;
+  r.send = () => new Promise((res) => { no = () => res({ ok: false, status: 409, json: async () => ({ error: 'no output' }) }); });
+  const first = r.m.play();
+  r.send = async () => ({ ok: true, json: async () => ({}) });
+  r.m.stop();
+  no();
+  await assert.rejects(first);
+  assert.equal(r.m.snapshot().pending, false, 'the ■ pressed after it is still pending');
+  r.send = async () => ({ ok: false, status: 409, json: async () => ({ error: 'armed', reason: 'recording' }) });
+  await assert.rejects(r.m.setTempo(120), (e) => e.recording && e.code === 'recording' && !!e.detail);
+  r.send = async () => { throw new Error('Failed to fetch'); };
+  await assert.rejects(r.m.stop(), (e) => e instanceof Refusal && e.code === 'offline');
+  // The answer is the Pi's: a stop that ends a punch says what it kept.
+  r.send = async () => ({ ok: true, json: async () => ({ status: 'queued', kept: { track: 1 } }) });
+  assert.deepEqual(await r.m.stop(), { status: 'queued', kept: { track: 1 } });
+});
+
+test('lent to the Studio, a verb is sent inside its hands and the Studio polls after it', async () => {
+  const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
+  r.m.load('t1');
+  await settle();
+  const seen = [];
+  let polled = 0;
+  r.m.delegate({
+    around: async (name, args, run) => { seen.push([name, args]); const b = await run(); seen.push(['answered', b]); return b; },
+    poll: () => { polled++; },
+    nudge: () => {},
+  });
+  r.later.length = 0;
+  const before = r.polls.length;
+  await r.m.locate(4 * BAR);
+  await r.m.setTempo(100);
+  assert.deepEqual(seen, [['locate', { pos: 4 * BAR }], ['answered', {}], ['setTempo', { bpm: 100 }], ['answered', {}]]);
+  r.run();
+  await settle();
+  assert.equal(polled, 2, 'the Studio asks what the Pi made of each');
+  assert.equal(r.polls.length, before, 'and the transport asks nothing itself');
 });
 
 test('it asks every POLL_MS in the bar, every tenth tick with a take in it, and nothing while out of view', async () => {
@@ -309,7 +357,7 @@ test('snapshot is the tape and its live state, frozen, the same object until one
   let live = stopped();
   const r = rig(() => ({ tape: tapeJSON(), loaded: true, live }));
   const none = r.m.snapshot();
-  assert.deepEqual(none, { v: 1, id: null, tape: null, live: null });
+  assert.deepEqual(none, { v: 1, id: null, tape: null, live: null, pending: null });
   assert.ok(Object.isFrozen(none));
   assert.equal(r.m.snapshot(), none, 'asked again with nothing moved: the same object');
   r.m.load('t1');
@@ -317,8 +365,7 @@ test('snapshot is the tape and its live state, frozen, the same object until one
   const s = r.m.snapshot();
   assert.notEqual(s, none);
   assert.equal(s.id, 't1');
-  assert.equal(s.tape, r.m.tape);
-  assert.equal(s.live, r.m.live);
+  assert.equal(s.pending, null);
   assert.ok(s.v > none.v);
   assert.equal(r.m.snapshot(), s);
   r.m.locate(BAR);

@@ -5,10 +5,12 @@
 //
 // One per page, made by the bar's engine (lib/bar/engine.js), which hands it
 // to the bar's tape source (lib/bar/tape-source.js) to draw, and lends it to
-// the Studio (lib/tape/page.js) while the Studio is shown. It has no DOM: it
-// knows the tape and its `live` state as the Pi last answered
-// /api/tapes/state, runs the playhead on between answers, and sends ▶, ■,
-// a locate and the loop.
+// the Studio (lib/tape/page.js) while the Studio is shown. It has no DOM and
+// names no route: it reads the tape and its `live` state from the page's
+// protocol client (protocol.js; a fixture's in the tests), runs the playhead
+// on between answers, and sends its verbs through it: ▶, ■, a locate, the
+// loop, where it plays, the tempo and a free loop's tap. Each verb answers
+// the Pi's answer or throws its Refusal; whoever pressed says why.
 //
 // When it asks:
 //   - every POLL_MS while it is in the bar (setActive) and the page is in
@@ -28,23 +30,20 @@
 // once more when it ends, never beside it.
 //
 // While the Studio is shown it borrows the transport (delegate): the
-// Studio's own 200 ms poll feeds it (ingest), its ▶ ■, locate and loop go
-// through the Studio's hands, and a nudge goes to the Studio's (nudge), so
-// the Studio's state and the bar's are one. Handed back (delegate(null)),
-// it asks the Pi at once.
+// Studio's own 200 ms poll feeds it (ingest), each verb is sent inside the
+// Studio's hands (around: so the Studio drops a poll the verb overtakes, and
+// shows what the answer says), the Studio polls after it, and a nudge goes
+// to the Studio's (nudge), so the Studio's state and the bar's are one.
+// Handed back (delegate(null)), it asks the Pi at once.
 
-import { refusal } from '../tape/refusal.js';
-import { watchChanges } from '../tape/changes.js';
 import { pollGate } from '../tape/poll-gate.js';
-import { timedFetch } from '../link.js';
 import { bpm as bpmOf } from '../tape/geometry.js';
+import { createProtocol } from './protocol.js';
 
 /** POLL_MS is how often it asks while in the bar. */
 export const POLL_MS = 500;
 /** AHEAD_S is the furthest the playhead is run on past an answer. */
 export const AHEAD_S = 0.5;
-/** POLL_TIMEOUT_MS: a poll lost in a sleep gives up, so the gate opens again. */
-export const POLL_TIMEOUT_MS = 4000;
 /** STALE_MS: no answer for this long, and it is taken for stopped, not run on forever. */
 export const STALE_MS = 2000;
 /** HOLD_MS: a press or a locate is what shows, over answers already on their way, for this long. */
@@ -55,38 +54,50 @@ export const AWAY_EVERY = 10;
 export const SETTLE_MS = 150;
 
 /**
- * createTransport makes the page's transport. env is for tests: fetch
- * (a lib/link.js timedFetch with POLL_TIMEOUT_MS, and the commands'),
- * now() in ms (performance.now), hidden() (the page out of view),
- * setTimeout and clearTimeout, and watch (changes.js's watchChanges).
- * onError(message) hears of a command the Pi refused.
+ * createTransport makes the page's transport. env: protocol (the page's
+ * client, protocol.js; a fixture's in the tests and the components'
+ * harness), and for tests now() in ms (performance.now), hidden() (the page
+ * out of view), setTimeout and clearTimeout.
  *
  * It answers:
  *   load(id)      the tape loaded on the Pi: starts asking about it
- *   ready, id     a tape is in; its id
- *   snapshot()    {v, id, tape, live}: the tape and its live state as last
- *                 answered (a locate shown ahead of the answer), frozen,
- *                 the same object until one of them moves; v counts the
- *                 moves. A ▶ or ■ pressed and not yet answered is not in
- *                 it: that, and what runs on between answers, is
- *                 playing() and pos(), read on the ticker
- *   tape          the tape as last answered ({name, length, loop, grid, …}), or null
- *   live          its live state ({playing, heard, count_in, output_mode, …}), or null
- *   sampleRate, length
+ *   snapshot()    {v, id, tape, live, pending}: the tape ({name, length,
+ *                 sample_rate, loop, grid, …}) and its live state
+ *                 ({playing, heard, count_in, output_mode, …}) as last
+ *                 answered (a locate shown ahead of the answer), each null
+ *                 before the first; pending, a ▶ (true) or ■ (false)
+ *                 pressed and not yet answered, else null. Frozen, the
+ *                 same object until one of them moves; v counts the moves.
+ *                 What runs on between answers is playing() and pos(),
+ *                 read on the ticker
+ *   sampleRate()  the tape's, 48 kHz before it is in
  *   playing()     ▶ as the tape page reads it: through a count-in and a
  *                 mixdown's tail; a press not yet answered; not on an
  *                 answer STALE_MS old
  *   pos()         where the Pi has it, run on at its rate while it plays,
  *                 round the loop at its Out
  *   counting(), mixdown(), mode(), streamDelayMs(), canPlay(), canStart()
- *   loop, loopSpec(), canLoop(), start(), step()
+ *   looping(), loopSpec(), canLoop(), start(), step()
  *   tempo()       {bpm, bars, barFrames} from the tape's grid, or null
- *   play(), stop(), locate(frame), setLoop(on), refresh()
+ * Its verbs, each a promise of the Pi's answer or a Refusal (protocol.js):
+ *   play(), stop(), locate(frame)
+ *                 ▶ ■ and a locate, shown at once (pending, and the place)
+ *   setLoop(on)   the loop on or off
+ *   setOutput(mode)
+ *                 where it plays: 'jam', 'phone' or 'both'
+ *   setTempo(bpm), setBars(n)
+ *                 a re-grid (decision 0062): a new BPM over the same bars,
+ *                 or the grid's frames counted as n bars
+ *   tapLoop(body), tapCancel()
+ *                 a free loop's tap onto the armed tracks ({tracks, …},
+ *                 lib/tape/record-body.js), and starting it over
+ * And:
+ *   refresh()     asks the Pi now, after a change made elsewhere
  *   setActive(on) in the bar, or a take in it instead
  *   wake()        the page is back in view
  *   delegate(hands), ingest({tape, live})
- *                 the Studio borrowing it ({play, stop, locate, setLoop,
- *                 poll, nudge}), and feeding it
+ *                 the Studio borrowing it ({around(name, args, run), poll,
+ *                 nudge}), and feeding it
  *   onPress(fn), onTakes(fn)
  *                 the socket's presses and take revisions, handed on
  *   onChange(fn)  fn() on every change to any of it; a way off
@@ -95,14 +106,11 @@ export const SETTLE_MS = 150;
  */
 export function createTransport(env = {}) {
   const {
-    fetch: fetchImpl = (u, o) => timedFetch(u, o, POLL_TIMEOUT_MS),
-    send: sendImpl = (u, o) => globalThis.fetch(u, o),
+    protocol = createProtocol(),
     now = () => performance.now(),
     hidden = () => !!globalThis.document?.hidden,
     setTimeout: later = (f, ms) => setTimeout(f, ms),
     clearTimeout: cancel = (h) => clearTimeout(h),
-    watch = watchChanges,
-    onError = null,
   } = env;
 
   let id = null;
@@ -113,6 +121,10 @@ export function createTransport(env = {}) {
   const agreed = () => { if (want && !!(live && live.playing) === want.playing) want = null; };
   let del = null;
   let snap = null, moves = 0; // snapshot()'s
+  const pendingNow = () => (want && now() < want.until ? want.playing : null);
+  // A ▶ or ■ the Pi refused is no longer pending, unless a later press is:
+  // the Pi's state shows at once.
+  const refused = (mine) => (e) => { if (want === mine) { want = null; fire(); } throw e; };
   const listeners = new Set();
   const fire = () => { for (const f of listeners) f(); };
 
@@ -124,10 +136,9 @@ export function createTransport(env = {}) {
     if (!mine) return;
     const g = ++gen;
     try {
-      const res = await fetchImpl(`/api/tapes/state?id=${encodeURIComponent(id)}`, { cache: 'no-store' });
-      if (!res.ok || g !== gen || del) return;
-      const s = await res.json();
-      if (g !== gen || del) return;
+      const r = await protocol.read('tape', { id });
+      if (!r.ok || g !== gen || del) return;
+      const s = r.body;
       t = s.tape;
       // Another device loaded another tape: follow it.
       if (!s.loaded) { follow(); return; }
@@ -140,8 +151,9 @@ export function createTransport(env = {}) {
   }
   async function follow() {
     try {
-      const list = await (await sendImpl('/api/tapes', { cache: 'no-store' })).json();
-      if (list.loaded && list.loaded !== id) { id = list.loaded; live = null; ask(); }
+      const r = await protocol.read('tapes');
+      const list = r.ok ? r.body : null;
+      if (list && list.loaded && list.loaded !== id) { id = list.loaded; live = null; ask(); }
     } catch { /* the next tick asks again */ }
   }
   const tick = () => {
@@ -166,23 +178,21 @@ export function createTransport(env = {}) {
   const syncChanges = () => {
     const on = loaded && !stopped;
     if (on && !changes) {
-      changes = watch({ onNudge: nudged, onPress: heardPress, onTakes: heardTakes });
+      changes = protocol.watch({ onNudge: nudged, onPress: heardPress, onTakes: heardTakes });
     } else if (!on && changes) { changes.close(); changes = null; }
   };
 
-  async function send(path, method, body) {
+  // send sends verb `name` for the loaded tape, inside the Studio's hands
+  // while it has the transport, and asks what the Pi made of it shortly
+  // after, answered or refused: the Studio's poll while lent, else its own.
+  async function send(name, args = {}) {
+    const run = () => protocol.verb('transport', name, args, { id });
+    const hands = del;
     try {
-      const res = await sendImpl(`${path}?id=${encodeURIComponent(id)}`, {
-        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const why = refusal(res.status, await res.json().catch(() => ({})));
-        onError?.(why.recording ? `${why.message}. ${why.detail}` : why.message);
-      }
-    } catch (e) {
-      onError?.(e.message);
+      return await (hands?.around ? hands.around(name, args, run) : run());
+    } finally {
+      later(() => { if (del) del.poll?.(); else ask(); }, SETTLE_MS);
     }
-    if (!del) later(ask, SETTLE_MS);
   }
 
   const sr = () => (t ? t.sample_rate : 48000);
@@ -218,16 +228,12 @@ export function createTransport(env = {}) {
       tick();
       syncChanges();
     },
-    get ready() { return !!t; },
-    get id() { return id; },
-    get tape() { return t; },
-    get live() { return live; },
     snapshot() {
-      if (!snap || snap.id !== id || snap.tape !== t || snap.live !== live) snap = Object.freeze({ v: ++moves, id, tape: t, live });
+      const pending = pendingNow();
+      if (!snap || snap.id !== id || snap.tape !== t || snap.live !== live || snap.pending !== pending) snap = Object.freeze({ v: ++moves, id, tape: t, live, pending });
       return snap;
     },
-    get sampleRate() { return sr(); },
-    get length() { return t ? t.length : 1; },
+    sampleRate: sr,
     playing,
     pos,
     counting,
@@ -239,7 +245,7 @@ export function createTransport(env = {}) {
     // ▶ needs a device to play out of; the Pi refuses it otherwise.
     canPlay: () => !!(live && live.output),
     canStart: () => !!live,
-    get loop() { return !!(t && t.loop.on); },
+    looping: () => !!(t && t.loop.on),
     loopSpec: () => (t ? t.loop : null),
     canLoop: loopable,
     // |◂: the loop's start while looping, else the top of the tape.
@@ -248,33 +254,30 @@ export function createTransport(env = {}) {
     step: () => (t && t.grid ? t.grid.frames / t.grid.bars : sr()),
     tempo: () => (t && t.grid ? { bpm: bpmOf(t.grid, sr()), bars: t.grid.bars, barFrames: t.grid.frames / t.grid.bars } : null),
     play() {
-      want = { playing: true, until: now() + HOLD_MS };
+      const mine = want = { playing: true, until: now() + HOLD_MS };
       fire();
-      return del?.play ? del.play() : send('/api/tapes/transport', 'POST', { action: 'play' });
+      return send('play').catch(refused(mine));
     },
     stop() {
-      want = { playing: false, until: now() + HOLD_MS };
+      const mine = want = { playing: false, until: now() + HOLD_MS };
       fire();
-      return del?.stop ? del.stop() : send('/api/tapes/transport', 'POST', { action: 'stop' });
+      return send('stop').catch(refused(mine));
     },
     locate(frame) {
-      if (!t) return;
+      if (!t) return Promise.resolve(null);
       const p = Math.max(0, Math.min(t.length, Math.round(frame)));
-      if (del?.locate) {
-        if (live) { live = { ...live, heard: p }; at = now(); fire(); }
-        return del.locate(p);
-      }
       // Shown at once and held a moment; a poll already on its way with
-      // the old place is dropped.
-      gen++;
-      holdUntil = now() + HOLD_MS;
+      // the old place is dropped. Lent, the Studio's gate does both.
+      if (!del) { gen++; holdUntil = now() + HOLD_MS; }
       if (live) { live = { ...live, heard: p }; at = now(); fire(); }
-      send('/api/tapes/transport', 'POST', { action: 'locate', pos: p });
+      return send('locate', { pos: p });
     },
-    setLoop(on) {
-      if (del?.setLoop) return del.setLoop(on);
-      send('/api/tapes', 'PATCH', { loop: { on } });
-    },
+    setLoop: (on) => send('setLoop', { on }),
+    setOutput: (mode) => send('setOutput', { mode }),
+    setTempo: (bpm) => send('setTempo', { bpm }),
+    setBars: (bars) => send('setBars', { bars }),
+    tapLoop: (body) => send('tapLoop', body),
+    tapCancel: () => send('tapCancel'),
     /** refresh asks the Pi now, after a change made elsewhere. */
     refresh: () => (del?.poll ? del.poll() : ask()),
     setActive(on) { active = on; if (on && !del) ask(); },

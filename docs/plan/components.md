@@ -280,15 +280,12 @@ JSON snapshot and records verbs, so `createTape({ protocol: fixture(json)
 (`{refuse: {play: 'no_audio_out'}}`), so a component's refused press is
 checked too.
 
-As built (the foundations, below): the client reads the takes alone
-(`read('takes', {v})`, `GET /api/jams`), and the takes model is made over
-it; each other model's routes and verbs join it in that model's PR. The
-fixture answers `read`, `verb` and `watch` already, so the verbs' shape is
-set before the real client has one. The transport is not on the client
-yet (#235 was rewriting its socket as this was built), so
-`fixtureModels` makes it over a fixture through the `fetch`, `send` and
-`watch` its tests stand in for, never by route; that goes when the
-transport moves onto the client.
+As built: the client reads the takes, the tape's state and which tape is
+loaded, sends the transport's verbs and opens the changes socket
+(`read`, `verb`, `watch`), and the takes and the transport are made over
+it, the fixture's included (`docs/architecture/components.md`). The
+tape's own edits, and the bar's sources (`setSource`, `loadTake`,
+`eject`, the engine split from `NowPlaying`), join in the PRs after.
 
 - **The snapshots** are what the Pi answers, saved:
   `testdata/protocol/<noun>/<case>.json` (an empty tape, four tracks

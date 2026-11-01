@@ -28,6 +28,7 @@ import { wireOutput, paintOutSheet, switchOutput, outDelay } from '../tape/out-s
 import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
 import { createTakes } from '../models/takes.js';
 import { createTransport } from '../models/transport.js';
+import { createProtocol } from '../models/protocol.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -57,14 +58,17 @@ export function pageBar(opts) {
  * has a tape; and `tape`, `stream` and `feed`, the sources it has made so far
  * (null until then).
  */
-export function createEngine({ tapes, takes: pageTakes = null, onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
+export function createEngine({ tapes, takes: pageTakes = null, protocol = createProtocol(), onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
   // The page's takes (lib/models/takes.js): the shell's, handed in, which the
   // tape's changes socket feeds; a page with none gets its own, unfed.
-  const takes = pageTakes || createTakes();
+  const takes = pageTakes || createTakes({ protocol });
   // The page's transport (lib/models/transport.js): the tape's ▶ ■, where it
-  // is and its tempo, polled and pushed; the bar's tape source draws it, and
-  // the Studio borrows it while shown.
-  const transport = createTransport({ onError: (m) => onToast?.(`The tape: ${m}`, 'bad') });
+  // is, where it plays and its tempo, polled and pushed, over the page's
+  // protocol client; the bar's tape source draws it, and the Studio borrows
+  // it while shown.
+  const transport = createTransport({ protocol });
+  // A press of the bar's the Pi refused: why, in its words.
+  const refused = (e) => onToast?.(`The tape: ${e.recording ? `${e.message}. ${e.detail}` : e.message}`, 'bad');
   let find = initFind, onNote = initOnNote, go = initGo;
   let feed = null, tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
@@ -129,14 +133,14 @@ export function createEngine({ tapes, takes: pageTakes = null, onToast, find: in
   function mountTape(loadedId) {
     if (tape || !loadedId) return;
     transport.load(loadedId);
-    tape = tapeSource(transport, { stream: () => stream });
+    tape = tapeSource(transport, { stream: () => stream, onError: refused });
     stream = tapeStream(tape, onToast);
     if (take || (bar.src && bar.src.kind === 'feed')) stream.setQuiet(true);
     else if (!handoff.holding()) bar.load(tape);
     eject();
     setMode = (mode) => {
       if (mode !== 'jam') backToTape({ byHand: true });
-      return switchOutput(mode, { player: stream, poll: () => transport.refresh(), toast: (m, k) => onToast?.(m, k) });
+      return switchOutput(mode, { player: stream, transport, toast: (m, k) => onToast?.(m, k) });
     };
     // The header's output button (and the phone player's OUT pill): where the
     // tape plays, chosen from any room. Choosing to hear it here puts the tape
