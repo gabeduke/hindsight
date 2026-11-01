@@ -5,15 +5,14 @@
 
 ## Decision
 
-On a phone, a cue clip's drawer docks above the mini player, not above
-the lanes' own bottom, and brings the cue lane and the armed track into
+On a phone, a cue clip's drawer docks above the mini player and brings the cue lane and the armed track into
 sight, so ▶ is never under it.
 
 ## Why
 
-0061 put the drawer above the bar. On a 360 px phone the bar is the
-mini player, and a drawer over it hid ▶ and left DROP pressed blind, the
-fault 0061 set out to remove.
+0061 put the drawer above the bar. On a phone the bar is the mini
+player: with the drawer open ▶ was out of reach and tracks 3 and 4 sat
+under it.
 
 ## What it rules out
 

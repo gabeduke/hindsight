@@ -11,15 +11,14 @@ where the browser can share.
 
 ## Why
 
-Share alone left a computer with no way to keep the file; Share is a
-phone's route, Download a computer's, and neither hides the other.
+Share alone left a computer with no way to keep the file; Download is
+offered whatever the device; the pointer only sets which key comes first.
 
 ## What it rules out
 
-An export that offers only what the browser's share sheet does; Download
-shown only on a computer, where a phone might want it too.
+An export that offers only what the browser's share sheet does.
 
 ## See
 
-`docs/architecture/` for the export callers (named in the PR's review
-fixes, `01d85e80`); J3.3 in `docs/flows.md`.
+`docs/architecture/take-page.md` (the `wave/share` row names the callers),
+`docs/architecture/rooms.md`; J3.3 in `docs/flows.md` covers Share.

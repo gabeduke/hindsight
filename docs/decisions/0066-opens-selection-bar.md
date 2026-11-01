@@ -12,8 +12,7 @@ waveform, where they already say what they do to the selection
 
 ## Why
 
-A verb on screen twice (once in the bar, once under the waveform) is two
-places to learn one key. The Studio already docks its action bar above
+So that no verb is on the screen twice. The Studio already docks its action bar above
 the bar; Open does the same.
 
 ## What it rules out
@@ -23,4 +22,4 @@ design.
 
 ## See
 
-`docs/architecture/take-page.md`, *Open*; `docs/plan/STATE.md`.
+`docs/plan/the-studio-space.md` (the Open row); `docs/plan/STATE.md`.

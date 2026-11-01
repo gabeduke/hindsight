@@ -12,14 +12,15 @@ when the room changes keeps playing (J2.2).
 
 ## Why
 
-On a Mac, ▶ played the stopped take again (*"BAR -1.4 · SOURCE: TAKE"*)
+On a Mac, ▶ played the stopped take again (*"BAR -1.4 · SOURCE: TAKE"*, J1.17)
 and the tape, never moving, showed no playhead. In the Studio ▶ means
 the tape.
 
 ## What it rules out
 
-A source left over from another room deciding what ▶ plays; stopping a
-take that is playing just because the room changed.
+A source left over from another room deciding what ▶ plays; a stopped
+take staying in the Studio's bar until ⏏; stopping a take that is playing
+just because the room changed.
 
 ## See
 
