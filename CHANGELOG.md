@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.01.1 — 2026-11-01
+
+- Note in STATE.md that a press waits while nothing plays the tape, and that J5.1 fails on the phone in its setup (62e389f1)
+- The flows' layout check measures a phone's controls against the screen's width (40d957c2)
+- The take-list revision test waits for the scan's first look before it writes (0f54b6f3)
+- Decision records 0063–0066 for the calls taken on 2026-10-30 (#242) (c2b59e4e)
+
+
 ## v2026.10.31.1 — 2026-10-31
 
 - The AKS mini's notes say why its keys can be silent (794856eb)

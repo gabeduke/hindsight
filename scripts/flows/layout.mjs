@@ -94,6 +94,9 @@ function geometry({ touch, MENU, PIN, root = null }) {
   if (!scope) return [{ rule: 'root', severity: 'fail', el: root, msg: `nothing on the page matches ${root}` }];
   const CONTROL = 'button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=tab], [role=slider], [tabindex]:not([tabindex="-1"])';
   const W = innerWidth, H = innerHeight;
+  // A phone shows a page wider than itself zoomed out, and innerWidth grows
+  // with it; the screen's own width is what a control has to fit.
+  const SW = Math.min(W, document.documentElement.clientWidth);
   const name = (el) => {
     if (!el || el === document.documentElement) return 'the page';
     let s = el.tagName.toLowerCase();
@@ -130,8 +133,8 @@ function geometry({ touch, MENU, PIN, root = null }) {
     if (vis.r - vis.l < 1 || vis.b - vis.t < 1) continue; // its scroller hides it
     // Off the side even as its scroller shows it (a strip that scrolls
     // sideways shows the rest by scrolling, which is fine).
-    if (vis.l < -1 || vis.r > W + 1) {
-      out.push({ rule: 'offscreen', severity: 'fail', el: name(el), msg: `runs off the ${vis.l < 0 ? 'left' : 'right'} side (${Math.round(vis.l)}–${Math.round(vis.r)} of ${W})` });
+    if (vis.l < -1 || vis.r > SW + 1) {
+      out.push({ rule: 'offscreen', severity: 'fail', el: name(el), msg: `runs off the ${vis.l < 0 ? 'left' : 'right'} side (${Math.round(vis.l)}–${Math.round(vis.r)} of ${SW})` });
     }
     const x = (Math.max(vis.l, 0) + Math.min(vis.r, W)) / 2, y = (Math.max(vis.t, 0) + Math.min(vis.b, H)) / 2;
     const hit = document.elementFromPoint(x, y);
