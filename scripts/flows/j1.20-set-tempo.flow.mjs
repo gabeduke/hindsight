@@ -3,6 +3,8 @@
 // it; the bar lines move to it and the part on track 1 and the loop stay
 // where they were (a re-grid: docs/decisions/0062). docs/flows.md#j120
 
+import { mini, pullUp, putAway } from './player.mjs';
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const bpmOf = (g) => (g ? (g.bars * 4 * 60 * 48000) / g.frames : 0);
 const near = (a, b) => Math.abs(a - b) < 0.05;
@@ -26,6 +28,9 @@ export default {
     const loop = JSON.stringify(before.loop);
 
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
+    // On a phone the tempo is in the player pulled up, not on the mini player.
+    const phone = await mini(page);
+    if (phone) t.expect('the player comes up', await t.step('pull the player up', () => pullUp(t)));
     await t.step('tap the tempo on the bar’s display', () => t.tap(page.locator('#np-tempo')));
     const field = page.locator('#tempo-bpm');
     t.expect('its panel opens with the tempo to type', await t.poll(() => {
@@ -60,5 +65,6 @@ export default {
 
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('Escape shuts the panel', await t.poll(() => document.getElementById('tempo-menu')?.hidden));
+    if (phone) t.expect('the player goes down', await t.step('put the player away', () => putAway(t)));
   },
 };
