@@ -9,6 +9,9 @@ import { STUDIO_BUDGET, studioBudget } from './layout.mjs';
 export default {
   id: 'J1.16',
   title: 'The Studio on one screen: four tracks above the bar, keys a finger wide',
+  // No phone: the budget is a tablet's, for jamming on one screen. A phone
+  // is for listening and light edits (docs/plan/components.md, 5): its
+  // Studio scrolls, and its bar is the mini player, checked by J1.13.
   profiles: ['tablet', 'pixel', 'upright'],
   async run(t) {
     const { page, api } = t;

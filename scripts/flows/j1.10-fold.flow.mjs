@@ -13,7 +13,9 @@ const at = () => {
 export default {
   id: 'J1.10',
   title: 'Fold the bar and the lanes in the Studio',
-  profiles: ['tablet', 'desktop'], // a phone's bar is its mini player, which doesn't fold
+  // No phone: a phone's bar is its mini player, which doesn't fold (it has
+  // no grabber; the player pulls up instead, J4.4), and its shape is J1.13's.
+  profiles: ['tablet', 'desktop'],
   async run(t) {
     const { page, api } = t;
     await t.given('a fresh tape', () => api.tape('Fold'));

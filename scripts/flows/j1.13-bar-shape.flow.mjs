@@ -1,10 +1,17 @@
 // J1.13 The bar keeps its shape: the tape, the live feed and a take, in the
 // Studio and in the Listening Room, each in the one bar, with ▶ where it was
 // for all of them and nothing past the screen's edge -- on a tablet on its
-// side, a Pixel Tablet's 1280×800 and one held upright at 800. ▶ once stood
-// at three places on one tablet, and the bar ran up to 336 px off its right
-// edge with a take in it. docs/flows.md#j113
+// side, a Pixel Tablet's 1280×800, one held upright at 800, and a phone,
+// whose bar is the mini player (the source is chosen in the player pulled
+// up, then put away). ▶ once stood at three places on one tablet, and the
+// bar ran up to 336 px off its right edge with a take in it.
+// docs/flows.md#j113
+import { pullUp, putAway } from './player.mjs';
+
 const look = () => {
+  // The screen's width: a phone zooms a page wider than it out, and
+  // innerWidth grows with it, so the narrower of the two.
+  const W = Math.min(innerWidth, document.documentElement.clientWidth);
   const np = document.getElementById('np');
   const play = document.getElementById('np-play').getBoundingClientRect();
   // Every key of the bar that shows, and how far right the last one ends.
@@ -14,15 +21,15 @@ const look = () => {
   return {
     source: np.dataset.source, path: location.pathname,
     play: Math.round(play.left),
-    W: innerWidth, scrollW: document.scrollingElement.scrollWidth,
-    past: keys.filter((k) => k.right > innerWidth).map((k) => `${k.id} ends at ${k.right}`),
+    W, scrollW: document.scrollingElement.scrollWidth,
+    past: keys.filter((k) => k.right > W).map((k) => `${k.id} ends at ${k.right}`),
   };
 };
 
 export default {
   id: 'J1.13',
   title: 'The bar keeps its shape for the tape, the feed and a take, in both rooms',
-  profiles: ['upright', 'tablet', 'pixel'],
+  profiles: ['upright', 'tablet', 'pixel', 'phone'],
   async run(t) {
     const { page, api } = t;
     await t.given('a fresh tape', () => api.tape('Shape'));
@@ -37,11 +44,15 @@ export default {
       t.expect(`${where}: ▶ is where it was`, Math.abs(l.play - seen[0].play) <= 2, { first: seen[0].where, at: seen[0].play, now: l.play });
     };
     const source = page.locator('#np-source');
+    // On a phone the source is on the player pulled up (J2.3): up, choose,
+    // and put away, so the shape is the mini player's again.
     const choose = async (id) => {
+      const up = await pullUp(t);
       await t.tap(source);
       const row = page.locator(`#np-source-menu [data-source="${id}"]`);
       await row.waitFor({ state: 'visible' });
       await t.tap(row);
+      if (up) await putAway(t);
     };
     const holds = (kind) => t.poll((k) => document.getElementById('np')?.dataset.source === k && !document.getElementById('np').hidden, kind, 8000);
 
@@ -61,7 +72,8 @@ export default {
     t.expect('the bar holds the tape', await holds('tape'));
     await check('the Listening Room, the tape');
 
-    const cassette = page.locator('#view-room .room-cassette').first();
+    // The shelf's spine, or the List's row on a phone.
+    const cassette = page.locator('#view-room .room-cassette:visible, #takes .take.spine:visible').first();
     await cassette.waitFor({ state: 'visible' });
     await t.step('tap a take', () => t.tap(cassette));
     t.expect('the bar holds the take', await holds('take'));
