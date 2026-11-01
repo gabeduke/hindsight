@@ -2,6 +2,7 @@ package tape
 
 import (
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -270,5 +271,27 @@ func TestReplaceClearsEveryLayerUnderIt(t *testing.T) {
 		if c.File != "c" && c.At < 750 && c.End() > 250 {
 			t.Fatalf("%+v still plays under the replacement", c)
 		}
+	}
+}
+
+// A re-grid keeps the bar count and moves the bar lines; bar 1 stays at 0.
+func TestGridRetempo(t *testing.T) {
+	g := GridFor(92, 4, 48000)
+	got := g.Retempo(96, 48000)
+	if got.Bars != 4 || got.Frames != GridFor(96, 4, 48000).Frames {
+		t.Fatalf("retempo = %+v", got)
+	}
+	if bpm := got.BPM(48000); math.Abs(bpm-96) > 1e-9 {
+		t.Fatalf("bpm = %v, want 96", bpm)
+	}
+	if got.BarStart(0) != 0 || got.BarStart(1) != 120000 {
+		t.Fatalf("bar lines %d %d, want 0 120000", got.BarStart(0), got.BarStart(1))
+	}
+	if g.Frames != GridFor(92, 4, 48000).Frames {
+		t.Fatal("retempo changed the grid it was asked of")
+	}
+	var none *Grid
+	if one := none.Retempo(120, 48000); one.Bars != 1 || one.Frames != 96000 {
+		t.Fatalf("no grid: %+v, want a bar at 120", one)
 	}
 }

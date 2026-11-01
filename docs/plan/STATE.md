@@ -42,7 +42,16 @@ and still looks it:
   `scripts/flows/harness.mjs` hits `EEXIST` linking the kept take to a
   copy's name (`jam_<date>_<time>.mid`), with a dozen takes dated whole
   hours back. The kept take is named by one clock and the copies by
-  another; look at the zone before blaming the flow's dates.
+  another; look at the zone before blaming the flow's dates. Cause (found
+  2026-11-01, US fall-back day): local hours repeat, so two copies get one
+  name; `TZ=UTC node scripts/flows.mjs` works around it, and CI is UTC.
+- **J5.1's "tip clears the last take" check on the phone depends on how
+  many takes the run has kept** (2026-11-01, #223): J1.20 keeping a take
+  per profile took the List to 79 rows and the last take ended 3 px under
+  the tip ({rows:79, last:555, tip:552}, deterministic, in CI and with
+  `TZ=UTC` locally); J1.20 now reuses a take on the shelf, and the run
+  is 97/97. The List's foot is off by a few px at some lengths: look at
+  it when the List is rebuilt (queue 2), not by adding to the flow.
 - **The first turn to the Listening Room freezes the Studio** about
   0.6–0.9 s at 4× CPU in headless Chromium (later turns 0.25–0.5 s),
   measured before the shelf wall replaced the stage. Re-measure, on the
@@ -114,10 +123,8 @@ and still looks it:
   the tablet before the next starts. Gabe, 2026-10-30: "merge anything, we
   roll forward", so a reviewed, green PR merges without waiting for him.
   Start each session fresh from this file and `components.md`. The queue:
-  0. **Left from 2026-10-30**, if not merged yet (`gh pr list`):
-     - setting the tempo at any time (#223): held, since its flow
-       (J1.20) has no phone path and fails there, where the tempo is in
-       the player pulled up; the PR says what is needed;
+  0. **Left from 2026-10-30**: nothing open (#223, setting the tempo at
+     any time, merged 2026-11-01 with J1.20's phone path).
   1. **Transport** (the bar): `components.md` §6, row 1. It amends
      AGENTS.md and decision 0047 (call 1).
   2. **Library: the List.**

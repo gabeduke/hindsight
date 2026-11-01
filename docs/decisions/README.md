@@ -71,6 +71,7 @@ rules; the story behind each is here. A new decision is the next number,
 - [0059](0059-the-studio-on-one-screen.md) The Studio on one screen: a touch head is name, ●, input and ›
 - [0060](0060-controller-pads-play-now.md) A controller's pads play now, not on a 16th
 - [0061](0061-grab-lands-on-the-cue-lane.md) GRAB lands on the cue lane; a clip's drawer above the bar
+- [0062](0062-a-new-tempo-moves-the-bar-lines.md) A new tempo moves the bar lines, not the audio
 - [0063](0063-phone-cue-drawer-above-mini-player.md) On a phone, a cue clip's drawer docks above the mini player
 - [0064](0064-studio-play-plays-the-tape.md) ▶ in the Studio, with nothing playing, plays the tape
 - [0065](0065-export-always-offers-download.md) Export always offers Download

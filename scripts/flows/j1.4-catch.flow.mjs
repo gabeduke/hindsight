@@ -32,7 +32,7 @@ export default {
     const bpm = grid ? (grid.bars * 4 * 60 * 48000) / grid.frames : 0;
     t.expect('the tape has that tempo', grid?.bars === BARS && Math.round(bpm) === BPM, JSON.stringify(grid));
     // The tempo is on the bar's display, not in the header (whose tempo pill
-    // went: css/chrome.css), and it is the tempo's menu (lib/ui/menu.js): the
+    // went: css/chrome.css), and it opens the tempo's panel (lib/ui/menu.js): the
     // bar counts the loop could be, beside it; Escape shuts it and stays in
     // the Studio.
     const shown = await t.poll((bpm) => document.getElementById('np-tempo')?.textContent.includes(bpm) && document.getElementById('np-tempo').textContent, String(BPM));
@@ -49,7 +49,7 @@ export default {
       const r = m.getBoundingClientRect();
       // Beside its key: its left edge on the key's, over it or under it, on the screen.
       const beside = Math.abs(r.left - b.left) <= 1 && (r.bottom <= b.top + 1 || r.top >= b.bottom - 1);
-      return { beside, on: r.top >= 0 && r.bottom <= innerHeight, rows: [...m.querySelectorAll('[role=menuitem]')].map((i) => i.textContent) };
+      return { beside, on: r.top >= 0 && r.bottom <= innerHeight, rows: [...m.querySelectorAll('.menu-item')].map((i) => i.textContent) };
     });
     t.expect('its menu opens beside it with the bar counts, this one among them', !!tempo?.beside && tempo.on && tempo.rows.includes(`${BARS} bars at ${BPM.toFixed(1)} BPM`), tempo);
     await t.step('press Escape', () => page.keyboard.press('Escape'));

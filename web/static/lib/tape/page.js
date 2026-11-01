@@ -19,7 +19,7 @@ import {
 } from './align.js';
 import { roundRectPath } from '../objects/cassette-geom.js';
 import {
-  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, barEvery, barPx, bpm as bpmOf, barBeat, fmtSecs,
+  editView as viewRange, barSpan, nearestBar, xOf, frameAt, barLines, barEvery, barPx, bpm as bpmOf, barBeat, tappedBpm, SLOWEST_BEAT_MS, fmtSecs,
   SNAPS, slideTo, nudgeFrames, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, levelAt,
   trimBounds, trimTo, trimmed, repeatRoom, repeatCount, groupMove, fadeOptions, fadeOption, clipFades, keyStep, FADE_SHAPES, fadeCurve, fadeTo,
 } from './geometry.js';
@@ -56,7 +56,7 @@ import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
 import { layersOf } from '../ui/layers.js';
-import { menu, splitKey, menuItem, barTop } from '../ui/menu.js';
+import { menu, splitKey, menuItem, menuDivider, menuGroup, barTop } from '../ui/menu.js';
 import { icon } from '../ui/icons.js';
 import { revealAbove } from '../ui/reveal.js';
 import { tapeRowSub, deleteWords, afterDelete } from './tape-menu.js';
@@ -4115,28 +4115,96 @@ async function tap() {
   }
 }
 
-// renderTempo fills the tempo's menu with the other bar counts the loop
-// could be: the same frames, relabelled, so nothing is stretched.
-function renderTempo(menu) {
+// renderTempo fills the tempo's panel, from the bar's display: the tempo
+// to type, −1 and +1, TAP, and under a line the grid's bars counted half or
+// twice as many. A new tempo re-grids the tape (docs/decisions/0062): the
+// bar lines, the click and the clock move, and the audio, the clips and the
+// loop stay where they are. A bar count relabels the grid's frames, which
+// are the loop's until a re-grid. Each is a step of undo; nudges and taps
+// in a row are one (the Pi's "tempo" kind).
+const tempoTaps = [];
+function renderTempo(panel) {
+  const doc = panel.ownerDocument;
   const t = state.tape;
-  const opts = [];
-  if (t && t.grid) {
-    for (const bars of [t.grid.bars / 4, t.grid.bars / 2, t.grid.bars, t.grid.bars * 2, t.grid.bars * 4]) {
-      if (!Number.isInteger(bars) || bars < 1 || bars > 64) continue;
-      const bpm = bpmOf({ frames: t.grid.frames, bars }, t.sample_rate);
-      if (bpm < 20 || bpm > 400) continue;
-      opts.push({ bars, bpm });
-    }
-  }
-  menu.replaceChildren(...opts.map((o) => {
-    const b = document.createElement('button');
+  const now = t && t.grid ? bpmOf(t.grid, t.sample_rate) : 0;
+  const tenth = (n) => Math.round(n * 10) / 10;
+  // The empty tape's form's row and field: its styling, reused
+  // (styles.css, .tape-tempo-row).
+  const row = doc.createElement('div');
+  row.className = 'tape-tempo-row';
+  const field = doc.createElement('input');
+  Object.assign(field, { id: 'tempo-bpm', type: 'number', min: 20, max: 400, step: 0.1, inputMode: 'decimal', value: now ? String(tenth(now)) : '' });
+  field.setAttribute('aria-label', 'Tempo in BPM');
+  const key = (word, label, run, id) => {
+    const b = doc.createElement('button');
     b.type = 'button';
-    b.setAttribute('role', 'menuitem');
-    b.className = o.bars === t.grid.bars ? 'on' : '';
-    b.textContent = `${o.bars} bar${o.bars === 1 ? '' : 's'} at ${o.bpm.toFixed(1)} BPM`;
-    b.addEventListener('click', () => { if (o.bars !== t.grid.bars) patch({ bars: o.bars }); });
+    b.className = 'icon-btn';
+    b.id = id;
+    b.textContent = word;
+    b.setAttribute('aria-label', label);
+    b.addEventListener('click', run);
     return b;
-  }));
+  };
+  const bars = () => {
+    const tp = state.tape;
+    const opts = [];
+    if (tp && tp.grid) {
+      for (const n of [tp.grid.bars / 4, tp.grid.bars / 2, tp.grid.bars, tp.grid.bars * 2, tp.grid.bars * 4]) {
+        if (!Number.isInteger(n) || n < 1 || n > 64) continue;
+        const b = bpmOf({ frames: tp.grid.frames, bars: n }, tp.sample_rate);
+        if (b < 20 || b > 400) continue;
+        opts.push({ n, b });
+      }
+    }
+    return opts.map((o) => {
+      // A button, not a menuitem: the panel is a dialog, for its field.
+      const r = menuItem(doc, { role: 'button', word: `${o.n} bar${o.n === 1 ? '' : 's'} at ${o.b.toFixed(1)} BPM`, className: o.n === tp.grid.bars ? 'on' : '' });
+      r.addEventListener('click', () => {
+        menus.tempoBar.close();
+        if (o.n !== tp.grid.bars) patch({ bars: o.n });
+      });
+      return r;
+    });
+  };
+  // What follows the row is the bar counts', put back after each change.
+  const showBars = () => {
+    while (row.nextSibling) row.nextSibling.remove();
+    const rows = bars();
+    if (rows.length) panel.append(menuDivider(doc), menuGroup(doc, 'Count the bars'), ...rows);
+  };
+  const set = async (bpm) => {
+    bpm = tenth(bpm);
+    if (!(bpm >= 20 && bpm <= 400)) { toast('A tempo is 20 to 400 BPM', 'warn'); return; }
+    field.value = String(bpm);
+    if (await patch({ tempo: { bpm } })) showBars();
+    // Refused (a punch, say): back to the tape's, so the next +1 counts
+    // from what the Pi has.
+    else if (state.tape?.grid) field.value = String(tenth(bpmOf(state.tape.grid, state.tape.sample_rate)));
+  };
+  field.addEventListener('change', () => set(Number(field.value)));
+  // ↑ ↓ nudge a tenth (with Shift, a whole BPM), not the menu's focus.
+  field.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    set(Number(field.value) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 1 : 0.1));
+  });
+  const tapKey = key('TAP', 'Tap the tempo', () => {
+    const at = performance.now();
+    if (tempoTaps.length && at - tempoTaps[tempoTaps.length - 1] > SLOWEST_BEAT_MS) tempoTaps.length = 0;
+    tempoTaps.push(at);
+    const b = tappedBpm(tempoTaps);
+    tapKey.textContent = b ? 'TAP' : `TAP ${tempoTaps.length}`;
+    if (b) set(b);
+  }, 'tempo-tap');
+  tempoTaps.length = 0;
+  row.replaceChildren(
+    key('−1', 'Slower by one BPM', () => set(Number(field.value) - 1), 'tempo-down'),
+    field,
+    key('+1', 'Faster by one BPM', () => set(Number(field.value) + 1), 'tempo-up'),
+    tapKey,
+  );
+  panel.replaceChildren(row);
+  showBars();
 }
 
 function laneTap(lane, e) {
@@ -4563,8 +4631,9 @@ function mountMenus() {
   const opts = { layers: stack || undefined, doc: document, floor: barTop(document) };
   menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, floor: undefined, side: 'below', align: 'start', render: renderTapeMenu, focus: 'checked' });
   // The tempo's, from the bar's display (the bar's own keys say when it
-  // opens: css/bar.css, lib/bar/bar.js).
-  if ($('np-tempo')) menus.tempoBar = menu($('np-tempo'), $('tempo-menu'), { ...opts, floor: undefined, align: 'start', render: renderTempo });
+  // opens: css/bar.css, lib/bar/bar.js): a panel, since −1, +1 and TAP
+  // keep it open.
+  if ($('np-tempo')) menus.tempoBar = menu($('np-tempo'), $('tempo-menu'), { ...opts, role: 'dialog', floor: undefined, align: 'start', render: renderTempo });
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
 }
 

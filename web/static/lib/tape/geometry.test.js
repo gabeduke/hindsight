@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, barEvery, barPx, bpm, barBeat, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove, fadeOptions, fadeOption, clipFades, keyStep } from './geometry.js';
+import { viewRange, editView, barSpan, nearestBar, xOf, frameAt, barLines, barEvery, barPx, bpm, barBeat, tappedBpm, fmtSecs, clipBuckets, snapFrame, slideTo, splitAt, joinPartner, fitsDoubled, zoomView, panView, followView, trimBounds, trimTo, trimmed, repeatRoom, repeatCount, MAX_REPEAT, groupMove, fadeOptions, fadeOption, clipFades, keyStep } from './geometry.js';
 
 test('the lanes show the loop, or everything recorded', () => {
   assert.deepEqual(viewRange({ sample_rate: 48000, loop: { in: 100, out: 900 }, tracks: [] }), { from: 100, to: 900 });
@@ -357,4 +357,12 @@ test('fadeTo: any length, sticking to a grid line near it, stopping at the other
   assert.equal(fadeTo(clip, 'out', 6000, 50000, o), 0);
   // Shorter than the declick is none.
   assert.equal(fadeTo(clip, 'in', 0, 100, { least: 144 }), 0);
+});
+
+test('tapped taps make a tempo from the fourth: the mean of the last eight', () => {
+  assert.equal(tappedBpm([0, 500, 1000]), 0);
+  assert.equal(tappedBpm([0, 500, 1000, 1500]), 120);
+  // A slow start falls out once eight later taps are in.
+  const taps = [0, 900, ...Array.from({ length: 8 }, (_, i) => 1800 + i * 625)];
+  assert.equal(tappedBpm(taps), 96);
 });

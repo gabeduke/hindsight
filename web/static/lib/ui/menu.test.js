@@ -270,6 +270,22 @@ test('menu: opened by a key, a panel puts the keyboard on what is chosen', () =>
   assert.equal(p.doc.activeElement?.id, 'a', '← → move along a panel’s choices too');
 });
 
+// The tempo's panel holds a field: ← → there moved the keyboard to −1,
+// out of the number being typed.
+test('menu: in a field inside a panel, ← → Home End are the field’s', () => {
+  const p = aPage(`<button id="b"></button><div id="m" hidden>
+    <button id="a"></button><input id="f" type="number"><button id="c"></button></div>`);
+  menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win, role: 'dialog' });
+  p.$('b').dispatchEvent({ type: 'click' });
+  p.$('f').focus();
+  for (const k of ['ArrowLeft', 'ArrowRight', 'Home', 'End']) {
+    assert.ok(!p.key(k).defaultPrevented, `${k} is left to the field`);
+    assert.equal(p.doc.activeElement?.id, 'f', `${k} leaves the keyboard in the field`);
+  }
+  p.key('ArrowDown');
+  assert.equal(p.doc.activeElement?.id, 'a', '↓ still moves on from it');
+});
+
 test('menu: Tab closes it, and the keyboard goes on from its button', () => {
   const p = aPage();
   const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win });
