@@ -70,22 +70,15 @@ export function paintOutSheet(mode, delay) {
 /** outDelay is a phone's delay in words: 0.8 s. */
 export const outDelay = (ms) => `${((ms || 800) / 1000).toFixed(1)} s`;
 
-async function putMode(mode) {
-  const res = await fetch('/api/tapes/output', {
-    method: 'PUT', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }),
-  });
-  const b = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(b.error || `HTTP ${res.status}`);
-}
-
 /**
  * switchOutput moves the tape to `mode`, playing it on `player` (a
- * StreamPlayer) for phone and both. The sound starts inside the tap that
- * chose it, before any await: a phone's browser only lets a tap start it.
- * A phone that never starts doesn't leave the jam room silent. Answers
- * whether it switched.
+ * StreamPlayer) for phone and both, by `transport`'s setOutput (the page's,
+ * lib/models/transport.js, which asks the Pi what it made of it). The sound
+ * starts inside the tap that chose it, before any await: a phone's browser
+ * only lets a tap start it. A phone that never starts doesn't leave the jam
+ * room silent. Answers whether it switched.
  */
-export async function switchOutput(mode, { player, poll = () => {}, toast }) {
+export async function switchOutput(mode, { player, transport, toast }) {
   // Already listening, with the sound held back: this tap wakes it.
   if (mode !== 'jam' && player.active) player.resume();
   const starting = mode !== 'jam' && !player.active ? player.start() : null;
@@ -93,19 +86,17 @@ export async function switchOutput(mode, { player, poll = () => {}, toast }) {
   if (starting) starting.catch(() => {});
   let put = false;
   try {
-    await putMode(mode);
+    await transport.setOutput(mode);
     put = true;
     await starting;
     if (mode === 'jam') player.stop();
     // The next page joins the stream again (listener.js).
     rememberListener(mode !== 'jam' && player.active);
-    setTimeout(poll, 100);
     return true;
   } catch (e) {
     if (starting) player.stop();
     if (put && mode !== 'jam') {
-      try { await putMode('jam'); } catch { /* best effort */ }
-      poll();
+      try { await transport.setOutput('jam'); } catch { /* best effort */ }
     }
     toast(e.message, 'bad');
     return false;

@@ -388,6 +388,23 @@ test('Guardrail 14: only the takes model (lib/models/takes.js) asks /api/jams; e
   assert.deepEqual(found, [], 'asks /api/jams itself: take the page’s takes (ctx.takes, the engine’s, or createTakes on a page of its own) instead');
 });
 
+test('Guardrail 16: only the protocol client (lib/models/protocol.js) names the transport’s routes; every press of ▶ ■, where it plays, the tempo and a free loop’s tap is the transport model’s', () => {
+  // docs/architecture/bar.md, *The transport*: the page's one transport
+  // (lib/models/transport.js) sends its verbs through the protocol client,
+  // so a press shows at once wherever it is made and the Studio and the bar
+  // are one state. A module that sends one of these itself goes around it.
+  // The tempo and the loop ride PATCH /api/tapes, which the tape's other
+  // edits share until the tape's model has them; their verbs are the
+  // transport's all the same (setTempo, setBars, setLoop).
+  const found = [];
+  for (const [f, raw] of gestureLiterals()) {
+    if (f === 'lib/models/protocol.js') continue;
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    if (/['"`]\/api\/tapes\/(transport|output|tap)\b/.test(src)) found.push(f);
+  }
+  assert.deepEqual(found, [], 'sends a transport verb itself: use the page’s transport (engine.transport, or createTransport over createProtocol on a page of its own) instead');
+});
+
 // ---- the components: lib/components/ ---------------------------------------
 // The kit (docs/architecture/components.md; docs/plan/components.md, 1.5): a
 // component draws inside the root it is given, from its models' snapshots,

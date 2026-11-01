@@ -314,12 +314,10 @@ const POLL_TIMEOUT_MS = 4000;
 // lands while a poll is out polls once more after it rather than beside it.
 // The 200 ms poll stays as the fallback, for a socket that is down.
 // What the Studio lends the page's transport (delegate) while it is shown:
-// its ▶ ■, locate, loop and poll, and what it does with a nudge.
+// the hands each of its verbs is sent inside (sentHere), whoever pressed it,
+// its poll, and what it does with a nudge.
 const barHands = {
-  play: () => transport('play'),
-  stop: () => transport('stop'),
-  locate: (pos) => transport('locate', { pos }),
-  setLoop: (on) => patch({ loop: { on } }),
+  around: (name, args, run) => sentHere(name, args, run),
   poll: () => poll(),
   nudge: () => nudged(),
 };
@@ -4044,20 +4042,36 @@ async function patch(body) {
   return editTape(() => change(() => api(`/api/tapes?${q()}`, { method: 'PATCH', body })), { toast, resync: () => poll(true) });
 }
 
-async function transport(action, extra = {}) {
-  if (action === 'locate' && output && output.streamingHere()) {
-    ghost = { pos: extra.pos, until: performance.now() + output.player.delayMs() };
+// sentHere is the Studio's hands around a verb of the page's transport
+// (lib/models/transport.js), the bar's or the Studio's own: a locate heard
+// on this phone shows where it was asked until the phone hears it, a poll
+// the verb overtakes is dropped (change), and a stop that ends a punch says
+// what it kept. The transport asks the Studio to poll after it.
+async function sentHere(name, args, run) {
+  if (name === 'locate' && output && output.streamingHere()) {
+    ghost = { pos: args.pos, until: performance.now() + output.player.delayMs() };
   }
+  const b = await change(run);
+  if (b && b.kept) keptToast(b.kept);
+  return b;
+}
+
+// transport is ▶ ■ or a locate from the Studio's own keys, on the page's
+// transport; it says why one was refused, and whether it went.
+async function transport(action, extra = {}) {
+  const tr = engine.transport;
   try {
-    const b = await change(() => api(`/api/tapes/transport?${q()}`, { method: 'POST', body: { action, ...extra } }));
-    if (b && b.kept) keptToast(b.kept);
-    setTimeout(poll, 150);
+    await (action === 'locate' ? tr.locate(extra.pos) : action === 'play' ? tr.play() : tr.stop());
     return true;
   } catch (e) {
     toast(e.message, 'bad');
     return false;
   }
 }
+
+// regrid sends a new tempo or bar count (decision 0062) by the page's
+// transport, and says whether it took, as patch does.
+const regrid = (send) => editTape(send, { toast, resync: () => poll(true) });
 
 // keptToast says what a punch kept -- on its own track, all of it, even
 // split where the loop wrapped -- with Undo.
@@ -4101,9 +4115,9 @@ async function rec() {
 async function tap() {
   if (jamOnly() || noArm()) return;
   try {
-    const b = await change(() => api(`/api/tapes/tap?${q()}`, { method: 'POST', body: recordBody(state.recTracks, inputOf) }));
+    const b = await engine.transport.tapLoop(recordBody(state.recTracks, inputOf));
     if (b.stage === 'first') {
-      toast('Now tap where it comes round', 'ok', { action: { label: 'Start over', run: () => api(`/api/tapes/tap?${q()}`, { method: 'DELETE' }).then(poll, () => {}) } });
+      toast('Now tap where it comes round', 'ok', { action: { label: 'Start over', run: () => engine.transport.tapCancel().then(poll, () => {}) } });
     } else {
       caughtToast(`A ${(b.clip.frames / state.tape.sample_rate).toFixed(2)} s loop: ${b.bars} bar${b.bars === 1 ? '' : 's'} at ${b.bpm} BPM${b.tracks && b.tracks.length > 1 ? ` → ${tracksWords(b.tracks)}` : ''}`, b.clip, {
         ms: 8000, action: { label: 'Undo', run: () => undoRedo(false) },
@@ -4161,7 +4175,7 @@ function renderTempo(panel) {
       const r = menuItem(doc, { role: 'button', word: `${o.n} bar${o.n === 1 ? '' : 's'} at ${o.b.toFixed(1)} BPM`, className: o.n === tp.grid.bars ? 'on' : '' });
       r.addEventListener('click', () => {
         menus.tempoBar.close();
-        if (o.n !== tp.grid.bars) patch({ bars: o.n });
+        if (o.n !== tp.grid.bars) regrid(() => engine.transport.setBars(o.n));
       });
       return r;
     });
@@ -4176,7 +4190,7 @@ function renderTempo(panel) {
     bpm = tenth(bpm);
     if (!(bpm >= 20 && bpm <= 400)) { toast('A tempo is 20 to 400 BPM', 'warn'); return; }
     field.value = String(bpm);
-    if (await patch({ tempo: { bpm } })) showBars();
+    if (await regrid(() => engine.transport.setTempo(bpm))) showBars();
     // Refused (a punch, say): back to the tape's, so the next +1 counts
     // from what the Pi has.
     else if (state.tape?.grid) field.value = String(tenth(bpmOf(state.tape.grid, state.tape.sample_rate)));

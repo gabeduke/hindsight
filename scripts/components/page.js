@@ -30,7 +30,7 @@ try {
   }
   const fx = fixture(snapshots, { refuse: spec.refuse || {} });
   const toast = (words) => { harness.said.push(String(words)); };
-  const made = fixtureModels(fx, def.needs, { onError: toast });
+  const made = fixtureModels(fx, def.needs);
   await made.ready;
   const props = Object.fromEntries((spec.props || []).map((k) => [k, () => { harness.pressed.push(k); }]));
   const view = createView({

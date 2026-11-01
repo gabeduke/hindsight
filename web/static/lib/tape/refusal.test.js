@@ -104,8 +104,9 @@ test('the pages go through these: patch is editTape, the API helper reads the re
   assert.doesNotMatch(src, /toast\(`Could not change the tape: /);
   const rig = readFileSync(new URL('../rig/page.js', import.meta.url), 'utf8');
   assert.match(rig, /failToast\(toast, /);
-  // The bar's ▶ ■ and locate are sent by the page's transport.
-  const bar = readFileSync(new URL('../models/transport.js', import.meta.url), 'utf8');
-  assert.match(bar, /refusal\(res\.status/);
+  // The transport's verbs (the bar's ▶ ■ and locate among them) are read by
+  // the page's protocol client.
+  const client = readFileSync(new URL('../models/protocol.js', import.meta.url), 'utf8');
+  assert.match(client, /refusal\(res\.status/);
   assert.match(readFileSync(new URL('../toast.js', import.meta.url), 'utf8'), /opts\.detail/);
 });

@@ -14,10 +14,14 @@ import { paintTapeOverview } from '../tape/overview.js';
 /**
  * tapeSource is the bar's source for `transport` (createTransport's, loaded
  * with the Pi's tape). stream() is the tape's player on this phone, if there
- * is one.
+ * is one. onError(refusal) hears a press of the bar's the Pi refused (the
+ * Refusal its verb threw, lib/models/protocol.js), to say why.
  */
-export function tapeSource(transport, { stream = () => null } = {}) {
+export function tapeSource(transport, { stream = () => null, onError = null } = {}) {
   const tr = transport;
+  const snap = () => tr.snapshot();
+  // A press the Pi refuses is said, never left unhandled.
+  const press = (p) => Promise.resolve(p).catch((e) => { onError?.(e); });
   let levels = null;
   // Back in view: the transport asks the Pi at once (it has no document).
   const onVisible = () => tr.wake();
@@ -28,8 +32,9 @@ export function tapeSource(transport, { stream = () => null } = {}) {
   // Where the tape is now: when streaming here, what this device hears; else
   // the transport's, run on at its rate while it plays.
   const pos = () => {
-    if (!tr.live || !tr.tape) return 0;
-    if (tr.live.output_mode !== 'jam') {
+    const { tape, live } = snap();
+    if (!live || !tape) return 0;
+    if (live.output_mode !== 'jam') {
       const h = here()?.heard?.();
       if (h) return h.pos;
     }
@@ -45,11 +50,11 @@ export function tapeSource(transport, { stream = () => null } = {}) {
 
   return {
     kind: 'tape',
-    get ready() { return tr.ready; },
-    get title() { return tr.tape ? tr.tape.name : 'the tape'; },
+    get ready() { return !!snap().tape; },
+    get title() { const t = snap().tape; return t ? t.name : 'the tape'; },
     href: '/tape.html',
-    get sampleRate() { return tr.sampleRate; },
-    get length() { return tr.length; },
+    get sampleRate() { return tr.sampleRate(); },
+    get length() { const t = snap().tape; return t ? t.length : 1; },
     pos,
     // heardHere is where this device is hearing the tape: behind pos() when
     // it plays here, by the stream's buffer and the output's latency.
@@ -63,37 +68,38 @@ export function tapeSource(transport, { stream = () => null } = {}) {
     press() {
       if (!waiting()) return false;
       here().resume();
-      if (!tr.playing()) tr.play();
+      if (!tr.playing()) press(tr.play());
       return true;
     },
-    play: () => tr.play(),
-    pause: () => tr.stop(),
-    seek: (frame) => tr.locate(frame),
+    play: () => press(tr.play()),
+    pause: () => press(tr.stop()),
+    seek: (frame) => press(tr.locate(frame)),
     start: () => tr.start(),
-    startLabel: () => (tr.loop && tr.canLoop() ? 'Back to the loop’s start' : 'Back to the top of the tape'),
+    startLabel: () => (tr.looping() && tr.canLoop() ? 'Back to the loop’s start' : 'Back to the top of the tape'),
     step: () => tr.step(),
-    get loop() { return tr.loop; },
+    get loop() { return tr.looping(); },
     loopSpec: () => tr.loopSpec(),
     canLoop: () => tr.canLoop(),
-    setLoop: (on) => tr.setLoop(on),
+    setLoop: (on) => press(tr.setLoop(on)),
     tick() {},
     // The bar holding a take instead: the transport asks only now and then.
     setActive: (on) => tr.setActive(on),
     lcd: () => {
-      const t = tr.tape, live = tr.live;
+      const { tape: t, live } = snap();
       const c = t ? tapeCounter(t, live ? { ...live, heard: pos() } : null, tr.mixdown()) : { big: '', small: '', note: '', status: 'stop', unit: '' };
       const n = streamNote();
       return n ? { ...c, note: n } : c;
     },
     // The display's tempo, source and where it plays (display.js).
-    display: () => tapeDisplay(tr.tape, tr.live && tr.live.output_mode),
+    display: () => { const { tape, live } = snap(); return tapeDisplay(tape, live && live.output_mode); },
     get levels() { return levels; },
     setLevels(colors, atFn) {
       levels = colors && atFn ? { colors, at: atFn } : null;
     },
     paint(ctx, W, H, col) {
-      if (!tr.tape) { ctx.clearRect(0, 0, W, H); return; }
-      paintTapeOverview(ctx, W, H, tr.tape, tr.live ? pos() : null, { col });
+      const { tape, live } = snap();
+      if (!tape) { ctx.clearRect(0, 0, W, H); return; }
+      paintTapeOverview(ctx, W, H, tape, live ? pos() : null, { col });
     },
     /** on hears every change to what the bar shows of the tape, and answers its off. */
     on: (fn) => tr.onChange(fn),

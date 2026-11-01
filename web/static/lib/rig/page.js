@@ -20,6 +20,7 @@
 import { initNav } from '../nav.js';
 import { toast } from '../toast.js';
 import { refusal, failToast, WAITING, WAITING_DETAIL } from '../tape/refusal.js';
+import { createProtocol } from '../models/protocol.js';
 import { initHelp } from '../help/help.js';
 import { showPresses } from '../ui/keys.js';
 import { restartHindsight, RESTART_WARNING } from '../settings.js';
@@ -42,6 +43,8 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const POLL_MS = 1500;
+// The page's protocol client (lib/models/protocol.js): where the tape plays.
+const protocol = createProtocol();
 const SVGNS = 'http://www.w3.org/2000/svg';
 
 const state = {
@@ -109,11 +112,16 @@ async function send(w, said, { undo = false } = {}) {
   if (!w) return false;
   state.sending = true;
   try {
-    const r = await fetch(w.url, { method: w.method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(w.body) });
-    const b = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      const why = refusal(r.status, b);
-      throw Object.assign(new Error(why.message), { recording: why.recording });
+    // A model's verb (where the tape plays) goes by the protocol client,
+    // which throws its Refusal; the rig's own writes, by their route.
+    if (w.verb) await protocol.verb(...w.verb, w.body);
+    else {
+      const r = await fetch(w.url, { method: w.method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(w.body) });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const why = refusal(r.status, b);
+        throw Object.assign(new Error(why.message), { recording: why.recording });
+      }
     }
     if (said) {
       const opts = undo && state.g && state.g.tape ? { action: { label: 'Undo', run: () => undoTape() } } : {};

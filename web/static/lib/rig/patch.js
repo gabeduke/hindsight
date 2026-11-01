@@ -83,7 +83,7 @@ export function writeFor(g, aId, bId) {
     if (tr.bus === bus.bus) return null;
     return { method: 'PATCH', url: tapesURL(g), body: { track: { n: tr.track, bus: bus.bus } } };
   }
-  if ((p = pair('out', 'listener'))) return { method: 'PUT', url: '/api/tapes/output', body: { mode: 'both' } };
+  if ((p = pair('out', 'listener'))) return outputWrite('both');
   if ((p = pair('clock-out', 'dev-midi-in'))) {
     const dev = deviceOf(g, p[1].id);
     return put({ TAPE_CLOCK: 'lead', TAPE_CLOCK_OUT: addName(setting(g, 'TAPE_CLOCK_OUT'), dev) });
@@ -122,7 +122,7 @@ export function unplugFor(g, c) {
       if (recording(g).includes(Number(rest))) return null;
       // The input goes back to none of its own; what's armed stays.
       return { method: 'PATCH', url: tapesURL(g), body: { input: { n: Number(rest), source: '' } } };
-    case 'out': return { method: 'PUT', url: '/api/tapes/output', body: { mode: 'jam' } };
+    case 'out': return outputWrite('jam');
     case 'clock-out': {
       if (!dev) return null;
       const left = removeName(setting(g, 'TAPE_CLOCK_OUT'), dev);
@@ -177,9 +177,12 @@ export function keepWrite(g, choice) {
   return s ? put({ SAVE_CHANNELS: s.pair.join(','), SAVE_ALL_CHANNELS: 'false' }) : null;
 }
 
-/** outputWrite sends the tape to the room, a phone, or both. */
+/**
+ * outputWrite sends the tape to the room, a phone, or both: the transport's
+ * verb (lib/models/protocol.js names its route), not a route of its own.
+ */
 export function outputWrite(mode) {
-  return { method: 'PUT', url: '/api/tapes/output', body: { mode } };
+  return { verb: ['transport', 'setOutput'], body: { mode } };
 }
 
 /** offerWrite takes the interface's own taps (Use these taps). */
