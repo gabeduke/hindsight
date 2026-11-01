@@ -127,3 +127,25 @@ Reviews of the sibling SMK-37 Pro exist
 ([Synthtopia](https://www.synthtopia.com/?p=149193),
 [heise](https://heise.de/-10503740)), but the Pro's panel is not the Elite's.
 Don't draw the Elite from them.
+
+## Zoom AMS-24
+
+Page: <https://zoomcorp.com/en/us/audio-interface/audio-interfaces/ams-series/>
+
+All under `https://zoomcorp.com/media/original_images/`; the file names below
+are the ones on the page, with the crop suffix left off. The series page's
+front and rear pictures are labelled AMS-44 or AMS-22, not the AMS-24, so
+none is recorded here.
+
+| Id | View | File |
+|---|---|---|
+| `ams-24-top` | Top | `AMS-24_top.jpg` |
+| `ams-24-side` | Side | `AMS-24_Side1.jpg` |
+
+## Behringer AKS mini
+
+Page: <https://www.behringer.com/en/products/0722-AAY>
+
+| Id | View | Source |
+|---|---|---|
+| `aks-mini-own-photo` | **None found from the maker.** The product page shows no picture of the unit in its markup | Take it: front, top and back of the unit, as above |

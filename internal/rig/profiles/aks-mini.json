@@ -1,0 +1,119 @@
+{
+  "id": "aks-mini",
+  "name": "Behringer AKS mini",
+  "short": "AKS mini",
+  "maker": "Behringer",
+  "match": {"midi": "AKS"},
+  "placeholder": true,
+  "note": "A synth, not an interface: its USB carries power and MIDI, and its sound leaves by a 3.5 mm headphone jack, so record it by cabling that jack into an interface's input. The MIDI name to match is a guess; its USB id is not captured.",
+  "source": "https://www.behringer.com/en/products/0722-AAY",
+  "ports": [
+    {"id": "phones", "label": "PHONES", "kind": "audio", "dir": "out", "about": "3.5 mm stereo headphone output: its only audio output. Cable it into an interface's input to record it."},
+    {"id": "midi-in", "label": "MIDI IN", "kind": "midi", "dir": "in", "about": "5-pin DIN MIDI in, and MIDI over USB: notes, and NRPN/CC for every parameter."},
+    {"id": "midi-out", "label": "MIDI OUT", "kind": "midi", "dir": "out", "about": "MIDI over USB: its keys, and CCs as its controls move."},
+    {"id": "sync-in", "label": "SYNC", "kind": "sync", "dir": "in", "about": "3.5 mm analog sync input."},
+    {"id": "usb", "label": "USB-C", "kind": "usb", "dir": "both", "about": "5 V power and USB MIDI. No USB audio is listed by Behringer or its dealers."}
+  ],
+  "hardware": {
+    "extending": "A 3-voice analog synth after the EMS Synthi AKS. It sends MIDI to the Pi over USB, so the rig sees it as a MIDI device and can record its notes beside a take; its sound has to come in through an interface (the AMS-24's inputs, or a Sidekick strip). Fill this in from the real unit: confirm the MIDI port name (match.midi), confirm there is no USB audio, then flip statuses. Everything under \"hardware\" is ignored by the Go loader: it is notes for people, and for a later registry (docs/hardware/README.md, Later: sharing profiles). To fill this profile from a real unit, follow 'Capturing an unknown device' in docs/hardware/README.md, then flip statuses from 'unconfirmed' or 'to-capture' to 'owner'.",
+    "kinds": [
+      "synth",
+      "keyboard"
+    ],
+    "usb": [
+      {
+        "vid": "0x1397",
+        "pid": null,
+        "status": "hinted"
+      }
+    ],
+    "names": [
+      "AKS mini",
+      "AKS MINI",
+      "Behringer"
+    ],
+    "connection": {
+      "to_pi": "owner",
+      "note": "Plugged into the jam-space Pi over USB (Oct 2026); it sends MIDI."
+    },
+    "audio": {
+      "status": "unconfirmed",
+      "outputs": "One 3.5 mm stereo headphone output; dealers list no line outputs and no digital output.",
+      "usb_audio": "None listed by Behringer or by dealers (USB-C is given as power and MIDI).",
+      "engine": "3 VCOs (saw and square, with shape), analog low-pass filter with resonance, LFO, envelope, digital spring reverb; poly and unison modes.",
+      "$comment": "Unconfirmed because no maker's spec table was found. arecord -l with it plugged in settles it."
+    },
+    "midi": {
+      "status": "sourced",
+      "usb": "USB MIDI.",
+      "din": "One 5-pin DIN MIDI in (dealers' listings).",
+      "implementation": "NRPN and CC for all parameters (Behringer's page)."
+    },
+    "storage": {
+      "status": "sourced",
+      "present": "Internal: 10 sequencer memory locations."
+    },
+    "controls": {
+      "status": "unconfirmed",
+      "keyboard": "27 touch keys (Behringer calls them touch-sensitive; a dealer lists aftertouch and no velocity).",
+      "other": "Two-axis joystick, 16-step motion sequencer with parameter recording, arpeggiator, display.",
+      "$comment": "Read the panel off the unit before drawing a labelled diagram."
+    },
+    "quirks": [
+      {
+        "text": "Its only audio output is a headphone jack: set its level so the interface input doesn't clip.",
+        "status": "unconfirmed"
+      },
+      {
+        "text": "Silent keys with the metronome still audible: the oscillators' signal level and the filter cutoff were down. Turning both up gives sound.",
+        "status": "owner"
+      }
+    ],
+    "unknowns": [
+      {
+        "question": "Vendor and product ids",
+        "how": "lsusb before and after plugging it in"
+      },
+      {
+        "question": "The MIDI port's name, for match.midi",
+        "how": "amidi -l ; cat /proc/asound/cards"
+      },
+      {
+        "question": "Confirm it has no USB audio",
+        "how": "arecord -l ; aplay -l   with it plugged in: no new card number means no USB audio"
+      },
+      {
+        "question": "What its controls send, and whether it answers MIDI clock",
+        "how": "aseqdump -p <client:port> while moving each control; scripts/midi-probe.py for clock"
+      },
+      {
+        "question": "Is the sync jack an input only?",
+        "how": "Behringer's quick start guide (Downloads tab on the product page)"
+      }
+    ],
+    "hindsight": {
+      "behavior": "inform-only",
+      "role": "A MIDI source on the Pi; its audio comes in through an interface.",
+      "notes": [
+        "Its notes record beside a take like the Bento's, if MIDI_DEVICES lets it in."
+      ]
+    },
+    "images": [
+      "aks-mini-own-photo"
+    ],
+    "refs": {
+      "behringer-product": {
+        "title": "AKS MINI (Behringer)",
+        "url": "https://www.behringer.com/en/products/0722-AAY"
+      },
+      "thomann": {
+        "title": "Behringer AKS Mini (Thomann)",
+        "url": "https://www.thomannmusic.com/behringer_aks_mini.htm"
+      },
+      "perfect-circuit": {
+        "title": "Behringer AKS mini (Perfect Circuit)",
+        "url": "https://www.perfectcircuit.com/behringer-aks-mini.html"
+      }
+    }
+  }
+}
