@@ -26,6 +26,25 @@ func readTakesMove(t *testing.T, c *websocket.Conn, from uint64, within time.Dur
 	}
 }
 
+// waitFirstScan returns once the scan has looked at the folder, so a write
+// after it is a change to the revision rather than its starting point.
+func waitFirstScan(t *testing.T, tr *takesRev) {
+	t.Helper()
+	until := time.Now().Add(2 * time.Second)
+	for {
+		tr.mu.Lock()
+		seen := tr.last != ""
+		tr.mu.Unlock()
+		if seen {
+			return
+		}
+		if time.Now().After(until) {
+			t.Fatal("the scan never looked at the folder")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 // Every way a person changes the take list through the API moves takes_rev
 // on an open socket at once, well inside the scan's second: a save's file
 // appearing (as the trigger writes it), a rename, a star, a delete and a
@@ -39,6 +58,10 @@ func TestTheTakesRevisionMovesTheMomentAWriteChangesTheList(t *testing.T) {
 	c := dialChanges(t, r)
 	hello := readChanges(t, c, time.Second)
 	rev := hello.TakesRev
+	// The hello is said before the scan's first look at the folder, and a
+	// write that lands ahead of that look is where the scan starts, not a
+	// move: wait for the look before writing.
+	waitFirstScan(t, a.takesRev)
 
 	step := func(what string, do func()) {
 		t.Helper()
