@@ -181,6 +181,24 @@ and still looks it:
   - ▶ in the Studio, with nothing playing, plays the tape (0064);
   - Export always offers Download (0065);
   - Open's selection bar as #220 recommends (0066).
+- **Calls taken for Gabe on 2026-11-02, his to overrule**: the
+  Transport's extraction (`transport-extraction.md`), built on its
+  recommendations overnight. Decision 1, the ids, was already agreed
+  (`components.md` 1.3). The rest:
+  - 2: the bar's fold and player-up go on `#np`; the shell, not the bar,
+    sets `body.np-fold` and `body.player-open` for the page's own rules;
+  - 3: the Transport is told the room by the surface, and the Studio hears
+    the fold through `ctx.barLayout`, not `hindsight:np-fold`;
+  - 4: ●, Catch and the click become the Transport's keys on the tape's
+    verbs; the overview, the clock-out lamp and the output strip stay the
+    Studio's, in the bar's slot;
+  - 5: `cx.media` and the stack's `covered()` (built, #249);
+  - 6: one display: the bar mounts `display` (`#np-lcd-…`), which learns
+    a take's and the feed's words;
+  - 7: Open keeps its markup and modules until its pass, sharing
+    `css/bar.css`;
+  - 8: the shell makes the phone's recorder at boot and hands it to the
+    Transport.
 - **`the-ecosystem.md` is the map.** Landed so far:
   - step 2, one verb set (#224);
   - step 4's first models: takes (#225), the tape's transport (#231).
