@@ -41,10 +41,10 @@ flowchart TB
   end
   subgraph MOD["3 · Models: lib/models/"]
     m1["takes: takes.js, built in PR 225"]
-    m2["tape ← tape/page.js poll, bar/tape-source.js, tape/changes.js, tape/poll-gate.js"]
+    m2["tape ← tape/page.js poll, models/tape-source.js, tape/changes.js, tape/poll-gate.js"]
     m3["transport ← models/engine.js createEngine, take-source.js, carry.js, handoff.js"]
     m4["take ← room/notes.js barNotes"]
-    m5["feed ← live.js, bar/feed-source.js, app.js, the lamp in nav.js"]
+    m5["feed ← live.js, models/feed-source.js, app.js, the lamp in nav.js"]
     m6["rig ← rig/page.js, settings.js, update.js"]
   end
   subgraph PRO["2 · Protocol: internal/api"]

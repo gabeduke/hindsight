@@ -168,13 +168,14 @@ export class NowPlaying {
     // (phone-key.js), on the page's one recorder.
     phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), playerUp: () => !!this.player?.isOpen, recorder: () => phoneRecorder(document, { toast: (m, k, ms) => onToast?.(m, k, ms) }) });
 
-    // What the engine holds, drawn as it changes and every frame it plays.
+    // What the engine holds, drawn as it changes and every frame it plays;
+    // a hidden page is drawn again as it comes back (visibilitychange).
     engine.bar.onChange(() => {
       if (bar.src !== this.src) this.load(bar.src);
       if (engine.tape && !this.openOutput) this.mountTape();
       const ej = $('np-eject');
       if (ej.hidden !== !bar.canEject) ej.hidden = !bar.canEject;
-      this.render();
+      if (!document.hidden) this.render();
     });
     if (bar.src) this.load(bar.src);
     if (engine.tape) this.mountTape();
