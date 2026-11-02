@@ -4000,10 +4000,6 @@ input, select, textarea { color-scheme: inherit; }
   align-items: center; gap: 8px 14px;
   padding: 10px 14px;
 }
-/* A wide screen has the room for the keys beside the heading. */
-@media (min-width: 1100px) {
-  .studio-feed { grid-template-areas: "head keys" "ribbon vu" "sel sel"; }
-}
 .studio-feed-head { grid-area: head; display: flex; align-items: center; gap: 10px; min-width: 0; }
 /* The heading keeps its word; its rule takes what room is left. */
 .studio-feed-head > .studio-feed-title { margin: 0; flex: 1 0 auto; }
@@ -4025,7 +4021,7 @@ input, select, textarea { color-scheme: inherit; }
 .studio-feed > .vu-row .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
 .studio-feed > .meters { grid-area: meters; margin: 0; }
 .studio-feed > .rb-sel { grid-area: sel; margin: 0; }
-.studio-keys { grid-area: keys; display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.studio-keys { grid-area: keys; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; min-width: 0; }
 /* From 700 px the feed lines up with the lanes under it: the meters sit over
    the lanes' heads (same widths as .tape-track's first column) and the
    ribbon runs over the lanes themselves, so its left and right edges are
@@ -4041,10 +4037,6 @@ input, select, textarea { color-scheme: inherit; }
   .studio-feed > .studio-feed-head, .studio-feed > .studio-keys, .studio-feed > .rb-sel { margin-inline: 14px; }
   .studio-feed > .vu-row { padding-left: 14px; gap: 6px; align-self: stretch; align-items: center; }
   .studio-feed > .vu-row .vu { flex: 1 1 0; width: auto; }
-}
-@media (min-width: 1100px) {
-  .studio-feed { grid-template-areas: "head head keys" "vu ribbon ribbon" "sel sel sel"; }
-  .studio-feed > .studio-feed-head { margin-right: 0; }
 }
 .studio-keys > .seg { flex: 0 1 auto; min-width: 0; }
 .studio-keys > .seg button { padding: 0 10px; }
@@ -4135,7 +4127,7 @@ body.tape-page > .studio-chan[open] { max-height: 40svh; overflow-y: auto; }
    (lib/buffer/fold.test.js). */
 
 /* GRAB, before KEEP: LAST 1 2 4 8 BARS · GRAB. */
-.buffer-grab { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.buffer-grab { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
 .buffer-grab-last, .buffer-grab-unit { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
 .buffer-grab-unit[hidden] { display: none; }
 .buffer-grab > .seg.buffer-bars { flex: 0 1 auto; }

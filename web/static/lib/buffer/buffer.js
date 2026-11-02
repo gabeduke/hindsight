@@ -62,16 +62,7 @@ export function mountBuffer(doc = document, { feed, head = null, keysRow, ribbon
   const $ = (id) => doc.getElementById(id);
   const body = doc.body;
   const grabRow = keysRow.querySelector('.buffer-grab');
-  // From 1100 px the feed's keys sit beside its heading, over the meters:
-  // GRAB goes at the heading's end instead, so the ribbon keeps its width;
-  // narrower, the keys have a row of their own, and GRAB leads it. Moved,
-  // not reordered in CSS, so the tab order is the order on screen.
-  if (head && typeof matchMedia === 'function') {
-    const wide = matchMedia('(min-width: 1100px)');
-    const place = () => (wide.matches ? head.append(grabRow) : keysRow.prepend(grabRow));
-    wide.addEventListener('change', place);
-    place();
-  }
+
   const el = {
     panel: $('buffer'),
     notch: $('buffer').querySelector('.buffer-notch'),
