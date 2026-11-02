@@ -178,7 +178,7 @@ unmoved:
      moving a rule must not add one.
 3. **The Studio's keys on the tape's verbs, and the Studio's slot**
    (decision 4), still in `lib/bar/`.
-   - **The keys**: *built*, #PR3. `lib/bar/tape-keys.js` `tapeKeys`, made
+   - **The keys**: *built*, #254. `lib/bar/tape-keys.js` `tapeKeys`, made
      by `NowPlaying` with the page's tape and shared as `ctx.tapeKeys`,
      draws ●, Catch and its ▾ and the click from the tape's and the
      recorder's snapshots and presses the tape's verbs; the Studio lends it

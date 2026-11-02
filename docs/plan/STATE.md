@@ -161,7 +161,7 @@ and still looks it:
         `room()`; no `hindsight:np-fold`, no body `MutationObserver`).
         Step 2b (the stylesheet half of decision 2: the page around the
         bar is `styles.css`'s, and `.np[data-room]`) and step 3's keys
-        (#PR3: `lib/bar/tape-keys.js`, ●, Catch and the click on the
+        (#254: `lib/bar/tape-keys.js`, ●, Catch and the click on the
         tape's verbs, the Studio's hands lent through `ctx.tapeKeys`;
         Guardrail 19) are built. **Next, start fresh here: step 3's
         slot**, the overview, the clock-out lamp and the output strip
