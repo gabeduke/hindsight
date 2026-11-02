@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.02.1 — 2026-11-02
+
+- STATE.md: the tape model done (#245); the engine split is next (be771a33)
+- The Studio asks every 200 ms from its first visit, a prewarm's included (8e32be37)
+- The Studio and the bar ask the Pi about the tape once, not twice (6c644021)
+
+
 ## v2026.11.01.3 — 2026-11-01
 
 - A refused ▶ that answers late leaves the press made after it showing (9d0ca9e0)
