@@ -1,62 +1,50 @@
-// web/static/lib/bar/engine.js
-// The bar's engine: what the now-playing bar (NowPlaying, bar.js) holds and
-// plays -- the tape loaded on the Pi (tape-source.js) and its player on this
-// device (StreamPlayer), the live studio feed (feed-source.js), a take
-// (take-source.js) -- which of them is in the bar, ⏏, the header's output
-// button, and the take carried across pages (carry.js, handoff.js). Made once
-// per document: today by Takes and Capture through pageBar, later by the
-// shell, which hands it to every room
-// (docs/architecture/shell.md, The engine).
+// web/static/lib/models/engine.js
+// The bar's engine: what the now-playing bar holds and plays -- the tape
+// loaded on the Pi (tape-source.js) and its player on this device
+// (StreamPlayer), the live studio feed (feed-source.js), a take
+// (take-source.js) and its Audio -- which of them is in the bar, ⏏, where the
+// tape plays, and the take carried across pages (lib/bar/carry.js,
+// handoff.js). It owns the bar's audio: no view constructs it. Made once per
+// document, by the shell, which hands it to every room; the bar
+// (lib/bar/bar.js NowPlaying) draws it, and nothing else of the page's is in
+// it (docs/architecture/bar.md, *The engine*).
 
-import { NowPlaying } from './bar.js';
 import { tapeSource } from './tape-source.js';
 import { takeSource, playheadOf } from './take-source.js';
 import { feedSource } from './feed-source.js';
-import { noteHere } from './take-keys.js';
-import { sourceMenu } from './source-menu.js';
-import { phoneKey } from './phone-key.js';
-import { phoneRecorder } from '../phone/recorder.js';
-import { barPressNote } from './press-note.js';
-import { layersOf } from '../ui/layers.js';
-import { barTop } from '../ui/menu.js';
-import { pageCarry, isStudio } from './carry.js';
-import { createHandoff, takesFinder } from './handoff.js';
+import { createTakes } from './takes.js';
+import { createTransport } from './transport.js';
+import { createProtocol } from './protocol.js';
+import { noteHere } from '../bar/take-keys.js';
+import { pageCarry, isStudio } from '../bar/carry.js';
+import { createHandoff } from '../bar/handoff.js';
 import { named } from '../rooms/words.js';
+import { Loop } from '../objects/motion.js';
 import { StreamPlayer } from '../tape/stream-player.js';
 import { rejoin } from '../tape/listener.js';
-import { wireOutput, paintOutSheet, switchOutput, outDelay } from '../tape/out-switch.js';
+import { switchOutput } from '../tape/out-switch.js';
 import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
-import { createTakes } from '../models/takes.js';
-import { createTransport } from '../models/transport.js';
-import { createProtocol } from '../models/protocol.js';
-
-const $ = (id) => document.getElementById(id);
-
-export { takesFinder };
-
-/**
- * pageBar is the bar as Takes and Capture use it: the engine's `bar`.
- */
-export function pageBar(opts) {
-  return createEngine(opts).bar;
-}
 
 /**
  * createEngine makes the bar's engine: the tape, when the Pi has one loaded
  * (`tapes` is initNav's answer); a take, when the page hands it one
- * (loadTake); the live studio feed (feedSource); and ⏏ back to the tape.
- * `ready` settles once the tape's first state is in -- or there is no tape --
- * so a page can ask whether the tape was already playing when it opened.
+ * (loadTake); the live studio feed (setSource('feed')); and ⏏ back to the
+ * tape (eject). `ready` settles once the tape's first state is in -- or
+ * there is no tape -- so a page can ask whether the tape was already playing
+ * when it opened.
  *
  * The bar also carries its take across pages (lib/bar/carry.js, handoff.js):
  * the record the last page left is read here, before anything draws, and the
  * take -- `find(name)` is takesFinder's -- is put back where it was when the
  * page's list has it.
  *
- * It answers `bar`, what a page drives the bar with; `np`, the NowPlaying on
- * #np; `transport`, the page's (lib/models/transport.js), loaded once the Pi
- * has a tape; and `tape`, `stream` and `feed`, the sources it has made so far
- * (null until then).
+ * It answers `bar`, what a page drives the bar with: its verbs, `src` (the
+ * source in the bar, which NowPlaying draws), `snapshot()` and `onChange(fn)`
+ * (fn() as what the bar holds changes, and every frame while it plays, on the
+ * shared ticker); `audio`, the take's Audio; `output`, where the tape plays;
+ * `transport`, the page's (lib/models/transport.js), loaded once the Pi has a
+ * tape; and `tape`, `stream` and `feed`, the sources it has made so far (null
+ * until then).
  */
 export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = null, protocol = createProtocol(), onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
   // The page's takes (lib/models/takes.js): the shell's, handed in, which the
@@ -73,39 +61,38 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
   let find = initFind, onNote = initOnNote, go = initGo;
   let feed = null, tape = null, take = null; // take: { name, audio, src }
   let stream = null; // the tape on this phone, joined again from the page before
-  let setMode = null;
-  let openOutput = null; // the output sheet, once the tape is mounted
+  let current = null; // the source in the bar
   let ejected = false; // the tape put back by hand: it stays until a take is picked by hand
   // How many times the person has used the bar's own keys, strip or ⏏: the Listening
   // Room's late arrivals (lib/room/tap.js) load nothing if it has changed.
   let touches = 0;
+  const listeners = new Set();
   const navigate = (u) => { if (go) go(u); else location.href = u; };
-  const bar = new NowPlaying({
-    onEject: () => backToTape({ byHand: true }),
-    onTouch: () => { touches++; handoff.touch(); },
-    // A take or the feed stopped by ▶ in the Studio: the tape takes the bar.
-    onPause: () => tapeUnlessPlaying(),
-    // ✎: the page's notes drawer (setOnNote, the shell's boot.js), else stash the frame and open the take.
-    onNote: () => {
-      if (typeof onNote === 'function') {
-        const f = frameNow();
-        if (f) onNote(f);
-        return;
-      }
-      noteHere({ frameNow, stash: stashFrame, go: navigate });
-    },
-    onGrabFeed: async () => {
-      if (!feed) return;
-      try {
-        navigate(await feed.grabToStudio());
-      } catch (e) {
-        onToast?.(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad');
-      }
-    },
-    // Where it plays opens the output sheet, once there's a tape to send.
-    canOutput: () => !!openOutput,
+  const emit = () => { for (const fn of listeners) fn(); };
+  // Every frame while the source plays, on the shared ticker: its playhead
+  // steps, and the bar hears it; off it the moment it stops.
+  const loop = new Loop(() => {
+    const s = current;
+    if (!s) return false;
+    s.tick();
+    emit();
+    return s.playing() && !document.hidden;
   });
-  const eject = () => { $('np-eject').hidden = !(tape && (take || (bar.src && bar.src.kind === 'feed'))); };
+  // kick says it on the next frame, and every frame while the source plays.
+  const kick = () => { if (!document.hidden) loop.start(); };
+  // changed says it now (what the bar holds, ⏏), and on the frames after.
+  const changed = () => { emit(); kick(); };
+  // Once per source: the tape comes back into the bar again and again.
+  const hooked = new WeakSet();
+  /** show puts `src` in the bar; null empties it. */
+  function show(src) {
+    if (src === current) return;
+    if (current && current.kind === 'tape') current.setActive?.(false);
+    current = src;
+    if (src && src.kind === 'tape') src.setActive?.(true);
+    if (src && !hooked.has(src)) { hooked.add(src); src.on(() => { if (current === src) kick(); }); }
+    changed();
+  }
   const heldState = () => (take ? { take: take.name, frame: take.src.pos(), sr: take.src.sampleRate, playing: take.src.playing(), loop: take.src.loop, length: take.src.length } : null);
   const carry = pageCarry();
   const frameNow = () => carry.frameNow(heldState);
@@ -127,7 +114,7 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     studio: () => isStudio(location.pathname),
     takeInBar: () => !!take,
     loadTake: ({ t, player }) => { loadTake(t, player); return take.src; },
-    showTape: () => { if (!take && (!bar.src || bar.src.kind !== 'feed') && tape) bar.load(tape); eject(); },
+    showTape: () => { if (!take && (!current || current.kind !== 'feed') && tape) show(tape); changed(); },
     state: heldState,
     win: window, doc: document,
   });
@@ -136,34 +123,11 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     transport.load(loadedId);
     tape = tapeSource(transport, { stream: () => stream, onError: refused });
     stream = tapeStream(tape, onToast);
-    if (take || (bar.src && bar.src.kind === 'feed')) stream.setQuiet(true);
-    else if (!handoff.holding()) bar.load(tape);
-    eject();
-    setMode = (mode) => {
-      if (mode !== 'jam') backToTape({ byHand: true });
-      return switchOutput(mode, { player: stream, transport, toast: (m, k) => onToast?.(m, k) });
-    };
-    // The header's output button (and the phone player's OUT pill): where the
-    // tape plays, chosen from any room. Choosing to hear it here puts the tape
-    // back in the bar, as ⏏ does: it stays there until a take is picked by
-    // hand. The sheet asks the Pi as it opens, so it's never a few seconds
-    // behind.
-    openOutput = wireOutput({
-      name: () => tape.title,
-      onOpen: () => transport.refresh(),
-      choose: setMode,
-      keys: [$('np-output'), $('np-out-foot')].filter(Boolean),
-    });
-    bar.kick();
-    // A press on the keyboard, over the display for its second (press-note.js).
-    let note = null;
-    transport.onPress((p) => { note ??= barPressNote(document); note.show(p); });
+    if (take || (current && current.kind === 'feed')) stream.setQuiet(true);
+    else if (!handoff.holding()) show(tape);
     // The take list's revision, from whichever changes socket is open.
     transport.onTakes((m) => takes.heard(m));
-    const paintOut = () => {
-      paintOutSheet(transport.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : transport.streamDelayMs()));
-    };
-    transport.onChange(paintOut);
+    changed();
   }
   if (tapes && typeof tapes.then !== 'function' && tapes.loaded) mountTape(tapes.loaded);
   const ready = Promise.resolve(tapes).then((list) => {
@@ -181,16 +145,16 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
       releaseAudio(old.audio);
       old.src.pause();
       old.off();
-      bar.load(tape);
+      show(tape);
       old.src.destroy();
       stream?.setQuiet(false);
     } else if (tape) {
-      bar.load(tape);
+      show(tape);
       stream?.setQuiet(false);
     } else {
-      bar.load(null);
+      show(null);
     }
-    eject();
+    changed();
   }
   // In the Studio the bar is the tape's when nothing else in it plays
   // (docs/architecture/bar.md, *In the Studio, the tape*): a take or the live
@@ -202,7 +166,7 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
   // its selection's Out, Play all moving on) is left be until the next.
   function tapeUnlessPlaying() {
     if (!tape || !isStudio(location.pathname)) return;
-    if (!bar.src || bar.src === tape || bar.src.playing()) return;
+    if (!current || current === tape || current.playing()) return;
     backToTape();
   }
   function setSource(kind, { byHand = false } = {}) {
@@ -212,10 +176,9 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
       if (stream?.active && stream.mode === 'phone') tape?.pause();
       stream?.setQuiet(true);
       feed ??= feedSource();
-      bar.load(feed);
+      show(feed);
       if (!feed.playing()) feed.play();
-      bar.kick();
-      eject();
+      changed();
       return;
     }
     if (kind === 'tape') {
@@ -225,8 +188,8 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     if (kind === 'take') {
       if (feed && feed.playing()) feed.pause();
       if (take) {
-        bar.load(take.src);
-        eject();
+        show(take.src);
+        changed();
       } else if (location.pathname !== '/takes.html') {
         navigate('/takes.html');
       }
@@ -254,7 +217,7 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     ejected = false;
     if (feed && feed.playing()) feed.pause();
     if (take && take.name === t.name && take.audio === player.audio) {
-      if (bar.src !== take.src) bar.load(take.src);
+      if (current !== take.src) show(take.src);
       return;
     }
     const old = take;
@@ -262,14 +225,14 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     const audio = adoptAudio(player.audio);
     audio.addEventListener('play', takePlays);
     take = { name: t.name, audio, src, off: () => audio.removeEventListener('play', takePlays) };
-    bar.load(take.src);
+    show(take.src);
     if (old && old.audio !== audio) releaseAudio(old.audio);
     old?.off();
     if (old && old.audio !== audio) old.src.destroy();
     // The lock screen and a headset are the take's while it's in the bar.
     stream?.setQuiet(true);
     if (!audio.paused) takePlays();
-    eject();
+    changed();
   }
   /**
    * findTakeByName resolves take `name` from the page's takes and /api/peaks
@@ -307,63 +270,59 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     loadTake(found.t, found.player);
     return take ? take.src : null;
   }
-  const audioApi = {
-    adopt: adoptAudio,
-    owns: ownsAudio,
-    release: releaseAudio,
-    audioFor,
-  };
-  // The display's source: the tape, the live feed, the last few takes, the
-  // shelf (source-menu.js).
-  const sourceKey = $('np-source');
-  if (sourceKey && $('np-source-menu')) {
-    sourceMenu({
-      doc: document, button: sourceKey, panel: $('np-source-menu'), layers: layersOf(document),
-      now: () => ({ kind: bar.src ? bar.src.kind : null, takeName: take ? take.name : null, tape: tape && tape.ready ? tape.title : (tape ? 'the tape' : null) }),
-      list: () => takes.get(),
-      pick: (id) => pickSource(id),
-    });
-  }
-  // The mini player's ● and its ▾: recording from this phone
-  // (phone-key.js), on the page's one recorder.
-  phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), playerUp: () => !!bar.player?.isOpen, recorder: () => phoneRecorder(document, { toast: (m, k, ms) => onToast?.(m, k, ms) }) });
+  const touch = () => { touches++; handoff.touch(); };
   /** pickSource is a pick from the source menu: the tape, the feed, or a take, which plays. */
   async function pickSource(id) {
-    touches++;
-    handoff.touch();
+    touch();
     if (id === 'tape' || id === 'feed') { setSource(id, { byHand: true }); return; }
     const name = id.startsWith('take:') ? id.slice(5) : null;
     if (!name) return;
     if (feed && feed.playing()) feed.pause();
     if (take && take.name === name) {
-      bar.load(take.src);
-      eject();
+      show(take.src);
+      changed();
     } else if (!(await loadTakeByName(name))) {
       onToast?.('That take can’t play yet: it is still being saved', 'warn');
       return;
     }
     if (take && !take.src.playing()) take.src.play();
-    bar.kick();
+    kick();
+  }
+  /**
+   * setMode is where the tape plays, chosen from any room (the output
+   * sheet). Choosing to hear it here puts the tape back in the bar, as ⏏
+   * does: it stays there until a take is picked by hand.
+   */
+  function setMode(mode) {
+    if (!tape) return undefined;
+    if (mode !== 'jam') backToTape({ byHand: true });
+    return switchOutput(mode, { player: stream, transport, toast: (m, k) => onToast?.(m, k) });
   }
   // A take carried from the last page that isn't playing here (it was
   // paused, or the browser held its sound back) leaves a Studio the tape's.
   handoff.start().then(() => tapeUnlessPlaying());
   const api = {
     ready,
+    /** src: the source in the bar (the tape's, the feed's or a take's), or null; NowPlaying draws it. */
+    get src() { return current; },
     /** frameNow: the take in the bar and its frame at this moment ({take, frame, sr, playing, at}), or null. ✎ takes it before the page changes. */
     frameNow,
     /** stashFrame keeps a frame -- frameNow's, else the take's now -- for the next page (carry.takeStashedFrame reads it there), and answers it. */
     stashFrame,
     get takeName() { return take ? take.name : null; },
-    get sourceKind() { return bar.src ? bar.src.kind : null; },
+    get sourceKind() { return current ? current.kind : null; },
     /** touches: how many times the bar's keys, strip or ⏏ have been used on this page. */
     get touches() { return touches; },
+    /** touch counts a use of the bar's keys, strip or ⏏: a decision the hand-off keeps to. */
+    touch,
     /** playing: whatever the bar holds -- the take, the feed, or the tape -- is playing now. */
-    playing: () => !!(bar.src ? bar.src.playing() : (take ? take.src.playing() : tape && tape.ready && tape.playing())),
+    playing: () => !!(current ? current.playing() : (take ? take.src.playing() : tape && tape.ready && tape.playing())),
     /** takeTime: where the take in the bar is, in seconds; null with none. */
     get takeTime() { return playheadOf(take); },
     /** ejected: ⏏ put the tape back; automatic picks leave it there. */
     get ejected() { return ejected; },
+    /** canEject: ⏏ has a tape to give back, in place of a take or the feed. */
+    get canEject() { return !!(tape && (take || (current && current.kind === 'feed'))); },
     /** looping: a take in the bar is on Loop, so its end isn't the end. */
     get looping() { return !!(take && take.src.loop); },
     tapePlaying: () => !!(tape && tape.ready && tape.playing()),
@@ -380,36 +339,83 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
         if (!(await loadTakeByName(name))) return false;
       }
       if (feed && feed.playing()) feed.pause();
-      if (bar.src !== take.src) { bar.load(take.src); eject(); }
+      if (current !== take.src) { show(take.src); changed(); }
       take.src.seek(frame);
       if (play && !take.src.playing()) take.src.play();
-      bar.kick();
+      kick();
       return true;
     },
     audioFor,
     setFind: (fn) => { find = fn; if (fn) findWait?.(); },
     setOnNote: (fn) => { onNote = fn; },
     backToTape,
+    /** eject is ⏏: the tape back in the bar, by hand, so it stays until a take is picked by hand. */
+    eject: () => backToTape({ byHand: true }),
     /**
      * tapeUnlessPlaying puts the tape back in the bar, in the Studio, when
      * what the bar holds instead (a take, the feed) isn't playing: the
      * Studio's view says so each time it is shown. The engine asks too, as
-     * the hand-off settles and as ▶ stops what the bar holds (onPause).
+     * the hand-off settles and as ▶ stops what the bar holds (the bar's onPause).
      */
     tapeUnlessPlaying,
     setSource,
-    onChange: (fn) => bar.onChange(fn),
-    snapshot: () => bar.snapshot(),
+    pickSource,
+    /** note is ✎: the page's notes drawer (setOnNote, the shell's boot.js), else stash the frame and open the take. */
+    note() {
+      if (typeof onNote === 'function') {
+        const f = frameNow();
+        if (f) onNote(f);
+        return;
+      }
+      noteHere({ frameNow, stash: stashFrame, go: navigate });
+    },
+    /** grabFeed is the feed's GRAB: its last seconds onto the tape's cue lane, then the Studio. */
+    async grabFeed() {
+      if (!feed) return;
+      try {
+        navigate(await feed.grabToStudio());
+      } catch (e) {
+        onToast?.(`Couldn’t GRAB it into the Studio: ${e.message}`, 'bad');
+      }
+    },
+    /** kick says it again on the next frame, and every frame while the source plays. */
+    kick,
+    onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    snapshot() {
+      const s = current;
+      if (!s) return { kind: null, title: '', playing: false, pos: '', frame: 0, frac: 0, length: 1, sampleRate: 48000, lcd: null };
+      const lcd = s.lcd();
+      const frame = s.pos();
+      const length = Math.max(1, s.length || 1);
+      const frac = Math.max(0, Math.min(1, frame / length));
+      return {
+        kind: s.kind,
+        title: s.title || '',
+        playing: !!s.playing(),
+        pos: lcd?.big || '',
+        frame,
+        frac,
+        length,
+        sampleRate: s.sampleRate || 48000,
+        lcd,
+      };
+    },
+  };
+  const audioApi = {
+    adopt: adoptAudio,
+    owns: ownsAudio,
+    release: releaseAudio,
+    audioFor,
   };
   const outputApi = {
     get player() { return stream; },
-    setMode: (mode) => setMode?.(mode),
+    setMode,
   };
   return {
     bar: api,
     audio: audioApi,
     output: outputApi,
-    np: bar,
+    takes,
     setFind: api.setFind,
     setOnNote: api.setOnNote,
     setGo: (fn) => { go = fn; },

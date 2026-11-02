@@ -5,7 +5,7 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { takeSource, playheadOf } from './take-source.js';
 import { tapeSource as barTapeSource } from './tape-source.js';
-import { createTransport } from '../models/transport.js';
+import { createTransport } from './transport.js';
 
 const SR = 48000;
 

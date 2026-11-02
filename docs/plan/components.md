@@ -41,10 +41,10 @@ flowchart TB
   end
   subgraph MOD["3 · Models: lib/models/"]
     m1["takes: takes.js, built in PR 225"]
-    m2["tape ← tape/page.js poll, bar/tape-source.js, tape/changes.js, tape/poll-gate.js"]
-    m3["transport ← bar/engine.js createEngine, take-source.js, carry.js, handoff.js"]
+    m2["tape ← tape/page.js poll, models/tape-source.js, tape/changes.js, tape/poll-gate.js"]
+    m3["transport ← models/engine.js createEngine, take-source.js, carry.js, handoff.js"]
     m4["take ← room/notes.js barNotes"]
-    m5["feed ← live.js, bar/feed-source.js, app.js, the lamp in nav.js"]
+    m5["feed ← live.js, models/feed-source.js, app.js, the lamp in nav.js"]
     m6["rig ← rig/page.js, settings.js, update.js"]
   end
   subgraph PRO["2 · Protocol: internal/api"]
@@ -236,7 +236,7 @@ no DOM):
 - **Verbs**: async methods named for what they do. Each resolves with the
   Pi's answer or throws a `Refusal` (3.4). A press shows at once: what was
   asked and not yet answered is in the snapshot (`pending`), as the bar's
-  tape source keeps `want` today (`lib/bar/tape-source.js`). So a tap
+  tape source keeps `want` today (`lib/models/tape-source.js`). So a tap
   answers at once wherever it is made, as decision 0018 asks of the
   keyboard's presses, and that is the model's job, not each key's.
 - **`heard(m)`**: a message from the push socket (3.3), fed by the page's
@@ -287,7 +287,8 @@ transport's, and opens the changes socket (`read`, `verb`, `watch`), and
 the takes, the tape and the transport are made over it, the fixture's
 included (`docs/architecture/components.md`). The tape's other edits, and
 the bar's sources (`setSource`, `loadTake`,
-`eject`, the engine split from `NowPlaying`), join in the PRs after.
+`eject`, the engine split from `NowPlaying`: 1c, `lib/models/engine.js`)
+are on the engine; the tape's other edits join in the PRs after.
 
 - **The snapshots** are what the Pi answers, saved:
   `testdata/protocol/<noun>/<case>.json` (an empty tape, four tracks
@@ -315,13 +316,15 @@ caller:
   Studio's `around`.
 - `/api/status` is polled by seven modules (`app.js`, `lib/nav.js`,
   `lib/settings.js`, `lib/update.js`, `lib/shell/views/room.js`,
-  `lib/bar/feed-source.js`, `lib/rooms/studio.js`); `/api/live` is opened
+  `lib/models/feed-source.js`, `lib/rooms/studio.js`); `/api/live` is opened
   by `app.js` and `lib/rooms/studio.js`; the list of tapes is asked for by
   six (`lib/nav.js`, `lib/tape/page.js`, `lib/tape/listener.js`,
-  `lib/rooms/grab.js`, `lib/bar/tape-source.js`, `lib/wave/page.js`).
-- **The bar's engine is the transport model with the bar drawn inside
-  it**: `createEngine` (`lib/bar/engine.js`) makes `NowPlaying`, sets
-  `$('np-eject').hidden`, and wires `phoneKey` to `document`.
+  `lib/rooms/grab.js`, `lib/models/tape-source.js`, `lib/wave/page.js`).
+- **The bar's engine was the transport model with the bar drawn inside
+  it**: `createEngine` made `NowPlaying`, set `$('np-eject').hidden`, and
+  wired `phoneKey` to `document`. Ended by the engine split (1c): the
+  engine (`lib/models/engine.js`) and its sources hold no DOM of the bar's,
+  and `NowPlaying` draws it (*The engine*, `architecture/bar.md`).
 - **`PATCH /api/tapes`** takes about fifteen optional fields and infers the
   kind of undo from which are set. The model names each now, so moving to
   named edits (3.1) changes one file.

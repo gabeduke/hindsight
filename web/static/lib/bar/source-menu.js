@@ -6,7 +6,7 @@
 // did nothing, and took 160 px of a bar that ran off the tablet.
 //
 // One menu (lib/ui/menu.js), placed by its key; the rows are menuItems, the
-// one playing checked. A pick is the engine's to make (engine.js).
+// one playing checked. A pick is the engine's to make (lib/models/engine.js).
 
 import { menu, menuItem, menuDivider, menuGroup } from '../ui/menu.js';
 import { takeTitle } from '../rooms/takename.js';

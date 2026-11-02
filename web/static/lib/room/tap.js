@@ -13,7 +13,7 @@ import { named } from '../rooms/words.js';
 /**
  * createTap answers {tap, warm}.
  *   takes  the page's TakesList: `all`, `player(name)`, `refresh()`
- *   bar    () -> the page's bar (pageBar's answer), or null before it is up
+ *   bar    () -> the page's bar (the engine's `bar`), or null before it is up
  *   toast  (message, kind, {action: {label, run}})
  *   pick   (name) -> the page's own pick, so Play all goes on from here
  *   go     (url) -> leave for that page (Open); later: setTimeout, for the retry

@@ -76,16 +76,16 @@ test('Guardrail 4: styles.css hides what a room replaces from frame 0, not after
 });
 
 test('Guardrail 5: Unified Media Player provides FeedSource and 3-way source selector (Feed · Tape · Shelf)', () => {
-  const feedSourcePath = path.join(STATIC, 'lib/bar/feed-source.js');
+  const feedSourcePath = path.join(STATIC, 'lib/models/feed-source.js');
   assert.ok(
     fs.existsSync(feedSourcePath),
-    'lib/bar/feed-source.js must exist for the live studio feed source',
+    'lib/models/feed-source.js must exist for the live studio feed source',
   );
   // The bar draws it (bar.js, take-keys.js); its engine switches (engine.js).
-  const barJs = read('lib/bar/bar.js') + read('lib/bar/engine.js');
+  const barJs = read('lib/bar/bar.js') + read('lib/models/engine.js');
   assert.ok(
     barJs.includes('np-source-switch') || barJs.includes('setSource'),
-    'lib/bar/bar.js and engine.js must expose the 3-way source switcher (feed, tape, take)',
+    'lib/bar/bar.js and lib/models/engine.js must expose the 3-way source switcher (feed, tape, take)',
   );
 });
 
@@ -106,7 +106,7 @@ test('Guardrail 7: the header’s one menu, top right, houses Settings, the rig,
 });
 
 test('Guardrail 8: FeedSource polls live envelope, draws waveform trace on #np-scrub, and supports grabToStudio()', async () => {
-  const { feedSource } = await import('./bar/feed-source.js');
+  const { feedSource } = await import('./models/feed-source.js');
   const calls = [];
   const src = feedSource({
     fetchImpl: async (url, init) => {
@@ -199,14 +199,14 @@ test('Step 5a: only lib/bar writes the LCD ids (#position, #np-time, #np-unit, #
 
 test('Step 5c: rooms/studio.js does not construct its own Audio or shadow .np-source-switch', () => {
   const src = read('lib/rooms/studio.js');
-  assert.equal(/\bnew\s+Audio\s*\(/.test(src), false, 'rooms/studio.js must not construct new Audio(); engine.js owns the bar’s audio');
+  assert.equal(/\bnew\s+Audio\s*\(/.test(src), false, 'rooms/studio.js must not construct new Audio(); lib/models/engine.js owns the bar’s audio');
   assert.equal(/np-source-switch/.test(src), false, 'rooms/studio.js must not build a shadow .np-source-switch; takeKeys in bar.js owns it');
 });
 
 test('Step 8: room views and bar engine do not hardcode location assignments to room paths', () => {
   const roomRe = /(?:location\.href\s*=|location\.(?:assign|replace)\()\s*['"`](?:\/|\/index\.html|\/tape\.html|\/takes\.html)['"`]/;
   const files = [
-    'lib/bar/engine.js',
+    'lib/models/engine.js',
     'lib/shell/views/room.js',
     'lib/shell/views/studio.js',
     'lib/shell/views/capture.js',
@@ -421,6 +421,27 @@ test('Guardrail 17: only the protocol client (lib/models/protocol.js) names the 
     if (/['"`]\/api\/tapes\/(state|record|catch)\b/.test(src)) found.push(f);
   }
   assert.deepEqual(found, [], 'asks for the tape’s state, or sends ● or Catch, itself: use the page’s tape (ctx.tape, engine.transport for the bar) or a protocol client (createProtocol) instead');
+});
+
+test('Guardrail 18: the engine (lib/models/engine.js) makes the bar’s sources and their audio; the bar draws it, and the shell makes the bar', () => {
+  // docs/architecture/bar.md, *The engine*: one engine a page holds what
+  // the bar plays (the tape, the feed, a take and its Audio) and says which,
+  // with its verbs (setSource, loadTake, eject) and snapshot(); NowPlaying
+  // (lib/bar/bar.js) draws it and hands each press to it. A module that
+  // makes a source, or the bar's audio, itself plays beside the engine; a
+  // second NowPlaying draws a second bar over the one #np. A test harness
+  // (*-harness.js) builds the page as the shell does, for tests only.
+  const found = [];
+  for (const [f, raw] of gestureLiterals()) {
+    if (f.endsWith('-harness.js')) continue;
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    const made = src.match(/(?<![\w$.])(tapeSource|takeSource|feedSource)\s*\(/g) || [];
+    const own = f.match(/^lib\/models\/(tape|take|feed)-source\.js$/);
+    if (f !== 'lib/models/engine.js' && made.some((m) => !own || !m.startsWith(`${own[1]}Source`))) found.push(`${f}: makes a source of the bar’s`);
+    if (/^lib\/(bar|room|shell|components)\//.test(f) && /\bnew\s+Audio\b|\bAudioContext\b/.test(src)) found.push(`${f}: makes audio for the bar`);
+    if (f !== 'lib/shell/boot.js' && /\bnew\s+NowPlaying\b/.test(src)) found.push(`${f}: makes a NowPlaying`);
+  }
+  assert.deepEqual(found, [], 'goes around the engine: take the page’s (ctx.engine.bar’s verbs, or createEngine on a page of its own) instead');
 });
 
 // ---- the components: lib/components/ ---------------------------------------

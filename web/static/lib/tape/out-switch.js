@@ -2,7 +2,7 @@
 // Where the tape plays, from any page that can play it: the Output sheet's
 // three choices, opened from OUT on the bar's display (it was a button in
 // the header once), and the switch a choice makes. The tape page adds its
-// strip and banner (output-ui.js); the rooms use this as it is (engine.js).
+// strip and banner (output-ui.js); the rooms use this as it is (lib/models/engine.js).
 
 import { rememberListener } from './listener.js';
 import { say } from '../rooms/words.js';

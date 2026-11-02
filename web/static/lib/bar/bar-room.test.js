@@ -1,5 +1,5 @@
 // The bar in the two rooms (docs/superpowers/plans/2026-10-15-f5b.md): the
-// real pageBar and NowPlaying on takes.html's own markup, on a stand-in
+// real engine and NowPlaying on takes.html's own markup, on a stand-in
 // document. A take in the bar shows its name (a tap opens it) and ✎; the strip
 // seeks; ⟲ is Repeat.
 import { test, mock } from 'node:test';

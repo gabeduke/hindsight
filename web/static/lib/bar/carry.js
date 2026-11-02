@@ -11,7 +11,7 @@
 // maths -- have no DOM; the page's events, the storage and the clock are
 // handed in, so tests stand in for all three.
 
-import { takeLength } from './take-source.js';
+import { takeLength } from '../models/take-source.js';
 
 export const CARRY_KEY = 'hindsight.bar.carry';
 export const FRAME_KEY = 'hindsight.bar.frame';

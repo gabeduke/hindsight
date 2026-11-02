@@ -1,4 +1,4 @@
-// The engine (lib/bar/engine.js): the bar's audio and its sources -- the tape,
+// The engine (lib/models/engine.js): the bar's audio and its sources -- the tape,
 // its player on this device, the feed, a take -- lifted out of the page so
 // the shell can make it once and hand it to each room
 // (docs/architecture/shell.md, The engine). Run on the real
@@ -43,7 +43,8 @@ test('with no tape on the Pi the engine holds nothing, and the bar waits hidden'
   assert.equal(engine.tape, null);
   assert.equal(engine.stream, null);
   assert.equal(engine.feed, null, 'the feed is not made until it is chosen');
-  assert.equal(engine.np.src, null);
+  assert.equal(engine.bar.src, null);
+  assert.equal(page.np.src, null);
   assert.equal(bar.sourceKind, null);
   assert.equal($('np').hidden, true);
 });
@@ -62,7 +63,7 @@ test('a tape made after the engine was (a Pi'+"'"+'s first) is mounted by setTap
 test('with a tape on the Pi the bar holds it, and the engine has the tape and its player on this device', async () => {
   const { engine, bar, $, frames } = await open();
   assert.equal(engine.tape.kind, 'tape');
-  assert.equal(engine.np.src, engine.tape, 'the bar NowPlaying draws is the engine’s');
+  assert.equal(page.np.src, engine.tape, 'the bar NowPlaying draws is the engine’s');
   assert.equal(bar.sourceKind, 'tape');
   assert.equal(engine.stream.active, false, 'not listening here until asked');
   assert.equal($('np').hidden, false);
@@ -194,7 +195,7 @@ test('a source subscription can be removed', async () => {
 
   const take = aTake();
   bar.loadTake(take.t, take.player);
-  const offTake = engine.np.src.on(() => heard.take++);
+  const offTake = engine.bar.src.on(() => heard.take++);
   assert.equal(typeof offTake, 'function', 'a take’s on() answers an off');
   take.audio.emit('seeked');
   assert.equal(heard.take, 1);
@@ -401,3 +402,11 @@ test('the engine and the output UI make one StreamPlayer', async () => {
 });
 
 
+
+test('what redraws the bar from outside (a room switch, the scheme, the screen’s shape) asks the engine for a frame', async () => {
+  const { engine, w } = await open();
+  w.raf.length = 0;
+  page.np.kick();
+  assert.ok(w.raf.length > 0, 'a frame is asked for');
+  assert.equal(page.np.src, engine.tape);
+});

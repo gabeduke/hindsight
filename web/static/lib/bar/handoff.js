@@ -1,5 +1,5 @@
 // web/static/lib/bar/handoff.js
-// pageBar's side of the hand-off (carry.js has the record): the take the last
+// The engine's side of the hand-off (carry.js has the record): the take the last
 // page left is found on this page's list and put in the bar, and what this
 // page writes when it is left in turn. Everything the DOM, the clock and the
 // storage would give is handed in, so the order of events -- a list that

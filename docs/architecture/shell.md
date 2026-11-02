@@ -282,17 +282,18 @@ shows a recording without starting one (the mini player's ●, the Studio's)
 takes it by `onPhoneRecorder(doc, fn)`: now, or as soon as a room makes
 it.
 
-**The engine** (`lib/bar/engine.js`), made once by the shell:
+**The engine** (`lib/models/engine.js`; *The engine*, `bar.md`), made once by the shell, and the bar that draws it (`lib/bar/bar.js` `NowPlaying`), made beside it:
 
 | Part | What it is |
 |---|---|
-| `engine.bar` | The bar's API: `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf; from the page's takes, `createEngine({takes})`, or a model of its own when a page hands none), `backToTape`, `tapeUnlessPlaying()` (in the Studio, the tape back in the bar when what it holds isn't playing; the Studio's view calls it as it is shown: *In the Studio, the tape*, `bar.md`), `setSource`, `playing()`, `snapshot()`, `onChange` |
+| `engine.bar` | The bar's API: `src`, `loadTake`, `loadTakeByName(name)` (for the Studio and a reload with no shelf; from the page's takes, `createEngine({takes})`, or a model of its own when a page hands none), `backToTape`, `tapeUnlessPlaying()` (in the Studio, the tape back in the bar when what it holds isn't playing; the Studio's view calls it as it is shown: *In the Studio, the tape*, `bar.md`), `setSource`, `eject()`, `pickSource`, `note()`, `grabFeed()`, `touch()`, `playing()`, `snapshot()`, `onChange` (as what it holds changes, and every frame while it plays) |
 | `engine.audio` | `adopt`, `owns`, `release`, `audioFor`: the take in the bar belongs to the engine, so a shelf row torn down never stops it, and two shelves never hold two elements for one take. Engine media is never in a view's subtree (a removed media element pauses) |
 | `engine.transport` | The page's transport (`lib/models/transport.js`; *The transport*, `bar.md`), made with the engine over the page's protocol client and the page's tape (`ctx.tape`, which polls for it), and loaded (`load(id)`) once the Pi has a tape. `ingest({tape, live})` (the Studio feeds it what it shows), `delegate({around})` (every verb, the bar's ▶ and the Studio's own, is a change of the tape's, which drops a poll it overtakes, sent inside the Studio's `around`, which says what a punch kept; the Studio borrows it while it is shown, through `ctx.socket`, and hands it back, `delegate(null)`, on hide). It holds the page's one `/api/tapes/changes` socket (`lib/tape/changes.js`) from `load(id)` on, whoever has it (*One socket a page*, `push.md`): a new revision asks the tape at once. `onPress(fn)` hears each press on the keyboard (see *The keyboard's press*, `push.md`); `onTakes(fn)` each message's `takes_rev`, which the engine hands to the page's takes model (*The takes' revision*, `push.md`) |
-| `engine.tape` | The bar's tape source (`lib/bar/tape-source.js`): the transport drawn (the LCD, the display, the overview), `setLevels` (the Studio's reels), and this phone's stream, whose place `pos()` is when it plays here. Null until the Pi has a tape |
+| `engine.tape` | The bar's tape source (`lib/models/tape-source.js`): the transport drawn (the LCD, the display, the overview), `setLevels` (the Studio's reels), and this phone's stream, whose place `pos()` is when it plays here. Null until the Pi has a tape |
 | `engine.stream`, `engine.output` | The one `StreamPlayer` and output wiring; `output-ui.js` renders them |
 | `engine.feed` | The feed source |
-| `engine.np` | The one `NowPlaying`; it sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class. `lib/bar/player.js` sets `#np[data-size]` (`mini`, `full`) |
+| `engine.takes` | The page's takes the engine reads (the source menu's list) |
+| The bar | `NowPlaying` (`lib/bar/bar.js`), the shell's one, not on the engine: it draws `engine.bar` on `#np` and sets `#np[data-source]` (`take`, `tape`, `feed`), and `.playing` on ▶ (`#np-play`) while it is heard playing: what ▶ draws (▶, ❚❚ for a take, ■ for the tape) is an icon, so a check reads the class. `lib/bar/player.js` sets `#np[data-size]` (`mini`, `full`) |
 
 **Audio rules the design relies on.** Pushing history or hiding DOM never
 touches media or an AudioContext. Autoplay gates are per document with sticky

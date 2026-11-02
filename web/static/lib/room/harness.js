@@ -59,7 +59,7 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
     .replace(/<main id="view-studio"[\s\S]*?<\/main>/, '')
     .replace(/<template\b[\s\S]*?<\/template>/g, '');
   doc.body.append(...parseHTML(doc, roomOnly).children);
-  // The bar the page has: pageBar's face, and its answer.
+  // The bar the page has: the engine's `bar`'s face, and its answer.
   const np = { takeName: barTake, loads: [] };
   np.loadTake = (t, p) => { np.takeName = t.name; np.loads.push(t.name); np.player = p; };
   const players = new Map();

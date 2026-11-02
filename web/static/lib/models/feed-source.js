@@ -1,4 +1,4 @@
-// web/static/lib/bar/feed-source.js
+// web/static/lib/models/feed-source.js
 // The live studio feed in the now-playing bar (with the two rooms on):
 // monitors the live ring (/api/status + /api/envelope), lets you scrub into
 // the ring buffer from any page, and offers a one-tap GRAB into the Studio's
@@ -8,8 +8,8 @@ import { paintOxide, oxideColors, drawTrace, traceLines } from '../wave/tape-str
 import { withAlpha } from '../theme.js';
 import { remember } from '../buffer/replaced.js';
 import { replacedNote } from '../buffer/cueclip.js';
-import { forTheTape } from './carry.js';
-import { feedDisplay } from './display.js';
+import { forTheTape } from '../bar/carry.js';
+import { feedDisplay } from '../bar/display.js';
 
 const SR = 48000;
 const DEFAULT_RING_SEC = 120;

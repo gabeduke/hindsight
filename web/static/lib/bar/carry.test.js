@@ -7,7 +7,7 @@ import {
   startOpen,
   CARRY_KEY, FRAME_KEY, CARRY_LIMIT_MS, FRAME_LIMIT_MS, createCarry, resumeAt, mayCarry, openTheTape, takePageState,
 } from './carry.js';
-import { takeSource } from './take-source.js';
+import { takeSource } from '../models/take-source.js';
 
 const SR = 48000;
 const T0 = 1_760_000_000_000;
