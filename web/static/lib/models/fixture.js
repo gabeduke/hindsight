@@ -11,6 +11,7 @@
 
 import { Refusal } from './protocol.js';
 import { createTakes } from './takes.js';
+import { createTape } from './tape.js';
 import { createTransport } from './transport.js';
 
 const clone = (v) => (v == null ? v : structuredClone(v));
@@ -86,6 +87,18 @@ const MAKERS = {
     const sock = fx.watch({ onTakes: (m) => takes.heard(m) });
     // A fixture with no takes is a mistake in the check: ready says so.
     return { model: takes, ready: takes.refresh(), stop: () => sock.close() };
+  },
+  tape(fx) {
+    const tape = createTape({ protocol: fx });
+    const sock = fx.watch({ onNudge: () => tape.nudge() });
+    const stop = () => { sock.close(); tape.destroy(); };
+    const id = fx.peek('tape')?.tape?.id;
+    if (!id) return { model: tape, ready: Promise.resolve(), stop };
+    const ready = new Promise((resolve) => {
+      const off = tape.onChange((s) => { if (s.tape) { off(); resolve(); } });
+    });
+    tape.load(id);
+    return { model: tape, ready, stop };
   },
   transport(fx) {
     const state = fx.peek('tape');

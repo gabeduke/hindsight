@@ -73,6 +73,6 @@ test('the transport, made over a fixture, holds the tape, and its presses are re
     ['transport', 'play', {}], ['transport', 'stop', {}], ['transport', 'locate', { pos: 1000 }], ['transport', 'setLoop', { on: false }], ['transport', 'setTempo', { bpm: 90 }],
   ]);
   stop();
-  assert.deepEqual(MODELS, ['takes', 'transport']);
+  assert.deepEqual(MODELS, ['takes', 'tape', 'transport']);
   assert.throws(() => fixtureModels(fx, ['rig']), /no fixture model for rig/);
 });

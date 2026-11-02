@@ -19,6 +19,7 @@ import { layersOf } from '/lib/ui/layers.js';
 import { createNotesDrawer } from '/lib/room/drawer.js';
 import { barNotes } from '/lib/room/notes.js';
 import { createTakes } from '/lib/models/takes.js';
+import { createTape } from '/lib/models/tape.js';
 import { createProtocol } from '/lib/models/protocol.js';
 
 const $ = (id) => document.getElementById(id);
@@ -36,15 +37,19 @@ const help = initHelp({ page: 'takes' });
 showPresses(document);
 const tapes = initNav(document, { layers });
 // The page's protocol client (lib/models/protocol.js): the one module that
-// names a route the models ask, shared by the takes and the transport.
+// names a route the models ask, shared by the takes, the tape and the
+// transport.
 const protocol = createProtocol();
+const link = watchLink(() => {});
 // The page's takes (lib/models/takes.js): the one list every room and the
 // bar read, asked for when the tape's changes socket says it moved (the
 // engine feeds it), and by the shown room's tick when it can't vouch for it.
 const takes = createTakes({ protocol });
+// The page's tape (lib/models/tape.js): the loaded tape as the Pi has it,
+// the page's one poller of it, read by the bar's transport and the Studio.
+const tape = createTape({ protocol, link });
 let router = null;
-const engine = createEngine({ tapes, takes, protocol, onToast: toast, go: (url, opts) => router?.go(url, opts) });
-const link = watchLink(() => {});
+const engine = createEngine({ tapes, takes, tape, protocol, onToast: toast, go: (url, opts) => router?.go(url, opts) });
 
 // The notes drawer (lib/room/drawer.js), the shell's one, the same in every
 // room: ✎ on the bar opens it on the take in the bar at the frame being
@@ -96,7 +101,7 @@ const slots = {
   bar: { parent: () => $('np') },
 };
 
-const shared = { engine, tapes, takes, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
+const shared = { engine, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
 
 const views = [];
 const studioRoot = $('view-studio');

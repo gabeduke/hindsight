@@ -42,7 +42,7 @@ test('the tape is read for its id, and given up on after 4 s', async () => {
 test('the transport\'s verbs are sent to their routes, for the tape, and answer the Pi\'s body', async () => {
   const sent = [];
   const protocol = createProtocol({ send: async (url, init) => { sent.push([init.method, url, init.body && JSON.parse(init.body)]); return json(200, { status: 'queued' }); } });
-  assert.deepEqual(VERB_NAMES, ['transport.play', 'transport.stop', 'transport.locate', 'transport.setLoop', 'transport.setOutput', 'transport.setTempo', 'transport.setBars', 'transport.tapLoop', 'transport.tapCancel']);
+  assert.deepEqual(VERB_NAMES, ['tape.record', 'tape.punchOut', 'tape.cancelRecord', 'tape.catch', 'tape.setClick', 'transport.play', 'transport.stop', 'transport.locate', 'transport.setLoop', 'transport.setOutput', 'transport.setTempo', 'transport.setBars', 'transport.tapLoop', 'transport.tapCancel']);
   assert.deepEqual(await protocol.verb('transport', 'locate', { pos: 10 }, { id: 't1' }), { status: 'queued' });
   await protocol.verb('transport', 'setOutput', { mode: 'phone' }, { id: 't1' });
   await protocol.verb('transport', 'tapCancel', {}, { id: 't1' });
@@ -69,4 +69,28 @@ test('a Refusal says its code, never only its words', () => {
   assert.equal(new Refusal({ status: 409, reason: 'recording', recording: true }).code, 'recording', 'today’s reason is its code');
   assert.equal(new Refusal({ status: 500 }).code, 'http_500');
   assert.equal(new Refusal({ code: 'offline', message: 'Failed to fetch' }).code, 'offline');
+});
+
+test('the tape\'s verbs are sent to their routes, for the tape, and its read asks for a tempo only when told', async () => {
+  const sent = [];
+  const asked = [];
+  const protocol = createProtocol({
+    fetch: async (url) => { asked.push(url); return json(200, { loaded: true }); },
+    send: async (url, init) => { sent.push([init.method, url, init.body && JSON.parse(init.body)]); return json(200, {}); },
+  });
+  await protocol.read('tape', { id: 't1' });
+  await protocol.read('tape', { id: 't1', suggest: true });
+  assert.deepEqual(asked, ['/api/tapes/state?id=t1', '/api/tapes/state?id=t1&suggest=1']);
+  await protocol.verb('tape', 'record', { track: 2 }, { id: 't1' });
+  await protocol.verb('tape', 'punchOut', {}, { id: 't1' });
+  await protocol.verb('tape', 'cancelRecord', {}, { id: 't1' });
+  await protocol.verb('tape', 'catch', { pass: 1 }, { id: 't1' });
+  await protocol.verb('tape', 'setClick', { on: true }, { id: 't1' });
+  assert.deepEqual(sent, [
+    ['POST', '/api/tapes/record?id=t1', { track: 2 }],
+    ['DELETE', '/api/tapes/record?id=t1', undefined],
+    ['DELETE', '/api/tapes/record?id=t1&cancel=1', undefined],
+    ['POST', '/api/tapes/catch?id=t1', { pass: 1 }],
+    ['PATCH', '/api/tapes?id=t1', { click: true }],
+  ]);
 });

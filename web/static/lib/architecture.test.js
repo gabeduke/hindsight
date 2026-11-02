@@ -405,6 +405,24 @@ test('Guardrail 16: only the protocol client (lib/models/protocol.js) names the 
   assert.deepEqual(found, [], 'sends a transport verb itself: use the page’s transport (engine.transport, or createTransport over createProtocol on a page of its own) instead');
 });
 
+test('Guardrail 17: only the protocol client (lib/models/protocol.js) names the tape’s state, ● and Catch; the page has one poller of the tape, the tape model', () => {
+  // docs/architecture/tape.md, *The tape model*: the page's one tape
+  // (lib/models/tape.js) polls the tape's state for the Studio and the bar,
+  // and sends ●, Catch and the click through the protocol client, so a
+  // poll a change overtakes is dropped wherever it was pressed. A module
+  // that asks for the state, or sends one of these, itself goes around it.
+  // The click rides PATCH /api/tapes, which the tape's other edits share
+  // until the tape's model has them; its verb is the tape's all the same
+  // (setClick).
+  const found = [];
+  for (const [f, raw] of gestureLiterals()) {
+    if (f === 'lib/models/protocol.js') continue;
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    if (/['"`]\/api\/tapes\/(state|record|catch)\b/.test(src)) found.push(f);
+  }
+  assert.deepEqual(found, [], 'asks for the tape’s state, or sends ● or Catch, itself: use the page’s tape (ctx.tape, engine.transport for the bar) or a protocol client (createProtocol) instead');
+});
+
 // ---- the components: lib/components/ ---------------------------------------
 // The kit (docs/architecture/components.md; docs/plan/components.md, 1.5): a
 // component draws inside the root it is given, from its models' snapshots,

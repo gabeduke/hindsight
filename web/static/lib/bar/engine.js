@@ -58,15 +58,16 @@ export function pageBar(opts) {
  * has a tape; and `tape`, `stream` and `feed`, the sources it has made so far
  * (null until then).
  */
-export function createEngine({ tapes, takes: pageTakes = null, protocol = createProtocol(), onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
+export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = null, protocol = createProtocol(), onToast, find: initFind = null, onNote: initOnNote = null, go: initGo = null }) {
   // The page's takes (lib/models/takes.js): the shell's, handed in, which the
   // tape's changes socket feeds; a page with none gets its own, unfed.
   const takes = pageTakes || createTakes({ protocol });
   // The page's transport (lib/models/transport.js): the tape's ▶ ■, where it
-  // is, where it plays and its tempo, polled and pushed, over the page's
-  // protocol client; the bar's tape source draws it, and the Studio borrows
-  // it while shown.
-  const transport = createTransport({ protocol });
+  // is, where it plays and its tempo, read from the page's tape (lib/models/
+  // tape.js, the shell's, handed in; a page with none gets its own) and
+  // pushed, over the page's protocol client; the bar's tape source draws it,
+  // and the Studio borrows it while shown.
+  const transport = createTransport({ protocol, tape: pageTape || undefined });
   // A press of the bar's the Pi refused: why, in its words.
   const refused = (e) => onToast?.(`The tape: ${e.recording ? `${e.message}. ${e.detail}` : e.message}`, 'bad');
   let find = initFind, onNote = initOnNote, go = initGo;

@@ -5,6 +5,8 @@
 // tape, Takes or Capture -- joins the stream again at once. Its sound waits
 // for a tap there: a browser only lets a tap start it.
 
+import { createProtocol } from '../models/protocol.js';
+
 const KEY = 'tape.listener';
 
 /** rememberListener notes, for the next page, whether this device listens. */
@@ -26,9 +28,10 @@ export function wasListener() {
  * again for a while. Still taken after that, the note stays: another device
  * that had it lets it go, and this one finds it again; one that has it while
  * this one listens moves it ('moved', which forgets). The Pi saying the tape
- * is in the jam room, or that there is none, forgets it.
+ * is in the jam room, or that there is none, forgets it. It asks the Pi
+ * through `protocol` (lib/models/protocol.js).
  */
-export async function rejoin(player, { tries = 8, gap = 400 } = {}) {
+export async function rejoin(player, { tries = 8, gap = 400, protocol = createProtocol() } = {}) {
   if (!wasListener()) return false;
   for (let i = 0; i < tries; i++) {
     if (i) await new Promise((r) => setTimeout(r, gap));
@@ -36,8 +39,8 @@ export async function rejoin(player, { tries = 8, gap = 400 } = {}) {
     if (player.active) return true;
     let list, l;
     try {
-      list = await (await fetch('/api/tapes', { cache: 'no-store' })).json();
-      if (list.loaded) l = (await (await fetch(`/api/tapes/state?id=${encodeURIComponent(list.loaded)}`, { cache: 'no-store' })).json()).live;
+      list = (await protocol.read('tapes')).body || {};
+      if (list.loaded) l = (await protocol.read('tape', { id: list.loaded })).body?.live;
     } catch {
       continue; // the Pi didn't answer: ask again
     }

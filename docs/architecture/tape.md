@@ -352,6 +352,37 @@ or loses messages, so the scheduler tells the followers where the tape is.
 On shutdown the engine waits for the scheduler, whose Stop goes out at once,
 ahead of anything queued.
 
+**The tape model** (`lib/models/tape.js`, `createTape`) is the page's
+tape: one per page, made by the shell's boot over the page's protocol
+client and handed to the bar's engine (its transport reads the tape from
+it) and to every view (`ctx.tape`); a page with none gets one inside its
+transport. It has no DOM and names no route. It is the page's one poller of
+`GET /api/tapes/state`: each reader says how often it wants an answer
+(`every(who, ms)`: the bar 500 ms, or 5 s with a take in it; the Studio
+200 ms while shown), and it asks at the quickest, never while the page is
+out of view, and never two at once (`lib/tape/poll-gate.js`: a nudge while
+one is out asks once more after it; `refresh(true)`, back in view or
+online, goes ahead of one that may be lost). It asks for a suggested tempo
+only for an empty tape with no grid, says `ok`/`fail` to the page's link
+(*Reconnecting…*), and follows another device to the tape it loaded.
+`snapshot()` is the Pi's last answer, frozen, with `v` and `id`;
+`onChange(fn)` hands it on. `change(send)` sends one change: a poll it
+overtakes is dropped, and the tape its answer carries is shown at once;
+the transport's verbs and the Studio's edits go through it. Its own verbs
+are `record(body)`, `punchOut()`, `cancelRecord()` (●), `catch(body)`
+(Catch) and `setClick(on)`, each answering the Pi's answer or throwing a
+`Refusal`. The Studio asks it every 200 ms from its `ctx.socket`, which
+opens on every visit (a first one after a prewarm included, which skips
+the view's `show()`) and closes on hide. It shows the tape's answers while
+shown, and on show what it heard while hidden (`heardTape`, which says the `hindsight:tape-state` the
+buffer reads). Guardrail 17 fails on a module other than the protocol
+client naming `/api/tapes/state`, `/api/tapes/record` or
+`/api/tapes/catch`; the one-shot readers (`lib/tape/listener.js`
+`rejoin`, `lib/rooms/grab.js` `loadedLoopBars`) ask through a protocol
+client of their own. The tape's other edits (`edit`, `PATCH /api/tapes`'s
+other fields, undo, load, the cue lane's) are still the Studio's, sent
+through `change`, until they become the model's verbs.
+
 **The cue lane** stages clips beside the tape: they're in the tape's state
 (`State.Cue`, so undoable and seen by every device). A clip GRAB put there,
 or a take's span, keeps what the buffer kept (`cuegrab.go`): `Lanes`, one

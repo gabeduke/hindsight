@@ -38,7 +38,6 @@ import { Loop } from '../objects/motion.js';
 import { heardAt, layer, blit, bandFor, still, paintMarks, paintHead, paintLaneGhost, paintRulerGhost, compositeLane } from './playhead.js';
 import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
-import { pollGate } from './poll-gate.js';
 import { lightTrackHead } from '../bar/press-note.js';
 import * as sel from './selection.js';
 import { syncState } from '../bar/display.js';
@@ -180,6 +179,7 @@ let stack = null;
 // ctx is always given.
 export function mountTapePage(ctx) {
   viewCtx = ctx;
+  tapeModel = ctx.tape;
   stack = ctx?.layers || layersOf(document);
   takes = ctx?.takes || null; // before the bounce, which reads it
   initBouncing();
@@ -243,17 +243,21 @@ export function mountTapePage(ctx) {
     }
     engine = ctx.engine;
     engine.setTapes?.({ loaded: state.id });
+    tapeModel.load(state.id);
     output = initOutput({ engine, getTape: () => state.tape, getGhost: () => ghost });
     wire();
-    await poll();
+    // What the page's tape hears is shown while the Studio is; hidden, it
+    // catches up on show.
+    offTape = tapeModel.onChange((s) => { if (viewActive()) heardTape(s); });
+    await poll(true);
+    caughtUp();
     fetchClipboard();
     // Back from a sleep (or the network back): the tape as the Pi has it now,
-    // at once, not at the next tick -- and a "Reconnecting…" note till it answers.
-    link = ctx.link || link;
+    // at once, not at the next tick -- and a "Reconnecting…" note till it
+    // answers (the tape's link).
     ctx.on(window, 'online', () => { poll(true); fetchClipboard(); });
     ctx.on(window, 'pageshow', (e) => { if (e.persisted) { poll(true); fetchClipboard(); } });
     ctx.on(document, 'visibilitychange', () => { if (!document.hidden) { poll(true); fetchClipboard(); } });
-    ctx.every(() => { if (!document.hidden) poll(); }, POLL_MS);
     ctx.every(() => { if (!document.hidden) fetchClipboard(); }, 2000);
     // While the Studio is shown, it borrows the page's transport: the Pi's
     // word that the tape changed, on the page's one socket, polls the Studio
@@ -267,6 +271,7 @@ export function mountTapePage(ctx) {
     ready,
     show() {
       if (state.id) {
+        caughtUp();
         poll(true);
         fetchClipboard();
       }
@@ -290,121 +295,87 @@ export function mountTapePage(ctx) {
       state.pinch = false;
     },
     destroy() {
+      tapeModel.every('studio', null);
+      offTape?.();
+      offTape = null;
       cueLane?.destroy();
       cueLane = null;
     },
   };
 }
 
-// gen counts this page's changes, bumped as each is sent and again as its
-// answer arrives: a poll in flight across either may answer with the tape
-// from before the change, and is dropped.
-// The gate (poll-gate.js) lets one poll be in flight, except that a wake-up
-// poll goes ahead of one that was lost, and drops the lost one's answer.
-const gate = pollGate();
-let gen = 0;
-// The page's link to the Pi (lib/link.js); a stand-in until boot makes it.
-let link = { ok() {}, fail() {} };
-const POLL_TIMEOUT_MS = 4000;
+// The page's tape (lib/models/tape.js), ctx.tape: the page's one poller of
+// the tape, every POLL_MS while the Studio is shown, at once on the changes
+// socket's nudge (the transport's, below). poll asks it now (force: ahead
+// of an ask that may be lost, after a sleep); change sends one change
+// through it, so a poll the change overtakes is dropped and the tape the
+// answer carries is shown.
+let tapeModel = null;
+let offTape = null;
+let heardV = 0; // the tape's snapshot shown last
+const poll = (force = false) => tapeModel.refresh(force);
+const change = (send) => tapeModel.change(send);
 
 // The changes socket is the page's one, the transport's (lib/models/
-// transport.js), open from the tape's mount whatever room is shown; while
-// the Studio is shown it borrows the transport, and each new revision the
-// socket says polls the Studio at once, through the gate, so a nudge that
-// lands while a poll is out polls once more after it rather than beside it.
-// The 200 ms poll stays as the fallback, for a socket that is down.
+// transport.js), open from the tape's mount whatever room is shown, and each
+// new revision it says asks the tape at once, so a nudge that lands while a
+// poll is out polls once more after it rather than beside it. The 200 ms
+// poll stays as the fallback, for a socket that is down.
 // What the Studio lends the page's transport (delegate) while it is shown:
-// the hands each of its verbs is sent inside (sentHere), whoever pressed it,
-// its poll, and what it does with a nudge.
+// the hands each of its verbs is sent inside (sentHere), whoever pressed it.
 const barHands = {
   around: (name, args, run) => sentHere(name, args, run),
-  poll: () => poll(),
-  nudge: () => nudged(),
 };
-function nudged() {
-  if (document.hidden) return; // the poll on visibilitychange has it
-  if (gate.nudge()) poll();
-}
-// followTheTape is the Studio's ctx.socket: it holds the transport while
-// the Studio is shown. A press on the keyboard (the bar's note hears it from
-// the transport too) lights the head of the track it changed here, for the
-// note's second.
+// followTheTape is the Studio's ctx.socket, open on every visit (the first
+// after a prewarm included) and closed on hide: it holds the transport, and
+// asks the tape every POLL_MS, while the Studio is shown. A press on the
+// keyboard (the bar's note hears it from the transport too) lights the head
+// of the track it changed here, for the note's second.
 function followTheTape() {
   engine.transport.delegate(barHands);
+  tapeModel.every('studio', POLL_MS);
+  caughtUp();
   const offPress = engine.transport.onPress((p) => lightTrackHead(lanes, p));
   return {
     close() {
       offPress();
+      tapeModel.every('studio', null);
       engine.transport.delegate(null);
     },
   };
 }
 
-async function poll(force = false) {
-  if (!state.id) return;
-  const mine = gate.begin(force === true);
-  if (!mine) return;
-  const g = gen;
-  try {
-    // Only an empty tape with no grid can use a suggested tempo, so only
-    // then is one asked for.
-    const bare = state.tape && !state.tape.grid && state.tape.tracks.every((tr) => tr.clips.length === 0);
-    const s = await api(`/api/tapes/state?${q()}${bare ? '&suggest=1' : ''}`, { timeout: POLL_TIMEOUT_MS });
-    link.ok('tape');
-    if (g !== gen || !gate.current(mine)) return;
-    if (!s.loaded) { await follow(); return; }
-    apply(s);
-    // The Studio's buffer (lib/buffer) reads these: the tape as the Pi has
-    // it, the armed track and its input, the sources, the ruler's snap,
-    // what the lanes show, and the playhead as it lands on the tape. It
-    // imports nothing from here, and this page knows nothing about it.
-    const t = state.tape;
-    document.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
-      tape: t,
-      rec_track: state.recTrack,
-      rec_tracks: state.recTracks, // several, with multi-arm: DROP takes the first
-      rec_input: state.recTrack ? inputOf(state.recTrack) : '',
-      sources: state.sources,
-      snap: t.grid ? state.snap : 'off',
-      view: laneView(),
-      pos: playhead(),
-    } }));
-  } catch (e) {
-    // An answer of any kind (a 404) was the Pi; none at all is the link.
-    if (e.status === undefined) link.fail('tape');
-    else link.ok('tape');
-    if (e.status === 404 && g === gen && gate.current(mine)) await follow();
-  } finally {
-    if (gate.end(mine)) poll();
-  }
+// caughtUp shows what the tape heard while the Studio was hidden.
+function caughtUp() {
+  const s = tapeModel.snapshot();
+  if (s.tape && s.v !== heardV) heardTape(s);
 }
 
-// follow switches to the tape that's loaded now, because another device
-// loaded it.
-async function follow() {
-  try {
-    const l = await api('/api/tapes');
-    if (!l.loaded || l.loaded === state.id) return;
-    const s = await api(`/api/tapes/state?id=${encodeURIComponent(l.loaded)}`);
-    state.id = l.loaded;
+// heardTape shows an answer of the tape's: a poll's, or a change's.
+function heardTape(s) {
+  heardV = s.v;
+  // The tape followed another device to the tape it loaded.
+  if (state.id && s.id !== state.id) {
+    state.id = s.id;
     closeSheets();
-    apply(s);
     toast('Another device loaded a different tape');
-  } catch { /* the next poll tries again */ }
-}
-
-// change sends one change and shows the tape it answers with.
-async function change(send) {
-  gen++;
-  try {
-    const s = await send();
-    gen++;
-    if (s && s.tape) apply(s);
-    return s;
-  } catch (e) {
-    gen++;
-    throw e;
   }
+  apply(s);
+  // The Studio's buffer (lib/buffer) reads these: the tape as the Pi has
+  // it, the armed track and its input, the sources, the ruler's snap, what
+  // the lanes show, and the playhead as it lands on the tape. It imports
+  // nothing from here, and this page knows nothing about it.
+  const t = state.tape;
+  document.dispatchEvent(new CustomEvent('hindsight:tape-state', { detail: {
+    tape: t,
+    rec_track: state.recTrack,
+    rec_tracks: state.recTracks, // several, with multi-arm: DROP takes the first
+    rec_input: state.recTrack ? inputOf(state.recTrack) : '',
+    sources: state.sources,
+    snap: t.grid ? state.snap : 'off',
+    view: laneView(),
+    pos: playhead(),
+  } }));
 }
 
 function apply(s) {
@@ -4044,14 +4015,14 @@ async function patch(body) {
 
 // sentHere is the Studio's hands around a verb of the page's transport
 // (lib/models/transport.js), the bar's or the Studio's own: a locate heard
-// on this phone shows where it was asked until the phone hears it, a poll
-// the verb overtakes is dropped (change), and a stop that ends a punch says
-// what it kept. The transport asks the Studio to poll after it.
+// on this phone shows where it was asked until the phone hears it, and a
+// stop that ends a punch says what it kept. It is sent as a change of the
+// tape's (a poll it overtakes is dropped), and the tape asks after it.
 async function sentHere(name, args, run) {
   if (name === 'locate' && output && output.streamingHere()) {
     ghost = { pos: args.pos, until: performance.now() + output.player.delayMs() };
   }
-  const b = await change(run);
+  const b = await run();
   if (b && b.kept) keptToast(b.kept);
   return b;
 }
@@ -4093,14 +4064,14 @@ async function rec() {
   if (!r && (jamOnly() || noArm())) return; // keeping a take already running stays possible
   try {
     if (!r) {
-      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'POST', body: recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace' }) }));
+      const b = await tapeModel.record(recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace' }));
       const armed = b.record.state === 'armed';
       const on = onWords(recTracksOf(b.record)), source = recSources(b.record);
       toast(armed ? `● Rec is ready on ${on}: press ▶ to count in, then it records ${named(source)}` : `Recording ${named(source)} onto ${on} from the next bar — tap ● again to keep it`, 'ok', {
-        ms: 8000, action: { label: 'Cancel', run: () => api(`/api/tapes/record?${q()}&cancel=1`, { method: 'DELETE' }).then(poll, () => {}) },
+        ms: 8000, action: { label: 'Cancel', run: () => tapeModel.cancelRecord().then(() => poll(), () => {}) },
       });
     } else {
-      const b = await change(() => api(`/api/tapes/record?${q()}`, { method: 'DELETE' }));
+      const b = await tapeModel.punchOut();
       if (b.kept) keptToast(b.kept);
       else toast(r.state === 'armed' ? `● Rec cancelled on ${onWords(recTracksOf(r))}` : 'Nothing to keep yet: the tape hadn’t reached a bar line');
     }
@@ -4301,7 +4272,7 @@ async function doCatch(what) {
   if (jamOnly() || noArm()) return;
   const body = recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace', ...what });
   try {
-    const b = await change(() => api(`/api/tapes/catch?${q()}`, { method: 'POST', body }));
+    const b = await tapeModel.catch(body);
     // CATCH says what it did: "last 4 bars → 2, 3".
     const tracks = b.tracks || [body.track];
     const dirty = (b.clips || [b.clip]).some((c) => !c.clean);
@@ -4863,7 +4834,7 @@ function wire() {
       else rec();
     },
   });
-  $('click').addEventListener('click', () => patch({ click: !state.tape.click }));
+  $('click').addEventListener('click', () => editTape(() => tapeModel.setClick(!state.tape.click), { toast, resync: () => poll(true) }));
   $('tap').addEventListener('click', tap);
   for (const b of $('catch-mode').querySelectorAll('button')) {
     b.addEventListener('click', () => { state.mode = b.dataset.mode; writePref('tape.mode', state.mode); renderMode(); });

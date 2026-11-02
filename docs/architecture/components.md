@@ -84,6 +84,13 @@ same object until it moves, with a version `v`) and `onChange(fn)`.
 - **The takes** (`lib/models/takes.js`): `snapshot()` is `{v, list}`, the
   ETag and the list (`list()` and `etag` are its old names, kept until
   their callers move). It reads through the page's protocol client.
+- **The tape** (`lib/models/tape.js`): `snapshot()` is the Pi's last
+  answer about the loaded tape (`{v, id, loaded, tape, live, …}`), `v`
+  counting its answers. It is the page's one poller of the tape, at the
+  quickest any reader asks (`every(who, ms)`), and its verbs (`record`,
+  `punchOut`, `cancelRecord`, `catch`, `setClick`; `tape.md`, *The tape
+  model*) answer the Pi's answer or throw a `Refusal`. It reads and sends
+  through the page's protocol client.
 - **The transport** (`lib/models/transport.js`): `snapshot()` is `{v, id,
   tape, live, pending}`, `v` counting the moves this page has seen (the
   Pi's `rev` takes its place once the tape's answer carries it), `pending`
@@ -91,21 +98,25 @@ same object until it moves, with a version `v`) and `onChange(fn)`.
   between answers, `playing()` and `pos()`, is read on the ticker, not from
   it. Its verbs (`play`, `stop`, `locate`, `setLoop`, `setOutput`,
   `setTempo`, `setBars`, `tapLoop`, `tapCancel`; `bar.md`, *The
-  transport*) answer the Pi's answer or throw a `Refusal`. It reads and
-  sends through the page's protocol client.
+  transport*) answer the Pi's answer or throw a `Refusal`. It reads the
+  tape from the page's tape model, and sends through the page's protocol
+  client.
 
 **The protocol client** (`lib/models/protocol.js`, `createProtocol`) is the
 one module that names a route a model reads or sends: `read(noun, {v,
-id})` answers `{ok, status, v, body}` (a 304 for the version held);
+id, suggest})` answers `{ok, status, v, body}` (a 304 for the version held);
 `verb(noun, name, args, {id})` answers the Pi's body or throws a
 `Refusal`; `watch(handlers)` is the page's changes socket
 (`lib/tape/changes.js`). It reads the takes (`GET /api/jams`; Guardrail
-14), the tape's state and which tape is loaded (`tape`, `tapes`), and
-sends the transport's verbs (`VERB_NAMES`: `/api/tapes/transport`,
-`/api/tapes/output`, `/api/tapes/tap`, which Guardrail 16 lets no other
-module name, and the tempo and loop's `PATCH /api/tapes`, which the
-tape's other edits share until the tape's model has them). The shell
-makes one (`boot.js`) and hands it to the takes and the engine; the rig
+14), the tape's state and which tape is loaded (`tape`, `tapes`;
+`/api/tapes/state`, which Guardrail 17 lets no other module name), and
+sends the tape's verbs (`/api/tapes/record`, `/api/tapes/catch`, Guardrail
+17, and the click's `PATCH /api/tapes`) and the transport's
+(`VERB_NAMES`: `/api/tapes/transport`, `/api/tapes/output`,
+`/api/tapes/tap`, which Guardrail 16 lets no other module name, and the
+tempo and loop's `PATCH /api/tapes`, which the tape's other edits share
+until the tape's model has them). The shell makes one (`boot.js`) and
+hands it to the takes, the tape and the engine; the rig
 page makes its own for where the tape plays. Each other model's routes
 join as it moves onto it. `Refusal` is the one error a verb throws:
 `message` for a person, `code` for a page (the Pi's `code`, today's

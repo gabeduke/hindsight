@@ -51,8 +51,9 @@ made by the bar's engine and drawn by the bar's tape source) holds the
 page's one changes socket, from `load(id)` to `destroy()`, whatever room is
 shown: it is not a view's. The Studio (`lib/tape/page.js`) borrows the
 transport through `ctx.socket` (*The shell*, `shell.md`) while it is
-shown (`delegate(hands)`, handed back with `delegate(null)`), and a nudge
-then goes to its hands (`nudge`), not to the transport's own poll. A room
+shown (`delegate(hands)`, handed back with `delegate(null)`). A nudge asks
+the page's tape (`lib/models/tape.js`), the one poller of the tape for the
+Studio and the bar alike. A room
 switch used to close one socket and open another: over a kit's HTTPS name
 that is a TLS handshake each time, with nobody listening in between, and
 the Studio closed the bar's while it was still connecting (Chrome's

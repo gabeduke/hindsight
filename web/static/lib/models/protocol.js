@@ -5,11 +5,12 @@
 // a route renamed on the Pi is a line here and nothing else, and a model
 // made over a fixture (fixture.js, the same three methods) runs with no Pi.
 //
-// What it speaks for so far: the takes (GET /api/jams), and the transport
-// (lib/models/transport.js): the tape's state it reads, which tape is
-// loaded, and its verbs, ▶ ■ and a locate, the loop, where it plays, the
-// tempo and a free loop's tap. The tape's own edits join when the tape's
-// model moves onto it; until then the Studio asks the Pi itself.
+// What it speaks for so far: the takes (GET /api/jams); the tape
+// (lib/models/tape.js): its state, which tape is loaded, and its verbs for
+// ●, Catch and the click; and the transport (lib/models/transport.js): ▶ ■
+// and a locate, the loop, where it plays, the tempo and a free loop's tap.
+// The tape's other edits join in the PRs after; until then the Studio sends
+// them itself, through the tape's change().
 //
 // It has no DOM. Built on lib/link.js's timedFetch, so a read lost in a
 // sleep ends as a failure rather than never; a verb is never timed out (a
@@ -27,9 +28,10 @@ const at = (path, id) => (id == null ? path : `${path}?id=${encodeURIComponent(i
  */
 const READS = Object.freeze({
   takes: Object.freeze({ path: () => '/api/jams' }),
-  // The loaded tape and its live state: the transport's poll.
-  tape: Object.freeze({ path: ({ id }) => at('/api/tapes/state', id), ms: 4000 }),
-  // The list of tapes and which is loaded: the transport following the Pi.
+  // The loaded tape and its live state: the tape's poll. suggest asks for
+  // the tempo you were playing, which only an empty tape with no grid uses.
+  tape: Object.freeze({ path: ({ id, suggest }) => `${at('/api/tapes/state', id)}${suggest ? '&suggest=1' : ''}`, ms: 4000 }),
+  // The list of tapes and which is loaded: the tape following the Pi.
   tapes: Object.freeze({ path: () => '/api/tapes' }),
 });
 
@@ -42,6 +44,17 @@ export const NOUNS = Object.freeze(Object.keys(READS));
  * verb's option (the tape it is for), never its body's.
  */
 const VERBS = Object.freeze({
+  tape: Object.freeze({
+    // ●: arm or punch in onto the armed tracks ({tracks, …},
+    // lib/tape/record-body.js); again, end it and keep what it has; or
+    // cancel it, keeping nothing.
+    record: { method: 'POST', path: '/api/tapes/record', id: true, body: (b) => b },
+    punchOut: { method: 'DELETE', path: '/api/tapes/record', id: true, body: () => null },
+    cancelRecord: { method: 'DELETE', path: '/api/tapes/record', id: true, query: 'cancel=1', body: () => null },
+    // Catch: the last pass, or the last bars, onto the armed tracks.
+    catch: { method: 'POST', path: '/api/tapes/catch', id: true, body: (b) => b },
+    setClick: { method: 'PATCH', path: '/api/tapes', id: true, body: ({ on }) => ({ click: on }) },
+  }),
   transport: Object.freeze({
     play: { method: 'POST', path: '/api/tapes/transport', id: true, body: () => ({ action: 'play' }) },
     stop: { method: 'POST', path: '/api/tapes/transport', id: true, body: () => ({ action: 'stop' }) },
@@ -96,7 +109,8 @@ export class Refusal extends Error {
  *                    is {ok: false, status: 304, body: null}. body is the
  *                    parsed JSON of an OK answer, else null. It rejects
  *                    only when the Pi couldn't be asked. The tape's read
- *                    takes {id}, the tape it asks about.
+ *                    takes {id, suggest}: the tape it asks about, and
+ *                    whether to suggest a tempo.
  *   verb(noun, name, args, {id})
  *                    sends a verb (VERBS), for the tape `id`: a promise of
  *                    the Pi's answer, its parsed body ({} with none), or a
@@ -115,12 +129,12 @@ export function createProtocol(env = {}) {
   } = env;
   return Object.freeze({
     nouns: NOUNS,
-    async read(noun, { v = null, id = null } = {}) {
+    async read(noun, { v = null, id = null, suggest = false } = {}) {
       const r = READS[noun];
       if (!r) throw new TypeError(`the protocol reads no ${noun}`);
       const headers = {};
       if (v) headers['If-None-Match'] = v;
-      const res = await fetchImpl(r.path({ id }), { headers, cache: 'no-store' }, r.ms);
+      const res = await fetchImpl(r.path({ id, suggest }), { headers, cache: 'no-store' }, r.ms);
       const tag = res.headers?.get?.('ETag') ?? null;
       if (!res.ok) return { ok: false, status: res.status, v: tag, body: null };
       return { ok: true, status: res.status, v: tag, body: await res.json() };
@@ -131,7 +145,8 @@ export function createProtocol(env = {}) {
       const body = d.body(args);
       let res;
       try {
-        res = await sendImpl(d.id ? at(d.path, id) : d.path, {
+        const path = d.id ? at(d.path, id) : d.path;
+        res = await sendImpl(d.query ? `${path}${path.includes('?') ? '&' : '?'}${d.query}` : path, {
           method: d.method, cache: 'no-store',
           headers: body == null ? undefined : { 'Content-Type': 'application/json' },
           body: body == null ? undefined : JSON.stringify(body),

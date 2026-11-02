@@ -21,10 +21,10 @@ function pi(answers) {
   const asked = [];
   globalThis.fetch = async (url) => {
     asked.push(url);
-    if (url === '/api/tapes') return { json: async () => ({ loaded: 't1' }) };
+    if (url === '/api/tapes') return { ok: true, json: async () => ({ loaded: 't1' }) };
     const a = answers[Math.min(n++, answers.length - 1)];
     if (a instanceof Error) throw a;
-    return { json: async () => ({ live: a }) };
+    return { ok: true, json: async () => ({ live: a }) };
   };
   return asked;
 }
@@ -73,9 +73,9 @@ test('started by a tap meanwhile: this device is the listener, and keeps its not
   const p = aPlayer();
   let n = 0;
   globalThis.fetch = async (url) => {
-    if (url === '/api/tapes') return { json: async () => ({ loaded: 't1' }) };
+    if (url === '/api/tapes') return { ok: true, json: async () => ({ loaded: 't1' }) };
     if (++n === 2) p.active = true; // the tap lands while the Pi is asked
-    return { json: async () => ({ live: phone(1) }) };
+    return { ok: true, json: async () => ({ live: phone(1) }) };
   };
   assert.equal(await rejoin(p, { gap: 0 }), true);
   assert.equal(p.starts.length, 0);
