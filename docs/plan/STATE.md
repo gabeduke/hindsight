@@ -163,13 +163,16 @@ and still looks it:
         bar is `styles.css`'s, and `.np[data-room]`) and step 3's keys
         (#254: `lib/bar/tape-keys.js`, ●, Catch and the click on the
         tape's verbs, the Studio's hands lent through `ctx.tapeKeys`;
-        Guardrail 19) are built. **Next, start fresh here: step 3's
-        slot**, the overview, the clock-out lamp and the output strip
-        into `ctx.barSlot`, which first needs `output-ui.js` and the
-        Studio to hold their elements rather than find them by id (the
-        spec's step 3 says why). Step 4, the ids, is built ahead of it
-        (#255: every id inside the shell's `#np` is `np-<name>`;
-        Guardrail 20); then step 5, the move.
+        Guardrail 19) are built, and step 3's slot for the overview
+        (#256: the Studio's markup, in the bar's strip through
+        `ctx.barSlot`'s `{ place: 'strip' }`, held by the page;
+        Guardrail 21). Step 4, the ids, is built ahead of it (#255:
+        every id inside the shell's `#np` is `np-<name>`; Guardrail 20).
+        **Next, for Gabe: the clock-out lamp and the output strip**,
+        which show in every room's bar today, so a slot of the Studio's
+        would take them out of the others: his call between the Studio's
+        alone and the bar's from the models (the spec's step 3). Then
+        step 5, the move.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.

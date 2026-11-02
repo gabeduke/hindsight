@@ -188,15 +188,26 @@ unmoved:
      Studio's keys*). Guardrail 19 fails on the Studio looking them up.
      `hindsight:phone-offer` and `hindsight:phone-record` are gone: the bar
      calls `phoneKey`'s `offer()` and the recorder's `quick()`.
-   - **The slot**: *not built*. The overview, the clock-out lamp and the
-     output strip go into `ctx.barSlot` only once nothing looks them up
-     while the Studio is hidden, since a slot takes its nodes out of the
-     page on hide: `lib/tape/output-ui.js` draws the strip on every change
-     of the bar's tape source, in any room, by id, and `page.js` finds the
-     overview and the lamp by id in its render and size observer. Each has
-     to be handed its elements first (held references, from the Studio's
-     own markup), which is its own change. Next, before step 4 renames
-     them.
+   - **The slot**: the overview's half *built*, #256; the clock-out
+     lamp and the output strip *stopped*, for Gabe. The overview is the
+     Studio's markup (the end of `#view-studio`), put at the start of the
+     bar's strip by `ctx.barSlot.add(overview, { place: 'strip' })` (a
+     Slot's new `{ place }`, the zones the shell names in it: the bar's
+     `'strip'`) and handed to the page, `mountTapePage(ctx, { overview })`;
+     Guardrail 21 (`bar.md`, *The Studio's part of the bar*). The lamp and
+     the strip were not moved, because they are not the Studio's alone on
+     screen: both show in the Listening Room's and Capture's bar today (the
+     lamp, with `TAPE_CLOCK=lead`, as the Studio last drew it; the strip
+     while the tape plays on this phone, drawn by `output-ui.js` on each
+     change of the bar's tape source), and a slot of the Studio's is out of
+     the page while another room is shown. Moving them takes them out of
+     the other rooms, a change in what the bar shows there. Two ways on:
+     (a) Gabe agrees they are the Studio's only (the lamp's
+     `data-for="studio"`, as SYNC beside it has; the strip only in the
+     Studio, where ▶ still resumes a locked stream elsewhere); or (b) they
+     are the bar's, drawn from the models in every room (the strip from
+     `engine.stream` and the tape's `snapshot()`, the lamp from the tape's
+     `live.clock`), and move into the Transport in step 5.
 4. **The ids** (decision 1): *built*, #255, ahead of step 3's slot. The
    twelve renamed (`#np-position`, `#np-rec`, `#np-catch-pass`,
    `#np-catch-more`, `#np-click`, `#np-tape-overview`, `#np-clock-out`,
