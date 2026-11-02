@@ -134,12 +134,23 @@ and still looks it:
         Studio still looks up and draws the bar's `$('rec')`,
         `$('catch-pass')` and `$('click')` and binds them to these
         verbs; the extraction moves that into the component.
-     c. **The engine split** (next, start fresh here) from `NowPlaying`: the sources
-        (`tape-source.js`, `take-source.js`, `feed-source.js`) into
-        `lib/models/`, and the transport's source verbs (`setSource`,
-        `loadTake`, `eject`).
-     d. **The extraction** into `lib/components/transport/`. It amends
-        AGENTS.md and decision 0047 (call 1).
+     c. **The engine split**: done, #247 (2026-11-02). `lib/models/engine.js`
+        `createEngine` holds the sources (`lib/models/tape-source.js`,
+        `take-source.js`, `feed-source.js`), which is in the bar and the
+        take's Audio, with `setSource`, `loadTake`, `eject`, `snapshot()`
+        and `onChange` (per change and per frame while it plays) on
+        `engine.bar`; `NowPlaying` (`new NowPlaying({engine, onToast})`,
+        made by `boot.js`) draws it and wires the source menu, ● on the
+        mini player and the output sheet; Guardrail 18
+        (`architecture/bar.md`, *The engine*). Left for d: the engine
+        still imports `noteHere`, `carry.js` and `handoff.js` from
+        `lib/bar/`; Guardrail 18 matches the source makers by name (an
+        aliased import gets past it).
+     d. **The extraction** (next, start fresh here) into
+        `lib/components/transport/`: `NowPlaying` and the modules
+        `components.md` §6 row 1 lists, drawn from `engine.bar`,
+        `engine.transport`, the tape and the takes. It amends AGENTS.md
+        and decision 0047 (call 1).
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
@@ -147,7 +158,7 @@ and still looks it:
   5. **Pads** (the cue lane). They need `lib/ui/drag.js` first.
 
   In between, the models still to build (step 4): `feed`, `take`, `rig`,
-  the transport's source verbs (1c), and the tape's other edits (`edit`,
+  and the tape's other edits (`edit`,
   `PATCH /api/tapes`'s other fields, undo, load, the cue lane's), still
   the Studio's through `tape.change`. Then the one push
   socket at `/api/changes` (call 3).
