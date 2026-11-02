@@ -2,7 +2,7 @@
 // tests move, timers that only run when told, and a fake changes socket.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTransport, HOLD_MS, STALE_MS, POLL_MS } from './transport.js';
+import { createTransport, HOLD_MS, STALE_MS, POLL_MS, AWAY_EVERY } from './transport.js';
 import { createProtocol, Refusal } from './protocol.js';
 
 const SR = 48000;
@@ -46,7 +46,7 @@ function rig(answer, env = {}) {
     protocol: createProtocol({ fetch: (u, o) => r.fetch(u, o), send: (u, o) => r.send(u, o), watch: r.w.watch }),
     now: () => r.now,
     hidden: () => r.hidden,
-    setTimeout: (f) => { r.later.push(f); return r.later.length; },
+    setTimeout: (f, ms) => { r.later.push(f); r.ms = ms; return r.later.length; },
     clearTimeout: () => {},
     ...env,
   });
@@ -199,16 +199,13 @@ test('its verbs go to the Pi, answer what it said, ask again shortly after, and 
   assert.deepEqual(await r.m.stop(), { status: 'queued', kept: { track: 1 } });
 });
 
-test('lent to the Studio, a verb is sent inside its hands and the Studio polls after it', async () => {
+test('lent to the Studio, a verb is sent inside its hands and the tape asks after it', async () => {
   const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
   r.m.load('t1');
   await settle();
   const seen = [];
-  let polled = 0;
   r.m.delegate({
     around: async (name, args, run) => { seen.push([name, args]); const b = await run(); seen.push(['answered', b]); return b; },
-    poll: () => { polled++; },
-    nudge: () => {},
   });
   r.later.length = 0;
   const before = r.polls.length;
@@ -217,11 +214,10 @@ test('lent to the Studio, a verb is sent inside its hands and the Studio polls a
   assert.deepEqual(seen, [['locate', { pos: 4 * BAR }], ['answered', {}], ['setTempo', { bpm: 100 }], ['answered', {}]]);
   r.run();
   await settle();
-  assert.equal(polled, 2, 'the Studio asks what the Pi made of each');
-  assert.equal(r.polls.length, before, 'and the transport asks nothing itself');
+  assert.equal(r.polls.length, before + 2, 'the tape asks what the Pi made of each, one after the other');
 });
 
-test('it asks every POLL_MS in the bar, every tenth tick with a take in it, and nothing while out of view', async () => {
+test('the tape asks every POLL_MS in the bar, ten times as long with a take in it, and nothing while out of view', async () => {
   const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
   r.m.load('t1');
   await settle();
@@ -230,11 +226,12 @@ test('it asks every POLL_MS in the bar, every tenth tick with a take in it, and 
   let before = r.polls.length;
   await tickN(3);
   assert.equal(r.polls.length, before + 3, 'in the bar: each tick');
+  assert.equal(r.ms, POLL_MS);
   r.m.setActive(false);
-  before = r.polls.length;
-  await tickN(10);
-  assert.equal(r.polls.length, before + 1, 'a take in the bar: one tick in ten');
+  assert.equal(r.ms, POLL_MS * AWAY_EVERY, 'a take in the bar: ten times as long');
+  await settle();
   r.m.setActive(true);
+  assert.equal(r.ms, POLL_MS);
   await settle();
   r.hidden = true;
   before = r.polls.length;
@@ -273,26 +270,21 @@ test('a nudge from the Pi asks at once, not at the next tick', async () => {
   assert.equal(r.w.open, 0, 'destroy lets the socket go');
 });
 
-test('one socket for the page: lent to the Studio it stays open and a nudge is the Studio\'s; handed back, it asks; with a take in the bar, a nudge waits', async () => {
+test('one socket for the page: lent to the Studio it stays open and a nudge asks the tape; handed back, it asks; with a take in the bar, a nudge waits', async () => {
   const r = rig(() => ({ tape: tapeJSON(), loaded: true, live: stopped() }));
   r.m.load('t1');
   await settle();
   assert.equal(r.w.open, 1);
-  const studio = [];
-  r.m.delegate({ poll() {}, nudge: (m) => studio.push(m.rev) });
+  r.m.delegate({ around: (name, args, run) => run() });
   assert.equal(r.w.open, 1, 'lent to the Studio, the socket stays: no second one, no gap');
   let before = r.polls.length;
   r.w.nudge({ rev: 4 });
   await settle();
-  assert.deepEqual(studio, [4], 'the Studio acts on the nudge');
-  assert.equal(r.polls.length, before, 'and the transport asks nothing of its own');
+  assert.equal(r.polls.length, before + 1, 'the tape asks at once, for the Studio and the bar');
   r.m.delegate(null);
   assert.equal(r.w.open, 1, 'handed back: still the one socket');
   await settle();
-  assert.equal(r.polls.length, before + 1, 'and it asks the Pi at once, for what changed meanwhile');
-  r.w.nudge({ rev: 5 });
-  await settle();
-  assert.deepEqual(studio, [4], 'the Studio hears no more once it has handed it back');
+  assert.equal(r.polls.length, before + 2, 'and it asks the Pi at once, for what changed meanwhile');
   r.m.setActive(false);
   before = r.polls.length;
   r.w.nudge({ rev: 9 });

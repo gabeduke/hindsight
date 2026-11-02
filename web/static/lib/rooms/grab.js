@@ -6,6 +6,7 @@
 // the same N. Pure, but for loadedLoopBars, which asks the Pi.
 
 import { BAR_PICKS, grabSeconds } from '../buffer/model.js';
+import { createProtocol } from '../models/protocol.js';
 
 const PICK_KEY = 'buffer.bars';
 
@@ -113,19 +114,20 @@ export function takeGrabLabel({ n = 4, bpm = null, selection = false }) {
 }
 
 /**
- * loadedLoopBars asks the Pi for the loaded tape's loop in bars. Null when
- * there is no tape, no tempo or no answer: a page that only wants a number
- * to start from never fails for want of one.
+ * loadedLoopBars asks the Pi for the loaded tape's loop in bars, through a
+ * protocol client (lib/models/protocol.js). Null when there is no tape, no
+ * tempo or no answer: a page that only wants a number to start from never
+ * fails for want of one.
  */
-export async function loadedLoopBars(fetchImpl = globalThis.fetch) {
+export async function loadedLoopBars(protocol = createProtocol()) {
   try {
-    const list = await fetchImpl('/api/tapes', { cache: 'no-store' });
+    const list = await protocol.read('tapes');
     if (!list.ok) return null;
-    const { loaded } = await list.json();
+    const { loaded } = list.body;
     if (!loaded) return null;
-    const res = await fetchImpl(`/api/tapes/state?id=${encodeURIComponent(loaded)}`, { cache: 'no-store' });
+    const res = await protocol.read('tape', { id: loaded });
     if (!res.ok) return null;
-    return loopBars((await res.json()).tape);
+    return loopBars(res.body.tape);
   } catch {
     return null;
   }

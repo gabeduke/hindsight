@@ -135,14 +135,17 @@ each answering the Pi's answer or throwing a `Refusal` to whoever pressed:
 `setTempo(bpm)` and `setBars(n)` (the tempo's panel, a re-grid: decision
 0062), and `tapLoop(body)` and `tapCancel()` (a free loop's tap). The bar's
 tape source catches a refusal of its own keys and says it (*The tape: …*);
-the Studio's keys say it in theirs. It asks every 500 ms in the bar, one
-tick in ten with a take in it, at once on the changes socket's nudge
-(`push.md`), shortly after each verb, and never two at once; that socket
-is the page's one, held from `load` to `destroy` whatever room is shown.
-The Studio lends it its own poll, its nudge and the hands each verb is
-sent inside while shown (`delegate({around, poll, nudge})`, `ingest`):
-`around` drops a Studio poll the verb overtakes and says what a stop's
-punch kept, whoever pressed. Guardrail 16 fails on a module other than the
+the Studio's keys say it in theirs. It reads the tape from the page's
+tape (`lib/models/tape.js`, *The tape model* in `tape.md`), the page's one
+poller, which it asks every 500 ms in the bar and every 5 s with a take in
+it, at once on the changes socket's nudge (`push.md`) and shortly after
+each verb, never two at once. That socket is the page's one, held from
+`load` to `destroy` whatever room is shown. Each verb is a change of the
+tape's (`change`), so a poll it overtakes is dropped. While shown, the
+Studio asks the tape every 200 ms, feeds the transport what it shows
+(`ingest`: the place this phone hears) and lends it the hands each verb is
+sent inside (`delegate({around})`), which say what a stop's punch kept,
+whoever pressed. Guardrail 16 fails on a module other than the
 protocol client naming the transport's routes.
 
 The bar's tape source (`lib/bar/tape-source.js`) draws it: the LCD, the

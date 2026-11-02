@@ -4,7 +4,8 @@
 > ecosystem's steps 4 and 5 (`the-ecosystem.md`, Direction B) and the
 > protocol under them. Built so far: the verbs (#224), the takes model
 > (#225), and the tape's transport (#231), the first slice of the transport
-> model (no source, output or tempo verbs yet), and the foundations (6):
+> model (no source, output or tempo verbs yet; they came with #244), the
+> tape model with the page's one poll of the tape (1b), and the foundations (6):
 > the contract, Guardrail 15, the protocol client for the takes, fixtures,
 > both models' `snapshot()`, and the harness. Gabe, 2026-10-30: *"get to a
 > point where we're not trying to make changes to the entire app but to
@@ -249,7 +250,7 @@ no DOM):
 
 | Model | The state it owns | Push or poll | Its verbs (the route today) |
 |---|---|---|---|
-| `tape` | the loaded tape (its tracks, parts, sections, grid, loop and cue lane) and the Pi's state around it (the armed tracks, the inputs, undo and redo); the list of tapes | `rev`, then one `GET /api/tapes/state` for the page. Today the Studio polls it at 200 ms (`lib/tape/page.js` `poll`) and the bar at 500 ms (`tapeSource`), handing over by `delegate` and `ingest` | `edit(op)`, the sections' ops among them (`/api/tapes/edit`); `rename`, `setLoop`, `arm`, `setInput`, `setClick` (`PATCH /api/tapes`); `undo`, `redo`; `load`, `create`, `clone`, `remove`; `catch`; `record`, `punchOut` (`/api/tapes/record`); `paste` (`/api/tapes/drop`); `launch` (`/api/tapes/cue`); `grab(from)`, from the feed, an armed input or a take's span (`/api/tapes/cue/grab`); `drop` (`/api/tapes/cue/drop`); `mixdown`, `send` |
+| `tape` | the loaded tape (its tracks, parts, sections, grid, loop and cue lane) and the Pi's state around it (the armed tracks, the inputs, undo and redo); the list of tapes | `rev`, then one `GET /api/tapes/state` for the page. As built (1b), the tape model is the page's one poller, at the quickest any reader asks: the Studio 200 ms while shown, the bar 500 ms | `edit(op)`, the sections' ops among them (`/api/tapes/edit`); `rename`, `setLoop`, `arm`, `setInput`, `setClick` (`PATCH /api/tapes`); `undo`, `redo`; `load`, `create`, `clone`, `remove`; `catch`; `record`, `punchOut` (`/api/tapes/record`); `paste` (`/api/tapes/drop`); `launch` (`/api/tapes/cue`); `grab(from)`, from the feed, an armed input or a take's span (`/api/tapes/cue/grab`); `drop` (`/api/tapes/cue/drop`); `mixdown`, `send` |
 | `transport` | what the bar plays (the tape, a take or the feed), playing, where (heard, at, the sample rate), the loop, the tempo, where it plays (jam room, phone, both; this device), the alignment | the tape's `rev`; a take and the feed are local (the engine's audio); the playhead runs on the ticker between answers | `play`, `stop`, `locate` (`/api/tapes/transport`); `setSource`, `loadTake`, `eject`; `setOutput` (`PUT /api/tapes/output`); `setTempo`, `halve`, `double` (`PATCH /api/tapes`, then `tempo.md`'s re-grid); `tapLoop`, a free loop's tap (`/api/tapes/tap`) |
 | `takes` | the take list and its ETag; the trash | `takes_rev` (#225) | `keep(from)`, the feed's last seconds or a span of it (`/api/trigger`) or a cue clip (`/api/tapes/cue/keep`); `remove(names)` (`/api/delete`), `restore` (`/api/trash/restore`), `star(names)`, `exportURL(names)` |
 | `take` | one take: its name, ★, tag, tempo, notes, family, peaks | `takes_rev`, then `GET /api/take` if its entry moved | `rename`, `star`, `tag` (`PATCH /api/take`); `note`, `editNote`, `removeNote` (`/api/take/flags`); `undo` (`/api/take/undo`); `cut` (`/api/cut`); `remove` |
@@ -281,10 +282,11 @@ JSON snapshot and records verbs, so `createTape({ protocol: fixture(json)
 checked too.
 
 As built: the client reads the takes, the tape's state and which tape is
-loaded, sends the transport's verbs and opens the changes socket
-(`read`, `verb`, `watch`), and the takes and the transport are made over
-it, the fixture's included (`docs/architecture/components.md`). The
-tape's own edits, and the bar's sources (`setSource`, `loadTake`,
+loaded, sends the tape's verbs for ●, Catch and the click and the
+transport's, and opens the changes socket (`read`, `verb`, `watch`), and
+the takes, the tape and the transport are made over it, the fixture's
+included (`docs/architecture/components.md`). The tape's other edits, and
+the bar's sources (`setSource`, `loadTake`,
 `eject`, the engine split from `NowPlaying`), join in the PRs after.
 
 - **The snapshots** are what the Pi answers, saved:
@@ -308,8 +310,9 @@ tape's own edits, and the bar's sources (`setSource`, `loadTake`,
 **2.4 Where today's code fights it.** Work, in the PR that moves each
 caller:
 
-- **Two pollers of one state**: the Studio's and the bar's, above. One
-  `tape` model ends the hand-off.
+- **Two pollers of one state**: the Studio's and the bar's, above. Ended
+  by the `tape` model (1b): one poller, and `delegate` keeps only the
+  Studio's `around`.
 - `/api/status` is polled by seven modules (`app.js`, `lib/nav.js`,
   `lib/settings.js`, `lib/update.js`, `lib/shell/views/room.js`,
   `lib/bar/feed-source.js`, `lib/rooms/studio.js`); `/api/live` is opened

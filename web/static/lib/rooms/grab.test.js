@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { createProtocol } from '../models/protocol.js';
 import { loopBars, pickFor, followLoop, takeStartN, takeGrabSpan, takeGrabLabel, loadedLoopBars, playheadFor } from './grab.js';
 
 const SR = 48000;
@@ -114,11 +115,12 @@ test('the key names what it grabs', () => {
   assert.equal(takeGrabLabel({ n: 4, bpm: 120, selection: true }), 'GRAB SELECTION');
 });
 
-const fetchOf = (routes) => async (url) => {
+// fetchOf is a protocol client over a Pi that answers `routes`.
+const fetchOf = (routes) => createProtocol({ fetch: async (url) => {
   const r = routes[url.split('?')[0]];
   if (!r) return { ok: false, status: 404, json: async () => ({}) };
   return { ok: true, status: 200, json: async () => (typeof r === 'function' ? r(url) : r) };
-};
+} });
 
 test('the loaded tape’s loop, asked of the Pi', async () => {
   const f = fetchOf({
@@ -131,7 +133,7 @@ test('the loaded tape’s loop, asked of the Pi', async () => {
 test('no tape loaded, the tape off, or the Pi unreachable: no bars, no throw', async () => {
   assert.equal(await loadedLoopBars(fetchOf({ '/api/tapes': { loaded: '', tapes: [] } })), null);
   assert.equal(await loadedLoopBars(fetchOf({})), null);
-  assert.equal(await loadedLoopBars(async () => { throw new Error('offline'); }), null);
+  assert.equal(await loadedLoopBars(createProtocol({ fetch: async () => { throw new Error('offline'); } })), null);
 });
 
 test('the sheet’s playhead is the bar’s, for the take the bar holds', () => {
