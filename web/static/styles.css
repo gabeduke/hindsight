@@ -3366,6 +3366,9 @@ input, select, textarea { color-scheme: inherit; }
 
 
 /* ---------- the dock: over the bar ---------- */
+/* The dock is the Studio's foot, the bar in it (shell.html, #np-dock). */
+.np-dock { flex: none; position: sticky; bottom: 0; z-index: 18; display: flex; flex-direction: column; }
+.np-dock[hidden] { display: none; }
 /* The clip editor, while a clip is aligned, and the action bar, while
    something is selected, dock above the bar like a window and, the page
    being a column the height of the window from 700 px, push the lanes up
@@ -4692,3 +4695,21 @@ body.buffer-fold .tape-track:not(.buffer-target) .tt-head .tt-arm-dot { width: 8
   font-family: var(--mono); font-size: 11px; line-height: 1.4; color: var(--ink);
 }
 .latency-overlay b { color: var(--ink-dim); }
+
+/* ---------- the page around the bar ----------
+   What the page does about the bar (css/bar.css draws the bar itself):
+   select mode's actions take its place; on a phone the page keeps clear of
+   it and of the tabs under it (--dock-b, the bar's measured --np-h), and
+   the player pulled up holds the page still and covers the tabs. Last in
+   this file, where it stands in the cascade as it did at the head of
+   css/bar.css: body.room-on.selecting, above, does not outrank it. */
+body.selecting .np { display: none; }
+@media (max-width: 699.98px) { body:has(.np) { --dock-b: calc(61px + env(safe-area-inset-bottom)); } }
+@media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) { body:has(.np) { --dock-b: env(safe-area-inset-bottom); } }
+@media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
+  body:has(.np:not([hidden])) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px)); }
+  body.selecting:has(.np) { padding-bottom: calc(var(--dock-b, 0px) + 70px); }
+  body:has(.np:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px) + 12px); }
+  body.player-open { overflow: hidden; }
+  body.player-open .appnav { display: none; }
+}

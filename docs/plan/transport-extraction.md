@@ -160,12 +160,15 @@ unmoved:
      gone. The body stays where the fold is kept: the router takes
      `np-fold` with each room (it is not in `KEEP_CLASSES`), so the fold
      is a room's, and a copy kept across a switch goes stale.
-   - **2b, the stylesheet's half**: what lays out the page moves to
+   - **2b, the stylesheet's half**: *built*, #PR2B. What lays out the page moves to
      `styles.css`, the surface's: `body.player-open`'s `overflow`,
      `.appnav` and `.np-dock`; `body:has(.np)`'s `--dock-b`, padding and
      toasts; `body.selecting .np`; and the studio and away keys,
      `:is(body.tape-page, .shelf-page, .main-page)`, become
-     `.np[data-room]`, set from `room()`. What styles inside the root
+     `.np[data-room]`, set from `room()`. One rule stays in `css/bar.css`:
+     the player pulled up, `body.player-open .np-dock, body.player-open >
+     .np`, lays out the Studio's dock and Open's bar alike, so it waits for
+     step 5 with the rest. What styles inside the root
      under `body.np-fold` and `body.player-open` waits for step 5: a root
      attribute has to follow the router's per-room fold (the shell can
      mirror it in `chrome.setPath`, after the room's classes are given:

@@ -96,7 +96,9 @@ test('what shows is said positively: one rule shows each source’s keys, with n
     assert.ok(show.sel.some((s) => s.includes(`[data-size="full"][data-source="${src}"] [data-for~="${src}"]`)), `full, ${src}`);
     assert.ok(show.sel.some((s) => s.includes(`[data-size="mini"][data-source="${src}"] [data-mini~="${src}"]`)), `mini, ${src}`);
   }
-  assert.ok(show.sel.some((s) => s.startsWith('body.tape-page') && s.includes('[data-for~="studio"]')), 'the Studio’s keys, in the Studio');
+  // The room is the bar's own root's (data-room, the surface's room()), never the page's body.
+  assert.ok(show.sel.some((s) => s.startsWith('.np[data-room="studio"]') && s.includes('[data-for~="studio"]')), 'the Studio’s keys, in the Studio');
+  for (const s of show.sel) assert.doesNotMatch(s, /\bbody\b/, `${s}: the room is on the root, not the body`);
   assert.ok(show.sel.some((s) => s.includes('[data-size="mini"][data-source="tape"] [data-mini~="away"]')), 'the tape’s mini keys away from the Studio');
   // A key a script has hidden (⏏ with no tape) stays hidden: #np outranks them all.
   assert.ok(barRules.some((r) => r.sel.includes('#np [hidden]') && /display:\s*none/.test(r.body)));

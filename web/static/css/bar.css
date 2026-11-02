@@ -34,10 +34,6 @@
 }
 .np[hidden] { display: none; }
 .np .out-strip { min-height: 32px; font-size: 13px; }
-/* Select mode's actions take the foot of the takes page. */
-body.selecting .np { display: none; }
-.np-dock { flex: none; position: sticky; bottom: 0; z-index: 18; display: flex; flex-direction: column; }
-.np-dock[hidden] { display: none; }
 
 /* ---------- its rows and zones ---------- */
 /* The first row is the container its widths are asked of (not .np, nor the
@@ -63,19 +59,20 @@ body.selecting .np { display: none; }
 
 /* ---------- which keys show ---------- */
 /* Each for the sources its data-for (or, in the mini player, data-mini)
-   names; a key a script has hidden (⏏ with no tape to go back to) stays
+   names, the tape's "studio" and "away" keys for the room it is in (its
+   data-room, the surface's room() as the bar draws); a key a script has hidden (⏏ with no tape to go back to) stays
    hidden. */
 .np :is([data-for], [data-mini]) { display: none; }
 .np[data-size="full"][data-source="tape"] [data-for~="tape"],
 .np[data-size="full"][data-source="take"] [data-for~="take"],
 .np[data-size="full"][data-source="feed"] [data-for~="feed"],
-body.tape-page .np[data-size="full"][data-source="tape"] [data-for~="studio"],
-:is(body.shelf-page, body.main-page) .np[data-size="full"][data-source="tape"] [data-for~="away"],
+.np[data-room="studio"][data-size="full"][data-source="tape"] [data-for~="studio"],
+.np:is([data-room="room"], [data-room="capture"])[data-size="full"][data-source="tape"] [data-for~="away"],
 .np[data-size="mini"][data-source="tape"] [data-mini~="tape"],
 .np[data-size="mini"][data-source="take"] [data-mini~="take"],
 .np[data-size="mini"][data-source="feed"] [data-mini~="feed"],
-body.tape-page .np[data-size="mini"][data-source="tape"] [data-mini~="studio"],
-:is(body.shelf-page, body.main-page) .np[data-size="mini"][data-source="tape"] [data-mini~="away"] { display: inline-flex; }
+.np[data-room="studio"][data-size="mini"][data-source="tape"] [data-mini~="studio"],
+.np:is([data-room="room"], [data-room="capture"])[data-size="mini"][data-source="tape"] [data-mini~="away"] { display: inline-flex; }
 #np [hidden] { display: none; }
 
 /* ---------- the deck: the reel window ---------- */
@@ -476,14 +473,9 @@ button.np-lcd-key { cursor: pointer; }
    for each, so ▶ stands at one x. A hairline along its top is how far along
    it is. The player pulled up is the whole bar, large, over the page, and on
    the tape page its drawers under it (lib/bar/player.js); its grabber, Back
-   or Escape puts it away. */
-@media (max-width: 699.98px) { body:has(.np) { --dock-b: calc(61px + env(safe-area-inset-bottom)); } }
-@media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) { body:has(.np) { --dock-b: env(safe-area-inset-bottom); } }
+   or Escape puts it away. Where the page keeps clear of it (--dock-b, its
+   padding, the toasts) is styles.css's, the page's. */
 @media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
-  body:has(.np:not([hidden])) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px)); }
-  body.selecting:has(.np) { padding-bottom: calc(var(--dock-b, 0px) + 70px); }
-  body:has(.np:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px) + 12px); }
-
   /* The mini player, under the app bar (z 20), whose menus open over it. */
   .np[data-size="mini"] {
     position: fixed; left: 0; right: 0; bottom: var(--dock-b, 0px); z-index: 18;
@@ -548,9 +540,8 @@ button.np-lcd-key { cursor: pointer; }
   }
   .np-expand:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-  /* The player: the bar, large, and on the tape page its drawers, over the page. */
-  body.player-open { overflow: hidden; }
-  body.player-open .appnav { display: none; }
+  /* The player: the bar, large, and on the tape page its drawers, over the
+     page (the page under it, and the tabs, are styles.css's). */
   body.player-open .np-dock, body.player-open > .np {
     position: fixed; inset: 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain;
     display: flex; flex-direction: column; gap: 14px; height: auto;
