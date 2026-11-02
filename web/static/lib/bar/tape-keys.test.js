@@ -255,3 +255,14 @@ test('tapeKeys: a page without the keys, or without a tape, has none', () => {
   assert.equal(tapeKeys({ doc: fakeDoc(), tape: aTapeModel({}) }), null);
   assert.equal(tapeKeys({ doc: shell().doc, tape: null }), null);
 });
+
+test('tapeKeys: C with Catch’s ▾ open catches and shuts it, as a tap on Catch does', async () => {
+  const { k, doc } = keys({ tape: aTape(), live: playing() });
+  k.lend(hands());
+  const panel = doc.getElementById('catch-menu');
+  click(doc.getElementById('catch-more'));
+  assert.equal(panel.hidden, false, 'the ▾ opens its menu');
+  k.press('catch');
+  await settle();
+  assert.equal(panel.hidden, true, 'C shuts it');
+});
