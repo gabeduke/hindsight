@@ -35,6 +35,7 @@ that already has one mounted.
 | `on(target, type, fn, opts)` | `ctx.on`, quiet while the component is hidden as well as the view; `once` means once while shown; off on unmount |
 | `loop(fn)` | `ctx.loop`, parked on hide, started on show if it was wanted (one that parked itself stays parked) |
 | `layers` | its scope of the view's: `scope()` on the view's scope (`lib/ui/layers.js`, where a scope's scope is a share of it). What it opened closes on hide (`'navigate'`) and unmount, newest first, and the view's own stay open |
+| `media(query, fn)` | the view's `ctx.media(query)`, a MediaQueryList read where it is needed (`.matches`); `fn`, if given, hears its `change` as `on` does, quiet while hidden, off on unmount |
 | `floor` | `menu()`'s floor: the bar's top (`barTop`) |
 | `toast`, `go` | `ctx`'s |
 | `id(name)` | its root's id and the name: root `np` and `play` make `np-play` |

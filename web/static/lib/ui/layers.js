@@ -132,8 +132,11 @@ export function historyStep(prev, ev) {
  *   onError       where an owner's onClose that throws is reported
  *
  * Answers { open(spec) -> Layer, top(), closeAll({kinds, reason}),
- * ownsKeys(e), scope(), leave({keep}), settled(), size }. top() is the
- * layer Escape or Back closes next (RANK, above a modal floor), or null.
+ * ownsKeys(e), covered(), scope(), leave({keep}), settled(), size }. top()
+ * is the layer Escape or Back closes next (RANK, above a modal floor), or
+ * null. covered() is whether a modal sheet that is not on the stack (a
+ * <dialog> shown with showModal: Rename, Settings, a confirm) is open over
+ * the page, so a page key stays quiet under it.
  *
  * open(spec):
  *   el           what is open (a menu's panel, a sheet's dialog)
@@ -310,6 +313,9 @@ export function createLayers({
     }
   }
 
+  // covered: a modal sheet that is not on the stack is open (over()).
+  function covered() { return !!over(); }
+
   // ownsKeys: a key pressed now is a layer's, not the page's: a menu or a
   // modal layer is open, or the key was pressed inside one.
   function ownsKeys(e) {
@@ -363,6 +369,7 @@ export function createLayers({
       },
       top,
       ownsKeys,
+      covered,
       settled,
       /** closeAll closes what this scope opened (the kinds asked, or all). */
       closeAll: ({ kinds = null, reason = 'program' } = {}) => closeAll({ kinds, reason, only: mine }),
@@ -429,6 +436,7 @@ export function createLayers({
     top,
     closeAll: ({ kinds = null, reason = 'program' } = {}) => closeAll({ kinds, reason }),
     ownsKeys,
+    covered,
     scope,
     leave,
     settled,

@@ -530,3 +530,16 @@ test('layersOf is one stack per document', () => {
   assert.equal(layersOf(doc), layersOf(doc));
   assert.notEqual(layersOf(doc), layersOf(fakeDoc()));
 });
+
+test('covered: a modal sheet off the stack covers the page; one on the stack, or shown without showModal, does not', () => {
+  const w = aWindow();
+  assert.equal(w.layers.covered(), false);
+  const inspector = aDialog(w, { modal: false }); // an inspector: shown, not modal, and on the stack
+  opened(w, 'sheet', { el: inspector, log: [] });
+  assert.equal(w.layers.covered(), false, 'J steps under an inspector');
+  const confirm = aDialog(w); // showModal, never on the stack
+  assert.equal(w.layers.covered(), true);
+  assert.equal(w.layers.scope().covered(), true, 'a scope (a component’s) asks the same');
+  confirm.close();
+  assert.equal(w.layers.covered(), false);
+});

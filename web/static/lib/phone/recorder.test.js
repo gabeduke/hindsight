@@ -31,3 +31,23 @@ test('plain http points at the hub\'s secure address when there is one', () => {
   assert.match(canRecordHere({ isSecureContext: false }, 'https://mike.hindsight.leetserve.com'), /secure address to record/);
   assert.doesNotMatch(canRecordHere({ isSecureContext: false }, 'https://mike.hindsight.leetserve.com'), /tailscale/);
 });
+
+test('the recorder answers snapshot() as a model does: frozen, and the same object until it moves', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fakeDoc, parseHTML } = await import('../play/fake-dom.js');
+  const { phoneRecorder } = await import('./recorder.js');
+  const { ensureStudioSheets } = await import('../rooms/sheets.js');
+  const doc = fakeDoc();
+  doc.body.append(...parseHTML(doc, readFileSync(new URL('../../shell.html', import.meta.url), 'utf8')).children);
+  ensureStudioSheets(doc);
+  // The page's window, as far as making the recorder asks it.
+  const had = globalThis.window;
+  globalThis.window = { addEventListener() {}, removeEventListener() {} };
+  let r;
+  try { r = phoneRecorder(doc); } finally { if (had === undefined) delete globalThis.window; else globalThis.window = had; }
+  const s = r.snapshot();
+  assert.deepEqual({ ...s }, { mode: 'closed', seconds: 0 });
+  assert.ok(Object.isFrozen(s));
+  assert.equal(r.snapshot(), s, 'nothing moved: the same object');
+  assert.equal(typeof r.onChange, 'function');
+});

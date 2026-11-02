@@ -67,6 +67,10 @@ const mounted = new WeakSet();
  *   layers            its scope of the view's (lib/ui/layers.js scope()):
  *                     what it opens there closes when it is hidden or
  *                     unmounted, and the view's own stay as they are
+ *   media(query, fn)  the view's ctx.media(query), a MediaQueryList, read
+ *                     where it is needed (.matches); fn, if given, hears its
+ *                     change as cx.on does: quiet while hidden, off on
+ *                     unmount
  *   floor             where its menus stop above the bar: menu()'s floor,
  *                     the bar's top (barTop)
  *   toast, go         ctx's: words for a person; a move to another room
@@ -149,12 +153,21 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
     };
   }
 
+  function media(query, fn) {
+    live('media');
+    if (typeof ctx.media !== 'function') throw new TypeError('cx.media needs a view’s ctx.media');
+    const mql = ctx.media(query);
+    if (typeof fn === 'function') on(mql, 'change', fn);
+    return mql;
+  }
+
   const layers = typeof ctx.layers?.scope === 'function' ? ctx.layers.scope() : null;
 
   const cx = Object.freeze({
     watch,
     on,
     loop,
+    media,
     layers,
     floor: barTop(),
     toast: ctx.toast,

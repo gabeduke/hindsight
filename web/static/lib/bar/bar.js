@@ -102,7 +102,10 @@ export class NowPlaying {
       if ((e.key !== 'j' && e.key !== 'J') || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target;
       if (t && (t.isContentEditable || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type !== 'range'))) return;
-      if ([...document.querySelectorAll('dialog[open]')].some((d) => !d.classList.contains('inspector'))) return;
+      // Quiet under a modal sheet (Settings, Rename, a confirm), asked of
+      // the page's stack, not read off the page; an inspector is on the
+      // stack and not modal, so J still steps under one.
+      if (layersOf(document).covered()) return;
       if (this.root.hidden || !this.src) return;
       back5();
     });

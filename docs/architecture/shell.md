@@ -64,12 +64,19 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   A room's socket to the Pi (`lib/socket.js`'s `connectSocket` or what is
   built on it) goes through it, so a room not shown holds none open.
 - `active()`: shown and the document visible.
+- `media(query)`: the view's window's `matchMedia(query)` (one that never
+  matches where there is none), whose `change` goes through `on`: the one
+  place a view, or a component through `cx.media`, asks the screen's shape.
 - `layers`: the view's scope of the shell's one stack of open things
   (below). A menu, sheet, drawer or selection the view opens goes on it with
   its `onClose`, and whatever is still open when the view is hidden is
   closed then, as its slots are taken out. A scope's `scope()` is a share
   of it, a component's (`components.md`): its `closeAll` closes what it
-  opened, and the view's closes that too.
+  opened, and the view's closes that too. `covered()` (on the stack and
+  every scope) is whether a modal sheet that is not on the stack (a
+  `<dialog>` shown with `showModal`: Settings, Rename, a confirm) is open:
+  a page key stays quiet under one, asked of the stack, never read off the
+  page (the bar's J).
 - `headerSlot`, `dockSlot`, `barSlot`: **Slots**. What a view adds to the
   header, the dock or the bar is in the page only while it is shown: `hide()`
   takes the nodes **out of the document** and `show()` puts them back. So
@@ -277,7 +284,9 @@ this phone (`hindsight:phone-record`) all drive and show the same one. It
 answers `open()` (the sheet: the input, its meter, Record), `quick()`
 (record now from the input kept, or stop; what can't start opens the
 sheet, which says why), `stop()`, `inputs()`, `input()`, `setInput(id)`,
-`state()` (`{mode, seconds}`), `onChange(fn)`, `onSaved(fn)`. A key that
+`state()` (`{mode, seconds}`), `snapshot()` (the same, frozen, in whole
+seconds, and the same object until it moves, so a component watches it as
+a model: `components.md`), `onChange(fn)`, `onSaved(fn)`. A key that
 shows a recording without starting one (the mini player's ●, the Studio's)
 takes it by `onPhoneRecorder(doc, fn)`: now, or as soon as a room makes
 it.

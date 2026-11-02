@@ -138,6 +138,11 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *                hidden document does not close it: the socket's own
  *                rules (onResume) see to a page that slept. An open() that
  *                throws is reported, and tried again on the next wake.
+ *   media(query) -> MediaQueryList
+ *                the view's window's matchMedia(query), for ctx.on's
+ *                'change': the one place a view, or a component through
+ *                cx.media, asks the screen's shape. Without a matchMedia it
+ *                answers one that never matches and never changes
  *   signal       an AbortSignal, aborted by destroy() and by a mount that
  *                throws: for fetches, and for listeners on the view's own
  *                elements
@@ -446,12 +451,18 @@ export function createView(def, {
       every,
       loop,
       socket,
+      media,
       signal: controller.signal,
       setTitle,
       ...(layers ? { layers } : {}),
     });
     doc?.addEventListener?.('visibilitychange', onVisibility);
     handle = (await def.mount(ctx)) || {};
+  }
+
+  function media(query) {
+    const win = doc?.defaultView || globalThis;
+    return win.matchMedia?.(query) ?? { matches: false, media: query, addEventListener() {}, removeEventListener() {} };
   }
 
   // The one mount: a second caller waits on the first. One that throws

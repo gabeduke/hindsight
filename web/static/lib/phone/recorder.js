@@ -125,6 +125,7 @@ function makeRecorder(document, sheet, toast) {
   const buttons = new Map();
   const savedFns = new Set();
   const changeFns = new Set();
+  let snap = null; // snapshot()'s
   const secures = [];
   const secureURL = () => secures.map((f) => f()).find(Boolean) || '';
 
@@ -513,6 +514,16 @@ function makeRecorder(document, sheet, toast) {
     setInput,
     /** state is { mode: 'closed' | 'monitor' | 'recording' | 'saving', seconds }. */
     state: () => ({ mode, seconds: mode === 'recording' || mode === 'saving' ? seconds() : 0 }),
+    /**
+     * snapshot is state() as a model's (docs/architecture/components.md):
+     * frozen, and the same object until the mode or the whole seconds move,
+     * so a component watches the recorder as it does the others.
+     */
+    snapshot() {
+      const s = mode === 'recording' || mode === 'saving' ? Math.floor(seconds()) : 0;
+      if (!snap || snap.mode !== mode || snap.seconds !== s) snap = Object.freeze({ mode, seconds: s });
+      return snap;
+    },
     /** onChange(fn) hears each change of state, and the time while it records; answers its off. */
     onChange(fn) { changeFns.add(fn); return () => changeFns.delete(fn); },
     onSaved(fn) { savedFns.add(fn); },
