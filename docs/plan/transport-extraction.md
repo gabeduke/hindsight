@@ -220,10 +220,80 @@ unmoved:
    holds the renamed elements.
 5. **The move**: `lib/components/transport/` (`index.js` with the
    template from `shell.html`, `NowPlaying` as its mount, the modules
-   beside it), `css/bar.css` as its stylesheet, scoped to `.np`,
-   `display` mounted inside (decision 6), the harness check
-   (`scripts/components/transport.check.mjs`, every size), `ci.yml`'s
-   globs and AGENTS.md's list, `SHELL`, and AGENTS.md's bar rule and 0047
-   amended.
+   beside it), `css/bar.css` as its stylesheet, scoped to `.np`, the
+   harness check (`scripts/components/transport.check.mjs`, every size),
+   `ci.yml`'s globs and AGENTS.md's list, `SHELL`, and AGENTS.md's bar
+   rule and 0047 amended. **Not one PR, and stopped for Gabe**
+   (audited 2026-11-02, on main after #255). Moved as it is, the bar
+   breaks Guardrail 15 on 30 lines (`bar.js` 16, `player.js` 6,
+   `fold.js` 3, one each in `phone-key`, `press-note`, `source-menu`,
+   `tape-keys`, `slots`), beside what its regexes don't see: about 63
+   look-ups by id, 6 `matchMedia`s, `document.hidden`,
+   `devicePixelRatio`, and writes outside the root (`--np-h` on
+   `<html>`, `inert` on the page's other children, the output sheet). Its
+   template carries 37 ids once the slot is done, which must come from
+   `cx.id`, and two `aria-haspopup="dialog"` that Guardrail 13 needs a
+   `lib/ui` helper for. 165 of `css/bar.css`'s 268 selectors don't start
+   at `.np` (106 bare `.np-x`; 14 on `body.np-fold`; 28 on
+   `body.player-open`, 5 of which lay out the dock and go to
+   `styles.css`; the rest on the dock, ids, `kb-lit` and the menu
+   panels), and prefixing them raises their specificity (`#np [hidden]`
+   as `.np [hidden]` would lose to the show rule, and ⏏ would show). It
+   has 5 viewport `@media` blocks, not 7, and no `body.wave-page` rules
+   left. The Studio still reaches into the bar by id outside Guardrail
+   19 (`np-sync`, `np-play`, `np-tempo`, `np-output`, `np-loop` in
+   `lib/tape/page.js`; `deck.js`, `doorway.js`, `buffer/keys.js`).
+   Which modules move: `bar.js`, `fold`, `phone-key`, `source-menu`,
+   `tape-keys`, `take-keys` and `press-note`'s `pressNote`; `player`,
+   `slots`, `display` and `carry` stay shared (Open imports them);
+   `handoff` (the engine's), `layout` (the surface's) and `bar-harness`
+   stay where they are.
+
+   **Gabe's calls**, each with a recommendation:
+   - **D1, the `@media`.** `components.md` 1.4 agreed container queries
+     in place of the viewport `@media`, but at least 8 rules style the
+     root itself, which a container query never reaches, and 3 of the 5
+     conditions are on height, orientation or a preference. *Recommended*:
+     keep the 5 `@media` blocks in `css/bar.css` through the move
+     (Guardrail 15 does not forbid them) and amend 1.4.
+   - **D2, `display` in the bar (decision 6) changes the screen**: its
+     box, its long forms switching at 420 px of its own width against the
+     bar's 1180, and it lacks a take's and the feed's words, THIS
+     PHONE/TABLET, the tempo's per-room state and `aria-haspopup`.
+     *Recommended*: out of step 5, its own PR (5h) for Gabe to look at.
+   - **D3, decision 7's "own copies"** of the shared modules is copying a
+     helper, which AGENTS.md calls reaching around (0020). *Recommended*:
+     no copies; the shared modules stay where both pages import them.
+   - **D4, how the Studio reaches the bar's keys** once it is a component:
+     `mountComponent` answering an API (a contract change), or a mediator
+     the surface makes and passes in `props`. *Recommended*: the mediator.
+   - **D5, the phone player's sheet** is the dock in the shell, outside
+     the bar's root. *Recommended*: the surface owns it, and `sheet.js`
+     takes a drag started on handles inside the root.
+   - **D6, menus inside the root** would sit under `.np`'s z-index and be
+     misplaced by its transforms. *Recommended*: `menu()` opens them in
+     the top layer as popovers, opt-in, the bar's three first, looked at
+     on the tablet and the phone.
+   - And step 3's: **the clock-out lamp and the output strip**, (a) the
+     Studio's alone or (b) the bar's from the models (above).
+
+   **The split**, each PR green and the screen unchanged, interface first:
+   5a, the interfaces (`menu.js` rows that need no `doc` and a key that
+   opens a dialog; a canvas sizing helper; `onSchemeChange` that turns
+   off; a shell scope to mount in, with `cx.visible()`; fixtures for the
+   bar, the recorder and the layout); 5b, the engine's bar gets the verbs,
+   a frozen snapshot and a strip painter, so the bar stops reading
+   `bar.src`; 5c, the surface takes what is the page's (`--np-h`, the
+   fold's storage, the player's sheet, the output sheet, the recorder
+   made at boot, `data-fold`/`data-open`/`data-docked` on the root, set
+   by a router hook straight after `giveClasses` rather than in
+   `setPath`, which runs after `await reveal()`; the Studio's look-ups
+   become verbs); 5d, `css/bar.css` rewritten to start at `.np`, in
+   place, proved by before and after storyboards of both pages at every
+   size and in both schemes; 5e, the three menu panels into the bar,
+   `#catch-menu` as `#np-catch-menu`; 5f, the modules keep Guardrail 15
+   in place, with no copies (maybe two PRs); 5g, the move itself; 5h,
+   `display` inside the bar. 5d and 5e lean on D1 and D6, 5f on D3, 5c on
+   D4 and D5.
 
 Then Gabe tries the bar on the tablet, before the List (item 2) starts.

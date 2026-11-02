@@ -30,6 +30,15 @@ and still looks it:
 
 ## Known bugs
 
+- **A full flows run fails one timing flow in about half of runs**
+  (2026-11-02, the Transport's PRs): a different one each time, each
+  passing 3/3 alone on the branch and on main. J1.14 [tablet] (▶ shows
+  within 100 ms: 107), J1.20 [phone] (the taps set no tempo), J2.5
+  [tablet] (the drawer read once before it docks), J2.7 [tablet] (the
+  wall scrolled 551 of 608), and J2.11 [phone] in CI on #251 (the meters
+  read the same twice). Worst while two runs share the Mac. Each wants
+  its own look: J2.5 reads the layout once without polling; the others
+  may be load.
 - **A press waits while nothing plays the tape.** With the interface off,
   only a listening phone pulls the tape along (`Output.paceStep`). Once
   the last phone leaves, a stop, a locate or the 6 s drop-pause's own
@@ -168,11 +177,17 @@ and still looks it:
         `ctx.barSlot`'s `{ place: 'strip' }`, held by the page;
         Guardrail 21). Step 4, the ids, is built ahead of it (#255:
         every id inside the shell's `#np` is `np-<name>`; Guardrail 20).
-        **Next, for Gabe: the clock-out lamp and the output strip**,
-        which show in every room's bar today, so a slot of the Studio's
-        would take them out of the others: his call between the Studio's
-        alone and the bar's from the models (the spec's step 3). Then
-        step 5, the move.
+        **Next, for Gabe** (the spec's steps 3 and 5): the clock-out
+        lamp and the output strip, which show in every room's bar today,
+        so a slot of the Studio's would take them out of the others (the
+        Studio's alone, or the bar's from the models); and step 5, the
+        move, audited on 2026-11-02 and split into eight PRs (5a–5h),
+        which waits on his calls D1–D6: the `@media` stay (container
+        queries can't say height or orientation), `display` in the bar
+        out of the move (it changes the screen), no copies for Open,
+        a mediator for the Studio's keys, the surface owns the phone's
+        sheet, menus in the top layer. 5a and 5b need none of them.
+        Gabe tries the bar on the tablet first.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
