@@ -167,7 +167,9 @@ and still looks it:
         slot**, the overview, the clock-out lamp and the output strip
         into `ctx.barSlot`, which first needs `output-ui.js` and the
         Studio to hold their elements rather than find them by id (the
-        spec's step 3 says why); then step 4, the ids.
+        spec's step 3 says why). Step 4, the ids, is built ahead of it
+        (#255: every id inside the shell's `#np` is `np-<name>`;
+        Guardrail 20); then step 5, the move.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
