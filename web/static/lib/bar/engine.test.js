@@ -433,6 +433,7 @@ test('the bar says the room it is in on its root, for the stylesheet\'s studio a
   assert.equal($('np').getAttribute('data-room'), 'studio');
   w.room = 'capture';
   page.np.kick();
+  assert.equal($('np').getAttribute('data-room'), 'capture', 'at once, with the switch, not a frame later');
   page.frames();
   assert.equal($('np').getAttribute('data-room'), 'capture');
   w.room = null;

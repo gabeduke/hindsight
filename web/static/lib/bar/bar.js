@@ -230,16 +230,25 @@ export class NowPlaying {
   }
 
   // kick draws on the next frame, and every frame while the source plays.
+  // The room is said at once: the shell kicks the bar in the same step as
+  // it gives the room its body classes, and the keys switch with them.
   kick() {
+    this.paintRoom();
     this.engine.bar.kick();
+  }
+
+  // paintRoom says on the root which room the bar is in (data-room), for
+  // the stylesheet's studio and away keys.
+  paintRoom() {
+    const room = this.room();
+    if (room) setAttr(this.root, 'data-room', room);
+    else this.root.removeAttribute('data-room');
   }
 
   render() {
     const s = this.src;
     if (!s) return;
-    const room = this.room();
-    if (room) setAttr(this.root, 'data-room', room);
-    else this.root.removeAttribute('data-room');
+    this.paintRoom();
     const lcd = s.lcd();
     const playing = s.playing();
     // Playing on the Pi, but not yet heard here: ▶ is the tap it waits for.

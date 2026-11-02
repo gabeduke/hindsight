@@ -21,7 +21,7 @@ sideways scroll).
   in the phone's mini player; one rule in `css/bar.css` shows each source's
   keys, and a key's `display` is set nowhere else. Which room it is in is
   the bar's own root's, `#np[data-room]` (`studio`, `room`, `capture`: the
-  router's `shown()`, set as the bar draws), never the page's body class. No `:not()` lists and no
+  router's `shown()`, set as the shell switches rooms, in the same step as the body classes), never the page's body class. No `:not()` lists and no
   `!important` (`shape.test.js`). A key a script hides by `hidden` (⏏ with
   no tape) stays hidden.
 - **Its widths are its own**: a container query on its first row
