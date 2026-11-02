@@ -186,3 +186,30 @@ test('a frame of the bar playing measures nothing and reads no style: the strip 
     globalThis.getComputedStyle = gcs;
   }
 });
+
+test('J steps back five seconds, but not under a modal sheet; under an inspector, it still does', async () => {
+  const p = await withTake();
+  const { layersOf } = await import('../ui/layers.js');
+  const j = () => p.windowKey({ key: 'j', target: p.doc.body, repeat: false });
+  p.audio.currentTime = 30;
+  j();
+  assert.equal(Math.round(p.bar.takeTime), 25, 'J: back five seconds');
+  // A modal sheet off the stack (Settings, Rename, a confirm).
+  const sheet = p.doc.createElement('dialog');
+  sheet.setAttribute('open', '');
+  sheet.matches = (q) => q === ':modal';
+  p.doc.body.append(sheet);
+  j();
+  assert.equal(Math.round(p.bar.takeTime), 25, 'quiet under the sheet');
+  sheet.removeAttribute('open');
+  // An inspector: shown, not modal, and on the stack.
+  const inspector = p.doc.createElement('dialog');
+  inspector.className = 'sheet inspector';
+  inspector.setAttribute('open', '');
+  inspector.matches = () => false;
+  p.doc.body.append(inspector);
+  const layer = layersOf(p.doc).open({ el: inspector, kind: 'sheet', onClose() {} });
+  j();
+  assert.equal(Math.round(p.bar.takeTime), 20, 'J steps under an inspector');
+  layer.close();
+});
