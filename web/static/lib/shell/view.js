@@ -96,7 +96,8 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *   dockSlot     a Slot in #np-dock, above the bar: the Studio's clip editor
  *                and action bar, Play's strip
  *   barSlot      a Slot inside #np, the only way a view adds to the bar
- *                (the doorway's seat and grease pencil, doorway.js:437,442)
+ *                (the doorway's seat and grease pencil, doorway.js:437,442;
+ *                the Studio's overview, in its place 'strip')
  *   active()     true while the view is shown and the document is visible
  *   on(target, type, fn, opts) -> off
  *                addEventListener on a window, document or any target,
@@ -169,9 +170,13 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *                          its parent)
  *            { before: el } just before el, wherever el is
  *            { after: el }  just after el (the doorway's seat goes after #np-open)
+ *            { place: name } the start of a place the shell names in the
+ *                          slot (its spec's `places`): the bar's 'strip',
+ *                          where the Studio's overview goes. A name the slot
+ *                          has not got is an error at add()
  *            'first'        the start of the slot's parent (Play's strip in #np)
- *     An `el` that is no longer in the page when the view is shown means
- *     the slot's own place. remove() takes the node out for good.
+ *     An `el`, or a place, that is no longer in the page when the view is
+ *     shown means the slot's own place. remove() takes the node out for good.
  */
 
 /** classesOf is a view's bodyClass as a list: a string, space-separated, or an array. */
@@ -182,9 +187,10 @@ export function classesOf(def) {
 const resolve = (v) => (typeof v === 'function' ? v() : v) || null;
 
 /**
- * makeSlot is one view's handle on one slot. `spec` is {parent, before}:
- * nodes or functions that answer them (a header tool made after the slots
- * were, say). `isShown` is the view's state; put() and take() are the
+ * makeSlot is one view's handle on one slot. `spec` is {parent, before,
+ * places}: nodes or functions that answer them (a header tool made after the
+ * slots were, say); `places` names the zones of the shell's markup a view
+ * may fill, {name: node or function}. `isShown` is the view's state; put() and take() are the
  * host's, for show and hide. `parked` answers where a node added while the
  * view warms up waits (its own hidden root), or null: in the document, so
  * the mount finds it by its id, and out of sight.
@@ -197,6 +203,8 @@ function makeSlot(spec, isShown, name, parked = () => null) {
       if (where.before) ref.before(node); else ref.after(node);
       return;
     }
+    const zone = where?.place ? resolve(spec.places[where.place]) : null;
+    if (zone && zone.isConnected) { zone.prepend(node); return; }
     const parent = resolve(spec?.parent);
     if (!parent) return;
     if (where === 'first') { parent.prepend(node); return; }
@@ -209,6 +217,7 @@ function makeSlot(spec, isShown, name, parked = () => null) {
       if (!node) throw new TypeError(`${name}.add needs a node`);
       const ref = where && typeof where === 'object' ? where.before || where.after : null;
       if (!ref && !resolve(spec?.parent)) throw new Error(`this shell has no ${name}`);
+      if (where?.place && !Object.hasOwn(spec.places || {}, where.place)) throw new Error(`${name} has no place ${where.place}`);
       const entry = { node, where };
       placed.push(entry);
       if (isShown()) place(entry);
