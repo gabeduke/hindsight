@@ -410,3 +410,17 @@ test('what redraws the bar from outside (a room switch, the scheme, the screenâ€
   assert.ok(w.raf.length > 0, 'a frame is asked for');
   assert.equal(page.np.src, engine.tape);
 });
+
+test('the tempo opens its menu with the tape in the Studio, as the surface says the room, and not elsewhere', async () => {
+  const { w, $ } = await open();
+  page.frames();
+  assert.equal($('np-tempo').disabled, true, 'the Listening Room: no tempo menu');
+  w.room = 'studio';
+  page.np.kick();
+  page.frames();
+  assert.equal($('np-tempo').disabled, false, 'the Studio: the tempo opens its menu');
+  w.room = 'room';
+  page.np.kick();
+  page.frames();
+  assert.equal($('np-tempo').disabled, true);
+});

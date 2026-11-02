@@ -42,6 +42,8 @@ mounted after that and is hidden, never rebuilt: the tape page is a module
 singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 (`lib/shell/view.js`) carries:
 
+- `barLayout`: the bar's layout (`lib/bar/layout.js`; `bar.md`, *It folds
+  by its grabber*): `folded`, `open` and `onChange(fn)`, shared.
 - `engine`, `go(url)`, `tapes`, `takes`, `tape`, `toast`, `link`: shared. A view never creates
   the bar's audio and never assigns `location` to a room path. `takes` is
   the page's takes model (`lib/models/takes.js`): `snapshot()` (`{v,

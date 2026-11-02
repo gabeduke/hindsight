@@ -10,6 +10,7 @@ import { toast } from '/lib/toast.js';
 import { watchLink } from '/lib/link.js';
 import { createEngine } from '/lib/models/engine.js';
 import { NowPlaying } from '/lib/bar/bar.js';
+import { barLayout } from '/lib/bar/layout.js';
 import { createView } from '/lib/shell/view.js';
 import { createRouter } from '/lib/shell/router.js';
 import { roomView } from '/lib/shell/views/room.js';
@@ -51,8 +52,12 @@ const takes = createTakes({ protocol });
 const tape = createTape({ protocol, link });
 let router = null;
 const engine = createEngine({ tapes, takes, tape, protocol, onToast: toast, go: (url, opts) => router?.go(url, opts) });
-// The bar (lib/bar/bar.js) draws the engine on #np, the same in every room.
-new NowPlaying({ engine, onToast: toast });
+// The bar's layout (lib/bar/layout.js): folded, the phone's player up; the
+// page lays out around it, and the Studio hears it change (ctx.barLayout).
+const layout = barLayout(document);
+// The bar (lib/bar/bar.js) draws the engine on #np, the same in every room;
+// the room shown is the router's, and the bar is kicked as it switches.
+const np = new NowPlaying({ engine, onToast: toast, layout, room: () => router?.shown() ?? null });
 
 // The notes drawer (lib/room/drawer.js), the shell's one, the same in every
 // room: ✎ on the bar opens it on the take in the bar at the frame being
@@ -104,7 +109,7 @@ const slots = {
   bar: { parent: () => $('np') },
 };
 
-const shared = { engine, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
+const shared = { engine, barLayout: layout, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
 
 const views = [];
 const studioRoot = $('view-studio');
@@ -137,6 +142,8 @@ router = createRouter({
   tapeOn,
   chrome: {
     setPath(path) {
+      // The room shown changed: the bar says whether the tempo opens a menu.
+      np.kick();
       const nav = document.querySelector('.appnav');
       if (!nav) return;
       const tabs = navTabs(path, tapeOn() !== false);

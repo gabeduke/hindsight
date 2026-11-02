@@ -12,17 +12,20 @@
 
 import { GESTURE } from '../ui/press.js';
 import { PHONE } from './player.js';
+import { barLayout } from './layout.js';
 
 export const NP_FOLD_KEY = 'hindsight.npFold';
 
 /**
  * initFold wires the page's #np-grabber, if it has one: answers
- * { apply(folded), toggle(), destroy() }, or null. `storage` keeps the fold
- * for the visit (sessionStorage); `phone` is a MediaQueryList for a phone,
- * whose grabber is the player's; `slide` moves the bar from where it was
- * (slideFrom, below), handed in for the tests.
+ * { apply(folded), toggle(), destroy() }, or null. `layout` is the page's
+ * (barLayout, layout.js), which says the fold to the page; `storage` keeps
+ * the fold for the visit (sessionStorage); `phone` is a MediaQueryList for
+ * a phone, whose grabber is the player's; `slide` moves the bar from where
+ * it was (slideFrom, below), handed in for the tests.
  */
 export function initFold(doc = document, {
+  layout = barLayout(doc),
   storage = null,
   phone = (doc.defaultView || globalThis).matchMedia?.(PHONE) ?? { matches: false },
   slide = slideFrom,
@@ -31,7 +34,7 @@ export function initFold(doc = document, {
   const grabber = doc.getElementById('np-grabber');
   if (!grabber) return null;
   const np = doc.getElementById('np');
-  const folded = () => doc.body.classList.contains('np-fold');
+  const folded = () => layout.folded;
 
   const say = (on) => {
     grabber.setAttribute('aria-expanded', String(!on));
@@ -39,7 +42,7 @@ export function initFold(doc = document, {
   };
   const apply = (on, { moved = true } = {}) => {
     const change = () => {
-      doc.body.classList.toggle('np-fold', on);
+      layout.set({ folded: on });
       say(on);
     };
     if (moved && np) slide(np, change);
@@ -50,7 +53,6 @@ export function initFold(doc = document, {
         else store.removeItem(NP_FOLD_KEY);
       }
     } catch { /* private mode */ }
-    doc.dispatchEvent(new CustomEvent('hindsight:np-fold', { detail: { folded: on } }));
   };
 
   let restored = false;

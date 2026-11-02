@@ -63,10 +63,14 @@ test('a page with no grabber has no fold', () => {
   assert.equal(initFold(makeDoc({ grabber: false }).doc, { storage: new MockStorage(), phone: desk, slide }), null);
 });
 
-test('a tap on the grabber folds the bar, and another unfolds it; the fold is kept for the visit, and said', () => {
+test('a tap on the grabber folds the bar, and another unfolds it; the fold is kept for the visit, and said', async () => {
   const d = makeDoc();
   const store = new MockStorage();
-  initFold(d.doc, { storage: store, phone: desk, slide });
+  const { barLayout } = await import('./layout.js');
+  const layout = barLayout(d.doc);
+  const heard = [];
+  layout.onChange((l) => heard.push(l.folded));
+  initFold(d.doc, { layout, storage: store, phone: desk, slide });
   assert.equal(folded(d), false);
   assert.equal(d.g.getAttribute('aria-expanded'), 'true');
   press(d.g);
@@ -74,12 +78,12 @@ test('a tap on the grabber folds the bar, and another unfolds it; the fold is ke
   assert.equal(d.g.getAttribute('aria-expanded'), 'false');
   assert.equal(d.g.getAttribute('aria-label'), 'Unfold the bar');
   assert.equal(store.getItem(NP_FOLD_KEY), '1');
-  assert.equal(d.events.at(-1).detail.folded, true, 'the Studio hears of it, to draw its lanes again');
+  assert.deepEqual(heard, [true], 'the Studio hears of it through the layout, to draw its lanes again');
   press(d.g);
   assert.equal(folded(d), false);
   assert.equal(d.g.getAttribute('aria-label'), 'Fold the bar');
   assert.equal(store.getItem(NP_FOLD_KEY), null);
-  assert.equal(d.events.at(-1).detail.folded, false);
+  assert.deepEqual(heard, [true, false]);
 });
 
 test('a drag down folds it and a drag up unfolds it, and the lift’s click is no tap', () => {
