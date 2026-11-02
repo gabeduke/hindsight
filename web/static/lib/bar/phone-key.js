@@ -2,7 +2,7 @@
 // Recording from a phone, from its mini player (the studio space's
 // decisions, "Recording from a phone"; docs/architecture/bar.md): a big red
 // ● that records from this phone, and its input on a ▾ beside it. In the
-// Studio with the tape, the mini player's ● is the tape's own (#rec,
+// Studio with the tape, the mini player's ● is the tape's own (#np-rec,
 // tape-keys.js: a tap records the jam room, a hold offers this phone's
 // (offer), and with the tape playing on this phone a tap records here);
 // everywhere else it is this one. The ▾ is the same for both.

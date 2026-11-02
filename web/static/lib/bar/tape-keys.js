@@ -1,8 +1,8 @@
 // web/static/lib/bar/tape-keys.js
 // The bar's keys for the tape in the Studio (docs/architecture/bar.md, *The
-// Studio's keys*; docs/plan/transport-extraction.md, decision 4): ● (#rec),
-// Catch and its ▾ (#catch-pass, #catch-more, #catch-menu) and the click
-// (#click). They are the bar's: drawn from the page's tape
+// Studio's keys*; docs/plan/transport-extraction.md, decision 4): ● (#np-rec),
+// Catch and its ▾ (#np-catch-pass, #np-catch-more, #catch-menu) and the click
+// (#np-click). They are the bar's: drawn from the page's tape
 // (lib/models/tape.js snapshot()) and the page's phone recorder
 // (lib/phone/recorder.js snapshot()), and pressed on the tape's verbs
 // (record, punchOut, catch, setClick). What is the Studio's own -- which
@@ -110,7 +110,7 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
  */
 export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneRecorder(doc, fn), toast = () => {}, offer = () => {}, matchMedia = (q) => doc.defaultView?.matchMedia?.(q) } = {}) {
   const $ = (id) => doc.getElementById(id);
-  const rec = $('rec'), click = $('click'), pass = $('catch-pass'), more = $('catch-more'), panel = $('catch-menu');
+  const rec = $('np-rec'), click = $('np-click'), pass = $('np-catch-pass'), more = $('np-catch-more'), panel = $('catch-menu');
   if (!tape || !rec || !click || !pass || !more || !panel) return null;
   let hands = null;
   let recorder = null;

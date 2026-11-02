@@ -66,7 +66,7 @@ export default {
     const pass = (60 / BPM) * 4 * BARS;
     await t.wait(pass * 2 * 1000 + 500);
 
-    await t.step('tap Catch', () => t.tap(page.locator('#catch-pass')));
+    await t.step('tap Catch', () => t.tap(page.locator('#np-catch-pass')));
     const toast = page.locator('#toasts .toast').filter({ hasText: /Caught/ }).first();
     t.expect('a "Caught the last pass → 2" toast', await toast.waitFor({ timeout: 10_000 }).then(() => true, () => false));
     const toastText = await toast.innerText().catch(() => '');
@@ -85,7 +85,7 @@ export default {
     // up (the mini player's is J4.4's).
     if (phone) t.expect('the player comes up', await t.step('pull the player up', () => pullUp(t)));
     await page.evaluate(() => {
-      const key = document.getElementById('catch-more');
+      const key = document.getElementById('np-catch-more');
       const seen = window.__morePress = { first: null };
       addEventListener('pointerdown', (e) => {
         if (seen.first !== null || !key.contains(e.target)) return;
@@ -95,15 +95,15 @@ export default {
         });
       }, { capture: true });
     });
-    await t.step('tap Catch’s ▾', () => t.tap(page.locator('#catch-more')));
+    await t.step('tap Catch’s ▾', () => t.tap(page.locator('#np-catch-more')));
     const pressed = await t.poll(() => window.__morePress?.first, null, 3000);
     t.expect('Catch’s ▾ is down in the first frame after the touch, 1 px and darker',
       /matrix\(1, 0, 0, 1, 0, 1\)/.test(pressed?.transform ?? '') && /brightness\(0\.9\d*\)/.test(pressed?.filter ?? ''), pressed);
     const cm = await t.poll(() => {
       const m = document.getElementById('catch-menu');
       if (!m || m.hidden) return null;
-      const key = document.getElementById('catch-pass').getBoundingClientRect();
-      const more = document.getElementById('catch-more').getBoundingClientRect();
+      const key = document.getElementById('np-catch-pass').getBoundingClientRect();
+      const more = document.getElementById('np-catch-more').getBoundingClientRect();
       const r = m.getBoundingClientRect();
       return {
         apart: more.left >= key.right - 1 && more.width >= 44 && Math.abs(more.height - key.height) <= 1,

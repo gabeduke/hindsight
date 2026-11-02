@@ -72,6 +72,6 @@ export function readBar(doc) {
   const scrub = doc.getElementById('np-scrub');
   const max = Number(scrub?.getAttribute('aria-valuemax')) || 0;
   const frac = max > 0 ? Math.max(0, Math.min(1, Number(scrub.getAttribute('aria-valuenow')) / max)) : 0;
-  const pos = doc.getElementById('position')?.textContent || '';
+  const pos = doc.getElementById('np-position')?.textContent || '';
   return { playing, frac, pos };
 }

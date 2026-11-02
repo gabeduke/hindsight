@@ -703,7 +703,7 @@ function render() {
   }
 
   if (engine?.tape) engine.transport.ingest({ tape: t, live });
-  const ov = $('tape-overview');
+  const ov = $('np-tape-overview');
   setIf(ov, 'aria-valuemax', String(t.length));
   setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
   setIf(ov, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
@@ -814,7 +814,7 @@ async function drop(merge = false, onRange = false) {
 
 // renderClock says who follows the tape's clock (TAPE_CLOCK=lead).
 function renderClock(c, t) {
-  const el = $('clock-out');
+  const el = $('np-clock-out');
   el.hidden = !c;
   if (!c) return;
   const who = c.devices.length ? c.devices.join(', ') : 'no device plugged in';
@@ -2692,7 +2692,7 @@ function setView(v) {
 // lanes show, tap to move the playhead there (to the nearest bar), double-tap
 // to go back to the loop.
 function wireOverview() {
-  const cv = $('tape-overview');
+  const cv = $('np-tape-overview');
   cv.style.touchAction = 'none';
   // A slider for the keyboard too: ← → a bar (a second with no tempo). A
   // held arrow steps on from where it last asked for, not from a stale poll,
@@ -3949,7 +3949,7 @@ const overview = { cv: null, base: null, view: null, W: 0, H: 0, dpr: 1, gen: 0,
 function drawOverview(heardFrame = state.live ? heardNow() : null) {
   const t = state.tape;
   if (!t) return;
-  const cv = $('tape-overview');
+  const cv = $('np-tape-overview');
   const { w: W, h: H } = sizeOf(cv);
   const dpr = window.devicePixelRatio || 1;
   if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
@@ -5006,7 +5006,7 @@ function wire() {
   window.addEventListener('pagehide', () => bar.commit());
   // The lanes and the bar's scrubber change width apart: each redraws all
   // of them (watchSize). The lanes' canvases are watched as they're made.
-  for (const id of ['tape-ruler', 'tape-overview', 'tape-sections']) watchSize($(id));
+  for (const id of ['tape-ruler', 'np-tape-overview', 'tape-sections']) watchSize($(id));
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
   const fitView = () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); };

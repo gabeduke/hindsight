@@ -131,19 +131,19 @@ function keys(snap, extra = {}) {
 
 test('tapeKeys: drawn only once the Studio lends its hands, from the tape and them', () => {
   const { doc, k, tape } = keys({ tape: aTape({ click: true }), live: playing() });
-  const rec = doc.getElementById('rec');
+  const rec = doc.getElementById('np-rec');
   const label = rec.getAttribute('aria-label');
   assert.equal(label, 'Record', 'no hands: the markup as it is');
   const off = k.lend(hands());
   assert.equal(rec.getAttribute('aria-label'), 'Record from IN 2');
-  assert.equal(doc.getElementById('click').getAttribute('aria-pressed'), 'true');
-  assert.equal(doc.getElementById('catch-pass').querySelector('.np-catch-sub').textContent, 'last pass → 2');
-  assert.equal(doc.getElementById('catch-pass').querySelector('.np-catch-mini').textContent, '→ 2');
+  assert.equal(doc.getElementById('np-click').getAttribute('aria-pressed'), 'true');
+  assert.equal(doc.getElementById('np-catch-pass').querySelector('.np-catch-sub').textContent, 'last pass → 2');
+  assert.equal(doc.getElementById('np-catch-pass').querySelector('.np-catch-mini').textContent, '→ 2');
   tape.set({ tape: aTape({ click: false }), live: playing() });
-  assert.equal(doc.getElementById('click').getAttribute('aria-pressed'), 'false', 'the tape’s change, drawn');
+  assert.equal(doc.getElementById('np-click').getAttribute('aria-pressed'), 'false', 'the tape’s change, drawn');
   off();
   tape.set({ tape: aTape({ click: true }), live: playing() });
-  assert.equal(doc.getElementById('click').getAttribute('aria-pressed'), 'false', 'hands back: no longer drawn');
+  assert.equal(doc.getElementById('np-click').getAttribute('aria-pressed'), 'false', 'hands back: no longer drawn');
 });
 
 test('tapeKeys: ● sends the Studio’s body on the tape’s record, and the Studio says the answer', async () => {
@@ -192,7 +192,7 @@ test('tapeKeys: a hold on ● on a phone offers this phone’s ▾', () => {
   let offered = 0;
   const k = tapeKeys({ doc, tape, whenRecorder: () => {}, offer: () => { offered++; phone.offer(); }, matchMedia: () => ({ matches: true }) });
   k.lend(hands());
-  const rec = doc.getElementById('rec');
+  const rec = doc.getElementById('np-rec');
   // ARM_PRESS's hold: a pointer held past it.
   rec.dispatchEvent({ type: 'pointerdown', button: 0, pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0, timeStamp: 0 });
   return new Promise((done) => setTimeout(() => {
@@ -232,7 +232,7 @@ test('tapeKeys: the click sends the tape’s setClick; not while it has no tempo
   k.press('click');
   assert.deepEqual(tape.calls, [], 'no hands');
   k.lend(hands());
-  click(doc.getElementById('click'));
+  click(doc.getElementById('np-click'));
   await settle();
   assert.deepEqual(tape.calls[0], ['setClick', true]);
   tape.set({ tape: aTape({ grid: null }), live: playing() });
@@ -245,7 +245,7 @@ test('tapeKeys: pointing at Catch is the Studio’s outline', () => {
   const { k, doc } = keys({ tape: aTape(), live: playing() });
   const seen = [];
   k.lend(hands({ hover: (on) => seen.push(on) }));
-  const pass = doc.getElementById('catch-pass');
+  const pass = doc.getElementById('np-catch-pass');
   pass.dispatchEvent({ type: 'pointerenter', pointerType: 'mouse' });
   pass.dispatchEvent({ type: 'pointerleave', pointerType: 'mouse' });
   assert.deepEqual(seen, [true, false]);

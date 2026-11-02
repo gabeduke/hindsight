@@ -61,8 +61,8 @@ export default {
     // A waiting Catch says what it waits for ("press ▶"); it names the tracks
     // once a pass has gone round (4 bars at 96 BPM, about 10 s).
     await t.step('play a pass', () => t.tap(page.locator('#np-play')));
-    const ready = await t.poll(() => !document.getElementById('catch-pass')?.classList.contains('waits'), null, 25_000);
-    const says = (await page.locator('#catch-pass .np-catch-sub').innerText()).replace(/\s+/g, ' ');
+    const ready = await t.poll(() => !document.getElementById('np-catch-pass')?.classList.contains('waits'), null, 25_000);
+    const says = (await page.locator('#np-catch-pass .np-catch-sub').innerText()).replace(/\s+/g, ' ');
     t.expect('Catch names both armed tracks', ready && /\b1\b/.test(says) && /\b3\b/.test(says), `ready=${ready} "${says}"`);
     await t.step('stop', () => t.tap(page.locator('#np-play')));
 

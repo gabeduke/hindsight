@@ -22,18 +22,18 @@
 const look = () => {
   const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth; };
   const tabs = document.querySelector('.appnav')?.getBoundingClientRect();
-  const c = document.getElementById('catch-pass')?.getBoundingClientRect();
+  const c = document.getElementById('np-catch-pass')?.getBoundingClientRect();
   // |◀ beside ▶: on its row, just to its left, and a thumb wide.
   const s = document.getElementById('np-start')?.getBoundingClientRect();
   const p = document.getElementById('np-play')?.getBoundingClientRect();
   const beside = !!s && !!p && s.width >= 44 && s.height >= 44 && Math.abs(s.top - p.top) <= 4 && s.right <= p.left && p.left - s.right <= 12;
   // The window keeps the bar number in its LCD (it once lost it to a wider
   // Catch beside it).
-  const pos = document.getElementById('position')?.getBoundingClientRect();
+  const pos = document.getElementById('np-position')?.getBoundingClientRect();
   return {
-    window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#rec'), catch: on('#catch-pass'),
+    window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#np-rec'), catch: on('#np-catch-pass'),
     phoneRec: on('#np-phone-rec'), phoneMore: on('#np-phone-more'), foot: on('#np-out-foot'),
-    more: on('#catch-more'), bar: !!pos && pos.width >= 10,
+    more: on('#np-catch-more'), bar: !!pos && pos.width >= 10,
     openKey: on('#np-open'), note: on('#np-note'), beside,
     playX: Math.round(p?.left ?? -1),
     open: document.body.classList.contains('player-open'),
@@ -115,18 +115,18 @@ export default {
     const order = await page.evaluate(() => {
       const top = (s) => Math.round(document.querySelector(s).getBoundingClientRect().top);
       const foot = document.getElementById('np-out-foot').getBoundingClientRect();
-      return { deck: top('.np-window'), strip: top('.np-row-2'), play: top('#np-play'), catch: top('#catch-pass'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), out: getComputedStyle(document.getElementById('np-output')).display };
+      return { deck: top('.np-window'), strip: top('.np-row-2'), play: top('#np-play'), catch: top('#np-catch-pass'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), out: getComputedStyle(document.getElementById('np-output')).display };
     });
     t.expect('the reels and display on top, the strip under them, the transport and Catch in the lower half, where it plays at the foot',
       order.deck < order.strip && order.strip < order.play && order.play > 844 / 2 && order.play < order.catch && order.catch < order.foot && order.bottom <= 48 && order.out === 'none', order);
 
     // Catch's ▾ in the player: the pair is in the thumb's half, so its menu
     // opens over it, and Back closes it before it puts the player away.
-    await t.step('tap Catch’s ▾ in the player', () => t.tap(page.locator('#catch-more')));
+    await t.step('tap Catch’s ▾ in the player', () => t.tap(page.locator('#np-catch-more')));
     const under = await t.poll(() => {
       const m = document.getElementById('catch-menu');
       if (!m || m.hidden) return null;
-      const more = document.getElementById('catch-more').getBoundingClientRect();
+      const more = document.getElementById('np-catch-more').getBoundingClientRect();
       const r = m.getBoundingClientRect();
       // Over the ▾, and across it (as wide as the screen lets it be here).
       return { over: r.bottom <= more.top && more.top - r.bottom <= 12 && r.left <= more.left && r.right >= more.right - 1, on: r.top >= 0 && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };

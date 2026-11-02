@@ -313,7 +313,7 @@ proof-of-concept shortcuts don't come back
   `lib/room/doorway.js` hears the bar through `np.onChange`, never by
   polling the DOM with `setInterval` (`readBar` is only its fallback for a
   bar with no `snapshot()`), and in the rooms only `lib/bar` writes the
-  bar's display ids (`#position`, `#np-time`, …).
+  bar's display ids (`#np-position`, `#np-time`, …).
 - **Visual objects come from `lib/objects/` and `lib/scene/`:** no reel,
   cassette or VU markup or `@keyframes` spin outside `lib/objects/`; reels,
   cassettes and meters are `ReelWindow`, `CassetteFace` and `VUMeters` on

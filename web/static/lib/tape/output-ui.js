@@ -11,7 +11,7 @@ export function initOutput({ engine, getTape, getGhost = () => null }) {
   const player = engine.stream;
   // A suspended context needs a tap to run again: the strip's, or ▶
   // (tapeSource.press() in NowPlaying).
-  $('out-strip-resume')?.addEventListener('click', () => player?.resume());
+  $('np-out-strip-resume')?.addEventListener('click', () => player?.resume());
   $('out-jam')?.addEventListener('click', () => engine.output.setMode('jam'));
 
   const ghostNow = () => { const g = getGhost(); return g && performance.now() < g.until && getTape() && getTape().grid ? g : null; };
@@ -29,20 +29,20 @@ export function initOutput({ engine, getTape, getGhost = () => null }) {
     $('out-banner-what').textContent = `${(getTape() && getTape().name) || 'The tape'} is playing on a phone`;
     $('out-banner-delay').textContent = delay;
     // This device has it: the strip.
-    const strip = $('out-strip');
+    const strip = $('np-out-strip');
     strip.hidden = !(here && mode !== 'jam');
-    $('out-strip-resume').hidden = strip.hidden || player.state !== 'locked';
+    $('np-out-strip-resume').hidden = strip.hidden || player.state !== 'locked';
     if (!strip.hidden) {
       const s = player.state;
       const wait = s === 'buffering' || s === 'lost' || s === 'locked';
-      $('out-strip-led').className = `out-led ${wait ? 'wait' : 'on'}`;
-      $('out-strip-text').textContent =
+      $('np-out-strip-led').className = `out-led ${wait ? 'wait' : 'on'}`;
+      $('np-out-strip-text').textContent =
         s === 'buffering' ? 'Starting on this phone…'
         : s === 'lost' ? `Stream lost · paused at ${(l && getTape() && barBeat(l.heard, getTape().grid)) || 'the same spot'}`
         : s === 'locked' ? (player.waitingTap ? 'Still on this phone' : 'Paused when the screen locked')
         : ghostNow() ? `Moving to bar ${barBeat(ghostNow().pos, getTape().grid) || ''}…`
         : l && l.playing ? 'Playing on this phone' : 'Ready on this phone';
-      $('out-strip-right').textContent = s === 'buffering' ? 'buffering' : s === 'lost' ? 'reconnecting'
+      $('np-out-strip-right').textContent = s === 'buffering' ? 'buffering' : s === 'lost' ? 'reconnecting'
         : s === 'locked' ? '' : ghostNow() ? `in ${delay}` : `${delay} behind`;
     }
   }

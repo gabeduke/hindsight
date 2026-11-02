@@ -11,7 +11,7 @@ const keys = () => {
   const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight; };
   const rec = document.getElementById('np-phone-rec');
   return {
-    rec: on('#np-phone-rec'), more: on('#np-phone-more'), tapeRec: on('#rec'),
+    rec: on('#np-phone-rec'), more: on('#np-phone-more'), tapeRec: on('#np-rec'),
     pressed: rec?.getAttribute('aria-pressed'), said: rec?.getAttribute('aria-label'),
     red: rec ? getComputedStyle(rec).color : '',
   };
@@ -58,24 +58,24 @@ export default {
     // Carried to the Studio, where ● is the tape's: it shows this phone
     // recording, and a tap there stops it.
     await t.step('go to the Studio, still recording', () => t.tap(page.locator('.appnav a[data-tab="studio"]')));
-    await page.locator('#rec').waitFor({ state: 'visible' });
+    await page.locator('#np-rec').waitFor({ state: 'visible' });
     const there = await t.poll(() => {
-      const r = document.getElementById('rec');
+      const r = document.getElementById('np-rec');
       return r.getAttribute('aria-pressed') === 'true' && /^Stop recording from this phone/.test(r.getAttribute('aria-label') ?? '') && r.getAttribute('aria-label');
     });
     const studio = await page.evaluate(keys);
     t.expect('there ● is the tape’s, with the phone’s ▾ beside it, and it shows this phone recording', !!there && studio.tapeRec && studio.more && !studio.rec, { there, studio });
 
-    await t.step('tap ● there', () => t.tap(page.locator('#rec')));
+    await t.step('tap ● there', () => t.tap(page.locator('#np-rec')));
     const take = await api.until(async () => (await api.takes()).find((x) => !before.has(x.name)), 'the phone’s take on the shelf', 15_000).catch(() => null);
     t.expect('it stops: the take is on the shelf, labelled Phone', !!take && /Phone/.test(JSON.stringify(take)), take);
-    const stopped = await t.poll(() => document.getElementById('rec').getAttribute('aria-pressed') === 'false');
+    const stopped = await t.poll(() => document.getElementById('np-rec').getAttribute('aria-pressed') === 'false');
     const { loaded } = await api.get('/api/tapes');
     const record = (await api.get(`/api/tapes/state?id=${encodeURIComponent(loaded)}`)).live?.record ?? null;
-    t.expect('● is up again, and the tape recorded nothing', stopped && !record, { rec: await page.locator('#rec').getAttribute('aria-label'), record });
+    t.expect('● is up again, and the tape recorded nothing', stopped && !record, { rec: await page.locator('#np-rec').getAttribute('aria-label'), record });
 
     // A hold on the tape's ● offers this phone, on the ▾.
-    await t.step('hold ●', () => t.hold(page.locator('#rec')));
+    await t.step('hold ●', () => t.hold(page.locator('#np-rec')));
     const offered = await t.poll(() => {
       const m = document.getElementById('np-phone-menu');
       return m?.dataset.state === 'open' && m.querySelector('.menu-word')?.textContent;
