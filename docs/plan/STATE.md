@@ -152,8 +152,18 @@ and still looks it:
         (the ids, the bar's state on `<body>`, the fold event and the
         `tape-page` observer, the Studio's keys in the bar, the window,
         Open sharing the files), each agreed in `components.md` or
-        recommended within it; then its five PRs in order. It amends AGENTS.md and decision 0047
-        (call 1).
+        recommended within it; then its five PRs in order. It amends
+        AGENTS.md and decision 0047 (call 1). Built: step 1 (#249: the
+        stack's `covered()`, which J asks; `cx.media`; the recorder's
+        `snapshot()`) and step 2a (#250: `lib/bar/layout.js`
+        `barLayout`, the one writer of `body.np-fold` and
+        `body.player-open`, shared as `ctx.barLayout`; `NowPlaying`'s
+        `room()`; no `hindsight:np-fold`, no body `MutationObserver`).
+        **Next, start fresh here: step 2b**, the stylesheet half of
+        decision 2. The router keeps `np-fold` per room, so a root
+        attribute needs a way to follow it, and `.np` can't
+        container-query itself (a wrapper, so with step 5's template):
+        the spec's step 2 says what 2b moves and what waits.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
