@@ -150,10 +150,29 @@ unmoved:
 1. **`cx.media` and the stack's `covered()`** (decision 5), and the
    recorder's `snapshot()`, with tests; J asks `covered()`. *Built*, #249.
 2. **The bar's state on its root, the layout the surface's** (decisions 2
-   and 3), in place in `lib/bar/`: `fold.js` and `player.js` say it on
-   `#np` and through `onLayout`; the shell sets the body classes and hands
-   the Studio `ctx.bar`; `css/bar.css`'s rules move off `body.*`.
-   `hindsight:np-fold` and the `MutationObserver` go.
+   and 3), in place in `lib/bar/`, in two PRs.
+   - **2a, the script's half**: *built*, #250. `lib/bar/layout.js`
+     `barLayout(doc)` is the one place that writes `body.np-fold` and
+     `body.player-open` (`fold.js` and `player.js` go through it), shared
+     as `ctx.barLayout`, `onChange(fn(after, before))`; the Studio hears a
+     fold there; `NowPlaying` takes `room()`, kicked by the shell's
+     `chrome.setPath`. `hindsight:np-fold` and the `MutationObserver` are
+     gone. The body stays where the fold is kept: the router takes
+     `np-fold` with each room (it is not in `KEEP_CLASSES`), so the fold
+     is a room's, and a copy kept across a switch goes stale.
+   - **2b, the stylesheet's half**: what lays out the page moves to
+     `styles.css`, the surface's: `body.player-open`'s `overflow`,
+     `.appnav` and `.np-dock`; `body:has(.np)`'s `--dock-b`, padding and
+     toasts; `body.selecting .np`; and the studio and away keys,
+     `:is(body.tape-page, .shelf-page, .main-page)`, become
+     `.np[data-room]`, set from `room()`. What styles inside the root
+     under `body.np-fold` and `body.player-open` waits for step 5: a root
+     attribute has to follow the router's per-room fold (the shell can
+     mirror it in `chrome.setPath`, after the room's classes are given:
+     look at the turn in a browser), and the 7 viewport `@media` become
+     container queries on a wrapper inside the root, which is the
+     template's. `css-budget.test.js` counts the `@media` conditions:
+     moving a rule must not add one.
 3. **The Studio's keys on the tape's verbs, and the Studio's slot**
    (decision 4), still in `lib/bar/`.
 4. **The ids** (decision 1): the twelve renamed, with the flows', the
