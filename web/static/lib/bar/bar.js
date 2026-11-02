@@ -63,8 +63,9 @@ export class NowPlaying {
     // With a take, Open › and ✎; with the feed, GRAB; ⟲ is Repeat for a
     // take (take-keys.js).
     this.keys = takeKeys({ doc: document, root: this.root, onNote: () => bar.note(), onGrabFeed: () => bar.grabFeed() });
-    // The tempo's menu is the Studio's: the surface says which room is
-    // shown (room()), and kicks the bar as it switches.
+    // The tempo's menu is the Studio's, and the tape's keys are a room's
+    // (data-room, for the stylesheet's studio and away keys): the surface
+    // says which room is shown (room()), and kicks the bar as it switches.
     this.room = room;
     // Where a take or the feed plays: this device, by its kind, read once
     // and again when the screen changes shape, not every frame.
@@ -229,13 +230,25 @@ export class NowPlaying {
   }
 
   // kick draws on the next frame, and every frame while the source plays.
+  // The room is said at once: the shell kicks the bar in the same step as
+  // it gives the room its body classes, and the keys switch with them.
   kick() {
+    this.paintRoom();
     this.engine.bar.kick();
+  }
+
+  // paintRoom says on the root which room the bar is in (data-room), for
+  // the stylesheet's studio and away keys.
+  paintRoom() {
+    const room = this.room();
+    if (room) setAttr(this.root, 'data-room', room);
+    else this.root.removeAttribute('data-room');
   }
 
   render() {
     const s = this.src;
     if (!s) return;
+    this.paintRoom();
     const lcd = s.lcd();
     const playing = s.playing();
     // Playing on the Pi, but not yet heard here: ▶ is the tap it waits for.

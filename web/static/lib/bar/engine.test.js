@@ -424,3 +424,20 @@ test('the tempo opens its menu with the tape in the Studio, as the surface says 
   page.frames();
   assert.equal($('np-tempo').disabled, true);
 });
+
+test('the bar says the room it is in on its root, for the stylesheet\'s studio and away keys', async () => {
+  const { w, $ } = await open();
+  w.room = 'studio';
+  page.np.kick();
+  page.frames();
+  assert.equal($('np').getAttribute('data-room'), 'studio');
+  w.room = 'capture';
+  page.np.kick();
+  assert.equal($('np').getAttribute('data-room'), 'capture', 'at once, with the switch, not a frame later');
+  page.frames();
+  assert.equal($('np').getAttribute('data-room'), 'capture');
+  w.room = null;
+  page.np.kick();
+  page.frames();
+  assert.equal($('np').hasAttribute('data-room'), false, 'no room shown: no data-room');
+});

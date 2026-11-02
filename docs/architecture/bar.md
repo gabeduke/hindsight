@@ -19,7 +19,9 @@ sideways scroll).
   sources it is for (`tape`, `studio` = the tape in the Studio, `away` = the
   tape anywhere else, `take`, `feed`) and in `data-mini` those it stays for
   in the phone's mini player; one rule in `css/bar.css` shows each source's
-  keys, and a key's `display` is set nowhere else. No `:not()` lists and no
+  keys, and a key's `display` is set nowhere else. Which room it is in is
+  the bar's own root's, `#np[data-room]` (`studio`, `room`, `capture`: the
+  router's `shown()`, set as the shell switches rooms, in the same step as the body classes), never the page's body class. No `:not()` lists and no
   `!important` (`shape.test.js`). A key a script hides by `hidden` (⏏ with
   no tape) stays hidden.
 - **Its widths are its own**: a container query on its first row
@@ -95,6 +97,13 @@ sideways scroll).
   every view (`ctx.barLayout`), where the Studio hears a fold to draw its
   lanes again. The router keeps `np-fold` with its room, so the body is
   where it is kept.
+- **The page around the bar is the page's.** What a page does about the bar
+  is `styles.css`'s, not `css/bar.css`'s: `--dock-b` and the padding and
+  toasts that keep clear of the bar on a phone, the player pulled up
+  holding the page still and covering the tabs, select mode hiding the
+  bar, and the Studio's `#np-dock`. `css/bar.css` draws the bar, though
+  some of its rules inside the bar still key on `body.np-fold` and
+  `body.player-open` until the bar is a component (1d, step 5).
 - **✎ is the page's** (`lib/bar/take-keys.js`, `engine.setOnNote`): the
   shell's notes drawer (`rooms.md`, *The notes drawer*) takes the frame
   being heard (`frameNow`); a page without one opens the take on its own
@@ -147,7 +156,7 @@ counted in `touches`).
 the engine (`new NowPlaying({engine, onToast, layout, room})`: `layout` the
 shell's `barLayout`, `room()` the room the router shows, so the tempo opens
 its menu in the Studio; the shell kicks the bar as it switches), it draws the engine's
-`src` on `#np` from its `onChange`, sets `#np[data-source]` and ⏏'s
+`src` on `#np` from its `onChange`, sets `#np[data-source]`, `#np[data-room]` and ⏏'s
 `hidden` (`bar.canEject`), and hands each press to the engine's verbs or
 the source's own (▶, Loop, a seek). The source menu, ● on the phone's mini
 player and the output sheet are wired there too; the extraction moves them,
