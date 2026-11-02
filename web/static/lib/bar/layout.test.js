@@ -26,22 +26,28 @@ test('onChange hears what moved and nothing else, and a way off is off', () => {
   const doc = fakeDoc();
   const l = barLayout(doc);
   const heard = [];
-  const off = l.onChange((s) => heard.push({ ...s }));
+  const off = l.onChange((s, was) => heard.push({ ...s, was: was.folded }));
   l.set({ folded: false });
   assert.deepEqual(heard, [], 'nothing moved');
   l.set({ folded: true });
   l.set({ open: true });
-  assert.deepEqual(heard, [{ folded: true, open: false }, { folded: true, open: true }]);
+  assert.deepEqual(heard, [{ folded: true, open: false, was: false }, { folded: true, open: true, was: true }]);
   off();
   l.set({ folded: false });
   assert.equal(heard.length, 2);
 });
 
-test('a room switch that takes np-fold off the body is read as it is: the body is the one place it is kept', () => {
+test('a fold after a room switch is heard as a fold: what it was is read as set() begins, never kept across the switch', () => {
+  // Folded in the Listening Room; the Studio, unfolded, shown again (the
+  // router takes np-fold with the room); folded there: the Studio must
+  // hear a fold, to draw its lanes at their new size.
   const doc = fakeDoc();
   const l = barLayout(doc);
-  l.set({ folded: true });
-  doc.body.classList.remove('np-fold'); // the router, leaving the room
+  const folds = [];
+  l.onChange((s, was) => { if (s.folded !== was.folded) folds.push(s.folded); });
+  l.set({ folded: true }); // in the Listening Room
+  doc.body.classList.remove('np-fold'); // the router, back to the Studio
   assert.equal(l.folded, false);
-  assert.equal(l.snapshot().folded, false);
+  l.set({ folded: true }); // in the Studio
+  assert.deepEqual(folds, [true, true], 'the second fold is heard');
 });

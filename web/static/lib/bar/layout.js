@@ -11,9 +11,11 @@
 /**
  * barLayout is `doc`'s: { snapshot(), folded, open, set({folded, open}),
  * onChange(fn) }. snapshot() is {folded, open}, frozen, the same object
- * until one moves; set() writes what it is given, and fn(snapshot) hears it
- * when that moved something. A room switch that takes np-fold with the room
- * says nothing: what reads it reads it as it draws.
+ * until one moves; set() writes what it is given, and fn(after, before)
+ * hears it when that moved something, `before` read as set() began, so a
+ * listener compares what moved and keeps no copy of its own. A room switch
+ * that takes np-fold with the room says nothing: what reads it reads it as
+ * it draws, and a copy kept across one would be stale.
  */
 export function barLayout(doc = globalThis.document) {
   const fns = new Set();
@@ -34,7 +36,7 @@ export function barLayout(doc = globalThis.document) {
       if (folded !== undefined) doc.body.classList.toggle('np-fold', !!folded);
       if (open !== undefined) doc.body.classList.toggle('player-open', !!open);
       const after = snapshot();
-      if (after !== before) for (const fn of [...fns]) fn(after);
+      if (after !== before) for (const fn of [...fns]) fn(after, before);
     },
     onChange(fn) { fns.add(fn); return () => fns.delete(fn); },
   };

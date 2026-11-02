@@ -5188,11 +5188,7 @@ function wire() {
     }
   };
   // The bar folded or unfolded (lib/bar/layout.js, the shell's); the
-  // phone's player going up is not a fold.
-  let npFolded = viewCtx.barLayout?.folded;
-  viewCtx.barLayout?.onChange((l) => {
-    if (l.folded === npFolded) return;
-    npFolded = l.folded;
-    onNpFold();
-  });
+  // phone's player going up is not a fold. No copy of the fold is kept: the
+  // router takes it with each room.
+  viewCtx.barLayout?.onChange((after, before) => { if (after.folded !== before.folded) onNpFold(); });
 }

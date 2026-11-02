@@ -90,7 +90,7 @@ sideways scroll).
   a phone the grabber is the player's, and puts it away. ▾ only ever opens
   a menu. The fold and the player up are the page's bar layout
   (`lib/bar/layout.js` `barLayout(doc)`: `folded`, `open`, `set()`,
-  `snapshot()`, `onChange(fn)`), the one place that writes `body.np-fold`
+  `snapshot()`, `onChange(fn)`, `fn(after, before)`), the one place that writes `body.np-fold`
   and `body.player-open`; the shell makes it and hands it to the bar and to
   every view (`ctx.barLayout`), where the Studio hears a fold to draw its
   lanes again. The router keeps `np-fold` with its room, so the body is
