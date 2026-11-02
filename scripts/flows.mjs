@@ -8,6 +8,7 @@
 //   node scripts/flows.mjs --storyboard=dir    # a picture per screen, and dir/index.html
 //   node scripts/flows.mjs --storyboard=dir --review   # and Claude's notes on each (opt-in)
 //   node scripts/flows.mjs --update-layout-known       # rewrite the layout baseline from this run
+//   FLOWS_AUDIO=1 node scripts/flows.mjs       # hear the demo (muted by default: the flows play audio)
 //
 // With no HINDSIGHT_URL it boots its own demo (`go run ./cmd/hindsight
 // --demo`, CGO_ENABLED=0) on a free port with its data in a temp dir, so
@@ -63,7 +64,9 @@ if (!base) {
 }
 const api = apiFor(base, { dir: demo?.dir });
 // A fake microphone, allowed without asking: recording from a phone (J4.1).
-const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
+// Muted unless FLOWS_AUDIO=1: the page still plays (so the flows see the
+// same thing), but nothing comes out of the machine's speakers.
+const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', ...(process.env.FLOWS_AUDIO === '1' ? [] : ['--mute-audio'])] });
 const results = [];
 // Where the phone's ▶ stood, for the whole run (layout.mjs, bar-play-x).
 const bar = new Map();

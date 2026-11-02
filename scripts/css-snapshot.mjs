@@ -316,7 +316,7 @@ if (from) {
   snap = JSON.parse(readFileSync(from, 'utf8'));
 } else {
   const demo = await bootDemo({ log: console.log });
-  const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+  const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--mute-audio'] });
   const screens = {};
   try {
     const seeded = await seed(apiFor(demo.base));
