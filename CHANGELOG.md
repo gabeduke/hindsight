@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.02.7 — 2026-11-02
+
+- Spec and STATE.md: step 4's ids are #255 (74e691b5)
+- Every id in the bar is np-<name> (#np-rec, #np-position, …), as the Transport will name them; nothing changes on screen (d11e72a9)
+
+
 ## v2026.11.02.6 — 2026-11-02
 
 - C shuts Catch's menu as it catches, as a tap on Catch does (b48b951c)
