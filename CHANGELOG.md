@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.02.4 — 2026-11-02
+
+- The Studio hears a fold by what moved in that set, not a fold it kept, which a room switch made stale (d279d409)
+- The bar's fold and the phone's player up are the page's bar layout, and the bar is told the room it is in (b9936c95)
+
+
 ## v2026.11.02.3 — 2026-11-02
 
 - Tests only: J steps back on the real bar, stays quiet under a modal sheet, and steps under an inspector (5ce2790e)
