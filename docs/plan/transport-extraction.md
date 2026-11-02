@@ -197,9 +197,16 @@ unmoved:
      to be handed its elements first (held references, from the Studio's
      own markup), which is its own change. Next, before step 4 renames
      them.
-4. **The ids** (decision 1): the twelve renamed, with the flows', the
-   Studio's, `output-ui.js`'s, `deck.js`'s, `tips.js`'s, `styles.css`'s
-   and the tests' (Open's own markup keeps its ids).
+4. **The ids** (decision 1): *built*, #255, ahead of step 3's slot. The
+   twelve renamed (`#np-position`, `#np-rec`, `#np-catch-pass`,
+   `#np-catch-more`, `#np-click`, `#np-tape-overview`, `#np-clock-out`,
+   `#np-out-strip` and its parts), with the flows', the Studio's,
+   `output-ui.js`'s, `deck.js`'s, `tips.js`'s (the overview's and Catch's
+   ▾'s tip keys follow their ids), `styles.css`'s, `css/bar.css`'s and the
+   tests'; Open's own markup keeps its ids, and `#catch-menu`, outside
+   `#np`, waits for step 5. Guardrail 20 fails on an id inside the shell's
+   `#np` that is not `np-<name>` (`bar.md`). The slot, when it is built,
+   holds the renamed elements.
 5. **The move**: `lib/components/transport/` (`index.js` with the
    template from `shell.html`, `NowPlaying` as its mount, the modules
    beside it), `css/bar.css` as its stylesheet, scoped to `.np`,

@@ -8,7 +8,7 @@
 // top line has no room for both.
 //
 // The tape's messages -- the count-in, a mixdown and its tail, saving, no
-// output -- are the ones #position used to show, word for word.
+// output -- are the ones #np-position used to show, word for word.
 //
 // The window itself is markup in each page that has the bar (.np-lcd),
 // laid out in styles.css. Its amber ink and its edge are the same in both
@@ -49,7 +49,7 @@ export function tapeCounter(tape, live, md) {
   }
   if (md && md.state === 'tail') return { big: BOUNCING, small: '', note: 'letting it ring out · ■ cancels', status, unit: '' };
   if (md && md.state === 'saving') return { big: 'saving', small: '', note: BOUNCE_NOTE, status, unit: '' };
-  // As #position read: the time beside bar.beat, and "no output" after it.
+  // As #np-position read: the time beside bar.beat, and "no output" after it.
   const time = fmtSecs(heard, sr);
   const big = tape.grid ? barBeat(heard, tape.grid) : time;
   const small = [tape.grid ? time : '', live.output ? '' : 'no output'].filter(Boolean).join(' · ');

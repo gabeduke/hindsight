@@ -261,7 +261,7 @@ export class NowPlaying {
     const playing = s.playing();
     // Playing on the Pi, but not yet heard here: ▶ is the tap it waits for.
     const waiting = !!s.waiting?.();
-    setText($('position'), lcd.big);
+    setText($('np-position'), lcd.big);
     // A note (tap ▶ to play here, a mixdown's progress) in the time's place.
     const time = $('np-time');
     setText(time, lcd.note || lcd.small);

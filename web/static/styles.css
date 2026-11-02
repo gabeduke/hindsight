@@ -1955,8 +1955,8 @@ body.help-mode main { margin-bottom: calc(var(--tip-h, 0px) + 24px); }
 .out-strip[hidden], .out-banner[hidden] { display: none; }
 .out-banner { border-radius: 0; min-height: 56px; padding: 0 20px; font-size: 14.5px; }
 .out-banner-text { flex: 1; min-width: 0; }
-#out-strip-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#out-strip-right { color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent); font-size: 12px; font-weight: 600; }
+#np-out-strip-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#np-out-strip-right { color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent); font-size: 12px; font-weight: 600; }
 .out-led { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); flex: none; }
 .out-led.on, .out-choice[aria-pressed="true"] .out-led { background: var(--go); box-shadow: 0 0 7px var(--go-glow); }
 .out-led.wait { background: var(--warn); box-shadow: 0 0 7px var(--warn-glow); animation: recblink 1s steps(2) infinite; }

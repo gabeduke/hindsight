@@ -24,6 +24,15 @@ sideways scroll).
   router's `shown()`, set as the shell switches rooms, in the same step as the body classes), never the page's body class. No `:not()` lists and no
   `!important` (`shape.test.js`). A key a script hides by `hidden` (⏏ with
   no tape) stays hidden.
+- **Every id inside the shell's `#np` is `np-<name>`**, as `cx.id(name)`
+  will name the Transport's (`components.md` 1.3): `#np-position` (the
+  display's big line, `bar.js`'s, and what `lib/room/deck.js` `readBar`
+  reads), `#np-rec`, `#np-catch-pass`, `#np-catch-more` and `#np-click`
+  (`lib/bar/tape-keys.js`), `#np-tape-overview` and `#np-clock-out` (the
+  Studio's, `lib/tape/page.js`), and `#np-out-strip` with its `-led`,
+  `-text`, `-right` and `-resume` (`lib/tape/output-ui.js`). Guardrail 20
+  fails on one that isn't. Open's own `#np` (`wave.html`) keeps its ids
+  until Open's pass: its `#position` is `lib/wave/page.js`'s.
 - **Its widths are its own**: a container query on its first row
   (`.np-row-1`, never `.np` or the dock, whose fixed descendants a container
   would hold). The deck's width hangs on the row's width alone
@@ -37,7 +46,7 @@ sideways scroll).
 - **A key of the mini player alone** says only `data-mini`: the phone's ●
   (`#np-phone-rec`, for a take, the feed and the tape away from the Studio)
   and its ▾ (`#np-phone-more`, for every source). In the Studio with the
-  tape, the mini player's ● is the tape's own (`#rec`, `data-mini="studio"`):
+  tape, the mini player's ● is the tape's own (`#np-rec`, `data-mini="studio"`):
   a tap records the jam room, a hold (`ARM_PRESS`, as a track's ●) offers
   this phone on the ▾ (`phoneKey`'s `offer()`), and with the tape playing
   on this phone a tap records here (the recorder's `quick()`). While this
@@ -169,12 +178,14 @@ up, taken back on destroy):
 The bar says the rest itself: why Catch waits (with *Last 4 bars*), why an
 item of its ▾ can't go, and *Could not record* or *Could not catch*.
 Guardrail 19 fails on `lib/tape/page.js` or `lib/rooms/studio.js` looking
-up `#rec`, `#catch-pass`, `#catch-more`, `#catch-menu` or `#click` by the
-usual spellings (`$('rec')`, `getElementById`, a `querySelector` on
-`#rec`): a guard against the old wiring coming back, not a proof; an id
-held in a variable, or another module of the Studio's, gets past it. The
-overview, the clock-out lamp and the output strip are still the Studio's
-by id, in `shell.html`'s `#np` (`docs/plan/transport-extraction.md`, step 3).
+up `#np-rec`, `#np-catch-pass`, `#np-catch-more`, `#catch-menu` or
+`#np-click` by the usual spellings (`$('np-rec')`, `getElementById`, a
+`querySelector` on `#np-rec`): a guard against the old wiring coming back,
+not a proof; an id held in a variable, or another module of the Studio's,
+gets past it. The overview, the clock-out lamp and the output strip are
+still the Studio's by id (`#np-tape-overview`, `#np-clock-out`,
+`#np-out-strip…`), in `shell.html`'s `#np`
+(`docs/plan/transport-extraction.md`, step 3).
 
 ## The engine
 

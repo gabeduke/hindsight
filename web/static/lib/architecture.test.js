@@ -179,8 +179,8 @@ test('Guardrail 10: Studio swimlane collapse state persists in sessionStorage an
   );
 });
 
-test('Step 5a: only lib/bar writes the LCD ids (#position, #np-time, #np-unit, #np-status, #np-marquee, #np-mini) in the rooms', () => {
-  const lcdIds = ['position', 'np-time', 'np-unit', 'np-status', 'np-marquee', 'np-mini'];
+test('Step 5a: only lib/bar writes the LCD ids (#np-position, #np-time, #np-unit, #np-status, #np-marquee, #np-mini) in the rooms', () => {
+  const lcdIds = ['np-position', 'np-time', 'np-unit', 'np-status', 'np-marquee', 'np-mini'];
   const writeRe = new RegExp(`\\$\\(['"](${lcdIds.join('|')})['"]\\)`);
   const roomFiles = [
     'app.js',
@@ -445,13 +445,13 @@ test('Guardrail 18: the engine (lib/models/engine.js) makes the bar’s sources 
 });
 
 test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only through the hands it lends them, never by their ids', () => {
-  // docs/architecture/bar.md, *The Studio's keys*: ● (#rec), Catch and its
-  // ▾ (#catch-pass, #catch-more, #catch-menu) and the click (#click) are the
+  // docs/architecture/bar.md, *The Studio's keys*: ● (#np-rec), Catch and its
+  // ▾ (#np-catch-pass, #np-catch-more, #catch-menu) and the click (#np-click) are the
   // bar's keys (lib/bar/tape-keys.js), drawn from the tape's snapshot and
   // pressed on its verbs. The Studio lends them its hands
   // (ctx.tapeKeys.lend) and presses them with ctx.tapeKeys.press; a look-up
   // by id, or a press of a helper that looks one up, wires them a second way.
-  const IDS = 'rec|catch-pass|catch-more|catch-menu|click';
+  const IDS = 'np-rec|np-catch-pass|np-catch-more|catch-menu|np-click';
   const lookups = [
     new RegExp(`(?<![\\w$])(\\$|getElementById)\\(\\s*['"\`](${IDS})['"\`]`),
     new RegExp(`querySelector(All)?\\(\\s*['"\`][^'"\`]*#(${IDS})(?![\\w-])`),
@@ -463,6 +463,27 @@ test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only
     for (const line of src.split('\n')) if (lookups.some((re) => re.test(line))) found.push(`${f}: ${line.trim()}`);
   }
   assert.deepEqual(found, [], 'looks up the bar’s ●, Catch or the click: lend them the Studio’s hands (ctx.tapeKeys.lend), or press them (ctx.tapeKeys.press)');
+});
+
+test('Guardrail 20: every id inside the shell’s #np is np-<name>, as cx.id names a component’s', () => {
+  // docs/plan/transport-extraction.md, decision 1; components.md 1.3: a
+  // component writes an id only through cx.id(name), its root's id and the
+  // name, so the bar's are np-<name> before it moves into its template.
+  const html = read('shell.html');
+  const open = html.search(/<section\b[^>]*\bid="np"/);
+  assert.ok(open >= 0, 'shell.html has no <section id="np">');
+  const tags = /<(\/?)section\b[^>]*>/g;
+  tags.lastIndex = open;
+  let depth = 0, start = -1, end = -1;
+  for (let m; (m = tags.exec(html));) {
+    if (start < 0) { start = tags.lastIndex; depth = 1; continue; }
+    depth += m[1] ? -1 : 1;
+    if (!depth) { end = m.index; break; }
+  }
+  assert.ok(end > start, 'shell.html’s #np is not closed');
+  const ids = [...html.slice(start, end).matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(ids.length > 20, 'read the ids inside #np');
+  assert.deepEqual(ids.filter((id) => !id.startsWith('np-')), [], 'an id inside #np that is not np-<name>');
 });
 
 // ---- the components: lib/components/ ---------------------------------------

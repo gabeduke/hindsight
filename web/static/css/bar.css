@@ -312,7 +312,7 @@ button.np-lcd-key { cursor: pointer; }
 .np-catch-mini { display: none; } /* the phone's mini player shows it (below) */
 /* Catch is the page's one main action: the orange key, lit from above --
    unless the tape is on a phone, when it says it needs the jam room. */
-.np :is(#catch-pass, #catch-more) {
+.np :is(#np-catch-pass, #np-catch-more) {
   background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo)); color: var(--on-accent);
   border-color: var(--accent-edge); text-shadow: 0 1px 0 rgba(0,0,0,.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
@@ -321,13 +321,13 @@ button.np-lcd-key { cursor: pointer; }
 /* Its ▾ goes down with a key's 1 px, and darkens as Catch does. */
 .np .icon-btn.np-catch-more:active, .np .icon-btn.np-catch-more.down { filter: brightness(.92); }
 /* Waiting for a pass: pressable, so a tap can say why, and up -- dimmed, its ▾ with it. */
-.np :is(#catch-pass, #catch-more).waits {
+.np :is(#np-catch-pass, #np-catch-more).waits {
   background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink-dim);
   border-color: var(--line); text-shadow: none; opacity: .7;
   box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
 }
 /* The tape on a phone: Catch needs the jam room. */
-.np :is(#catch-pass, #catch-more).jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
+.np :is(#np-catch-pass, #np-catch-more).jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
 /* Its menu (lib/bar/tape-keys.js renderMenu): menu.js's rows; why one can't go yet wraps under it. */
 .catch-menu { min-width: 230px; max-width: calc(100vw - 16px); }
 /* The bar's menus open over the phone's player pulled up (z 50), where its

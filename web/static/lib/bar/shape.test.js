@@ -41,16 +41,16 @@ test('the bar is its zones, in the one order, on both pages that have it', () =>
 
 test('|◀ ▶ then ●, Record beside Play, and the phone’s ● ▾; ↺ 5 s in ●’s place; Catch the verb; ⟲ then the metronome; ⏏ Open › ✎ at the end', () => {
   const ids = (slot) => slotOf(shell, slot).children.map((e) => e.id || e.className.split(' ')[1]);
-  assert.deepEqual(ids('transport'), ['np-start', 'np-play', 'rec', 'np-phone-rec', 'np-phone-more', 'np-back5']);
+  assert.deepEqual(ids('transport'), ['np-start', 'np-play', 'np-rec', 'np-phone-rec', 'np-phone-more', 'np-back5']);
   assert.deepEqual(ids('foot'), ['np-out-foot']);
   assert.deepEqual(ids('verb'), ['np-catch-split', 'np-feed-grab']);
-  assert.deepEqual(ids('modes'), ['np-loop', 'click']);
+  assert.deepEqual(ids('modes'), ['np-loop', 'np-click']);
   assert.deepEqual(ids('end'), ['np-eject', 'np-open', 'np-note']);
   // On Open, the same transport: ▶ second, where it is in the rooms.
   assert.deepEqual(slotOf(wave, 'transport').children.map((e) => e.id), ['to-start', 'play', 'back5']);
   // ● and the metronome are pictures, not typed.
-  assert.ok(shell.getElementById('rec').querySelector('svg.i-rec'));
-  assert.ok(shell.getElementById('click').querySelector('svg.i-metro'));
+  assert.ok(shell.getElementById('np-rec').querySelector('svg.i-rec'));
+  assert.ok(shell.getElementById('np-click').querySelector('svg.i-metro'));
 });
 
 test('each key says which sources it shows for, in the full bar and the mini player, by names the stylesheet knows', () => {
@@ -78,7 +78,7 @@ test('each key says which sources it shows for, in the full bar and the mini pla
   // ● in the mini player for every source: the tape's own in the Studio,
   // the phone's elsewhere, and the phone's ▾ beside either, so ▶ stands
   // still. Neither of the phone's is in the full bar.
-  assert.equal(mini('rec'), 'studio');
+  assert.equal(mini('np-rec'), 'studio');
   assert.equal(mini('np-phone-rec'), 'take feed away');
   assert.equal(mini('np-phone-more'), 'tape take feed');
   for (const id of ['np-phone-rec', 'np-phone-more']) assert.equal(shell.getElementById(id).getAttribute('data-for'), null, id);

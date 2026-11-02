@@ -20,8 +20,8 @@ export default {
       && (document.getElementById('np-source')?.getAttribute('aria-label') ?? '').includes(n), tape.name), await page.evaluate(display));
     // Record beside Play, as in every DAW, and red.
     const rec = await page.evaluate(() => {
-      const p = document.getElementById('np-play').getBoundingClientRect(), r = document.getElementById('rec').getBoundingClientRect();
-      return { gap: Math.round(r.left - p.right), row: Math.abs(r.top - p.top) <= 2, color: getComputedStyle(document.getElementById('rec')).color };
+      const p = document.getElementById('np-play').getBoundingClientRect(), r = document.getElementById('np-rec').getBoundingClientRect();
+      return { gap: Math.round(r.left - p.right), row: Math.abs(r.top - p.top) <= 2, color: getComputedStyle(document.getElementById('np-rec')).color };
     });
     t.expect('● sits beside ▶, red', rec.row && rec.gap >= 0 && rec.gap <= 12 && rec.color === 'rgb(220, 50, 47)', rec);
 
@@ -47,9 +47,9 @@ export default {
     t.expect('▶ shows it playing', await t.poll(() => document.getElementById('np-play')?.classList.contains('playing')));
     const playing = await api.until(async () => (await live()).live?.playing, 'the Pi to play the tape', 8000).catch(() => false);
     t.expect('the Pi plays the tape', playing);
-    const a = await page.locator('#position').innerText();
+    const a = await page.locator('#np-position').innerText();
     await t.wait(1500);
-    const b = await page.locator('#position').innerText();
+    const b = await page.locator('#np-position').innerText();
     t.expect('the counter moves while it plays', a !== b, `${a} → ${b}`);
 
     // Wait into the second bar, so |◂ has somewhere to go back from.

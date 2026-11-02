@@ -79,7 +79,7 @@ test('readBar: playing from ▶, how far from the strip, the clock from the LCD'
   const doc = fakeDoc();
   const play = doc.createElement('button'); play.id = 'np-play';
   const scrub = doc.createElement('canvas'); scrub.id = 'np-scrub';
-  const pos = doc.createElement('span'); pos.id = 'position';
+  const pos = doc.createElement('span'); pos.id = 'np-position';
   doc.body.append(play, scrub, pos);
   assert.deepEqual(readBar(doc), { playing: false, frac: 0, pos: '' });
   play.classList.add('playing');

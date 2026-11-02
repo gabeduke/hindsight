@@ -7,7 +7,7 @@
 const at = () => {
   const r = (id) => document.getElementById(id)?.getBoundingClientRect();
   const play = r('np-play'), np = r('np');
-  return { play: play ? Math.round(play.left) : null, height: np ? Math.round(np.height) : 0, strip: !!document.getElementById('tape-overview')?.offsetParent };
+  return { play: play ? Math.round(play.left) : null, height: np ? Math.round(np.height) : 0, strip: !!document.getElementById('np-tape-overview')?.offsetParent };
 };
 
 export default {

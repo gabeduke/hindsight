@@ -177,7 +177,7 @@ test('a frame of the bar playing measures nothing and reads no style: the strip 
     for (let s = 1; s <= 5; s++) {
       p.audio.currentTime = s * 7;
       p.frames(1);
-      shown.push(p.$('position').textContent);
+      shown.push(p.$('np-position').textContent);
     }
     assert.equal(new Set(shown).size, 5, `the bar drew each frame: ${shown}`);
     assert.equal(measured, 0, 'no measure in a frame');

@@ -173,7 +173,7 @@ test('the feed is made the first time it is chosen, and keeps its place over a t
   assert.equal(engine.feed, feed, 'the same feed');
   assert.equal(feed.offsetSeconds, 20, 'still 20 s back');
   frames();
-  assert.equal($('position').textContent, '-0:20');
+  assert.equal($('np-position').textContent, '-0:20');
   bar.setSource('tape');
 });
 
@@ -362,7 +362,7 @@ test('■ in the Studio while recording is sent inside the Studio\'s hands, whic
   assert.equal(iconOf($('np-play')), 'stop', '▶ is ■ for the tape while it plays');
   assert.ok($('np-play').classList.contains('playing'));
   assert.equal($('np-status').getAttribute('data-state'), 'rec');
-  assert.equal($('position').textContent, '2.1');
+  assert.equal($('np-position').textContent, '2.1');
   assert.equal($('np-levels').children.length, 2, 'per-track reel level bars are drawn');
 
   // Pressing ■ in the Studio is sent inside the Studio's hands, which toast the kept take.
@@ -380,7 +380,7 @@ test('■ in the Studio while recording is sent inside the Studio\'s hands, whic
 // engine.output instead of constructing a second StreamPlayer of its own.
 test('the engine and the output UI make one StreamPlayer', async () => {
   const { engine, doc, w } = await open();
-  for (const id of ['out-strip', 'out-strip-led', 'out-strip-text', 'out-strip-right', 'out-strip-resume', 'out-jam', 'out-banner', 'out-banner-what', 'out-banner-delay']) {
+  for (const id of ['np-out-strip', 'np-out-strip-led', 'np-out-strip-text', 'np-out-strip-right', 'np-out-strip-resume', 'out-jam', 'out-banner', 'out-banner-what', 'out-banner-delay']) {
     if (!doc.getElementById(id)) {
       const el = doc.createElement('div');
       el.id = id;

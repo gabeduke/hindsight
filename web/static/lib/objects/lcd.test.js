@@ -29,7 +29,7 @@ test('playing, recording and armed each have their status', () => {
   assert.equal(tapeCounter(tape(), live({ playing: true, record: { tape: 't2', track: 1, state: 'on' } }), null).status, 'play');
 });
 
-test('a count-in takes over the position, as #position read', () => {
+test('a count-in takes over the position, as #np-position read', () => {
   const beat = BAR / 4;
   const c = tapeCounter(tape(), live({ playing: true, count_in: 3 * beat }), null);
   assert.equal(c.big, 'count-in 2 of 4');
@@ -37,7 +37,7 @@ test('a count-in takes over the position, as #position read', () => {
   assert.equal(c.status, 'play');
 });
 
-test('a mixdown takes over the position, its details the second line, in the words #position had', () => {
+test('a mixdown takes over the position, its details the second line, in the words #np-position had', () => {
   const md = { tape: 't1', state: 'playing', from: 0, to: 8 * BAR };
   const c = tapeCounter(tape(), live({ playing: true, heard: 2 * BAR }), md);
   assert.deepEqual([c.big, c.small, c.note], ['bouncing', '', '0:05.0 of 0:20.0 · ■ cancels']);
@@ -49,7 +49,7 @@ test('a mixdown takes over the position, its details the second line, in the wor
   assert.equal(tapeCounter(tape(), live(), null).note, '');
 });
 
-test('no output says so after the time, as #position did', () => {
+test('no output says so after the time, as #np-position did', () => {
   const c = tapeCounter(tape(), live({ output: '', heard: Math.round(13.2 * SR) }), null);
   assert.equal(c.big, '6.2');
   assert.equal(c.small, '0:13.2 · no output');

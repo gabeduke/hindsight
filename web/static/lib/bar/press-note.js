@@ -99,5 +99,5 @@ export function lightTrackHead(lanes, p, env = {}) {
 /** barPressNote is the bar's note in this document: shell.html's #np-press. */
 export function barPressNote(doc = document) {
   const $ = (id) => doc.getElementById(id);
-  return pressNote({ el: $('np-press'), words: $('np-press-words'), keys: { play: $('np-play'), rec: $('rec') } });
+  return pressNote({ el: $('np-press'), words: $('np-press-words'), keys: { play: $('np-play'), rec: $('np-rec') } });
 }
