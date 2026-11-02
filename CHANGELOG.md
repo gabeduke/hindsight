@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.02.8 — 2026-11-02
+
+- Spec and STATE.md: the overview's slot is #256; the clock-out lamp and the output strip wait for Gabe (a761ddf5)
+- The tape's overview is the Studio's own, in the bar's strip only while the Studio is shown (d97df980)
+- A room can put its part of the bar at the start of the bar's strip, a place the shell names in the bar's slot (47b35bad)
+
+
 ## v2026.11.02.7 — 2026-11-02
 
 - Spec and STATE.md: step 4's ids are #255 (74e691b5)
