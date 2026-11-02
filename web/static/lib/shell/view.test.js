@@ -781,3 +781,16 @@ test('a socket that fails to open is reported, and tried again on the next visit
   await t.v.show();
   assert.equal(n, 2);
 });
+
+test('ctx.media is the view’s window’s matchMedia, and one that never matches where there is none', async () => {
+  const t = withCtx();
+  const asked = [];
+  t.doc.defaultView = { matchMedia: (q) => { asked.push(q); return { matches: true, media: q }; } };
+  await t.v.show({ url: '/takes.html' });
+  assert.equal(t.box.ctx.media('(pointer: coarse)').matches, true);
+  assert.deepEqual(asked, ['(pointer: coarse)']);
+  t.doc.defaultView = {};
+  const none = t.box.ctx.media('(pointer: coarse)');
+  assert.equal(none.matches, false);
+  assert.doesNotThrow(() => { none.addEventListener('change', () => {}); none.removeEventListener('change', () => {}); });
+});

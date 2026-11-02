@@ -271,3 +271,25 @@ test('once means once while it is shown: an event while it is hidden doesn’t u
   assert.equal(heard, 1);
   c.unmount();
 });
+
+test('cx.media is the view’s media query, and its change is heard only while shown', () => {
+  const doc = fakeDoc();
+  const ctx = viewCtx(doc);
+  const queries = [];
+  const mql = { matches: true, l: [], addEventListener(t, fn) { this.l.push(fn); }, removeEventListener(t, fn) { this.l = this.l.filter((f) => f !== fn); }, fire() { for (const f of this.l) f({ type: 'change' }); } };
+  ctx.media = (q) => { queries.push(q); return mql; };
+  let heard = 0;
+  let got = null;
+  const def = { id: 'm', root: 'm', needs: [], css: 'css/m.css', mount(_root, _models, cx) { got = cx.media('(max-width: 10px)', () => heard++); return {}; } };
+  const c = mountComponent(def, rootIn(doc), {}, ctx);
+  assert.equal(got, mql);
+  assert.deepEqual(queries, ['(max-width: 10px)']);
+  assert.equal(got.matches, true);
+  mql.fire();
+  assert.equal(heard, 1);
+  c.hide();
+  mql.fire();
+  assert.equal(heard, 1, 'quiet while hidden');
+  c.unmount();
+  assert.equal(mql.l.length, 0, 'off on unmount');
+});
