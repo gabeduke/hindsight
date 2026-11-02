@@ -2,9 +2,10 @@
 
 > A spec, 2026-11-02, for Gabe. It is item 1d of the component migration
 > (`STATE.md`, *Next*; `components.md` §6, row 1, and *For Gabe*, call 1),
-> after the engine split (1c, #247). It is not built yet. Each decision has
-> a recommendation; the ones marked **Gabe's** change a rule he made, or a
-> flow, and wait for his answer. The build order follows them.
+> after the engine split (1c, #247). It is not built yet. What
+> `components.md` already settled (agreed 2026-10-30) is cited, not
+> reopened; the rest are recommendations within it. The build order
+> follows them.
 
 ## Why a spec first
 
@@ -44,16 +45,18 @@ about who owns what:
 
 ## Decisions
 
-1. **Gabe's: the ids become the component's.** Each of the twelve takes
-   its `np-` name (`#position` → `#np-position`, `#rec` → `#np-rec`, …),
-   and the flows' selectors, the Studio's and Open's change with them in
-   the same PR. No flow's expectation changes, only how it finds the key.
-   The other way, a flow that may not be edited, leaves the component an
-   id of its own, which Guardrail 15 has no exception for. *Recommended.*
-   (The alternative: flows find the bar's keys by `data-part` and role,
-   not by id, which is a larger edit to the same flows.)
+1. **The ids become the component's.** *Agreed*: `components.md` 1.3,
+   *The flows keep finding it*. Each of the twelve takes its `np-` name
+   (`#position` → `#np-position`, `#rec` → `#np-rec`, …), with each
+   flow's selector and Step 5a's LCD ids moved in the same PR: "the
+   selectors change, never what a flow expects". The Studio's lookups
+   move with them; Open's own markup (`wave.html`, `wave/page.js`) keeps
+   its ids until Open's pass.
 2. **The bar's state goes on its root; the page's layout is the
-   surface's.** The component says fold and player-up on `#np`
+   surface's.** *Agreed* for the stylesheet (`components.md` 1.4, *Told
+   its state on its root*, and *Laid out by its own width*: container
+   queries for its six viewport `@media`, `--dock-b` to the surface's
+   stylesheet). Recommended for the page: the component says fold and player-up on `#np`
    (`data-fold`, and `data-size`, which it already sets), and its
    stylesheet keys on them. `body.np-fold` and `body.player-open`, which
    the page's own rules read, are set by the surface (`lib/shell/boot.js`)
@@ -91,14 +94,15 @@ about who owns what:
    (decision 1 again: J1.12, J1.13 and J2.3 select `#np-source`, and J1.4,
    J1.20 and J2.7 `#np-tempo`).
    *Recommended.*
-7. **Open keeps today's files until its pass.** `wave.html` keeps its
-   `#np`, `css/bar.css` (frozen: no new rule) and its imports of
-   `lib/bar/player.js`, `slots.js`, `display.js` and `carry.js`; the
-   component has its own copies of what it needs, and Open's pass deletes
-   the old ones. For one stretch the two bars' rules are in two files.
-   *Recommended*: the other way, Open linking the component's stylesheet
-   now, puts Open's markup under the component's rules before Open is on
-   the component.
+7. **Open keeps its markup and its modules until its pass.** The
+   Transport's stylesheet is `css/bar.css` (`components.md` 1.4), which
+   `wave.html` links already, and Open's `#np` has the same root class,
+   so its rules keep drawing Open's bar. The rules keyed on
+   `body.wave-page` become the root's (`data-room="open"`, which
+   `wave/page.js` sets on its own `#np`), the one change to Open. Open
+   keeps importing `lib/bar/player.js`, `slots.js`, `display.js` and
+   `carry.js`, which stay where they are until Open's pass; the
+   component has its own copies of what it needs from them. *Recommended.*
 8. **The models the Transport needs** are the engine's `bar` (what plays,
    its verbs; `snapshot()` and `onChange` since 1c), the transport, the
    tape and the takes (the source menu's list), and the phone's recorder.
@@ -129,7 +133,7 @@ unmoved:
    Studio's and Open's selectors.
 5. **The move**: `lib/components/transport/` (`index.js` with the
    template from `shell.html`, `NowPlaying` as its mount, the modules
-   beside it), `css/transport.css` from `css/bar.css`'s shell half,
+   beside it), `css/bar.css` as its stylesheet, scoped to `.np`,
    `display` mounted inside (decision 6), the harness check
    (`scripts/components/transport.check.mjs`, every size), `ci.yml`'s
    globs and AGENTS.md's list, `SHELL`, and AGENTS.md's bar rule and 0047

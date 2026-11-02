@@ -151,9 +151,8 @@ and still looks it:
         breaks Guardrail 15 in six places that each need an interface
         (the ids, the bar's state on `<body>`, the fold event and the
         `tape-page` observer, the Studio's keys in the bar, the window,
-        Open sharing the files). **Waiting on Gabe**: decision 1 renames
-        twelve ids the flows select; the rest are recommendations. Then
-        its five PRs in order. It amends AGENTS.md and decision 0047
+        Open sharing the files), each agreed in `components.md` or
+        recommended within it; then its five PRs in order. It amends AGENTS.md and decision 0047
         (call 1).
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
