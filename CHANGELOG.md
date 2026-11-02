@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.02.6 — 2026-11-02
+
+- C shuts Catch's menu as it catches, as a tap on Catch does (b48b951c)
+- Spec and STATE.md: step 3's keys are #254 (7b79a184)
+- The bar's ●, Catch and the click are its own keys, on the tape's verbs; nothing changes on screen (214029d9)
+
+
 ## v2026.11.02.5 — 2026-11-02
 
 - The bar's tape keys switch rooms in the same step as the page, not a frame after (e3899fa4)
