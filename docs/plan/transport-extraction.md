@@ -160,7 +160,7 @@ unmoved:
      gone. The body stays where the fold is kept: the router takes
      `np-fold` with each room (it is not in `KEEP_CLASSES`), so the fold
      is a room's, and a copy kept across a switch goes stale.
-   - **2b, the stylesheet's half**: *built*, #PR2B. What lays out the page moves to
+   - **2b, the stylesheet's half**: *built*, #253. What lays out the page moves to
      `styles.css`, the surface's: `body.player-open`'s `overflow`,
      `.appnav` and `.np-dock`; `body:has(.np)`'s `--dock-b`, padding and
      toasts; `body.selecting .np`; and the studio and away keys,
