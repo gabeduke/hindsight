@@ -146,11 +146,15 @@ and still looks it:
         still imports `noteHere`, `carry.js` and `handoff.js` from
         `lib/bar/`; Guardrail 18 matches the source makers by name (an
         aliased import gets past it).
-     d. **The extraction** (next, start fresh here) into
-        `lib/components/transport/`: `NowPlaying` and the modules
-        `components.md` §6 row 1 lists, drawn from `engine.bar`,
-        `engine.transport`, the tape and the takes. It amends AGENTS.md
-        and decision 0047 (call 1).
+     d. **The extraction** into `lib/components/transport/`: a spec
+        first, `transport-extraction.md` (2026-11-02), because the move
+        breaks Guardrail 15 in six places that each need an interface
+        (the ids, the bar's state on `<body>`, the fold event and the
+        `tape-page` observer, the Studio's keys in the bar, the window,
+        Open sharing the files). **Waiting on Gabe**: decision 1 renames
+        twelve ids the flows select; the rest are recommendations. Then
+        its five PRs in order. It amends AGENTS.md and decision 0047
+        (call 1).
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
