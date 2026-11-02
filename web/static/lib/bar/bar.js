@@ -39,7 +39,7 @@ const $ = (id) => document.getElementById(id);
  * source's own (▶, Loop, a seek).
  */
 export class NowPlaying {
-  constructor({ engine, onToast } = {}) {
+  constructor({ engine, onToast, layout, room = () => null } = {}) {
     this.engine = engine;
     const bar = engine.bar;
     this.root = $('np');
@@ -56,16 +56,16 @@ export class NowPlaying {
     this.colors = tokenCache(() => this.scrub);
     onSchemeChange(() => { this.colors.clear(); this.kick(); });
     // The phone's player, a sheet (player.js): null where the page has none.
-    this.player = initPlayer();
-    initFold();
+    this.player = initPlayer({ layout });
+    initFold(document, { layout });
     // Its height, for the pages that keep clear of it.
     measureBar(this.root);
     // With a take, Open › and ✎; with the feed, GRAB; ⟲ is Repeat for a
     // take (take-keys.js).
     this.keys = takeKeys({ doc: document, root: this.root, onNote: () => bar.note(), onGrabFeed: () => bar.grabFeed() });
-    // The tempo's menu is the Studio's: a room switch changes whether the
-    // key opens it.
-    new MutationObserver(() => this.kick()).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    // The tempo's menu is the Studio's: the surface says which room is
+    // shown (room()), and kicks the bar as it switches.
+    this.room = room;
     // Where a take or the feed plays: this device, by its kind, read once
     // and again when the screen changes shape, not every frame.
     const kind = () => { this.here = hereWord(deviceOf(window)); };
@@ -303,7 +303,7 @@ export class NowPlaying {
     const foot = $('np-out-foot');
     if (foot) setText($('np-out-foot-val'), d.out);
     const tempo = $('np-tempo');
-    const tempoMenu = s.kind === 'tape' && document.body.classList.contains('tape-page');
+    const tempoMenu = s.kind === 'tape' && this.room() === 'studio';
     if (tempo.disabled !== !tempoMenu) tempo.disabled = !tempoMenu;
     setAttr(tempo, 'aria-label', tempoMenu ? `${d.said.tempo}: change it` : d.said.tempo);
     setAttr($('np-source'), 'aria-label', d.said.source);

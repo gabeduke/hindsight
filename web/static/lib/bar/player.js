@@ -16,11 +16,16 @@
 import { layersOf } from '../ui/layers.js';
 import { createSheet } from '../ui/sheet.js';
 import { barSize } from './slots.js';
+import { barLayout } from './layout.js';
 
 export const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)';
 
-/** initPlayer wires the page's #np-expand, if it has one. Answers its sheet. */
-export function initPlayer({ layers = layersOf(document) } = {}) {
+/**
+ * initPlayer wires the page's #np-expand, if it has one. Answers its sheet.
+ * `layout` is the page's (barLayout, layout.js), which says the player up
+ * to the page.
+ */
+export function initPlayer({ layers = layersOf(document), layout = barLayout(document) } = {}) {
   const btn = document.getElementById('np-expand');
   if (!btn) return null;
   const np = btn.closest('.np');
@@ -28,7 +33,7 @@ export function initPlayer({ layers = layersOf(document) } = {}) {
   // The sheet: the tape page's dock (the bar and its drawers), or the bar.
   const el = np.closest('.np-dock') || np;
   const phone = matchMedia(PHONE);
-  const isOpen = () => document.body.classList.contains('player-open');
+  const isOpen = () => layout.open;
   let stilled = [];
   // Where the mini player stood, as the sheet's offset from the top of the
   // screen: the sheet comes up from there and goes back down to it, so the
@@ -51,7 +56,7 @@ export function initPlayer({ layers = layersOf(document) } = {}) {
     }
   }
   function set(on) {
-    document.body.classList.toggle('player-open', on);
+    layout.set({ open: on });
     size();
     still(on);
     btn.setAttribute('aria-expanded', String(on));

@@ -100,7 +100,9 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   const { NowPlaying } = await import('./bar.js');
   const onToast = (m) => w.toasts.push(m);
   const made = createEngine({ tapes: Promise.resolve(tapes), onToast, find: null });
-  const np = drawn ? new NowPlaying({ engine: made, onToast }) : null;
+  // The room shown, as the shell's router says it (w.room).
+  w.room = null;
+  const np = drawn ? new NowPlaying({ engine: made, onToast, room: () => w.room }) : null;
   const engine = whole ? made : null;
   const bar = made.bar;
   await bar.ready;

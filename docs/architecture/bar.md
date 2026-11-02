@@ -88,7 +88,13 @@ sideways scroll).
   slides by a FLIP on the lid spring (a transform, never a height a frame).
   Folded it is one row of 44 px keys, `body.np-fold`, kept for the visit. On
   a phone the grabber is the player's, and puts it away. ▾ only ever opens
-  a menu.
+  a menu. The fold and the player up are the page's bar layout
+  (`lib/bar/layout.js` `barLayout(doc)`: `folded`, `open`, `set()`,
+  `snapshot()`, `onChange(fn)`, `fn(after, before)`), the one place that writes `body.np-fold`
+  and `body.player-open`; the shell makes it and hands it to the bar and to
+  every view (`ctx.barLayout`), where the Studio hears a fold to draw its
+  lanes again. The router keeps `np-fold` with its room, so the body is
+  where it is kept.
 - **✎ is the page's** (`lib/bar/take-keys.js`, `engine.setOnNote`): the
   shell's notes drawer (`rooms.md`, *The notes drawer*) takes the frame
   being heard (`frameNow`); a page without one opens the take on its own
@@ -138,7 +144,9 @@ by hand: the tape stays until a take is picked by hand), `backToTape()`,
 counted in `touches`).
 
 `NowPlaying` (`lib/bar/bar.js`) is the bar drawn: made by the shell beside
-the engine (`new NowPlaying({engine, onToast})`), it draws the engine's
+the engine (`new NowPlaying({engine, onToast, layout, room})`: `layout` the
+shell's `barLayout`, `room()` the room the router shows, so the tempo opens
+its menu in the Studio; the shell kicks the bar as it switches), it draws the engine's
 `src` on `#np` from its `onChange`, sets `#np[data-source]` and ⏏'s
 `hidden` (`bar.canEject`), and hands each press to the engine's verbs or
 the source's own (▶, Loop, a seek). The source menu, ● on the phone's mini
