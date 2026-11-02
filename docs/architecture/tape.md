@@ -371,8 +371,10 @@ overtakes is dropped, and the tape its answer carries is shown at once;
 the transport's verbs and the Studio's edits go through it. Its own verbs
 are `record(body)`, `punchOut()`, `cancelRecord()` (●), `catch(body)`
 (Catch) and `setClick(on)`, each answering the Pi's answer or throwing a
-`Refusal`. The Studio shows its answers while shown, and on show what it
-heard while hidden (`heardTape`, which says the `hindsight:tape-state` the
+`Refusal`. The Studio asks it every 200 ms from its `ctx.socket`, which
+opens on every visit (a first one after a prewarm included, which skips
+the view's `show()`) and closes on hide. It shows the tape's answers while
+shown, and on show what it heard while hidden (`heardTape`, which says the `hindsight:tape-state` the
 buffer reads). Guardrail 17 fails on a module other than the protocol
 client naming `/api/tapes/state`, `/api/tapes/record` or
 `/api/tapes/catch`; the one-shot readers (`lib/tape/listener.js`

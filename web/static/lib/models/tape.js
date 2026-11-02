@@ -100,6 +100,7 @@ export function createTape(env = {}) {
     const mine = gate.begin(force === true);
     if (!mine) return;
     const g = gen;
+    let heard = null;
     try {
       const r = await protocol.read('tape', { id, suggest: bare() });
       // An answer of any kind (a 404) was the Pi; none at all is the link.
@@ -107,12 +108,14 @@ export function createTape(env = {}) {
       if (g !== gen || !gate.current(mine)) return;
       if (!r.ok) { if (r.status === 404) await follow(); return; }
       if (!r.body.loaded) { await follow(); return; }
-      take(r.body);
+      heard = r.body;
     } catch {
       link?.fail('tape');
     } finally {
       if (gate.end(mine)) poll();
     }
+    // Outside the ask: a listener that throws is its own bug, not the link.
+    if (heard) take(heard);
   }
   // follow switches to the tape that's loaded now, because another device
   // loaded it.

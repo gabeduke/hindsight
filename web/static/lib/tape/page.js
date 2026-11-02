@@ -270,7 +270,6 @@ export function mountTapePage(ctx) {
   return {
     ready,
     show() {
-      tapeModel.every('studio', POLL_MS);
       if (state.id) {
         caughtUp();
         poll(true);
@@ -284,7 +283,6 @@ export function mountTapePage(ctx) {
       }
     },
     hide() {
-      tapeModel.every('studio', null);
       if (bar) bar.commit();
       closeSheets();
       renderAlign();
@@ -328,16 +326,20 @@ const change = (send) => tapeModel.change(send);
 const barHands = {
   around: (name, args, run) => sentHere(name, args, run),
 };
-// followTheTape is the Studio's ctx.socket: it holds the transport while
-// the Studio is shown. A press on the keyboard (the bar's note hears it from
-// the transport too) lights the head of the track it changed here, for the
-// note's second.
+// followTheTape is the Studio's ctx.socket, open on every visit (the first
+// after a prewarm included) and closed on hide: it holds the transport, and
+// asks the tape every POLL_MS, while the Studio is shown. A press on the
+// keyboard (the bar's note hears it from the transport too) lights the head
+// of the track it changed here, for the note's second.
 function followTheTape() {
   engine.transport.delegate(barHands);
+  tapeModel.every('studio', POLL_MS);
+  caughtUp();
   const offPress = engine.transport.onPress((p) => lightTrackHead(lanes, p));
   return {
     close() {
       offPress();
+      tapeModel.every('studio', null);
       engine.transport.delegate(null);
     },
   };
