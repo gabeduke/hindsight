@@ -179,7 +179,10 @@ The bar says the rest itself: why Catch waits (with *Last 4 bars*), why an
 item of its ▾ can't go, and *Could not record* or *Could not catch*.
 Guardrail 19 fails on `lib/tape/page.js` or `lib/rooms/studio.js` looking
 up `#np-rec`, `#np-catch-pass`, `#np-catch-more`, `#catch-menu` or
-`#np-click`. The overview, the clock-out lamp and the output strip are
+`#np-click` by the usual spellings (`$('np-rec')`, `getElementById`, a
+`querySelector` on `#np-rec`): a guard against the old wiring coming back,
+not a proof; an id held in a variable, or another module of the Studio's,
+gets past it. The overview, the clock-out lamp and the output strip are
 still the Studio's by id (`#np-tape-overview`, `#np-clock-out`,
 `#np-out-strip…`), in `shell.html`'s `#np`
 (`docs/plan/transport-extraction.md`, step 3).

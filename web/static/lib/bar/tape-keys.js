@@ -248,7 +248,10 @@ export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneR
   whenRecorder((r) => { recorder = r; r.onChange(draw); draw(); });
   tape.onChange(draw);
 
-  const keys = { rec: () => !rec.disabled && record(), catch: onCatch, click: () => !click.disabled && toggleClick() };
+  // A key's press is a tap on it: C shuts Catch's ▾ as a tap on Catch does
+  // (splitKey closes it on the key's click, which C doesn't make).
+  const pressCatch = () => { onCatch(); if (menu?.isOpen()) menu.close('pick'); };
+  const keys = { rec: () => !rec.disabled && record(), catch: pressCatch, click: () => !click.disabled && toggleClick() };
   return {
     lend(h) {
       hands = h;

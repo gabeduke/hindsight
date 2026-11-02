@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.02.5 — 2026-11-02
+
+- The bar's tape keys switch rooms in the same step as the page, not a frame after (e3899fa4)
+- Name #253 in the spec (75b47b19)
+- The bar's tape keys follow the room on its own root, and what the page does about the bar is styles.css's (69e42c3f)
+- STATE.md: the Transport's extraction, steps 1 and 2a built (#249, #250); 2b, the stylesheet's half, is next (2b47d296)
+
+
 ## v2026.11.02.4 — 2026-11-02
 
 - The Studio hears a fold by what moved in that set, not a fold it kept, which a room switch made stale (d279d409)
