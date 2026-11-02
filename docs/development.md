@@ -177,7 +177,9 @@ touching `view.js`, `overview.js`, `share.js`, `rising.js` or `page.js`, check b
 The rest of the UI is checked by the user flows: `node scripts/flows.mjs`
 (`make flows`) drives Gabe's journeys in Playwright against a demo it boots
 itself, on a tablet, a desktop and a phone profile. The stories, how to run them and
-how to write a new one are in [flows.md](flows.md).
+how to write a new one are in [flows.md](flows.md). The browser is muted, since
+the demo plays audio on its own and the flows run unattended;
+`FLOWS_AUDIO=1` turns the sound back on.
 
 The push on a real kit, which the demo never shows (TLS, HTTP/2 to Caddy, a
 network between): `node scripts/push-probe.mjs https://<kit-name>` opens the
