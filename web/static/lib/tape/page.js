@@ -165,6 +165,10 @@ const q = () => `id=${encodeURIComponent(state.id)}`;
 
 let awayTrack = null; // the record track while Overdub on this device is open
 let viewCtx = null;
+// The overview (#np-tape-overview): the Studio's, in the bar's strip while
+// the Studio is shown (lib/shell/views/studio.js), and handed to the page,
+// which holds it: out of the page while another room is, so never looked up.
+let overviewCv = null;
 let cueLane = null;
 // The bar's keys for the tape here, ●, Catch and its ▾ and the click
 // (lib/bar/tape-keys.js, ctx.tapeKeys): the Studio lends them its hands
@@ -178,8 +182,9 @@ let stack = null;
 
 // The Studio's shell view (lib/shell/views/studio.js) is the only caller:
 // ctx is always given.
-export function mountTapePage(ctx) {
+export function mountTapePage(ctx, { overview = null } = {}) {
   viewCtx = ctx;
+  overviewCv = overview;
   tapeModel = ctx.tape;
   stack = ctx?.layers || layersOf(document);
   tapeKeys = ctx.tapeKeys || null;
@@ -703,10 +708,9 @@ function render() {
   }
 
   if (engine?.tape) engine.transport.ingest({ tape: t, live });
-  const ov = $('np-tape-overview');
-  setIf(ov, 'aria-valuemax', String(t.length));
-  setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
-  setIf(ov, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
+  setIf(overviewCv, 'aria-valuemax', String(t.length));
+  setIf(overviewCv, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
+  setIf(overviewCv, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
   // ●, Catch and the click are the bar's (lib/bar/tape-keys.js), drawn
   // from the tape and the Studio's hands (studioHands): the armed tracks.
   tapeKeys?.draw();
@@ -2692,7 +2696,7 @@ function setView(v) {
 // lanes show, tap to move the playhead there (to the nearest bar), double-tap
 // to go back to the loop.
 function wireOverview() {
-  const cv = $('np-tape-overview');
+  const cv = overviewCv;
   cv.style.touchAction = 'none';
   // A slider for the keyboard too: ← → a bar (a second with no tempo). A
   // held arrow steps on from where it last asked for, not from a stale poll,
@@ -3949,7 +3953,7 @@ const overview = { cv: null, base: null, view: null, W: 0, H: 0, dpr: 1, gen: 0,
 function drawOverview(heardFrame = state.live ? heardNow() : null) {
   const t = state.tape;
   if (!t) return;
-  const cv = $('np-tape-overview');
+  const cv = overviewCv;
   const { w: W, h: H } = sizeOf(cv);
   const dpr = window.devicePixelRatio || 1;
   if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
@@ -5006,7 +5010,7 @@ function wire() {
   window.addEventListener('pagehide', () => bar.commit());
   // The lanes and the bar's scrubber change width apart: each redraws all
   // of them (watchSize). The lanes' canvases are watched as they're made.
-  for (const id of ['tape-ruler', 'np-tape-overview', 'tape-sections']) watchSize($(id));
+  for (const el of [$('tape-ruler'), overviewCv, $('tape-sections')]) watchSize(el);
   wireView($('lanes'), () => (lanes[0] ? lanes[0].canvas : $('lanes')).getBoundingClientRect());
   wireView($('tape-ruler'), () => $('tape-ruler').getBoundingClientRect());
   const fitView = () => { state.zoom = null; state.touchedView = performance.now(); redrawView(); };

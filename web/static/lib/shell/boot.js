@@ -106,7 +106,9 @@ const slots = {
   // the brand; a part of it for the tools zone says so where it adds it.
   header: { parent: () => document.querySelector('.appbar-start') },
   dock: { parent: () => $('np-dock'), before: () => $('np') },
-  bar: { parent: () => $('np') },
+  // The bar: its strip ([data-slot="strip"]) is a place a room fills, the
+  // Studio with its overview, at the strip's start.
+  bar: { parent: () => $('np'), places: { strip: () => $('np')?.querySelector('[data-slot="strip"]') } },
 };
 
 const shared = { engine, barLayout: layout, tapeKeys: np.tapeKeys, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };

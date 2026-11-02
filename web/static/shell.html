@@ -191,6 +191,10 @@
     <div id="lanes" class="tape-lanes"></div>
 
   </div>
+  <!-- The Studio's part of the bar: the whole tape, at the start of the
+       bar's strip while the Studio is shown (lib/shell/views/studio.js puts
+       it there through ctx.barSlot, and hands it to lib/tape/page.js). -->
+  <canvas id="np-tape-overview" class="tape-overview np-scrub" role="slider" tabindex="0" aria-label="The whole tape: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-tape-overview" data-for="studio"></canvas>
 </main>
 
 <!-- Capture: the Studio when the tape is off (lib/shell/views/capture.js). -->
@@ -474,10 +478,11 @@
         </div>
       </div>
     </div>
-    <!-- The strip: the whole tape (in the Studio, the tape's overview), or
-         the take or the feed, to scrub. -->
+    <!-- The strip: the take or the feed, or the tape away from the Studio,
+         to scrub. In the Studio, the tape's overview is at its start: the
+         Studio's markup, put here through its slot (ctx.barSlot, place
+         'strip'). -->
     <div class="np-row np-row-2" data-slot="strip">
-      <canvas id="np-tape-overview" class="tape-overview np-scrub" role="slider" tabindex="0" aria-label="The whole tape: tap to move the playhead, drag the box to move the view" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-tape-overview" data-for="studio"></canvas>
       <canvas id="np-scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub" data-for="take feed away"></canvas>
     </div>
     <!-- The foot: where it plays, at the foot of the phone's player pulled

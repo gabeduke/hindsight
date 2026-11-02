@@ -358,6 +358,32 @@ test('what a view adds to a slot is in the page only while it is shown, and goes
   assert.deepEqual(ids(t.np), ['bar-first', 'np-open', 'room-sit', 'np-scrub']);
 });
 
+test('a node added to a place of the slot goes at the start of that place, and back there on each show', async () => {
+  // The bar's strip (lib/shell/boot.js: slots.bar.places.strip, its
+  // [data-slot="strip"]): the Studio's overview goes in before the bar's own
+  // scrubber, and the doorway's grease after it, as each room is shown.
+  const t = aView({ mount: (ctx) => { ctx.barSlot.add(overview, { place: 'strip' }); return {}; } }, {
+    slots: { bar: { parent: () => t.np, places: { strip: () => strip } } },
+  });
+  const strip = t.el('div', 'np-strip');
+  strip.append(t.scrub);
+  t.np.append(strip);
+  const overview = t.el('canvas', 'np-tape-overview');
+  const ids = (e) => e.children.map((c) => c.id);
+  await t.v.show();
+  assert.deepEqual(ids(strip), ['np-tape-overview', 'np-scrub']);
+  assert.deepEqual(ids(t.np), ['np-open', 'np-strip'], 'in its place, not at the bar’s end');
+  await t.v.hide();
+  assert.deepEqual(ids(strip), ['np-scrub'], 'a hidden view leaves nothing in the place');
+  await t.v.show();
+  assert.deepEqual(ids(strip), ['np-tape-overview', 'np-scrub']);
+});
+
+test('a place the slot does not have is an error when a view adds to it, not a node that never shows', async () => {
+  const t = aView({ mount: (ctx) => { ctx.barSlot.add(t.el('canvas'), { place: 'nowhere' }); return {}; } });
+  await assert.rejects(t.v.show(), /barSlot has no place nowhere/);
+});
+
 test('a slot’s remove takes the node out for good', async () => {
   let remove;
   const sit = aView().el('button', 'room-sit');

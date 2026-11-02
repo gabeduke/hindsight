@@ -88,7 +88,12 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   takes the nodes **out of the document** and `show()` puts them back. So
   `getElementById` on a docked node (`#multi-bar`, `#clip-editor`) answers
   null while the Studio is hidden; code that can run then (a timer) must hold
-  the node, not look it up.
+  the node, not look it up. `add(node, where)` puts it in the slot's own
+  place, `{ before: el }` or `{ after: el }`, `'first'`, or `{ place: name }`:
+  the start of a zone the shell names in the slot (`boot.js`,
+  `slots.bar.places`), an error at `add` for a name it hasn't got. The bar's
+  one place is `'strip'` (`[data-slot="strip"]`), where the Studio's
+  overview goes (`bar.md`, *The Studio's part of the bar*).
 
 All views share one id namespace, since hidden ones stay in the DOM
 (`pages.test.js` checks the union). The CSS is global and keyed on the body
