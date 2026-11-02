@@ -32,7 +32,12 @@ export const studioView = {
       const el = document.getElementById(id);
       if (el) ctx.dockSlot.add(el);
     }
-    const tape = mountTapePage(ctx);
+    // The Studio's part of the bar: the whole tape, at the start of the
+    // bar's strip while the Studio is shown. The page is handed it: a look-up
+    // by its id answers null while another room is.
+    const overview = ctx.root.querySelector('#np-tape-overview');
+    if (overview) ctx.barSlot.add(overview, { place: 'strip' });
+    const tape = mountTapePage(ctx, { overview });
     let studio = null;
     startStudio({ doc: document, ctx }).then((s) => {
       studio = s;

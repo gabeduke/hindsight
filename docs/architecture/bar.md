@@ -28,11 +28,13 @@ sideways scroll).
   will name the Transport's (`components.md` 1.3): `#np-position` (the
   display's big line, `bar.js`'s, and what `lib/room/deck.js` `readBar`
   reads), `#np-rec`, `#np-catch-pass`, `#np-catch-more` and `#np-click`
-  (`lib/bar/tape-keys.js`), `#np-tape-overview` and `#np-clock-out` (the
-  Studio's, `lib/tape/page.js`), and `#np-out-strip` with its `-led`,
+  (`lib/bar/tape-keys.js`), `#np-clock-out` (the Studio's,
+  `lib/tape/page.js`), and `#np-out-strip` with its `-led`,
   `-text`, `-right` and `-resume` (`lib/tape/output-ui.js`). Guardrail 20
   fails on one that isn't. Open's own `#np` (`wave.html`) keeps its ids
-  until Open's pass: its `#position` is `lib/wave/page.js`'s.
+  until Open's pass: its `#position` is `lib/wave/page.js`'s. The
+  overview, `#np-tape-overview`, is not in `#np`'s markup at all: it is
+  the Studio's (*The Studio's part of the bar*, below).
 - **Its widths are its own**: a container query on its first row
   (`.np-row-1`, never `.np` or the dock, whose fixed descendants a container
   would hold). The deck's width hangs on the row's width alone
@@ -182,10 +184,34 @@ up `#np-rec`, `#np-catch-pass`, `#np-catch-more`, `#catch-menu` or
 `#np-click` by the usual spellings (`$('np-rec')`, `getElementById`, a
 `querySelector` on `#np-rec`): a guard against the old wiring coming back,
 not a proof; an id held in a variable, or another module of the Studio's,
-gets past it. The overview, the clock-out lamp and the output strip are
-still the Studio's by id (`#np-tape-overview`, `#np-clock-out`,
-`#np-out-strip…`), in `shell.html`'s `#np`
-(`docs/plan/transport-extraction.md`, step 3).
+gets past it.
+
+## The Studio's part of the bar
+
+The overview (`#np-tape-overview`, the whole tape: tap to move the
+playhead, drag its box to move what the lanes show) is the Studio's
+drawing, not the bar's. Its markup is the Studio's, at the end of
+`#view-studio` in `shell.html`; the Studio's view
+(`lib/shell/views/studio.js`) puts it at the start of the bar's strip
+through its slot, `ctx.barSlot.add(overview, { place: 'strip' })`, and
+hands it to its page, `mountTapePage(ctx, { overview })`, which holds it
+for its render, its keys and its size observer. The strip
+(`[data-slot="strip"]`, `.np-row-2`) is a place the shell names in the bar
+slot (`lib/shell/boot.js`, `slots.bar.places`): the bar's markup keeps it,
+with the bar's own scrubber (`#np-scrub`) in it, and the overview is in it
+only while the Studio is shown, so a look-up by its id answers null in
+another room. It still shows only for the tape in the Studio
+(`data-for="studio"`). Guardrail 21 fails on `#np`'s markup carrying it, on
+`lib/tape/page.js` looking it up, or on the Studio putting it anywhere but
+the strip.
+
+The clock-out lamp (`#np-clock-out`) and the output strip
+(`#np-out-strip…`, `lib/tape/output-ui.js`) are still in `shell.html`'s
+`#np`, found by id: unlike the overview, both show in every room today (the
+lamp as the Studio last drew it, the strip while the tape plays on this
+phone), so a slot of the Studio's, which is out of the page while another
+room is shown, would take them out of the Listening Room's and Capture's
+bar (`docs/plan/transport-extraction.md`, step 3).
 
 ## The engine
 

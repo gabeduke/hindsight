@@ -465,10 +465,8 @@ test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only
   assert.deepEqual(found, [], 'looks up the bar’s ●, Catch or the click: lend them the Studio’s hands (ctx.tapeKeys.lend), or press them (ctx.tapeKeys.press)');
 });
 
-test('Guardrail 20: every id inside the shell’s #np is np-<name>, as cx.id names a component’s', () => {
-  // docs/plan/transport-extraction.md, decision 1; components.md 1.3: a
-  // component writes an id only through cx.id(name), its root's id and the
-  // name, so the bar's are np-<name> before it moves into its template.
+/** npMarkup is the shell's #np as shell.html writes it, its own tags left out. */
+function npMarkup() {
   const html = read('shell.html');
   const open = html.search(/<section\b[^>]*\bid="np"/);
   assert.ok(open >= 0, 'shell.html has no <section id="np">');
@@ -481,9 +479,35 @@ test('Guardrail 20: every id inside the shell’s #np is np-<name>, as cx.id nam
     if (!depth) { end = m.index; break; }
   }
   assert.ok(end > start, 'shell.html’s #np is not closed');
-  const ids = [...html.slice(start, end).matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  return html.slice(start, end);
+}
+
+test('Guardrail 20: every id inside the shell’s #np is np-<name>, as cx.id names a component’s', () => {
+  // docs/plan/transport-extraction.md, decision 1; components.md 1.3: a
+  // component writes an id only through cx.id(name), its root's id and the
+  // name, so the bar's are np-<name> before it moves into its template.
+  const ids = [...npMarkup().matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(ids.length > 20, 'read the ids inside #np');
   assert.deepEqual(ids.filter((id) => !id.startsWith('np-')), [], 'an id inside #np that is not np-<name>');
+});
+
+test('Guardrail 21: the overview is the Studio’s, put into the bar’s strip through its slot; the bar’s markup does not carry it, and the Studio holds it', () => {
+  // docs/plan/transport-extraction.md, decision 4; bar.md, *The Studio's
+  // part of the bar*: the overview (#np-tape-overview) is the Studio's
+  // markup, which the Studio puts at the start of the bar's strip
+  // (ctx.barSlot.add(el, { place: 'strip' })), so it is in the page only
+  // while the Studio is shown. The Studio's page is handed it
+  // (mountTapePage(ctx, { overview })) and holds it: a look-up by id
+  // answers null while another room is shown.
+  assert.doesNotMatch(npMarkup(), /\bid="np-tape-overview"/, 'the shell’s #np carries the Studio’s overview: it is the Studio’s markup, in the bar through ctx.barSlot');
+  const lookups = [
+    /(?<![\w$])(\$|getElementById)\(\s*['"`]np-tape-overview['"`]/,
+    /querySelector(All)?\(\s*['"`][^'"`]*#np-tape-overview(?![\w-])/,
+  ];
+  const src = read('lib/tape/page.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+  const found = src.split('\n').filter((line) => lookups.some((re) => re.test(line))).map((l) => l.trim());
+  assert.deepEqual(found, [], 'lib/tape/page.js looks up the overview: it is handed it (mountTapePage(ctx, { overview }))');
+  assert.match(read('lib/shell/views/studio.js'), /barSlot\.add\(\s*overview\s*,\s*\{\s*place:\s*'strip'\s*\}\s*\)/, 'the Studio puts its overview into the bar’s strip through its slot');
 });
 
 // ---- the components: lib/components/ ---------------------------------------
