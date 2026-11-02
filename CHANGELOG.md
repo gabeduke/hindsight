@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.02.2 — 2026-11-02
+
+- STATE.md: the engine split done (#247); the extraction is next (8d93c024)
+- Tests only: the flows and the CSS snapshot run muted, so the demo no longer plays out loud through the machine running them (16cdb584)
+- The bar draws only while the page is shown, and the plan names the sources' new paths (daaffc0d)
+- The bar's engine is a model: lib/models/engine.js holds its sources and their audio, and NowPlaying draws it (64791a06)
+
+
 ## v2026.11.02.1 — 2026-11-02
 
 - STATE.md: the tape model done (#245); the engine split is next (be771a33)

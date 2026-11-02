@@ -146,11 +146,14 @@ and still looks it:
         still imports `noteHere`, `carry.js` and `handoff.js` from
         `lib/bar/`; Guardrail 18 matches the source makers by name (an
         aliased import gets past it).
-     d. **The extraction** (next, start fresh here) into
-        `lib/components/transport/`: `NowPlaying` and the modules
-        `components.md` §6 row 1 lists, drawn from `engine.bar`,
-        `engine.transport`, the tape and the takes. It amends AGENTS.md
-        and decision 0047 (call 1).
+     d. **The extraction** into `lib/components/transport/`: a spec
+        first, `transport-extraction.md` (2026-11-02), because the move
+        breaks Guardrail 15 in six places that each need an interface
+        (the ids, the bar's state on `<body>`, the fold event and the
+        `tape-page` observer, the Studio's keys in the bar, the window,
+        Open sharing the files), each agreed in `components.md` or
+        recommended within it; then its five PRs in order. It amends AGENTS.md and decision 0047
+        (call 1).
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
@@ -178,6 +181,24 @@ and still looks it:
   - ▶ in the Studio, with nothing playing, plays the tape (0064);
   - Export always offers Download (0065);
   - Open's selection bar as #220 recommends (0066).
+- **Calls taken for Gabe on 2026-11-02, his to overrule**: the
+  Transport's extraction (`transport-extraction.md`), built on its
+  recommendations overnight. Decision 1, the ids, was already agreed
+  (`components.md` 1.3). The rest:
+  - 2: the bar's fold and player-up go on `#np`; the shell, not the bar,
+    sets `body.np-fold` and `body.player-open` for the page's own rules;
+  - 3: the Transport is told the room by the surface, and the Studio hears
+    the fold through `ctx.barLayout`, not `hindsight:np-fold`;
+  - 4: ●, Catch and the click become the Transport's keys on the tape's
+    verbs; the overview, the clock-out lamp and the output strip stay the
+    Studio's, in the bar's slot;
+  - 5: `cx.media` and the stack's `covered()` (built, #249);
+  - 6: one display: the bar mounts `display` (`#np-lcd-…`), which learns
+    a take's and the feed's words;
+  - 7: Open keeps its markup and modules until its pass, sharing
+    `css/bar.css`;
+  - 8: the shell makes the phone's recorder at boot and hands it to the
+    Transport.
 - **`the-ecosystem.md` is the map.** Landed so far:
   - step 2, one verb set (#224);
   - step 4's first models: takes (#225), the tape's transport (#231).
