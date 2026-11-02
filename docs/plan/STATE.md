@@ -124,12 +124,17 @@ and still looks it:
         `snapshot()` (`architecture/bar.md`, *The transport*); Guardrail
         16; J1.13 runs on the phone (J1.10 and J1.16 say why they don't).
         Gabe tries it on the tablet and the phone before b.
-     b. **The tape model**, with the Studio's 200 ms poll moved into it
-        (one poller, not the Studio's and the bar's), and its verbs for
-        ●, Catch and the click (`record`, `punchOut`, `catch`,
-        `setClick`), so `lib/tape/page.js` stops reaching into the bar
-        for `$('rec')`, `$('catch-pass')`, `$('click')`.
-     c. **The engine split** from `NowPlaying`: the sources
+     b. **The tape model**: done, #245 (2026-11-01).
+        `lib/models/tape.js` is the page's one poller of the tape (the
+        Studio 200 ms while shown, the bar 500 ms), with `change(send)`
+        and the verbs for ●, Catch and the click (`record`, `punchOut`,
+        `cancelRecord`, `catch`, `setClick`); the transport reads the
+        tape from it and `delegate` keeps only `around`; Guardrail 17
+        (`architecture/tape.md`, *The tape model*). Left for d: the
+        Studio still looks up and draws the bar's `$('rec')`,
+        `$('catch-pass')` and `$('click')` and binds them to these
+        verbs; the extraction moves that into the component.
+     c. **The engine split** (next, start fresh here) from `NowPlaying`: the sources
         (`tape-source.js`, `take-source.js`, `feed-source.js`) into
         `lib/models/`, and the transport's source verbs (`setSource`,
         `loadTake`, `eject`).
@@ -142,7 +147,9 @@ and still looks it:
   5. **Pads** (the cue lane). They need `lib/ui/drag.js` first.
 
   In between, the models still to build (step 4): `feed`, `take`, `rig`,
-  and `tape` and the transport's source verbs (1b, 1c). Then the one push
+  the transport's source verbs (1c), and the tape's other edits (`edit`,
+  `PATCH /api/tapes`'s other fields, undo, load, the cue lane's), still
+  the Studio's through `tape.change`. Then the one push
   socket at `/api/changes` (call 3).
 - **The walkthrough's specs** wait on Gabe's questions:
   - `reach-back.md` (Catch and Keep as one move);
