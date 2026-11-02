@@ -444,6 +444,27 @@ test('Guardrail 18: the engine (lib/models/engine.js) makes the bar’s sources 
   assert.deepEqual(found, [], 'goes around the engine: take the page’s (ctx.engine.bar’s verbs, or createEngine on a page of its own) instead');
 });
 
+test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only through the hands it lends them, never by their ids', () => {
+  // docs/architecture/bar.md, *The Studio's keys*: ● (#rec), Catch and its
+  // ▾ (#catch-pass, #catch-more, #catch-menu) and the click (#click) are the
+  // bar's keys (lib/bar/tape-keys.js), drawn from the tape's snapshot and
+  // pressed on its verbs. The Studio lends them its hands
+  // (ctx.tapeKeys.lend) and presses them with ctx.tapeKeys.press; a look-up
+  // by id, or a press of a helper that looks one up, wires them a second way.
+  const IDS = 'rec|catch-pass|catch-more|catch-menu|click';
+  const lookups = [
+    new RegExp(`(?<![\\w$])(\\$|getElementById)\\(\\s*['"\`](${IDS})['"\`]`),
+    new RegExp(`querySelector(All)?\\(\\s*['"\`][^'"\`]*#(${IDS})(?![\\w-])`),
+    new RegExp(`(?<![.\\w$])press\\(\\s*['"\`](${IDS})['"\`]`),
+  ];
+  const found = [];
+  for (const f of ['lib/tape/page.js', 'lib/rooms/studio.js']) {
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    for (const line of src.split('\n')) if (lookups.some((re) => re.test(line))) found.push(`${f}: ${line.trim()}`);
+  }
+  assert.deepEqual(found, [], 'looks up the bar’s ●, Catch or the click: lend them the Studio’s hands (ctx.tapeKeys.lend), or press them (ctx.tapeKeys.press)');
+});
+
 // ---- the components: lib/components/ ---------------------------------------
 // The kit (docs/architecture/components.md; docs/plan/components.md, 1.5): a
 // component draws inside the root it is given, from its models' snapshots,

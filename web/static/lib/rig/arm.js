@@ -42,6 +42,16 @@ export function recordBody(armed, inputOf, extra = {}) {
   return { track: armed[0], source: pairs.length ? pairs[0].source : '', ...(pairs.length > 1 ? { pairs } : {}), ...extra };
 }
 
+/** recTracksOf is a recording's tracks (live.record): its pairs', or its one. */
+export function recTracksOf(r) {
+  return r.pairs && r.pairs.length ? r.pairs.map((p) => p.track) : [r.track];
+}
+
+/** recSources is what a recording records from, in a word or two. */
+export function recSources(r) {
+  return r.pairs && r.pairs.length > 1 ? r.pairs.map((p) => p.source).join(' + ') : r.source;
+}
+
 /** tracksWords is "2", "2, 3" -- the tracks, as CATCH says them. */
 export function tracksWords(ns) {
   return (ns || []).join(', ');

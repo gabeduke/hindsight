@@ -315,7 +315,7 @@
      and the bars the loop could be (page.js, renderTempo). -->
 <div id="tempo-menu" class="menu tempo-menu" role="dialog" aria-label="Tempo" hidden></div>
 <!-- Catch's: what to catch, the last pass or the last bars, over its ▾
-     (page.js, renderCatchMenu). -->
+     (lib/bar/tape-keys.js, renderMenu). -->
 <div id="catch-menu" class="menu catch-menu" role="menu" aria-label="What to catch" hidden></div>
 <!-- The display's source: the tape, the live feed, the last few takes, the
      shelf (lib/bar/source-menu.js). -->
@@ -454,7 +454,7 @@
              ▾ of what to catch (lib/ui/menu.js splitKey); the feed's GRAB. -->
         <div class="np-zone np-verb" data-slot="verb">
           <span class="key-split np-catch-split" data-for="studio" data-mini="studio">
-            <button id="catch-pass" class="icon-btn primary np-catch" type="button" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span></button>
+            <button id="catch-pass" class="icon-btn primary np-catch" type="button" aria-keyshortcuts="C" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span><span class="np-catch-mini" aria-hidden="true"></span></button>
             <button id="catch-more" class="icon-btn key-more np-catch-more" type="button" aria-label="What to catch" data-tip="catch-more"><svg class="i i-down" width="18" height="18" aria-hidden="true"><use href="/icons/ui.svg?v=c634899d#down"/></svg></button>
           </span>
           <button id="np-feed-grab" class="icon-btn np-feed-grab" type="button" aria-label="GRAB from the live feed onto the Studio’s cue lane" data-tip="np-feed-grab" data-for="feed" data-mini="feed"><span class="np-grab-word">GRAB</span><span class="np-grab-sub">from the feed</span></button>

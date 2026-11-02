@@ -45,17 +45,14 @@ import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../
 import { restoreReplaced } from '../buffer/api.js';
 import { readResponse, failToast, editTape } from './refusal.js';
 import { bounceMenu, lastBounceKeeper, bounceToast, lastBounceToast, takePlayer, bounceStartWords } from '../rooms/bounce.js';
-import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm } from '../rig/arm.js';
+import { armedOf, toggled, recordBody, catchSays, onWords, tracksWords, armClick, armedNote, holdArm, recTracksOf, recSources } from '../rig/arm.js';
 import { bindPress, ARM_PRESS, GESTURE } from '../ui/press.js';
 import { PHONE } from '../bar/player.js';
-import { onPhoneRecorder, fmtClock } from '../phone/recorder.js';
 import { recordsTape } from '../rig/warn.js';
-import { catchState, catchSub, catchMini, CATCH_BARS } from './catch.js';
-import { tipFor } from '../help/tips.js';
 import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
 import { layersOf } from '../ui/layers.js';
-import { menu, splitKey, menuItem, menuDivider, menuGroup, barTop } from '../ui/menu.js';
+import { menu, menuItem, menuDivider, menuGroup, barTop } from '../ui/menu.js';
 import { icon } from '../ui/icons.js';
 import { revealAbove } from '../ui/reveal.js';
 import { tapeRowSub, deleteWords, afterDelete } from './tape-menu.js';
@@ -169,6 +166,10 @@ const q = () => `id=${encodeURIComponent(state.id)}`;
 let awayTrack = null; // the record track while Overdub on this device is open
 let viewCtx = null;
 let cueLane = null;
+// The bar's keys for the tape here, ●, Catch and its ▾ and the click
+// (lib/bar/tape-keys.js, ctx.tapeKeys): the Studio lends them its hands
+// (studioHands, below) and never looks them up.
+let tapeKeys = null;
 const viewActive = () => !viewCtx || viewCtx.active();
 // The shell's stack of open things, this view's scope of it (ctx.layers,
 // lib/ui/layers.js): the menus, the inspector, the clip editor and the
@@ -181,6 +182,7 @@ export function mountTapePage(ctx) {
   viewCtx = ctx;
   tapeModel = ctx.tape;
   stack = ctx?.layers || layersOf(document);
+  tapeKeys = ctx.tapeKeys || null;
   takes = ctx?.takes || null; // before the bounce, which reads it
   initBouncing();
   initEditorBar();
@@ -298,6 +300,8 @@ export function mountTapePage(ctx) {
       tapeModel.every('studio', null);
       offTape?.();
       offTape = null;
+      offKeys?.();
+      offKeys = null;
       cueLane?.destroy();
       cueLane = null;
     },
@@ -312,6 +316,7 @@ export function mountTapePage(ctx) {
 // answer carries is shown.
 let tapeModel = null;
 let offTape = null;
+let offKeys = null; // the hands lent the bar's keys, until destroy
 let heardV = 0; // the tape's snapshot shown last
 const poll = (force = false) => tapeModel.refresh(force);
 const change = (send) => tapeModel.change(send);
@@ -325,6 +330,43 @@ const change = (send) => tapeModel.change(send);
 // the hands each of its verbs is sent inside (sentHere), whoever pressed it.
 const barHands = {
   around: (name, args, run) => sentHere(name, args, run),
+};
+// What the Studio lends the bar's ●, Catch and click (ctx.tapeKeys.lend,
+// lib/bar/tape-keys.js), for as long as it is mounted: what is armed here
+// and what it records from, the body a verb sends (replace or overdub; the
+// jam-only sheet and "arm a track" refuse it), the words for its answer
+// with the Studio's Undo, and Catch's outline on the lanes.
+const studioHands = {
+  layers: null, // the Studio's scope, set as it mounts
+  armed: () => state.recTracks,
+  inputOf: (n) => inputOf(n),
+  playsHere: () => playsOnThisPhone(),
+  body(what) {
+    if (jamOnly() || noArm()) return null;
+    return recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace', ...what });
+  },
+  said(verb, b, { before, what, body } = {}) {
+    if (verb === 'record') {
+      const armed = b.record.state === 'armed';
+      const on = onWords(recTracksOf(b.record)), source = recSources(b.record);
+      toast(armed ? `● Rec is ready on ${on}: press ▶ to count in, then it records ${named(source)}` : `Recording ${named(source)} onto ${on} from the next bar — tap ● again to keep it`, 'ok', {
+        ms: 8000, action: { label: 'Cancel', run: () => tapeModel.cancelRecord().then(() => poll(), () => {}) },
+      });
+    } else if (verb === 'punchOut') {
+      if (b.kept) keptToast(b.kept);
+      else toast(before.state === 'armed' ? `● Rec cancelled on ${onWords(recTracksOf(before))}` : 'Nothing to keep yet: the tape hadn’t reached a bar line');
+    } else if (verb === 'catch') {
+      // CATCH says what it did: "last 4 bars → 2, 3".
+      const tracks = b.tracks || [body.track];
+      const dirty = (b.clips || [b.clip]).some((c) => !c.clean);
+      caughtToast(`Caught ${catchSays(what, tracks)}${dirty ? ' — the tape was in that source too' : ''}`, b.clip, {
+        action: { label: 'Undo', run: () => undoRedo(false) },
+      });
+    }
+  },
+  hover(on) {
+    if (state.catchHover !== on) { state.catchHover = on; drawLanes(); }
+  },
 };
 // followTheTape is the Studio's ctx.socket, open on every visit (the first
 // after a prewarm included) and closed on hide: it holds the transport, and
@@ -487,32 +529,6 @@ function heardTracks() {
   const now = performance.now();
   return state.tape.tracks.map((tr) => ({ ...tr, ...pending.heard(tr.n, tr, now) }));
 }
-
-// paintRec says on ● what it does: the tape's record (armed, counting in,
-// recording), or, while this phone records (lib/phone/recorder.js), that
-// recording, which a tap on it stops (rec, below).
-function paintRec(live = state.live, counting = !!(live && live.count_in > 0)) {
-  const rec = live && live.record;
-  const rb = $('rec');
-  const phone = phoneBusy();
-  rb.setAttribute('aria-pressed', String(phone || !!(rec && rec.state === 'on' && !counting)));
-  rb.classList.toggle('armed', !phone && !!(rec && rec.state === 'armed'));
-  rb.classList.toggle('counting', !phone && counting);
-  // ● is always red, and its key says, to a screen reader and a pointer,
-  // what it records and from where (the lamp on the display and the armed
-  // head say it to the eye).
-  const recWhat = !rec ? 'Record' : rec.state === 'armed' ? `Ready to record ${tracksWords(recTracksOf(rec))}` : `Recording ${tracksWords(recTracksOf(rec))}`;
-  const recSrc = rec ? recSources(rec) : state.recTrack ? state.recTracks.map(inputOf).join(' + ') : '';
-  const recSaid = phone ? `Stop recording from this phone, ${fmtClock(phoneRec.seconds)}`
-    : rec || state.recTrack ? `${recWhat} from ${recSrc}` : 'Record: arm a track first';
-  setIf(rb, 'aria-label', recSaid);
-  setIf(rb, 'title', recSaid);
-}
-
-// The page's phone recorder, as it records: ● shows it, wherever it was started.
-let phoneRec = { mode: 'closed', seconds: 0 };
-const phoneBusy = () => phoneRec.mode === 'recording' || phoneRec.mode === 'saving';
-onPhoneRecorder(document, (r) => r.onChange((st) => { phoneRec = st; if (state.tape) paintRec(); }));
 
 // playsOnThisPhone: the tape plays on this device, and it is a phone.
 function playsOnThisPhone() {
@@ -686,21 +702,14 @@ function render() {
     setIf(sync, 'aria-label', `Sync: ${said.words}`);
   }
 
-  const md = live && live.mixdown && live.mixdown.tape === t.id ? live.mixdown : null;
-  const mixing = !!(md && (md.state === 'playing' || md.state === 'tail'));
-  const counting = !!(live && live.count_in > 0);
   if (engine?.tape) engine.transport.ingest({ tape: t, live });
   const ov = $('tape-overview');
   setIf(ov, 'aria-valuemax', String(t.length));
   setIf(ov, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
   setIf(ov, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
-  paintRec(live, counting);
-  const rec = live && live.record;
-  const rb = $('rec');
-  // In phone mode, or while this phone records, it stays pressable: the jam-room sheet explains, or it stops.
-  rb.disabled = !rec && !phoneOut && !phoneBusy() && (!live || live.aligned === 'none' || !t.grid || mixing);
-  $('click').setAttribute('aria-pressed', String(!!t.click));
-  $('click').disabled = !t.grid;
+  // ●, Catch and the click are the bar's (lib/bar/tape-keys.js), drawn
+  // from the tape and the Studio's hands (studioHands): the armed tracks.
+  tapeKeys?.draw();
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
   $('tap').classList.toggle('second', !!(live && live.tapped));
 
@@ -709,30 +718,6 @@ function render() {
   renderPasses();
   const canCatch = live && live.aligned !== 'none';
   for (const b of $('catch-bars').querySelectorAll('button')) b.disabled = !canCatch || !t.grid;
-  rb.setAttribute('aria-disabled', String(phoneOut));
-  rb.classList.toggle('dim', phoneOut);
-  {
-    // Catch waits for a whole pass of the loop, and says so: it stays pressable
-    // (never `disabled`, which a phone's tap passes over) and a press says why;
-    // its tip does too (lib/tape/catch.js).
-    const cs = state.catchSays = catchState({ live, tape: t, phoneOut, armed: !!state.recTrack });
-    const cb = $('catch-pass');
-    cb.disabled = false;
-    cb.setAttribute('aria-disabled', String(!cs.ready));
-    cb.classList.toggle('waits', !cs.ready);
-    cb.classList.toggle('jam-only', phoneOut);
-    // Its ▾ is the other half of the key: lit, waiting or plain with it.
-    $('catch-more').classList.toggle('waits', !cs.ready);
-    $('catch-more').classList.toggle('jam-only', phoneOut);
-    setIf(cb, 'title', cs.ready ? tipFor('catch') : cs.why);
-    const catchWords = catchSub(cs, { armed: state.recTracks, phoneOut });
-    setText(cb.querySelector('.np-catch-sub'), catchWords);
-    // The Studio's key has a shorter second line for the phone's mini bar,
-    // where the full one is hidden (styles.css, .np-catch-mini).
-    const mini = cb.querySelector('.np-catch-mini');
-    if (mini) setText(mini, catchMini(catchWords));
-    setIf(cb, 'aria-label', phoneOut ? 'Catch: needs the jam room' : !cs.ready ? `Catch: ${cs.why}` : state.recTrack ? `Catch the last pass onto ${onWords(state.recTracks)}` : 'Catch: arm a track first');
-  }
   renderMode();
   renderClipboard();
   renderRulerKeys();
@@ -2985,7 +2970,7 @@ function renderPasses() {
     b.title = `Catch pass −${k} onto ${onWords(state.recTracks)}`;
     // By the pass's own start, so it's the one on screen even if another
     // has finished since.
-    b.addEventListener('click', () => doCatch({ out: c.out }));
+    b.addEventListener('click', () => tapeKeys?.catch({ out: c.out }));
     return b;
   }));
   if (!recent.length) {
@@ -3138,16 +3123,6 @@ function syncTrack(t) {
 function setArmedHere(ns) {
   state.recTracks = ns;
   state.recTrack = ns.length ? ns[0] : 0;
-}
-
-// recTracksOf is a recording's tracks: its pairs', or its one.
-function recTracksOf(r) {
-  return r.pairs && r.pairs.length ? r.pairs.map((p) => p.track) : [r.track];
-}
-
-// recSources is what a recording records from, in a word or two.
-function recSources(r) {
-  return r.pairs && r.pairs.length > 1 ? r.pairs.map((p) => p.source).join(' + ') : r.source;
 }
 
 // recPair is the pair a recording has for track n, or null.
@@ -4054,34 +4029,6 @@ function keptToast(k) {
   caughtToast(`Kept ${what} from ${k.tracks && k.tracks.length > 1 ? (k.clips || []).map((c) => c.source).filter((x, i, a) => a.indexOf(x) === i).join(' + ') : k.clip.source} on ${on}`, k.clip, { action: { label: 'Undo', run: () => undoRedo(false) } });
 }
 
-// rec arms the selected track, punches in, or ends the punch and keeps it.
-async function rec() {
-  const r = state.live && state.live.record;
-  // On a phone, with the tape playing on this phone, ● records here: from
-  // this phone (lib/bar/phone-key.js), not the jam room, which it can't.
-  // And while this phone records, ● stops it.
-  if (!r && (phoneBusy() || playsOnThisPhone())) { document.dispatchEvent(new CustomEvent('hindsight:phone-record')); return; }
-  if (!r && (jamOnly() || noArm())) return; // keeping a take already running stays possible
-  try {
-    if (!r) {
-      const b = await tapeModel.record(recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace' }));
-      const armed = b.record.state === 'armed';
-      const on = onWords(recTracksOf(b.record)), source = recSources(b.record);
-      toast(armed ? `● Rec is ready on ${on}: press ▶ to count in, then it records ${named(source)}` : `Recording ${named(source)} onto ${on} from the next bar — tap ● again to keep it`, 'ok', {
-        ms: 8000, action: { label: 'Cancel', run: () => tapeModel.cancelRecord().then(() => poll(), () => {}) },
-      });
-    } else {
-      const b = await tapeModel.punchOut();
-      if (b.kept) keptToast(b.kept);
-      else toast(r.state === 'armed' ? `● Rec cancelled on ${onWords(recTracksOf(r))}` : 'Nothing to keep yet: the tape hadn’t reached a bar line');
-    }
-    poll();
-  } catch (e) {
-    toast(`Could not record: ${e.message}`, 'bad');
-    poll();
-  }
-}
-
 // tap is a free-loop tap.
 async function tap() {
   if (jamOnly() || noArm()) return;
@@ -4211,79 +4158,6 @@ function laneTap(lane, e) {
   if (!state.adding && !mod) { letGo(); letGoRange(); }
   transport('locate', { pos: frameAt(x, laneView(), r.width) });
   render();
-}
-
-// The Catch key. Waiting for a pass it says why instead of doing nothing --
-// with the last 4 bars on offer when those don't wait. Its ▾, a key of its
-// own, opens the menu of what to catch (mountCatchMenu).
-function onCatchKey() {
-  const cs = state.catchSays;
-  if (cs && !cs.ready) {
-    toast(cs.why, 'warn', {
-      ms: 7000,
-      actions: cs.bars ? [{ label: 'Last 4 bars', run: () => doCatch({ bars: 4 }) }] : [],
-    }).classList.add('toast-passive');
-    return;
-  }
-  doCatch({ pass: 1 });
-}
-
-// mountCatchMenu gives Catch's ▾ the menu it opens: the last pass, or the
-// last 1, 2 or 4 bars -- a track's sheet had them, and nothing on the Studio
-// said so. Catch and its ▾ are a split key (lib/ui/menu.js), as GRAB's and
-// KEEP's: the menu opens over the pair in the bar (under it in the phone's
-// pulled-up player, where there's room), its right edge on the pair's, and
-// Catch, a pick, a press elsewhere, Escape or Back shuts it.
-let catchMenu = null;
-function mountCatchMenu() {
-  const key = $('catch-pass');
-  // The second line the phone's mini bar shows.
-  const mini = document.createElement('span');
-  mini.className = 'np-catch-mini';
-  mini.setAttribute('aria-hidden', 'true');
-  key.querySelector('.np-catch-sub')?.after(mini);
-  catchMenu = splitKey(key, $('catch-more'), $('catch-menu'), {
-    layers: stack || undefined, doc: document, role: 'menu', render: renderCatchMenu,
-  });
-}
-
-// renderCatchMenu lists what Catch can take now: each item says what it is
-// and, when it can't go, why -- a tap on one that can't says it again, and
-// leaves the menu open.
-function renderCatchMenu(menu) {
-  const cs = state.catchSays || catchState({ live: state.live, tape: state.tape });
-  const head = document.createElement('div');
-  head.className = 'menu-sub catch-menu-head';
-  head.textContent = state.recTrack ? `Catch onto ${onWords(state.recTracks)}` : 'Catch: no track is armed';
-  const item = (word, ok, why, run) => {
-    const b = menuItem(document, { word, sub: !ok && why ? why : undefined, attrs: { 'aria-disabled': String(!ok) } });
-    b.addEventListener('click', () => {
-      if (!ok) { toast(why, 'warn', 6000); return; }
-      run();
-    });
-    return b;
-  };
-  menu.replaceChildren(head,
-    item('The last pass', cs.ready, cs.why, () => doCatch({ pass: 1 })),
-    ...CATCH_BARS.map((n) => item(`The last ${n} bar${n === 1 ? '' : 's'}`, cs.bars, cs.barsWhy, () => doCatch({ bars: n }))));
-}
-
-async function doCatch(what) {
-  if (jamOnly() || noArm()) return;
-  const body = recordBody(state.recTracks, inputOf, { replace: state.mode === 'replace', ...what });
-  try {
-    const b = await tapeModel.catch(body);
-    // CATCH says what it did: "last 4 bars → 2, 3".
-    const tracks = b.tracks || [body.track];
-    const dirty = (b.clips || [b.clip]).some((c) => !c.clean);
-    const said = `Caught ${catchSays(what, tracks)}`;
-    caughtToast(`${said}${dirty ? ' — the tape was in that source too' : ''}`, b.clip, {
-      action: { label: 'Undo', run: () => undoRedo(false) },
-    });
-    poll();
-  } catch (e) {
-    toast(`Could not catch: ${e.message}`, 'bad');
-  }
 }
 
 async function undoRedo(redo) {
@@ -4626,7 +4500,7 @@ function mountMenus() {
 // input menu.
 function closeMenus() {
   for (const m of Object.values(menus)) m.close();
-  catchMenu?.close();
+  tapeKeys?.closeMenu();
   inputOpen()?.menu.close();
 }
 // While a menu is open (the Studio's, ☰, KEEP ▾ or GRAB ▾: on the stack),
@@ -4824,18 +4698,9 @@ function wire() {
     if (!viewActive()) return;
     document.body.style.setProperty('--dock-h', `${Math.round($('np-dock').getBoundingClientRect().height)}px`);
   }).observe($('np-dock'));
-  // ●: a tap records (rec, above); on a phone a hold offers to record from
-  // this phone instead, on the mini player's ▾ (lib/bar/phone-key.js).
-  bindPress($('rec'), {
-    ...ARM_PRESS,
-    onTap: rec,
-    onHold: () => {
-      if (matchMedia(PHONE).matches) document.dispatchEvent(new CustomEvent('hindsight:phone-offer'));
-      else rec();
-    },
-  });
-  $('click').addEventListener('click', () => editTape(() => tapeModel.setClick(!state.tape.click), { toast, resync: () => poll(true) }));
   $('tap').addEventListener('click', tap);
+  studioHands.layers = stack;
+  offKeys = tapeKeys?.lend(studioHands) || null;
   for (const b of $('catch-mode').querySelectorAll('button')) {
     b.addEventListener('click', () => { state.mode = b.dataset.mode; writePref('tape.mode', state.mode); renderMode(); });
   }
@@ -4894,18 +4759,10 @@ function wire() {
   wireOverview();
   $('tape-undo').addEventListener('click', () => undoRedo(false));
   $('tape-redo').addEventListener('click', () => undoRedo(true));
-  $('catch-pass').addEventListener('click', onCatchKey);
-  mountCatchMenu();
-  // Pointing at Catch outlines, on the record track's lane, the pass it takes.
-  const hoverCatch = (on) => { if (state.catchHover !== on) { state.catchHover = on; drawLanes(); } };
-  $('catch-pass').addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') hoverCatch(true); });
-  $('catch-pass').addEventListener('pointerleave', () => hoverCatch(false));
-  $('catch-pass').addEventListener('focus', () => { if ($('catch-pass').matches(':focus-visible')) hoverCatch(true); });
-  $('catch-pass').addEventListener('blur', () => hoverCatch(false));
   // Overdub on this device keeps the record track it opened with.
   $('away').addEventListener('click', () => { awayTrack = state.recTrack; }, true);
   $('away-sheet').addEventListener('close', () => { awayTrack = null; });
-  for (const b of $('catch-bars').querySelectorAll('button')) b.addEventListener('click', () => doCatch({ bars: Number(b.dataset.bars) }));
+  for (const b of $('catch-bars').querySelectorAll('button')) b.addEventListener('click', () => tapeKeys?.catch({ bars: Number(b.dataset.bars) }));
   mountMenus();
   askTapes(); // so the title's menu has the tapes as it first opens
   document.addEventListener('keydown', (e) => {
@@ -4988,6 +4845,8 @@ function wire() {
     // By physical key, so they work on any keyboard layout.
     if (!state.tape || menusOpen()) return;
     const press = (id) => { if (!e.repeat && !$(id).disabled) $(id).click(); };
+    // ● and the click are the bar's keys (lib/bar/tape-keys.js).
+    const pressKey = (name) => { if (!e.repeat) tapeKeys?.press(name); };
     // 1–4 and ↑ ↓: the record track, and the selected one with it.
     const pick = (n) => {
       if (n < 1 || n > state.tape.tracks.length || (n === state.track && sameSet(state.recTracks, [n]))) return false;
@@ -4996,9 +4855,9 @@ function wire() {
       return true;
     };
     switch (e.code) {
-      case 'KeyR': press('rec'); break;
+      case 'KeyR': pressKey('rec'); break;
       case 'KeyL': press('np-loop'); break;
-      case CLICK_KEY: press('click'); break;
+      case CLICK_KEY: pressKey('click'); break;
       // S splits the one selected clip, as the action bar's Split does; with
       // none, the selected track at the playhead.
       case 'KeyS':

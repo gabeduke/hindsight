@@ -178,6 +178,25 @@ unmoved:
      moving a rule must not add one.
 3. **The Studio's keys on the tape's verbs, and the Studio's slot**
    (decision 4), still in `lib/bar/`.
+   - **The keys**: *built*, #PR3. `lib/bar/tape-keys.js` `tapeKeys`, made
+     by `NowPlaying` with the page's tape and shared as `ctx.tapeKeys`,
+     draws ●, Catch and its ▾ and the click from the tape's and the
+     recorder's snapshots and presses the tape's verbs; the Studio lends it
+     its hands (`lend(hands)`: `layers`, `armed()`, `inputOf(n)`,
+     `playsHere()`, `body(what)`, `said(verb, answer, …)`, `hover(on)`) and
+     presses it with `press(name)` and `catch(what)` (`bar.md`, *The
+     Studio's keys*). Guardrail 19 fails on the Studio looking them up.
+     `hindsight:phone-offer` and `hindsight:phone-record` are gone: the bar
+     calls `phoneKey`'s `offer()` and the recorder's `quick()`.
+   - **The slot**: *not built*. The overview, the clock-out lamp and the
+     output strip go into `ctx.barSlot` only once nothing looks them up
+     while the Studio is hidden, since a slot takes its nodes out of the
+     page on hide: `lib/tape/output-ui.js` draws the strip on every change
+     of the bar's tape source, in any room, by id, and `page.js` finds the
+     overview and the lamp by id in its render and size observer. Each has
+     to be handed its elements first (held references, from the Studio's
+     own markup), which is its own change. Next, before step 4 renames
+     them.
 4. **The ids** (decision 1): the twelve renamed, with the flows', the
    Studio's, `output-ui.js`'s, `deck.js`'s, `tips.js`'s, `styles.css`'s
    and the tests' (Open's own markup keeps its ids).

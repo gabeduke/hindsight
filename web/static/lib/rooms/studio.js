@@ -329,8 +329,6 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
   const onDoc = (type, fn, opts) => (ctx ? ctx.on(doc, type, fn, opts) : doc.addEventListener(type, fn, opts));
   // The tape's menu's Record from this phone… (lib/tape/page.js asks).
   onDoc('hindsight:phone', () => phone?.open());
-  // ● in the Studio, with the tape playing on this phone (lib/tape/page.js).
-  onDoc('hindsight:phone-record', () => phone?.quick());
   const every = (fn, ms) => (ctx ? ctx.every(fn, ms) : setInterval(fn, ms));
 
   paintKeep();
@@ -367,16 +365,14 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     if (e.defaultPrevented) return;
     const v = e.detail?.verb;
     if (v === 'catch') {
-      // Pressed while it waits for a pass, it says why (lib/tape/page.js).
-      $('catch-pass')?.click();
+      // The bar's Catch (lib/bar/tape-keys.js): pressed while it waits
+      // for a pass, it says why.
+      ctx?.tapeKeys?.press('catch');
     } else if (v === 'keep' && !el.keep.disabled) {
       keep();
     }
   });
   bindStudioKeys(doc, { active: () => !ctx || ctx.active() });
-  // The keys' new names, where a screen reader reads them.
-  $('click')?.setAttribute('aria-keyshortcuts', 'M');
-  $('catch-pass')?.setAttribute('aria-keyshortcuts', 'C');
 
   return {
     ribbon,

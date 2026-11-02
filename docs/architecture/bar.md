@@ -39,10 +39,10 @@ sideways scroll).
   and its ▾ (`#np-phone-more`, for every source). In the Studio with the
   tape, the mini player's ● is the tape's own (`#rec`, `data-mini="studio"`):
   a tap records the jam room, a hold (`ARM_PRESS`, as a track's ●) offers
-  this phone on the ▾ (`hindsight:phone-offer`), and with the tape playing
-  on this phone a tap records here (`hindsight:phone-record`). While this
+  this phone on the ▾ (`phoneKey`'s `offer()`), and with the tape playing
+  on this phone a tap records here (the recorder's `quick()`). While this
   phone records, wherever it was started, that ● is pressed, says so, and
-  a tap stops it (`page.js` `paintRec`). The ▾'s menu
+  a tap stops it (*The Studio's keys*, below). The ▾'s menu
   (`lib/bar/phone-key.js`, `#np-phone-menu`, over the mini player) says what
   ● does now, lists the phone's inputs and opens the recorder's sheet with
   its meter. Both are the page's one recorder's (`shell.md`, *Recording
@@ -130,6 +130,49 @@ sideways scroll).
   window a finger wide, ▶ at one x for every source; the player pulled up
   with every key on the screen and |◀ ▶ ● on one row.
 
+## The Studio's keys
+
+●, Catch and its ▾, and the click are the bar's keys for the tape in the
+Studio (`lib/bar/tape-keys.js` `tapeKeys`, made by `NowPlaying` with the
+page's tape model, `tape`, and shared with every view as `ctx.tapeKeys`).
+They are drawn from the tape's `snapshot()` (`{tape, live}`: what records,
+the count-in, the alignment, a mixdown, the click, where it plays, the
+passes) and the phone recorder's (`{mode, seconds}`), as either changes and
+as the Studio asks, and a press is one of the tape's verbs: `record(body)`,
+`punchOut()`, `catch(body)`, `setClick(on)` (`tape.md`, *The tape model*),
+then `refresh()`. `faces({snap, phone, armed, inputOf, catchTip})` is what
+they say, pure: ●'s label, pressed, armed, counting, disabled and dim;
+Catch's waits, jam-only, second line, the mini player's shorter one, tip and
+label; the click's pressed and disabled.
+
+What is the Studio's own reaches them only as the hands it lends, the one
+interface between them (`lib/tape/page.js` `studioHands`, lent as it wires
+up, taken back on destroy):
+
+| `tapeKeys` answers | |
+|---|---|
+| `lend(hands)` → off | the Studio's hands, until `off()`; the keys are drawn and pressed only while some are lent |
+| `draw()` | the keys again: the armed tracks or their inputs changed (the Studio's render) |
+| `press(name)` | `'rec'`, `'catch'` or `'click'`, as a tap (R, C, M); nothing while it is disabled |
+| `catch(what)` | Catch `{pass}`, `{bars}` or `{out}`: its ▾'s, and the Studio's passes and last-bars keys |
+| `closeMenu()` | Catch's ▾ shut (the Studio's `closeMenus`) |
+
+| `hands` | |
+|---|---|
+| `layers` | the scope Catch's ▾ opens on (the Studio's, so a switch of rooms closes it) |
+| `armed()`, `inputOf(n)` | the armed tracks as the Studio shows them, and what each records from |
+| `playsHere()` | the tape plays on this phone: ● records from this phone |
+| `body(what)` | a record's or a catch's body (`recordBody`, replace or overdub), or null when the Studio refused it and said why (the jam-only sheet, *arm a track*) |
+| `said(verb, answer, {before, what, body})` | the words for `record`'s, `punchOut`'s or `catch`'s answer, with the Studio's Undo or Cancel |
+| `hover(on)` | Catch pointed at: its outline on the record track's lane |
+
+The bar says the rest itself: why Catch waits (with *Last 4 bars*), why an
+item of its ▾ can't go, and *Could not record* or *Could not catch*.
+Guardrail 19 fails on `lib/tape/page.js` or `lib/rooms/studio.js` looking
+up `#rec`, `#catch-pass`, `#catch-more`, `#catch-menu` or `#click`. The
+overview, the clock-out lamp and the output strip are still the Studio's
+by id, in `shell.html`'s `#np` (`docs/plan/transport-extraction.md`, step 3).
+
 ## The engine
 
 What the bar holds and plays is the page's engine
@@ -153,13 +196,14 @@ by hand: the tape stays until a take is picked by hand), `backToTape()`,
 counted in `touches`).
 
 `NowPlaying` (`lib/bar/bar.js`) is the bar drawn: made by the shell beside
-the engine (`new NowPlaying({engine, onToast, layout, room})`: `layout` the
+the engine (`new NowPlaying({engine, onToast, layout, room, tape})`: `layout` the
 shell's `barLayout`, `room()` the room the router shows, so the tempo opens
-its menu in the Studio; the shell kicks the bar as it switches), it draws the engine's
+its menu in the Studio; the shell kicks the bar as it switches; `tape` the
+page's tape model, for the Studio's keys, `np.tapeKeys`), it draws the engine's
 `src` on `#np` from its `onChange`, sets `#np[data-source]`, `#np[data-room]` and ⏏'s
 `hidden` (`bar.canEject`), and hands each press to the engine's verbs or
 the source's own (▶, Loop, a seek). The source menu, ● on the phone's mini
-player and the output sheet are wired there too; the extraction moves them,
+player, the output sheet and the Studio's keys are wired there too; the extraction moves them,
 with `NowPlaying`, into the Transport component. Guardrail 18 fails on a
 module other than the engine that makes a source, on audio made for the bar
 under `lib/bar/`, `lib/room/`, `lib/shell/` or `lib/components/`, and on a

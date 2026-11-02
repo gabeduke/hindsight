@@ -57,7 +57,7 @@ const engine = createEngine({ tapes, takes, tape, protocol, onToast: toast, go: 
 const layout = barLayout(document);
 // The bar (lib/bar/bar.js) draws the engine on #np, the same in every room;
 // the room shown is the router's, and the bar is kicked as it switches.
-const np = new NowPlaying({ engine, onToast: toast, layout, room: () => router?.shown() ?? null });
+const np = new NowPlaying({ engine, onToast: toast, layout, room: () => router?.shown() ?? null, tape });
 
 // The notes drawer (lib/room/drawer.js), the shell's one, the same in every
 // room: ✎ on the bar opens it on the take in the bar at the frame being
@@ -109,7 +109,7 @@ const slots = {
   bar: { parent: () => $('np') },
 };
 
-const shared = { engine, barLayout: layout, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
+const shared = { engine, barLayout: layout, tapeKeys: np.tapeKeys, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
 
 const views = [];
 const studioRoot = $('view-studio');

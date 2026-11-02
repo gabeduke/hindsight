@@ -7,7 +7,9 @@
 // the strip focused, ← → step and Space plays. The engine decides what the
 // bar holds and owns its audio; NowPlaying draws it and hands each press to
 // it (⏏ is its eject). The source menu, ● on the phone's mini player and the
-// output sheet are wired here too, on the engine's verbs. Its shape is css/bar.css's: #np says what it holds (data-source) and
+// output sheet are wired here too, on the engine's verbs, and the tape's
+// keys in the Studio, ●, Catch and the click, on the tape's (tape-keys.js),
+// which the Studio lends its hands (tapeKeys.lend). Its shape is css/bar.css's: #np says what it holds (data-source) and
 // the stylesheet shows each key for the sources it is for (slots.js). The
 // display says where it is, then the tempo, the source and where it plays
 // (display.js), each a key: the tempo's menu is the Studio's, the source's
@@ -24,6 +26,7 @@ import { initFold } from './fold.js';
 import { measureBar, hereWord, deviceOf } from './slots.js';
 import { sourceMenu } from './source-menu.js';
 import { phoneKey } from './phone-key.js';
+import { tapeKeys } from './tape-keys.js';
 import { barPressNote } from './press-note.js';
 import { phoneRecorder } from '../phone/recorder.js';
 import { layersOf } from '../ui/layers.js';
@@ -39,7 +42,7 @@ const $ = (id) => document.getElementById(id);
  * source's own (▶, Loop, a seek).
  */
 export class NowPlaying {
-  constructor({ engine, onToast, layout, room = () => null } = {}) {
+  constructor({ engine, onToast, layout, room = () => null, tape = null } = {}) {
     this.engine = engine;
     const bar = engine.bar;
     this.root = $('np');
@@ -170,7 +173,12 @@ export class NowPlaying {
     }
     // The mini player's ● and its ▾: recording from this phone
     // (phone-key.js), on the page's one recorder.
-    phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), playerUp: () => !!this.player?.isOpen, recorder: () => phoneRecorder(document, { toast: (m, k, ms) => onToast?.(m, k, ms) }) });
+    const phone = phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), playerUp: () => !!this.player?.isOpen, recorder: () => phoneRecorder(document, { toast: (m, k, ms) => onToast?.(m, k, ms) }) });
+    // The tape's keys in the Studio, ●, Catch and its ▾ and the click
+    // (tape-keys.js), on the page's tape (`tape`, the tape model): the
+    // Studio lends them its hands through its ctx (ctx.tapeKeys). A hold
+    // on ● on a phone offers this phone's ▾.
+    this.tapeKeys = tapeKeys({ doc: document, tape, toast: (m, k, o) => onToast?.(m, k, o), offer: () => phone?.offer() });
 
     // What the engine holds, drawn as it changes and every frame it plays;
     // a hidden page is drawn again as it comes back (visibilitychange).
