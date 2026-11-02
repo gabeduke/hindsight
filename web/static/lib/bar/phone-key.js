@@ -2,9 +2,9 @@
 // Recording from a phone, from its mini player (the studio space's
 // decisions, "Recording from a phone"; docs/architecture/bar.md): a big red
 // ● that records from this phone, and its input on a ▾ beside it. In the
-// Studio with the tape, the mini player's ● is the tape's own (#rec, the
-// Studio's page wires it: a tap records the jam room, a hold offers this
-// phone's, and with the tape playing on this phone a tap records here);
+// Studio with the tape, the mini player's ● is the tape's own (#rec,
+// tape-keys.js: a tap records the jam room, a hold offers this phone's
+// (offer), and with the tape playing on this phone a tap records here);
 // everywhere else it is this one. The ▾ is the same for both.
 //
 // Both keys are the page's markup, in the transport, shown in the mini
@@ -51,9 +51,10 @@ export function said(state) {
  * recorder, asked for when a key is pressed (the rooms make it as they
  * mount); `whenRecorder(fn)` hands it over as soon as there is one, so the
  * keys show a recording started anywhere. `playerUp()` is whether the
- * phone's player is pulled up (its sheet's isOpen), where the ▾ isn't. The
- * Studio's ● asks for the ▾ on a hold (`hindsight:phone-offer`).
- * Answers { menu, paint(state) }, or null on a page without the keys.
+ * phone's player is pulled up (its sheet's isOpen), where the ▾ isn't.
+ * Answers { menu, paint(state), offer() }, or null on a page without the
+ * keys: offer() opens the ▾ (or, with the player up, the sheet), which the
+ * Studio's ● asks for on a hold (tape-keys.js).
  */
 export function phoneKey({ doc = document, recorder, layers, floor, whenRecorder = (fn) => onPhoneRecorder(doc, fn), playerUp = () => false }) {
   const rec = doc.getElementById('np-phone-rec');
@@ -113,13 +114,13 @@ export function phoneKey({ doc = document, recorder, layers, floor, whenRecorder
     if (!m.isOpen()) return;
     hear()?.inputs().then((list) => { inputs = list; if (m.isOpen()) m.refresh(); }, () => {});
   });
-  doc.addEventListener('hindsight:phone-offer', () => {
+  const offer = () => {
     if (m.isOpen()) return;
     // The ▾ is the mini player's; with the player up, the sheet offers it.
     if (playerUp()) { hear()?.open(); return; }
     m.open();
     hear()?.inputs().then((list) => { inputs = list; if (m.isOpen()) m.refresh(); }, () => {});
-  });
+  };
   whenRecorder(listen);
-  return { menu: m, paint };
+  return { menu: m, paint, offer };
 }

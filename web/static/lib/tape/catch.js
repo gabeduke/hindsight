@@ -3,7 +3,7 @@
 // nothing: it lights after one whole pass of the loop, and the last 1, 2 or
 // 4 bars -- which don't wait for a pass -- were only in a track's sheet.
 // Pure: the page asks, and puts what it answers on the key, its tip and the
-// toast a tap on it gives (page.js, renderCatch).
+// toast a tap on it gives (lib/bar/tape-keys.js, faces).
 
 /** CATCH_BARS are the last bars the key's menu offers, as the track's sheet does. */
 export const CATCH_BARS = [1, 2, 4];

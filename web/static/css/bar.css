@@ -328,7 +328,7 @@ button.np-lcd-key { cursor: pointer; }
 }
 /* The tape on a phone: Catch needs the jam room. */
 .np :is(#catch-pass, #catch-more).jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
-/* Its menu (page.js renderCatchMenu): menu.js's rows; why one can't go yet wraps under it. */
+/* Its menu (lib/bar/tape-keys.js renderMenu): menu.js's rows; why one can't go yet wraps under it. */
 .catch-menu { min-width: 230px; max-width: calc(100vw - 16px); }
 /* The bar's menus open over the phone's player pulled up (z 50), where its
    Catch and its display are: under it, the source's couldn't be tapped. */
@@ -526,7 +526,7 @@ button.np-lcd-key { cursor: pointer; }
   .np[data-size="mini"] .np-phone-more { width: 26px; margin-left: -4px; padding: 0; }
   .np[data-size="mini"] .np-catch { min-width: 64px; padding: 0 6px; flex: 1 1 auto; }
   .np[data-size="mini"] .np-catch-sub { display: none; }
-  /* Catch's own short second line down here (.np-catch-mini, page.js): "→ 2",
+  /* Catch's own short second line down here (.np-catch-mini, lib/bar/tape-keys.js): "→ 2",
      "in 1 pass" say what it catches and why it waits. */
   .np[data-size="mini"] .np-catch .np-catch-mini { display: block; font: 500 9px/1.1 var(--mono); opacity: .88; white-space: nowrap; }
   .np[data-size="mini"] .np-catch-more { width: 28px; }

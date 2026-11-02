@@ -44,6 +44,10 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 
 - `barLayout`: the bar's layout (`lib/bar/layout.js`; `bar.md`, *It folds
   by its grabber*): `folded`, `open` and `onChange(fn)`, shared.
+- `tapeKeys`: the bar's ●, Catch and the click (`lib/bar/tape-keys.js`;
+  `bar.md`, *The Studio's keys*), shared: the Studio lends them its hands
+  (`lend(hands)`) and presses them (`press(name)`, `catch(what)`), never
+  looking them up.
 - `engine`, `go(url)`, `tapes`, `takes`, `tape`, `toast`, `link`: shared. A view never creates
   the bar's audio and never assigns `location` to a room path. `takes` is
   the page's takes model (`lib/models/takes.js`): `snapshot()` (`{v,
@@ -282,7 +286,7 @@ page, `phoneRecorder(doc)`, on the page's `#phone-sheet`: Capture's and the
 Studio's ● Phone (`initPhone` wires a room's key to it), the tape's menu's
 Record from this phone… (`hindsight:phone`, the sheet), the mini player's
 ● and ▾ (`lib/bar/phone-key.js`) and the Studio's ● with the tape playing on
-this phone (`hindsight:phone-record`) all drive and show the same one. It
+this phone (`lib/bar/tape-keys.js`, `quick()`) all drive and show the same one. It
 answers `open()` (the sheet: the input, its meter, Record), `quick()`
 (record now from the input kept, or stop; what can't start opens the
 sheet, which says why), `stop()`, `inputs()`, `input()`, `setInput(id)`,

@@ -159,11 +159,15 @@ and still looks it:
         `barLayout`, the one writer of `body.np-fold` and
         `body.player-open`, shared as `ctx.barLayout`; `NowPlaying`'s
         `room()`; no `hindsight:np-fold`, no body `MutationObserver`).
-        **Next, start fresh here: step 2b**, the stylesheet half of
-        decision 2. The router keeps `np-fold` per room, so a root
-        attribute needs a way to follow it, and `.np` can't
-        container-query itself (a wrapper, so with step 5's template):
-        the spec's step 2 says what 2b moves and what waits.
+        Step 2b (the stylesheet half of decision 2: the page around the
+        bar is `styles.css`'s, and `.np[data-room]`) and step 3's keys
+        (#254: `lib/bar/tape-keys.js`, ●, Catch and the click on the
+        tape's verbs, the Studio's hands lent through `ctx.tapeKeys`;
+        Guardrail 19) are built. **Next, start fresh here: step 3's
+        slot**, the overview, the clock-out lamp and the output strip
+        into `ctx.barSlot`, which first needs `output-ui.js` and the
+        Studio to hold their elements rather than find them by id (the
+        spec's step 3 says why); then step 4, the ids.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
