@@ -50,7 +50,7 @@ function stage({ encoding = [], noPlayer = [], readyAfter = {}, slow = false, re
     }
   };
   // The bar: its take, whether anything in it is playing (the take, or the tape), and how
-  // many times the person has used it (pageBar's `touches`).
+  // many times the person has used it (the engine's `bar.touches`).
   const np = {
     takeName: null,
     touches: 0,

@@ -63,18 +63,18 @@ sideways scroll).
   PHONE, BOTH for the tape; THIS TABLET, THIS PHONE or THIS COMPUTER for a
   take or the feed; the output sheet). Each value has a short form and a
   long one, for the widest bar.
-- **A take's counter** (`lib/bar/take-source.js` `takeBar`, drawn by
+- **A take's counter** (`lib/models/take-source.js` `takeBar`, drawn by
   `lib/objects/lcd.js` `takeCounter`) is BAR and beat by the take's own
   tempo, counted from its own downbeat; with no tempo, and before the
   downbeat, it is the take's time. Before the downbeat it once counted up
   from below zero (*BAR -1.4*, on a take whose downbeat was set a few
   seconds in).
-- **In the Studio, the tape** (`lib/bar/engine.js` `tapeUnlessPlaying`):
+- **In the Studio, the tape** (`lib/models/engine.js` `tapeUnlessPlaying`):
   in the Studio the bar gives a take or the feed back to the tape when it
   isn't playing, so ▶ there plays the tape. That is checked as the Studio
   is shown (`lib/shell/views/studio.js` `show`, every visit), as the
   hand-off from the last page settles, and as ▶ stops what the bar holds
-  (`NowPlaying`'s `onPause`). A take still playing when you change rooms
+  (`NowPlaying`'s ▶, through the engine's `tapeUnlessPlaying`). A take still playing when you change rooms
   stays, and plays on (J2.2). A take that stops by itself in the Studio
   (its end, its selection's Out, Play all moving on to the next) is left be
   until the Studio is shown again, so Play all carries on there. Gabe's ▶
@@ -115,6 +115,39 @@ sideways scroll).
   window a finger wide, ▶ at one x for every source; the player pulled up
   with every key on the screen and |◀ ▶ ● on one row.
 
+## The engine
+
+What the bar holds and plays is the page's engine
+(`lib/models/engine.js` `createEngine`), made once by the shell
+(`lib/shell/boot.js`, `ctx.engine`; `shell.md`, *The engine*). It holds the
+sources, `lib/models/tape-source.js` (the transport drawn, and this
+phone's stream), `feed-source.js` (the live ring) and `take-source.js` (a
+take, played by its list row's player), which one is in the bar, the take's
+Audio (the engine makes and adopts it: no view constructs the bar's audio),
+⏏, where the tape plays (`output.setMode`) and the take carried across
+pages (`carry.js`, `handoff.js`). Its `bar` is what a page drives it with:
+`src` (the source in the bar), `snapshot()` (`{kind, title, playing, pos,
+frame, frac, length, sampleRate, lcd}`) and `onChange(fn)`, which calls fn()
+as what the bar holds changes and every frame while it plays, on the shared
+ticker, where the source's playhead steps (`tick()`); and the verbs
+`setSource(kind)` (`tape`, `feed` or `take`), `loadTake(t, player)`,
+`loadTakeByName(name)`, `seekTake(name, frame, {play})`, `eject()` (⏏,
+by hand: the tape stays until a take is picked by hand), `backToTape()`,
+`tapeUnlessPlaying()`, `pickSource(id)` (the source menu's), `note()` (✎),
+`grabFeed()` (the feed's GRAB) and `touch()` (a use of the bar's keys,
+counted in `touches`).
+
+`NowPlaying` (`lib/bar/bar.js`) is the bar drawn: made by the shell beside
+the engine (`new NowPlaying({engine, onToast})`), it draws the engine's
+`src` on `#np` from its `onChange`, sets `#np[data-source]` and ⏏'s
+`hidden` (`bar.canEject`), and hands each press to the engine's verbs or
+the source's own (▶, Loop, a seek). The source menu, ● on the phone's mini
+player and the output sheet are wired there too; the extraction moves them,
+with `NowPlaying`, into the Transport component. Guardrail 18 fails on a
+module other than the engine that makes a source, on audio made for the bar
+under `lib/bar/`, `lib/room/`, `lib/shell/` or `lib/components/`, and on a
+`NowPlaying` made anywhere but the shell's boot.
+
 ## The transport
 
 What the bar shows of the tape, and what its keys send, is the page's
@@ -148,7 +181,7 @@ sent inside (`delegate({around})`), which say what a stop's punch kept,
 whoever pressed. Guardrail 16 fails on a module other than the
 protocol client naming the transport's routes.
 
-The bar's tape source (`lib/bar/tape-source.js`) draws it: the LCD, the
+The bar's tape source (`lib/models/tape-source.js`) draws it: the LCD, the
 display, the overview and the levels, and this phone's stream (where it is
 is what this phone hears, and ▶ is the tap its sound waits for). A new
 reader of the tape's ▶, place, loop or tempo reads the transport, never the

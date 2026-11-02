@@ -1,6 +1,6 @@
 // web/static/lib/shell/boot.js
 // The shell's boot (docs/architecture/shell.md, The shell):
-// creates the audio engine, the header's nav and help, the link monitor, and
+// creates the audio engine and the bar that draws it, the header's nav and help, the link monitor, and
 // mounts the shell's views through createView and createRouter.
 
 import { initHelp } from '/lib/help/help.js';
@@ -8,7 +8,8 @@ import { showPresses } from '/lib/ui/keys.js';
 import { initNav, navTabs } from '/lib/nav.js';
 import { toast } from '/lib/toast.js';
 import { watchLink } from '/lib/link.js';
-import { createEngine } from '/lib/bar/engine.js';
+import { createEngine } from '/lib/models/engine.js';
+import { NowPlaying } from '/lib/bar/bar.js';
 import { createView } from '/lib/shell/view.js';
 import { createRouter } from '/lib/shell/router.js';
 import { roomView } from '/lib/shell/views/room.js';
@@ -50,6 +51,8 @@ const takes = createTakes({ protocol });
 const tape = createTape({ protocol, link });
 let router = null;
 const engine = createEngine({ tapes, takes, tape, protocol, onToast: toast, go: (url, opts) => router?.go(url, opts) });
+// The bar (lib/bar/bar.js) draws the engine on #np, the same in every room.
+new NowPlaying({ engine, onToast: toast });
 
 // The notes drawer (lib/room/drawer.js), the shell's one, the same in every
 // room: ✎ on the bar opens it on the take in the bar at the frame being

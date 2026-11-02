@@ -274,8 +274,8 @@ Interfaces it will touch (0022), each in its step's pull request:
 - Catch: `lib/tape/page.js` (`mountCatchMenu`, `#catch-bars`,
   `#passes`), `lib/tape/catch.js` (`catchState`);
 - KEEP and GRAB: `lib/rooms/studio.js` (KEEP's ▾), `lib/rooms/grab.js`
-  (the shared pick), `lib/bar/take-keys.js`, `lib/bar/feed-source.js`
-  and `lib/bar/engine.js` (`onGrabFeed`: `#np-feed-grab`), the
+  (the shared pick), `lib/bar/take-keys.js`, `lib/models/feed-source.js`
+  and `lib/models/engine.js` (`onGrabFeed`: `#np-feed-grab`), the
   `hindsight:keeps` event;
 - the ribbon, `lib/objects/ribbon.js` (its selection), and Capture,
   `app.js`.

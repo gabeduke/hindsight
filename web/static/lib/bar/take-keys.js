@@ -9,7 +9,7 @@
 // slots.js); this wires them and says what each does now. It makes none:
 // a key a script appends lands wherever the last one did.
 
-import { takeHref } from './take-source.js';
+import { takeHref } from '../models/take-source.js';
 
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };

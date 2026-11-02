@@ -1,4 +1,4 @@
-// web/static/lib/bar/take-source.js
+// web/static/lib/models/take-source.js
 // A take in the now-playing bar on Takes and Capture. It plays through its
 // list row's own player (TakesList.player), so the bar, the spine and the
 // cassette are one player: Play in any of them is Play in all, and each
@@ -6,7 +6,7 @@
 // the whole take without one.
 
 import { takeCounter } from '../objects/lcd.js';
-import { takeDisplay } from './display.js';
+import { takeDisplay } from '../bar/display.js';
 import { peakDbAt } from '../objects/reel-window.js';
 import { levelsFor, takeGain } from '../wave/draw.js';
 import { drawTrace, paintOxide, oxideColors } from '../wave/tape-strip.js';

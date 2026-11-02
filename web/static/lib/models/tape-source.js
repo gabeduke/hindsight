@@ -1,4 +1,4 @@
-// web/static/lib/bar/tape-source.js
+// web/static/lib/models/tape-source.js
 // The loaded tape in the now-playing bar: the bar's view of the page's
 // transport (lib/models/transport.js), which polls the Pi, hears its push,
 // runs the playhead on and sends ▶ ■, |◂, Loop and the scrubber's locate;
@@ -8,7 +8,7 @@
 // where it is is what this phone hears, and ▶ is the tap its sound waits for.
 
 import { tapeCounter } from '../objects/lcd.js';
-import { tapeDisplay } from './display.js';
+import { tapeDisplay } from '../bar/display.js';
 import { paintTapeOverview } from '../tape/overview.js';
 
 /**

@@ -1,4 +1,4 @@
-// pageBar's side of the hand-off: the order of events on a page that is
+// The engine's side of the hand-off: the order of events on a page that is
 // opened with a record waiting -- a list that comes late, a tap that gets in
 // first, a take this page doesn't hold -- with stand-ins for storage, the
 // clock, the page's events and timers, and the real take source.
@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CARRY_KEY, CARRY_LIMIT_MS, createCarry } from './carry.js';
 import { createHandoff, takesFinder, HOLD_MS } from './handoff.js';
-import { takeSource } from './take-source.js';
+import { takeSource } from '../models/take-source.js';
 
 const SR = 48000;
 const T0 = 1_760_000_000_000;

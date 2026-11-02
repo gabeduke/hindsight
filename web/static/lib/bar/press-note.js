@@ -6,7 +6,7 @@
 // ▶, ●, or (lightFor, from the Studio) a track's head.
 //
 // The press comes from the tape's changes socket (lib/tape/changes.js
-// pressOf), through the bar's tape source (tape-source.js onPress). The note
+// pressOf), through the bar's tape source (lib/models/tape-source.js onPress). The note
 // sits over the display, out of the layout (css/bar.css, .np-press), so
 // nothing on the bar moves, and taps go through it to the display's keys.
 //

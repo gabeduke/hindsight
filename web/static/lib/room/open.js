@@ -19,7 +19,7 @@ import { tagStore } from '../tags.js';
 import { openTagManager } from '../tags-dialog.js';
 import { fold, familyOf } from '../shelf.js';
 import { takeTitle } from '../rooms/takename.js';
-import { takeHref } from '../bar/take-source.js';
+import { takeHref } from '../models/take-source.js';
 import { layersOf } from '../ui/layers.js';
 import { createNotesDrawer, createNotesList } from './drawer.js';
 

@@ -3,8 +3,8 @@
 // as a page holds them (docs/architecture/bar.md, *The transport*;
 // docs/plan/the-ecosystem.md, *Models per noun*).
 //
-// One per page, made by the bar's engine (lib/bar/engine.js), which hands it
-// to the bar's tape source (lib/bar/tape-source.js) to draw, and lends it to
+// One per page, made by the bar's engine (lib/models/engine.js), which hands it
+// to the bar's tape source (lib/models/tape-source.js) to draw, and lends it to
 // the Studio (lib/tape/page.js) while the Studio is shown. It has no DOM and
 // names no route: it reads the tape and its `live` state from the page's
 // tape (tape.js), which polls for the page, runs the playhead on between
