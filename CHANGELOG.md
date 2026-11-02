@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.02.3 — 2026-11-02
+
+- Tests only: J steps back on the real bar, stays quiet under a modal sheet, and steps under an inspector (5ce2790e)
+- STATE.md: the extraction's calls taken for Gabe, his to overrule (cd0bc68a)
+- The extraction's spec, checked against the code: every user of the twelve ids, the stack's covered() for J, and what the stylesheet still has to move (61736735)
+- The bar's J is quiet under a modal sheet by asking the stack, and components can ask the screen's shape (cx.media) (8a05541d)
+- The extraction's spec cites what components.md already agreed: the ids, and the stylesheet told its state on its root (e25bdf71)
+- A spec for the Transport's extraction (1d): what the move needs first, and Gabe's call on the bar's ids (87c545b0)
+
+
 ## v2026.11.02.2 — 2026-11-02
 
 - STATE.md: the engine split done (#247); the extraction is next (8d93c024)
