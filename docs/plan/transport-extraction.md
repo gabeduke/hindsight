@@ -20,25 +20,40 @@ about who owns what:
   root's id and the name, so on `#np` every id is `np-<name>`. Twelve ids
   inside `#np` today are not: `position`, `rec`, `catch-pass`,
   `catch-more`, `click`, `tape-overview`, `clock-out` and the five
-  `out-strip*`. The flows select five of them (J1.4, J1.5, J1.10, J1.12,
-  J4.1, J4.4), and so do the Studio (`lib/tape/page.js`), `output-ui.js`,
-  `rig/patch.js` and Open (`wave/page.js`).
+  `out-strip*`. The flows select five of them (`#position`: J1.12, J4.4;
+  `#rec`: J4.1; `#catch-pass`: J1.4, J1.5, J4.4; `#catch-more`: J1.4,
+  J4.4; `#tape-overview`: J1.10). Beside the flows: the Studio
+  (`lib/tape/page.js`), `lib/tape/output-ui.js`, the bar itself (`bar.js`
+  writes `#position`, `press-note.js` finds `#rec`), `lib/room/deck.js`'s
+  `readBar` (`#position`), `lib/help/tips.js` (`tape-overview`,
+  `catch-more`), `styles.css`'s `#out-strip-*`, and the tests that name
+  them (`architecture.test.js`'s Step 5a, `deck.test.js`, `lcd.test.js`,
+  `bar-room.test.js`, `engine.test.js`). Open's `#position` is its own
+  markup's and stays.
 - **The page's layout reads the bar's state off `<body>`.**
   `body.np-fold` and `body.player-open` are written by `fold.js` and
-  `player.js`; `css/bar.css` keys 44 of its rules on them (and 8 more on
-  `body.tape-page`, `.shelf-page`, `.main-page`, `.selecting` and
-  `body:has(…)`), and `styles.css` 12 of its own (the inspector, the
-  multi-bar, the buffer panel). A component may not touch `<body>`, and its
-  stylesheet starts every selector at its root.
+  `player.js`; `css/bar.css` keys 42 of its rules on them (14 and 28; and
+  8 more on `body.tape-page`, `.shelf-page`, `.main-page`, `.selecting`
+  and `body:has(.np)`, which sets `--dock-b` and the page's padding), and
+  `styles.css` 12 of its own on `player-open` (the inspector, the
+  multi-bar, the buffer panel). The router keeps `player-open` across a
+  room switch (`KEEP_CLASSES`, `lib/shell/router.js`). `css/bar.css` also
+  has 7 viewport `@media` blocks. A component may not touch `<body>`, and
+  its stylesheet starts every selector at its root.
 - **The Studio hears the fold** by `hindsight:np-fold` on the document,
-  and **the bar knows it is in the Studio** by a `MutationObserver` on
-  `body.tape-page` (the tempo's menu is the Studio's).
+  and **the bar knows it is in the Studio** by reading `body.tape-page` as
+  it draws (`bar.js`, `paintDisplay`), redrawn by a `MutationObserver` on
+  any change of `<body>`'s class (the tempo's menu is the Studio's).
+  `player.js` has a second observer, on `#np`'s `hidden`, inside the root.
 - **The Studio's own keys live in the bar**: ●, Catch and its ▾, the
   click, the overview, the clock-out lamp and the output strip, looked up
   by id from `lib/tape/page.js` and `output-ui.js`.
-- **The window**: J's keydown reads `dialog[open]` off the page, and the
-  phone's player and the fold each make a `matchMedia` of their own; `cx`
-  has neither a media query nor a way to ask the stack what is open.
+- **The window**: J's keydown reads `dialog[open]` off the page, and five
+  `matchMedia`s are made in place (`bar.js`'s pointer and phone shape,
+  `player.js`'s phone, `fold.js`'s reduced motion, `slots.js`); `cx` had
+  neither a media query nor a way to ask the stack whether a modal sheet
+  is up. The bar's own `$('np-…')` look-ups (row 1) become look-ups in its
+  root by `data-part` with the move.
 - **Open shares the files**: `wave.html` has its own `#np`, links
   `css/bar.css`, and imports `player.js`, `slots.js`, `display.js` and
   `carry.js`. Open's bar moves in Open's pass, not this one.
@@ -61,15 +76,19 @@ about who owns what:
    stylesheet keys on them. `body.np-fold` and `body.player-open`, which
    the page's own rules read, are set by the surface (`lib/shell/boot.js`)
    from the component's `props.onLayout({folded, open})`, not by the
-   component. The rules in `css/bar.css` keyed on a page's body class
+   component, and the router's `KEEP_CLASSES` keeps working on them as
+   now. `body:has(.np)`'s `--dock-b` and padding go to `styles.css`, the
+   surface's, and the 7 viewport `@media` become container queries on the
+   root. The rules in `css/bar.css` keyed on a page's body class
    (`tape-page`, `shelf-page`, `main-page`, `selecting`) move to the
    stylesheet of the page they lay out, or become the root's `data-room`,
    set from the surface. *Recommended.*
 3. **The surface tells the Transport which room it is in, and hears its
    fold.** `props.room()` answers the room shown (the tempo's menu is the
    Studio's), and the shell redraws the component on a room switch; the
-   Studio hears the fold through `ctx` (the shell's
-   `ctx.bar.onLayout(fn)`), not a document event. `hindsight:np-fold` and
+   Studio hears the fold through its `ctx` (a new `ctx.barLayout`,
+   `{folded, open, onChange(fn)}`, the shell's, named apart from
+   `ctx.engine.bar`), not a document event. `hindsight:np-fold` and
    the `MutationObserver` go. *Recommended.*
 4. **●, Catch and the click are the Transport's keys, on the tape's
    verbs** (`record`, `punchOut`, `cancelRecord`, `catch`, `setClick`,
@@ -77,23 +96,30 @@ about who owns what:
    `snapshot()`, as row 1 says. **The overview, the clock-out lamp and
    the output strip stay the Studio's**, in a slot of the bar's the Studio
    fills (`ctx.barSlot`, which the Listening Room's grease marks already
-   use), so the
-   Transport carries no Studio drawing. *Recommended.*
-5. **`cx` gains two things** (`lib/components/mount.js`, its own PR with
-   its tests): `cx.media(query)`, a MediaQueryList whose `change` is
-   quiet while hidden and off on unmount (the phone's player and the
-   fold); and `cx.layers.open({except})`, whether the stack holds
-   something open (J's back five seconds stays quiet under a dialog, read
-   from the stack, not the DOM). `cx.floor` is already `barTop`'s; inside
-   the Transport the floor is its own root's top. *Recommended.*
+   use): the Transport's template keeps the grid area they sit in (`out`,
+   `css/bar.css`) as an empty slot, so it carries no Studio drawing. Catch's
+   ▾ menu (`#catch-menu`, outside `#np` in `shell.html` today) moves into
+   the template with Catch. *Recommended.*
+5. **The window through `cx` and the stack.** *Built* (step 1):
+   `ctx.media(query)` on a view and `cx.media(query, fn)` on a component,
+   a MediaQueryList whose `change` is quiet while hidden and off on
+   unmount, for the five `matchMedia`s; and the stack's `covered()` (on
+   every scope, so `cx.layers.covered()`), true while a modal `<dialog>`
+   that is not on the stack is open. J asks it in place of reading
+   `dialog[open]`. They are the same test: Settings, Rename, a confirm and
+   the other `showModal` sheets are never on the stack, and an inspector
+   is on it and not modal, so J still steps under one (`ownsKeys` would
+   not do: it is true inside an inspector or a drawer, and under any
+   menu). `cx.floor` is already `barTop`'s; inside the Transport the floor
+   is its own root's top.
 6. **One display.** The bar mounts the `display` component in place of
    its own three keys, and `display` learns a take's and the feed's words
    (it draws the tape's only today), reading the engine
    (`engine.bar.snapshot()`) beside the transport. Its root inside the bar
    is `#np-lcd`, so its keys are `#np-lcd-tempo`, `-source`, `-output`
-   (decision 1 again: J1.12, J1.13 and J2.3 select `#np-source`, and J1.4,
-   J1.20 and J2.7 `#np-tempo`).
-   *Recommended.*
+   and their parts (decision 1 again: J1.12, J1.13 and J2.3 select
+   `#np-source`; J1.12, J2.3 and J2.7 `#np-source-short`; J1.4 and J1.20
+   `#np-tempo`). *Recommended.*
 7. **Open keeps its markup and its modules until its pass.** The
    Transport's stylesheet is `css/bar.css` (`components.md` 1.4), which
    `wave.html` links already, and Open's `#np` has the same root class,
@@ -107,8 +133,9 @@ about who owns what:
    its verbs; `snapshot()` and `onChange` since 1c), the transport, the
    tape and the takes (the source menu's list), and the phone's recorder.
    `mountComponent` checks each has `snapshot()` and `onChange`; the
-   recorder has `state()` and `onChange`, and gains `snapshot()` as an
-   alias. *Recommended.*
+   recorder has `snapshot()` since step 1. It is made lazily today (the
+   mini player's ● makes it on first use); the shell makes it at boot and
+   hands it to the Transport. *Recommended.*
 
 AGENTS.md's bar rule and decision 0047 change with the PR that moves the
 markup (call 1): *a new key goes in the Transport's template, in its slot*,
@@ -120,8 +147,8 @@ Each its own PR, green, reviewed and merged before the next, nothing on
 screen changing, J1.10, J1.12, J1.13, J1.15, J1.16, J2.3, J4.1 and J4.4
 unmoved:
 
-1. **`cx.media` and `cx.layers.open`** (decision 5), and the recorder's
-   `snapshot()`, with tests. No caller yet.
+1. **`cx.media` and the stack's `covered()`** (decision 5), and the
+   recorder's `snapshot()`, with tests; J asks `covered()`. *Built*, #249.
 2. **The bar's state on its root, the layout the surface's** (decisions 2
    and 3), in place in `lib/bar/`: `fold.js` and `player.js` say it on
    `#np` and through `onLayout`; the shell sets the body classes and hands
@@ -130,7 +157,8 @@ unmoved:
 3. **The Studio's keys on the tape's verbs, and the Studio's slot**
    (decision 4), still in `lib/bar/`.
 4. **The ids** (decision 1): the twelve renamed, with the flows', the
-   Studio's and Open's selectors.
+   Studio's, `output-ui.js`'s, `deck.js`'s, `tips.js`'s, `styles.css`'s
+   and the tests' (Open's own markup keeps its ids).
 5. **The move**: `lib/components/transport/` (`index.js` with the
    template from `shell.html`, `NowPlaying` as its mount, the modules
    beside it), `css/bar.css` as its stylesheet, scoped to `.np`,
