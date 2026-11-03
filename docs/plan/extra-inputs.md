@@ -40,7 +40,7 @@ So:
   `internal/rig/profiles/zoom-ams-24.json` is a placeholder with no USB id
   and no taps.
 - `internal/audio/resample.go` is a windowed-sinc resampler for phone
-  recordings, at a fixed integer ratio.
+  recordings, for a fixed pair of rates (an exact integer ratio).
 
 ## Read off the Pi (2026-11-02, read-only)
 
@@ -181,7 +181,8 @@ in the *Input* group, right after *Interface*:
   Nothing plays out of it."* One extra interface for now; the setting is a
   list so a third card needs no new setting.
 - `DEVICE_MATCH=auto` never picks the extra input, and choosing one card as
-  both is refused by `Check`.
+  both is refused by `LoadFrom` (a check across two settings, so not
+  `Setting.Check`'s).
 - The output never opens on an extra input's card: `pickOutput` already only
   matches `DEVICE_MATCH`'s card; a test pins it.
 
@@ -235,7 +236,7 @@ Each step its own PR; Go steps run on the Pi before they merge (0026).
    of frames stays within a sample, and that a step in the ratio leaves no
    click.
 3. **The extra input** (`internal/audio`): `EXTRA_INPUTS` in config and
-   Settings; a second input on its own supervisor that never rescans,
+   Settings, with `LoadFrom` refusing it on `DEVICE_MATCH`'s card; a second input on its own supervisor that never rescans,
    opened through ALSA directly (decision 1); the
    joiner in the ring writer, at head − `L`; gaps marked; `Channels` = main
    + extra everywhere the ring is sized; `SAVE_CHANNELS` checked over the
@@ -243,7 +244,7 @@ Each step its own PR; Go steps run on the Pi before they merge (0026).
    CI exercise it. `docs/architecture/capture.md` gets *Extra inputs*.
 4. **The tape**: per-source "newest frame" (head − `L` for an extra
    channel); default `TAPE_SOURCES` gains `ams1`/`ams2`; a catch across an
-   extra-input gap refused. `docs/architecture/tape.md`, *Sources*.
+   extra-input gap refused. `docs/architecture/tape.md`, its **Sources** paragraph.
 5. **The offset**: `EXTRA_INPUT_OFFSET_MS`, measured once by hand; and,
    if Gabe wires it as decision 2 recommends, the correlation lock against
    `aux`.
