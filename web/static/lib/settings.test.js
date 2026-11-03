@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE, changes, aboutLine } from './settings.js';
+import { hubLine, revealOnOpen, deviceGroup, featuresGroup, groupOrder, RESTART_NOTE, changes, aboutLine, extraCount, ringChannels, extraOptions } from './settings.js';
 import { fakeDoc, parseHTML } from './play/fake-dom.js';
 
 const url = 'https://mike.hindsight.leetserve.com';
@@ -376,4 +376,19 @@ test('Releases in the Settings sheet closes it and asks for the Releases sheet',
   const update = readFileSync(new URL('./update.js', import.meta.url), 'utf8');
   assert.match(update, /export const RELEASES_EVENT = 'hindsight:releases';/);
   assert.equal((update.match(/document\.addEventListener\(RELEASES_EVENT, /g) || []).length, 2, 'update.js opens its sheet on it, with an updater and without');
+});
+
+test('Extra inputs: the ring note counts them, and the choice is every other card', () => {
+  assert.equal(extraCount('none'), 0);
+  assert.equal(extraCount('AMS-24'), 1);
+  assert.equal(extraCount(''), 0);
+  // The EP-136 running alone (8), the AMS-24 chosen: 10.
+  assert.equal(ringChannels('auto', 8, 'none', 'AMS-24'), 10);
+  // Both running (10), the AMS-24 taken out: 8.
+  assert.equal(ringChannels('auto', 10, 'AMS-24', 'none'), 8);
+  assert.equal(ringChannels('8', 10, 'AMS-24', 'AMS-24'), 10);
+  const inputs = [{ name: 'EP-136: USB Audio (hw:2,0)', channels: 8 }, { name: 'AMS-24: USB Audio (hw:3,0)', channels: 2 }];
+  assert.deepEqual(extraOptions(inputs, 'EP-136', 'none').map(([v]) => v), ['none', 'AMS-24']);
+  assert.deepEqual(extraOptions(inputs, 'auto', 'none').map(([v]) => v), ['none', 'EP-136', 'AMS-24']);
+  assert.deepEqual(extraOptions([], 'EP-136', 'AMS-24'), [['none', 'None'], ['AMS-24', 'AMS-24 · not connected']]);
 });
