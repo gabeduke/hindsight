@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { createLayers } from './layers.js';
-import { menu, place, splitKey, menuItem, menuRows } from './menu.js';
+import { menu, place, splitKey, menuItem, menuRows, menuDivider, menuGroup, dialogKey } from './menu.js';
 
 const rect = (left, top, width, height) => ({ left, top, right: left + width, bottom: top + height, width, height });
 const PHONE = { width: 390, height: 844 };
@@ -491,4 +491,54 @@ test('menuRows: dividers between the groups, a group’s name, and what destroys
   assert.deepEqual(said, ['New tape', 'Rename…', '—', '[Share]', 'Share the mix', 'Bounce the loop', '—', 'Delete this tape…']);
   assert.ok(rows.at(-1).classList.contains('danger'), 'red: styles.css’s .menu > .danger');
   assert.equal(rows[2].getAttribute('role'), 'separator');
+});
+
+// A component may not name the document (Guardrail 15): it makes its rows
+// with none, in the panel's document or the page's.
+test('the rows are made with no document handed in: the panel’s, the row’s own element’s, or the page’s', () => {
+  const page = fakeDoc();
+  const other = fakeDoc();
+  const saved = globalThis.document;
+  globalThis.document = page;
+  try {
+    const a = menuItem({ word: 'Settings', role: 'menuitemcheckbox', checked: true });
+    assert.equal(a.ownerDocument, page, 'handed nothing: the page’s');
+    assert.equal(a.querySelector('.menu-word').textContent, 'Settings');
+    assert.equal(a.getAttribute('aria-checked'), 'true');
+    const panel = other.createElement('div');
+    const b = menuItem(panel, { word: 'Rename…' });
+    assert.equal(b.ownerDocument, other, 'handed the panel: its document');
+    const el = other.createElement('button');
+    const c = menuItem({ word: 'Kept', el });
+    assert.equal(c, el, 'the element it was handed, made the row');
+    assert.equal(c.querySelector('.menu-word').ownerDocument, other, 'its parts in the element’s document');
+    assert.equal(menuDivider().ownerDocument, page);
+    assert.equal(menuDivider(panel).ownerDocument, other);
+    const g = menuGroup('Share');
+    assert.equal(g.textContent, 'Share');
+    assert.equal(g.ownerDocument, page);
+    assert.equal(menuGroup(panel, 'Share').ownerDocument, other);
+    const rows = menuRows([[menuItem({ word: 'New tape' }), menuItem({ word: 'Delete', danger: true })], { label: 'Share', rows: [menuItem({ word: 'Bounce' })] }]);
+    const said = rows.map((r) => (r.className === 'menu-divider' ? '—' : r.className === 'menu-group' ? `[${r.textContent}]` : r.querySelector('.menu-word').textContent));
+    assert.deepEqual(said, ['New tape', '—', '[Share]', 'Bounce', '—', 'Delete']);
+    assert.ok(rows.every((r) => r.ownerDocument === page));
+    assert.ok(menuRows(panel, [[menuItem(panel, { word: 'x' })], [menuItem(panel, { word: 'y' })]]).every((r) => r.ownerDocument === other));
+  } finally {
+    globalThis.document = saved;
+  }
+});
+
+test('dialogKey: a key that opens a dialog says so, and what it opens', () => {
+  const doc = fakeDoc();
+  const key = doc.createElement('button');
+  assert.equal(dialogKey(key), key);
+  assert.equal(key.getAttribute('aria-haspopup'), 'dialog');
+  assert.equal(key.getAttribute('aria-controls'), null, 'no dialog named, none said');
+  const sheet = doc.createElement('div');
+  sheet.id = 'out-sheet';
+  dialogKey(key, sheet);
+  assert.equal(key.getAttribute('aria-controls'), 'out-sheet');
+  const foot = dialogKey(doc.createElement('button'), 'out-sheet');
+  assert.equal(foot.getAttribute('aria-controls'), 'out-sheet');
+  assert.equal(foot.getAttribute('aria-expanded'), null, 'a dialog key is not a menu: no expanded to keep');
 });
