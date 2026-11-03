@@ -52,26 +52,41 @@ func newResampler(inRate, outRate, channels int) *resampler {
 		r.cutoff *= scale
 	}
 	r.half = int(math.Ceil(resampleHalfWidth / scale))
-	taps := 2 * r.half
-	r.table = make([]float64, (resamplePhases+1)*taps)
+	r.table = resampleKernel(r.cutoff, r.half)
+	return r
+}
+
+// resampleKernel tabulates the Kaiser-windowed sinc at resamplePhases+1
+// fractional positions, each row 2*half taps normalised to unity gain at DC,
+// so a held level stays put. cutoff is in cycles per input sample.
+func resampleKernel(cutoff float64, half int) []float64 {
+	taps := 2 * half
+	table := make([]float64, (resamplePhases+1)*taps)
 	for p := 0; p <= resamplePhases; p++ {
 		frac := float64(p) / resamplePhases
-		row := r.table[p*taps : (p+1)*taps]
+		row := table[p*taps : (p+1)*taps]
 		sum := 0.0
 		for j := 0; j < taps; j++ {
 			// Tap j sits at input offset k = j - half + 1 from floor(t); its
 			// distance from t is k - frac.
-			d := float64(j-r.half+1) - frac
-			v := 2 * r.cutoff * sinc(2*r.cutoff*d) * kaiser(d/float64(r.half), resampleBeta)
+			d := float64(j-half+1) - frac
+			v := 2 * cutoff * sinc(2*cutoff*d) * kaiser(d/float64(half), resampleBeta)
 			row[j] = v
 			sum += v
 		}
-		// Unity gain at DC for every phase, so a held level stays put.
 		for j := range row {
 			row[j] /= sum
 		}
 	}
-	return r
+	return table
+}
+
+// kernelRows answers the two tabulated rows either side of frac (0 <= frac <
+// 1) and the weight between them.
+func kernelRows(table []float64, taps int, frac float64) (row0, row1 []float64, w float64) {
+	fp := frac * resamplePhases
+	p := int(fp)
+	return table[p*taps : (p+1)*taps], table[(p+1)*taps : (p+2)*taps], fp - float64(p)
 }
 
 func sinc(x float64) float64 {
@@ -135,11 +150,7 @@ func (r *resampler) drain(final bool) []float32 {
 		if !final && last >= r.inCount {
 			break
 		}
-		fp := frac * resamplePhases
-		p := int(fp)
-		w := fp - float64(p)
-		row0 := r.table[p*taps : (p+1)*taps]
-		row1 := r.table[(p+1)*taps : (p+2)*taps]
+		row0, row1, w := kernelRows(r.table, taps, frac)
 		first := k0 - int64(r.half) + 1
 		for c := 0; c < ch; c++ {
 			acc := 0.0
@@ -167,4 +178,105 @@ func (r *resampler) drain(final bool) []float32 {
 		r.bufBase += n / int64(ch)
 	}
 	return out
+}
+
+// steeredResampler turns one interface's frames into another's when the two
+// run on different crystals at nominally the same rate: an extra input's
+// frames into the main interface's (docs/plan/extra-inputs.md, decision 1).
+// It is the same kernel, but its ratio -- input frames per output frame,
+// within a few hundred ppm of 1 -- is the caller's to steer between reads,
+// from the two clock bridges and from how full the hand-over is.
+//
+// The input position is kept as a whole frame and a fraction, so an hour of
+// frames at a held ratio lands within a sample of where it should, and a
+// change of ratio only changes the step, never the position: no click.
+type steeredResampler struct {
+	channels int
+	half     int
+	table    []float64
+	ratio    float64
+
+	buf     []float64 // input history, interleaved
+	bufBase int64     // input frame index of buf[0]
+	inCount int64     // input frames received
+	at      int64     // the next output frame's input position: whole frames
+	frac    float64   // and the fraction, in [0, 1)
+}
+
+func newSteeredResampler(channels int) *steeredResampler {
+	half := resampleHalfWidth
+	cutoff := 0.5 * resampleRolloff
+	return &steeredResampler{channels: channels, half: half, ratio: 1,
+		table: resampleKernel(cutoff, half)}
+}
+
+// SetRatio sets how many input frames each output frame steps over, from the
+// next output frame on.
+func (r *steeredResampler) SetRatio(ratio float64) { r.ratio = ratio }
+
+// Ratio is the step SetRatio last set.
+func (r *steeredResampler) Ratio() float64 { return r.ratio }
+
+// Write appends interleaved input frames.
+func (r *steeredResampler) Write(in []float32) {
+	for _, v := range in {
+		r.buf = append(r.buf, float64(v))
+	}
+	r.inCount += int64(len(in) / r.channels)
+}
+
+// Buffered is how many input frames lie ahead of the next output frame's
+// position: what the hand-over holds, which the caller steers on.
+func (r *steeredResampler) Buffered() float64 {
+	return float64(r.inCount-r.at) - r.frac
+}
+
+// Read fills dst with as many interleaved output frames as the input written
+// so far allows, answering how many. An output frame needs the kernel's half
+// width of input past its position.
+func (r *steeredResampler) Read(dst []float32) int {
+	ch := r.channels
+	taps := 2 * r.half
+	n := 0
+	for ; (n+1)*ch <= len(dst); n++ {
+		if r.at+int64(r.half) >= r.inCount {
+			break
+		}
+		row0, row1, w := kernelRows(r.table, taps, r.frac)
+		first := r.at - int64(r.half) + 1
+		for c := 0; c < ch; c++ {
+			acc := 0.0
+			for j := 0; j < taps; j++ {
+				k := first + int64(j)
+				if k < r.bufBase {
+					continue // silence before the first frame
+				}
+				acc += r.buf[(k-r.bufBase)*int64(ch)+int64(c)] * (row0[j] + w*(row1[j]-row0[j]))
+			}
+			dst[n*ch+c] = float32(acc)
+		}
+		r.step()
+	}
+	// Drop history no future output can reach.
+	if drop := r.at - int64(r.half) + 1 - r.bufBase; drop > 0 {
+		k := min(drop*int64(ch), int64(len(r.buf)))
+		r.buf = append(r.buf[:0], r.buf[k:]...)
+		r.bufBase += k / int64(ch)
+	}
+	return n
+}
+
+// step moves the position on by one output frame.
+func (r *steeredResampler) step() {
+	r.frac += r.ratio
+	whole := math.Floor(r.frac)
+	r.at += int64(whole)
+	r.frac -= whole
+}
+
+// Reset forgets every frame and starts again at the next one written: after
+// a gap, when the input comes back on a new clock.
+func (r *steeredResampler) Reset() {
+	r.buf = r.buf[:0]
+	r.bufBase, r.inCount, r.at, r.frac = 0, 0, 0, 0
 }
