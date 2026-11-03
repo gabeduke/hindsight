@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.9 — 2026-11-03
+
+- A KEEP of a full ring keeps the guitar's end too: only the tail past the joiner is read again (3c4e36bd)
+- A KEEP of the guitar waits for its last 0.2 s instead of ending on silence, and records where it dropped out (3ec732fa)
+
+
 ## v2026.11.03.8 — 2026-11-03
 
 - The AMS-24's profile is no longer a placeholder: IN 1 is channel 9, checked with a guitar (c3e3e5b9)
