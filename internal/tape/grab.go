@@ -286,19 +286,19 @@ func (e *Engine) grabRing(req GrabRequest, keep *Clipboard) (*Clipboard, []strin
 	// for, as a catch waits; then the handle after: what's played next is a
 	// bar away, so it's waited for too -- the panel opens meanwhile -- unless
 	// the ring stops coming.
-	if !e.waitForRing(to, 2*time.Second) {
+	if !e.waitForRing(to, 2*time.Second, srcs...) {
 		return nil, nil, ErrNotYet
 	}
 	h := e.grabHandle(sr, g.BarFrames)
-	e.waitForRing(to+h, time.Duration(float64(h)/float64(sr)*float64(time.Second))+time.Second)
+	e.waitForRing(to+h, time.Duration(float64(h)/float64(sr)*float64(time.Second))+time.Second, srcs...)
 
 	// Only now, the waiting done, where the ring starts: it went on recording
 	// meanwhile, and overwrote its oldest audio. A start that has left it
 	// moves to the oldest it has, a second in, as a copy from the ribbon
 	// does; before the ring has filled, a start before its first frame moves
 	// to that frame. Either way the panel says it was clamped.
-	oldest, total := r.Window()
-	floor := int64(oldest)
+	oldest, total := e.window(srcs...)
+	floor := oldest
 	if oldest > 0 {
 		floor += sr // the capture may overwrite that second while it's copied
 	}
@@ -323,8 +323,11 @@ func (e *Engine) grabRing(req GrabRequest, keep *Clipboard) (*Clipboard, []strin
 	// oldest second if need be, as a copy's is), then the handles, as far as
 	// the ring has them (ringHandles).
 	over := int64(OverhangSeconds * float64(sr))
-	lo, hi := max64(int64(oldest), from-over), min64(int64(total), to+over)
-	lo, hi = ringHandles(r, sr, lo, hi, h-over)
+	if err := e.extraGap(from, to, srcs...); err != nil {
+		return nil, nil, err
+	}
+	lo, hi := max64(oldest, from-over), min64(total, to+over)
+	lo, hi = e.ringHandles(sr, lo, hi, h-over, srcs...)
 	g.RingFrom, g.Frames, g.Before, g.After = from, to-from, from-lo, hi-to
 	if keep == nil {
 		g.In, g.Out = 0, g.Frames
@@ -494,17 +497,16 @@ func grabFrom(g *Grab) string {
 // waitForRing waits, at most for wait, for the ring to have heard frame
 // want, and says whether it has. It gives up early if the ring stops
 // coming in, or the engine stops.
-func (e *Engine) waitForRing(want int64, wait time.Duration) bool {
-	r := e.capture.Ring()
+func (e *Engine) waitForRing(want int64, wait time.Duration, srcs ...Source) bool {
 	deadline := time.Now().Add(wait)
 	if e.grabWait > 0 {
 		deadline = time.Now().Add(min(wait, e.grabWait))
 	}
-	_, last := r.Window()
+	_, last := e.window(srcs...)
 	moved := time.Now()
 	for {
-		_, total := r.Window()
-		if int64(total) >= want {
+		_, total := e.window(srcs...)
+		if total >= want {
 			return true
 		}
 		if total != last {
@@ -570,6 +572,8 @@ func wallWhy(err error) string {
 		return "the tape didn't play them straight through"
 	case errors.Is(err, ErrSlipped):
 		return "the output slipped against the recording"
+	case errors.Is(err, ErrExtraGap):
+		return "the extra input dropped out"
 	case err != nil:
 		return strings.TrimPrefix(err.Error(), ErrBadParameter.Error()+": ")
 	}

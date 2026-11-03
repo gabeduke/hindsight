@@ -260,6 +260,19 @@ too; a test checks that a catch then holds exactly what played.
 A source is clean on a tape when no bus that leaks into it has unmuted audio,
 and each caught clip records whether its source was.
 
+Channels are numbered on the whole bus, the main interface's then the extra
+inputs' (`docs/architecture/capture.md`, *Extra inputs*). While
+`TAPE_SOURCES` is the default, each extra input adds a mono source per
+channel, named after its card and hearing no bus, since the tape never
+reaches it: `ams1=9,9 ams2=10,10` for the AMS-24 beside the EP-136
+(`WithExtraSources`). An extra input's channels are written a lag (about
+200 ms) behind the head, so whatever reads a source from the ring -- a catch,
+a tap, a grab, a copy from the ribbon, and their handles -- takes its newest
+frame from `Engine.window`, which stops that lag short for a source on an
+extra input (`Capture.NewestFor`, through the optional `ExtraAware`) and
+nowhere else. A span across an extra input's gap is refused for its sources
+(`ErrExtraGap`, *INPUT DROPPED OUT*), as one with a slip is.
+
 **Recording** (`record.go`) adds nothing to the capture: the ring is always
 recording. Rec while playing notes the output frame it was asked at; Rec
 while stopped arms the track, and the next ▶ becomes a play with a count-in

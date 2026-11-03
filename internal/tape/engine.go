@@ -38,6 +38,7 @@ var (
 	ErrNotLined  = errors.New("the tape's output isn't lined up with the capture yet")
 	ErrNotPlayed = errors.New("the tape didn't play those bars")
 	ErrSlipped   = errors.New("the output slipped against the recording during that span; catch a later one")
+	ErrExtraGap  = errors.New("the extra input dropped out during that span; catch a later one")
 
 	ErrNeedsJamRoom = errors.New("that needs the jam room: the tape is playing on a phone")
 	ErrNoStream     = errors.New("this tape's output can't stream")
@@ -63,6 +64,14 @@ var DefaultSources = []Source{
 // Capture is what the engine needs of the dashcam: its ring.
 type Capture interface {
 	Ring() *audio.Ring
+}
+
+// ExtraAware is an optional Capture capability: a capture with extra inputs
+// (EXTRA_INPUTS), whose channels are written a lag behind the head and can
+// have gaps of their own. *audio.Capture has it.
+type ExtraAware interface {
+	NewestFor(chs []int) (oldest, newest uint64)
+	ExtraGaps(ch int, start, end uint64) []int64
 }
 
 // Options configures an engine.
@@ -233,17 +242,53 @@ func (e *Engine) handle(sr int64) int64 {
 
 // ringHandles widens the ring span [lo, hi) -- a clip and its overhang, all
 // in the ring -- by up to extra frames either side, as far as the ring has
-// audio: never into the newest frames not yet written, and never within a
+// audio for srcs: never into the newest frames not yet written (an extra
+// input's are written a lag behind the head, window), and never within a
 // second of the oldest, which the capture may overwrite while it's copied.
-func ringHandles(r *audio.Ring, sr, lo, hi, extra int64) (int64, int64) {
-	oldest, total := r.Window()
-	if l := max64(int64(oldest)+sr, lo-extra); l < lo {
+func (e *Engine) ringHandles(sr, lo, hi, extra int64, srcs ...Source) (int64, int64) {
+	oldest, total := e.window(srcs...)
+	if l := max64(oldest+sr, lo-extra); l < lo {
 		lo = l
 	}
-	if h := min64(int64(total), hi+extra); h > hi {
+	if h := min64(total, hi+extra); h > hi {
 		hi = h
 	}
 	return lo, hi
+}
+
+// window is the ring's span as srcs hear it, [oldest, newest): newest stops
+// short of the head by the extra inputs' lag when any of them records from
+// an extra input (Capture.NewestFor), whose newest frames aren't written yet.
+func (e *Engine) window(srcs ...Source) (int64, int64) {
+	x, ok := e.capture.(ExtraAware)
+	if !ok {
+		oldest, newest := e.capture.Ring().Window()
+		return int64(oldest), int64(newest)
+	}
+	var chs []int
+	for _, s := range srcs {
+		chs = append(chs, s.Pair[:]...)
+	}
+	oldest, newest := x.NewestFor(chs)
+	return int64(oldest), int64(newest)
+}
+
+// extraGap refuses the ring span [from, to) for srcs when an extra input
+// they record from dropped out inside it: those frames are silence, not
+// what was played.
+func (e *Engine) extraGap(from, to int64, srcs ...Source) error {
+	x, ok := e.capture.(ExtraAware)
+	if !ok || from < 0 || to <= from {
+		return nil
+	}
+	for _, s := range srcs {
+		for _, ch := range s.Pair {
+			if len(x.ExtraGaps(ch, uint64(from), uint64(to))) > 0 {
+				return ErrExtraGap
+			}
+		}
+	}
+	return nil
 }
 
 // NewEngine makes an engine with nothing loaded.
@@ -1300,15 +1345,18 @@ func (e *Engine) catchSpan(t *Tape, pairs []tracked, outFrom uint64, frames, at 
 	}
 	ringFrom := heardFrom - over
 	ringTo := heardFrom + frames + over
-	ring := e.capture.Ring()
-	// The span is behind real time by the output and capture pipelines; wait
-	// for it to reach the ring.
+	srcs := make([]Source, len(pairs))
+	for i, p := range pairs {
+		srcs[i] = p.src
+	}
+	// The span is behind real time by the output and capture pipelines (and
+	// an extra input's lag); wait for it to reach the ring.
 	for tries := 0; ; tries++ {
-		oldest, total := ring.Window()
-		if ringFrom < int64(oldest) {
+		oldest, total := e.window(srcs...)
+		if ringFrom < oldest {
 			return nil, ErrGone
 		}
-		if ringTo <= int64(total) {
+		if ringTo <= total {
 			break
 		}
 		if tries >= 100 {
@@ -1322,8 +1370,12 @@ func (e *Engine) catchSpan(t *Tape, pairs []tracked, outFrom uint64, frames, at 
 			return nil, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
 		}
 	}
+	if err := e.extraGap(ringFrom, ringTo, srcs...); err != nil {
+		return nil, err
+	}
 	// The handles, past the overhang: what the ring has of them now.
-	lo, hi := ringHandles(ring, sr, ringFrom, ringTo, e.handle(sr)-over)
+	ring := e.capture.Ring()
+	lo, hi := e.ringHandles(sr, ringFrom, ringTo, e.handle(sr)-over, srcs...)
 	clips := map[string]Clip{} // by source: two tracks on one tap share its file
 	for _, p := range pairs {
 		if _, ok := clips[p.src.Name]; ok {

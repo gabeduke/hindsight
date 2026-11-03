@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/gabeduke/hindsight/internal/config"
 )
 
 // simExtra drives an extra input against a main interface on two simulated
@@ -232,5 +234,32 @@ func TestTheExtraInputFollowsAJumpOfTheMainClock(t *testing.T) {
 	end := head - x.lag
 	if w := worstAlign(t, ring, end-40*8000, end, 0); w > 1.5 {
 		t.Errorf("after the jump a pulse lands %.2f frames off", w)
+	}
+}
+
+// A reader of an extra input's channel sees the ring end ExtraLag short of
+// the head; a reader of the main ones, and any reader with no extra inputs,
+// sees all of it.
+func TestNewestForStopsAnExtraChannelShortOfTheHead(t *testing.T) {
+	cfg, err := config.LoadFrom(func(k string) string {
+		return map[string]string{"CHANNELS": "2", "EXTRA_INPUTS": "AMS-24", "RING_SECONDS": "10"}[k]
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewCapture(cfg, nil)
+	c.AddExtraInputs([]ExtraSource{&fakeExtra{}})
+	c.ring.WriteNarrow(make([]int32, 2*48000), 2)
+	lag := c.ExtraLag()
+	if _, n := c.NewestFor([]int{0, 1}); n != 48000 {
+		t.Fatalf("main channels: %d", n)
+	}
+	if _, n := c.NewestFor([]int{0, 2}); n != 48000-lag {
+		t.Fatalf("an extra channel: %d, want %d", n, 48000-lag)
+	}
+	plain := NewCapture(&config.Config{Channels: 2, SampleRate: 48000, RingSeconds: 10, FramesPerBuf: 2048}, nil)
+	plain.ring.WriteFrames(make([]int32, 2*1000))
+	if _, n := plain.NewestFor([]int{1}); n != 1000 {
+		t.Fatalf("no extra inputs: %d", n)
 	}
 }

@@ -298,6 +298,27 @@ func (c *Capture) ExtraInputs() []ExtraInputStatus {
 	return out
 }
 
+// NewestFor is the ring's window as a reader of channels chs (0-indexed)
+// should see it: [oldest, newest), where newest stops ExtraLag short of the
+// head when any of them is an extra input's, whose newest frames aren't
+// written yet. Read under one lock, as Ring.Window.
+func (c *Capture) NewestFor(chs []int) (oldest, newest uint64) {
+	oldest, newest = c.ring.Window()
+	if len(c.extras) == 0 {
+		return oldest, newest
+	}
+	for _, ch := range chs {
+		if ch >= c.cfg.Channels {
+			lag := c.ExtraLag()
+			if newest < oldest+lag {
+				return oldest, oldest
+			}
+			return oldest, newest - lag
+		}
+	}
+	return oldest, newest
+}
+
 // ExtraGaps answers where an extra input's audio stops holding strictly
 // inside the ring frames [start, end), in frames from start, for the extra
 // input whose channels hold ch (0-indexed); nil for a main channel.

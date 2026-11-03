@@ -47,6 +47,40 @@ func ParseSources(s string, channels int) ([]Source, error) {
 // pairs. An interface with fewer channels keeps the pairs that fit (FitSources).
 const DefaultSourcesSpec = "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"
 
+// WithExtraSources adds a mono source for each channel of each extra input
+// (EXTRA_INPUTS) to s, numbered on after the main interface's main channels:
+// "ams1=9,9 ams2=10,10" for the AMS-24 beside the EP-136. They hear no bus:
+// the tape never reaches an extra input. Named after the card ("AMS-24" is
+// ams), or in for a card named only by its USB id.
+func WithExtraSources(s string, main int, extras []string, perInput int) string {
+	fields := strings.Fields(s)
+	ch := main
+	for _, x := range extras {
+		name := cardPrefix(x)
+		for i := 1; i <= perInput; i++ {
+			ch++
+			fields = append(fields, fmt.Sprintf("%s%d=%d,%d", name, i, ch, ch))
+		}
+	}
+	return strings.Join(fields, " ")
+}
+
+// cardPrefix is a card's name as a source's: its letters, lower case, up to
+// the first that isn't one ("AMS-24" is "ams").
+func cardPrefix(card string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(card) {
+		if r < 'a' || r > 'z' {
+			break
+		}
+		b.WriteRune(r)
+	}
+	if b.Len() == 0 {
+		return "in"
+	}
+	return b.String()
+}
+
 // FitSources drops the sources of s that name a channel beyond the
 // interface's, so the default works on a two-channel Scarlett as it does on
 // the Sidekick. A source that is malformed is kept, for ParseSources to name.

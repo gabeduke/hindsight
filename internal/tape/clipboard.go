@@ -217,19 +217,22 @@ func (e *Engine) ringClip(from, to int64, source, kind string) (Clip, string, in
 	sr := int64(e.store.SampleRate())
 	over := int64(OverhangSeconds * float64(sr))
 	r := e.capture.Ring()
-	oldest, total := r.Window()
+	oldest, total := e.window(src)
 	if to < 0 {
-		to = int64(total)
+		to = total
 	}
 	clamped := false
-	if margin := int64(oldest) + sr; from < margin && oldest > 0 {
+	if margin := oldest + sr; from < margin && oldest > 0 {
 		from, clamped = margin, true
 	}
 	if to <= from {
 		return Clip{}, "", 0, false, fmt.Errorf("%w: that span has left the buffer", ErrGone)
 	}
-	if to > int64(total) {
+	if to > total {
 		return Clip{}, "", 0, false, ErrNotYet
+	}
+	if err := e.extraGap(from, to, src); err != nil {
+		return Clip{}, "", 0, false, err
 	}
 	if err := e.tooLong(to - from); err != nil {
 		return Clip{}, "", 0, false, err
@@ -237,9 +240,9 @@ func (e *Engine) ringClip(from, to int64, source, kind string) (Clip, string, in
 	if err := e.diskOK(); err != nil {
 		return Clip{}, "", 0, false, err
 	}
-	lo, hi := max64(int64(oldest), from-over), min64(int64(total), to+over)
+	lo, hi := max64(oldest, from-over), min64(total, to+over)
 	mLo, mHi := lo, hi // the clip and its overhang: what the peak is of
-	lo, hi = ringHandles(r, sr, lo, hi, e.handle(sr)-over)
+	lo, hi = e.ringHandles(sr, lo, hi, e.handle(sr)-over, src)
 	rel, path, err := e.store.NewPoolFile(kind, time.Now())
 	if err != nil {
 		return Clip{}, "", 0, false, err

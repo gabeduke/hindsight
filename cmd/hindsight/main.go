@@ -358,6 +358,7 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 	spec := cfg.TapeSources
 	if spec == tape.DefaultSourcesSpec {
 		spec = tape.FitSources(spec, cfg.Channels) // nobody chose: use what this interface has
+		spec = tape.WithExtraSources(spec, cfg.Channels, cfg.ExtraInputs, config.ExtraInputChannels)
 	}
 	sources, err := tape.ParseSources(spec, cfg.BusChannels())
 	if err != nil {

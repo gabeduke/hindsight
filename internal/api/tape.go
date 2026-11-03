@@ -87,7 +87,7 @@ func tapeErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, tape.ErrNoTape), errors.Is(err, tape.ErrWrongTape), errors.Is(err, tape.ErrNotYet),
 		errors.Is(err, tape.ErrGone), errors.Is(err, tape.ErrNoPass), errors.Is(err, tape.ErrNothingToDo),
 		errors.Is(err, tape.ErrNoCapture), errors.Is(err, tape.ErrNotLined), errors.Is(err, tape.ErrNotPlayed),
-		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
+		errors.Is(err, tape.ErrSlipped), errors.Is(err, tape.ErrExtraGap), errors.Is(err, tape.ErrRecording), errors.Is(err, tape.ErrNotRecording),
 		errors.Is(err, tape.ErrEmptyClipboard), errors.Is(err, tape.ErrNoOutput), errors.Is(err, tape.ErrMixingDown),
 		errors.Is(err, tape.ErrNoSaver), errors.Is(err, tape.ErrExporting), errors.Is(err, tape.ErrLoopMoved),
 		errors.Is(err, tape.ErrNeedsJamRoom), errors.Is(err, tape.ErrNoStream), errors.Is(err, tape.ErrCueChanged):
