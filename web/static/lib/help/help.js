@@ -39,6 +39,9 @@ export function applyTitles(root) {
   }
 }
 
+// The inputs that take no text: in help mode their keys are swallowed.
+const NOT_TEXT = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file', 'image']);
+
 export function initHelp({ page, doc = document } = {}) {
   applyTitles(doc);
   // Lanes, list rows and menus are built later; they get titles as they land.
@@ -133,11 +136,17 @@ export function initHelp({ page, doc = document } = {}) {
   // it leaves help mode.
   doc.addEventListener('keydown', (e) => {
     if (!on) return;
-    const tag = e.target && e.target.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    // A field that takes text keeps its keys; a slider or a box does not
+    // (Space and L on a track's level are the bar's verbs, not a click
+    // this mode catches).
+    const t = e.target;
+    const tag = t && t.tagName;
+    const takesText = tag === 'TEXTAREA' || t?.isContentEditable
+      || (tag === 'INPUT' && !NOT_TEXT.has(String(t.type || t.getAttribute?.('type') || 'text').toLowerCase()));
+    if (takesText) return;
     // Enter or Space on a focused control presses it, and that click shows
     // its tip (above): how help mode works from a keyboard.
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('[data-tip]')) return;
+    if ((e.key === 'Enter' || e.key === ' ') && tag !== 'INPUT' && t.closest?.('[data-tip]')) return;
     if (e.key === 'Escape') setOn(false);
     if (e.key !== 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
