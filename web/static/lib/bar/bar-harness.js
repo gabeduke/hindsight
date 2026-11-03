@@ -50,10 +50,12 @@ const store = (init = {}) => {
  * barPage builds the world and the bar in it, as the shell has it: the
  * engine and the NowPlaying that draws it (`np`). `bar` is the engine's
  * `bar`; with `engine` it answers the whole engine too, and with `drawn`
- * false it makes no NowPlaying: the engine on its own, as a model. `tapes` is initNav's answer ({loaded: id} puts a tape on the Pi), and
+ * false it makes no NowPlaying: the engine on its own, as a model; with
+ * `tape` the page's tape model is made and handed to both, as the shell
+ * does (and answered as `tape`). `tapes` is initNav's answer ({loaded: id} puts a tape on the Pi), and
  * `answer(url, init)` is what the Pi says to a fetch: undefined is a 404.
  */
-export async function barPage({ session = {}, tapes = null, answer = () => undefined, engine: whole = false, drawn = true } = {}) {
+export async function barPage({ session = {}, tapes = null, answer = () => undefined, engine: whole = false, drawn = true, tape: withTape = false } = {}) {
   // The pages share one ticker: a page the last test left must not run in this one.
   ticker.stop();
   ticker.steps.clear();
@@ -99,10 +101,13 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   const { createEngine } = await import('../models/engine.js');
   const { NowPlaying } = await import('./bar.js');
   const onToast = (m) => w.toasts.push(m);
-  const made = createEngine({ tapes: Promise.resolve(tapes), onToast, find: null });
+  // The page's tape model, as the shell makes it and hands it to the engine
+  // and the bar (the Studio's keys, the lamp, the output strip): with `tape`.
+  const pageTape = withTape ? (await import('../models/tape.js')).createTape({}) : null;
+  const made = createEngine({ tapes: Promise.resolve(tapes), onToast, find: null, tape: pageTape });
   // The room shown, as the shell's router says it (w.room).
   w.room = null;
-  const np = drawn ? new NowPlaying({ engine: made, onToast, room: () => w.room }) : null;
+  const np = drawn ? new NowPlaying({ engine: made, onToast, room: () => w.room, tape: pageTape }) : null;
   const engine = whole ? made : null;
   const bar = made.bar;
   await bar.ready;
@@ -113,5 +118,5 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   const pointer = (type, el, x, extra = {}) => el.dispatchEvent({ type, target: el, button: 0, pointerId: 1, pointerType: 'touch', clientX: x, clientY: 5, preventDefault() {}, ...extra });
   // The strip is 300 px wide on this page, starting at 10: a tap at x is x-10 of 300.
   $('np-scrub').getBoundingClientRect = () => ({ left: 10, top: 0, right: 310, bottom: 40, width: 300, height: 40 });
-  return { w, doc, bar, engine, np, frames, $, click, pointer, SR, windowKey: (e) => { for (const f of w.windowListeners.keydown || []) f(e); } };
+  return { w, doc, bar, engine, np, tape: pageTape, frames, $, click, pointer, SR, windowKey: (e) => { for (const f of w.windowListeners.keydown || []) f(e); } };
 }

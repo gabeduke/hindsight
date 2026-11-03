@@ -28,9 +28,9 @@ sideways scroll).
   will name the Transport's (`components.md` 1.3): `#np-position` (the
   display's big line, `bar.js`'s, and what `lib/room/deck.js` `readBar`
   reads), `#np-rec`, `#np-catch-pass`, `#np-catch-more` and `#np-click`
-  (`lib/bar/tape-keys.js`), `#np-clock-out` (the Studio's,
-  `lib/tape/page.js`), and `#np-out-strip` with its `-led`,
-  `-text`, `-right` and `-resume` (`lib/tape/output-ui.js`). Guardrail 20
+  (`lib/bar/tape-keys.js`), `#np-clock-out` and `#np-out-strip` with its
+  `-led`, `-text`, `-right` and `-resume` (`bar.js`, from
+  `lib/bar/tape-status.js`). Guardrail 20
   fails on one that isn't. Open's own `#np` (`wave.html`) keeps its ids
   until Open's pass: its `#position` is `lib/wave/page.js`'s. The
   overview, `#np-tape-overview`, is not in `#np`'s markup at all: it is
@@ -118,7 +118,7 @@ sideways scroll).
 - **✎ is the page's** (`lib/bar/take-keys.js`, `engine.setOnNote`): the
   shell's notes drawer (`rooms.md`, *The notes drawer*) takes the frame
   being heard (`frameNow`); a page without one opens the take on its own
-  page (`noteHere`). The drawer sends the bar to a note's time with the
+  page (`noteHere`, `lib/models/engine.js`). The drawer sends the bar to a note's time with the
   engine's `seekTake(name, frame, {play})`, which loads the take if the bar
   holds another and puts it back in the bar over the feed or the tape;
   false when it can't be loaded (still saving).
@@ -176,6 +176,7 @@ up, taken back on destroy):
 | `body(what)` | a record's or a catch's body (`recordBody`, replace or overdub), or null when the Studio refused it and said why (the jam-only sheet, *arm a track*) |
 | `said(verb, answer, {before, what, body})` | the words for `record`'s, `punchOut`'s or `catch`'s answer, with the Studio's Undo or Cancel |
 | `hover(on)` | Catch pointed at: its outline on the record track's lane |
+| `ghost()` | a locate the Studio sent that this phone has not heard yet (`{pos, until}`), or null: the output strip says where it is moving to (`tapeKeys.ghost()` answers it, null with no hands lent) |
 
 The bar says the rest itself: why Catch waits (with *Last 4 bars*), why an
 item of its ▾ can't go, and *Could not record* or *Could not catch*.
@@ -205,13 +206,29 @@ another room. It still shows only for the tape in the Studio
 `lib/tape/page.js` looking it up, or on the Studio putting it anywhere but
 the strip.
 
-The clock-out lamp (`#np-clock-out`) and the output strip
-(`#np-out-strip…`, `lib/tape/output-ui.js`) are still in `shell.html`'s
-`#np`, found by id: unlike the overview, both show in every room today (the
-lamp as the Studio last drew it, the strip while the tape plays on this
-phone), so a slot of the Studio's, which is out of the page while another
-room is shown, would take them out of the Listening Room's and Capture's
-bar (`docs/plan/transport-extraction.md`, step 3).
+## The lamp and the output strip
+
+The clock-out lamp (`#np-clock-out`, who follows the tape's clock with
+`TAPE_CLOCK=lead`) and the output strip across the bar's top
+(`#np-out-strip…`, while the tape plays on this phone) are the bar's, in
+every room, not the Studio's: `NowPlaying.paintTape()` draws them from the
+models as the tape answers (`tape.onChange`), as the transport changes (the
+stream's state among it) and as the engine's bar does. Their words are
+`lib/bar/tape-status.js`'s, pure:
+
+| `tape-status.js` | |
+|---|---|
+| `outStrip({stream, live, tape, ghost, now})` | `{hidden: true}` unless the tape plays on this device (`engine.stream` active, `live.output_mode` not `jam`), else `{hidden: false, resume, led, text, right}`: how it is going (starting, lost and where, locked, moving to a bar, playing, ready), how far behind, and whether its *Tap to play here* shows |
+| `clockLamp(clock, tape)` | `{hidden: true}` with no `live.clock`, else `{hidden: false, text, none}`: who follows it, ● while it runs, the tempo it hears; `none` with no device plugged in |
+
+`live` and `tape` are the page's tape model's `snapshot()`, `stream` the
+engine's, and `ghost` the Studio's, through the hands it lends the bar
+(`ghost()`, *The Studio's keys*), so only a locate sent while the Studio
+is shown says *Moving to bar …*. The strip's *Tap to play here* is
+`engine.stream.resume()`. The Studio keeps its own banner (another device
+has the tape) and the output sheet's state (`lib/tape/output-ui.js`
+`initOutput`). They move into the Transport with the rest of the bar
+(`docs/plan/transport-extraction.md`, step 5).
 
 ## The engine
 
@@ -224,25 +241,46 @@ take, played by its list row's player), which one is in the bar, the take's
 Audio (the engine makes and adopts it: no view constructs the bar's audio),
 ⏏, where the tape plays (`output.setMode`) and the take carried across
 pages (`carry.js`, `handoff.js`). Its `bar` is what a page drives it with:
-`src` (the source in the bar), `snapshot()` (`{kind, title, playing, pos,
-frame, frac, length, sampleRate, lcd}`) and `onChange(fn)`, which calls fn()
+`snapshot(here)`, what the bar draws, and `onChange(fn)`, which calls fn()
 as what the bar holds changes and every frame while it plays, on the shared
-ticker, where the source's playhead steps (`tick()`); and the verbs
+ticker, where the source's playhead steps (`tick()`); `paintStrip(ctx, w,
+h, colors, dpr)`, the strip's picture of what it holds (the tape's
+overview, a take's trace, the feed's ring); `src`, the source itself, for
+the tests and the hand-off; and the verbs
 `setSource(kind)` (`tape`, `feed` or `take`), `loadTake(t, player)`,
 `loadTakeByName(name)`, `seekTake(name, frame, {play})`, `eject()` (⏏,
 by hand: the tape stays until a take is picked by hand), `backToTape()`,
 `tapeUnlessPlaying()`, `pickSource(id)` (the source menu's), `note()` (✎),
 `grabFeed()` (the feed's GRAB) and `touch()` (a use of the bar's keys,
-counted in `touches`).
+counted in `touches`). The bar's own keys are verbs too: `playPause()` (▶:
+the source's own say first, the tape's sound waiting for a tap; a stop by
+▶ is `tapeUnlessPlaying()`), `toStart()` (|◂), `back5()` (↺ 5 s and J, of
+what this device hears), `setLoop(on)` (⟲), each a touch, and the strip's
+`seekFraction(f)` (a tap, a drag, Home), `toEnd()` (End) and `step(n)`
+(← →), which are not (the bar counts the strip's touch itself).
+
+| `snapshot(here)` | frozen, cached on `v`: a cache key bumped on every emit and every kick, not only when something it carries changes |
+|---|---|
+| `id` | which source: a new number each time the bar holds another |
+| `kind`, `title`, `href` | `tape`, `feed` or `take` (null with nothing), its name, its own page (Open ›) |
+| `playing`, `waiting` | it plays; it plays on the Pi but isn't heard here yet (▶ is the tap) |
+| `frame`, `length`, `sampleRate`, `frac` | where it is, in frames |
+| `pos`, `lcd` | the display's big line, and the LCD (`{big, small, note, status, unit}`) |
+| `display` | the display's keys for `here`, this device's word (`slots.js` `hereWord`); null with no `here` |
+| `loop`, `canPlay`, `canLoop`, `canStart`, `canEject` | ⟲ on, and whether ▶, ⟲, \|◂ and ⏏ have something to do |
+| `startLabel` | what \|◂ goes back to |
+| `levels` | the reels' levels (`{colors, at(frame)}`), or null |
 
 `NowPlaying` (`lib/bar/bar.js`) is the bar drawn: made by the shell beside
 the engine (`new NowPlaying({engine, onToast, layout, room, tape})`: `layout` the
 shell's `barLayout`, `room()` the room the router shows, so the tempo opens
 its menu in the Studio; the shell kicks the bar as it switches; `tape` the
-page's tape model, for the Studio's keys, `np.tapeKeys`), it draws the engine's
-`src` on `#np` from its `onChange`, sets `#np[data-source]`, `#np[data-room]` and ⏏'s
-`hidden` (`bar.canEject`), and hands each press to the engine's verbs or
-the source's own (▶, Loop, a seek). The source menu, ● on the phone's mini
+page's tape model, for the Studio's keys, `np.tapeKeys`, the lamp and the
+output strip), it draws the engine's `snapshot()` on `#np` from its
+`onChange` (and the strip through `paintStrip`, on a canvas sized by
+`lib/ui/canvas.js` `sizeCanvas`), sets `#np[data-source]`,
+`#np[data-room]` and ⏏'s `hidden` (`canEject`), and hands each press to
+the engine's verbs. It holds no source. The source menu, ● on the phone's mini
 player, the output sheet and the Studio's keys are wired there too; the extraction moves them,
 with `NowPlaying`, into the Transport component. Guardrail 18 fails on a
 module other than the engine that makes a source, on audio made for the bar

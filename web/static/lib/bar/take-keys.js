@@ -9,8 +9,6 @@
 // slots.js); this wires them and says what each does now. It makes none:
 // a key a script appends lands wherever the last one did.
 
-import { takeHref } from '../models/take-source.js';
-
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
 
@@ -22,8 +20,9 @@ export function clock(frames, sampleRate) {
 
 /**
  * takeKeys wires the bar's ✎ (`onNote`, the page's) and the feed's GRAB
- * (`onGrabFeed`), and answers paint(src), which says what ✎ and ⟲ say for
- * the bar's source (null for none).
+ * (`onGrabFeed`), and answers paint(snap), which says what ✎ and ⟲ say for
+ * what the bar holds: the engine's bar snapshot() ({kind, frame,
+ * sampleRate}), null for nothing.
  */
 export function takeKeys({ doc, onNote, onGrabFeed }) {
   const loop = doc.getElementById('np-loop');
@@ -34,9 +33,9 @@ export function takeKeys({ doc, onNote, onGrabFeed }) {
   note?.addEventListener('click', () => onNote?.());
   doc.getElementById('np-feed-grab')?.addEventListener('click', () => onGrabFeed?.());
   return {
-    paint(src) {
-      const take = src?.kind === 'take';
-      if (take && note) setAttr(note, 'aria-label', `A note at ${clock(src.pos(), src.sampleRate)}`);
+    paint(snap) {
+      const take = snap?.kind === 'take';
+      if (take && note) setAttr(note, 'aria-label', `A note at ${clock(snap.frame, snap.sampleRate)}`);
       // ⟲ is the tape's loop for the tape, and for a take it is Repeat:
       // the word changes, the icon beside it stays.
       if (loop) {
@@ -46,20 +45,4 @@ export function takeKeys({ doc, onNote, onGrabFeed }) {
       }
     },
   };
-}
-
-/**
- * noteHere is ✎: the take in the bar and its frame at this moment are taken
- * first -- before the page changes, and before anything else runs, so the gap
- * does not move it -- and kept for the next page; then the take opens. Null,
- * and nothing happens, when the bar holds no take. The take page does not
- * read the kept frame until F6 (nor does it pick up where the bar is), so
- * until then ✎ simply opens the take.
- */
-export function noteHere({ frameNow, stash, go }) {
-  const f = frameNow();
-  if (!f) return null;
-  stash(f);
-  go(takeHref(f.take));
-  return f;
 }

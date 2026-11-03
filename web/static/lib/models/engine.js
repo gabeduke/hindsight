@@ -10,12 +10,11 @@
 // it (docs/architecture/bar.md, *The engine*).
 
 import { tapeSource } from './tape-source.js';
-import { takeSource, playheadOf } from './take-source.js';
+import { takeSource, playheadOf, takeHref } from './take-source.js';
 import { feedSource } from './feed-source.js';
 import { createTakes } from './takes.js';
 import { createTransport } from './transport.js';
 import { createProtocol } from './protocol.js';
-import { noteHere } from '../bar/take-keys.js';
 import { pageCarry, isStudio } from '../bar/carry.js';
 import { createHandoff } from '../bar/handoff.js';
 import { named } from '../rooms/words.js';
@@ -38,10 +37,11 @@ import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
  * take -- `find(name)` is takesFinder's -- is put back where it was when the
  * page's list has it.
  *
- * It answers `bar`, what a page drives the bar with: its verbs, `src` (the
- * source in the bar, which NowPlaying draws), `snapshot()` and `onChange(fn)`
- * (fn() as what the bar holds changes, and every frame while it plays, on the
- * shared ticker); `audio`, the take's Audio; `output`, where the tape plays;
+ * It answers `bar`, what a page drives the bar with: its verbs, `snapshot()`
+ * (what NowPlaying draws, frozen), `paintStrip(…)` (the strip's picture),
+ * `src` (the source in the bar itself) and `onChange(fn)` (fn() as what the
+ * bar holds changes, and every frame while it plays, on the shared ticker);
+ * `audio`, the take's Audio; `output`, where the tape plays;
  * `transport`, the page's (lib/models/transport.js), loaded once the Pi has a
  * tape; and `tape`, `stream` and `feed`, the sources it has made so far (null
  * until then).
@@ -68,7 +68,11 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
   let touches = 0;
   const listeners = new Set();
   const navigate = (u) => { if (go) go(u); else location.href = u; };
-  const emit = () => { for (const fn of listeners) fn(); };
+  // snapshot()'s: v moves with whatever may have moved it (the listeners
+  // told, a kick); held counts the sources the bar has held, so a drawing
+  // knows when it holds another.
+  let v = 0, held = 0, snap = null;
+  const emit = () => { v++; snap = null; for (const fn of listeners) fn(); };
   // Every frame while the source plays, on the shared ticker: its playhead
   // steps, and the bar hears it; off it the moment it stops.
   const loop = new Loop(() => {
@@ -79,7 +83,8 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     return s.playing() && !document.hidden;
   });
   // kick says it on the next frame, and every frame while the source plays.
-  const kick = () => { if (!document.hidden) loop.start(); };
+  // Something moved, so a snapshot asked for before then is made afresh.
+  const kick = () => { v++; snap = null; if (!document.hidden) loop.start(); };
   // changed says it now (what the bar holds, ⏏), and on the frames after.
   const changed = () => { emit(); kick(); };
   // Once per source: the tape comes back into the bar again and again.
@@ -89,6 +94,7 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     if (src === current) return;
     if (current && current.kind === 'tape') current.setActive?.(false);
     current = src;
+    held++;
     if (src && src.kind === 'tape') src.setActive?.(true);
     if (src && !hooked.has(src)) { hooked.add(src); src.on(() => { if (current === src) kick(); }); }
     changed();
@@ -301,6 +307,43 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
   // A take carried from the last page that isn't playing here (it was
   // paused, or the browser held its sound back) leaves a Studio the tape's.
   handoff.start().then(() => tapeUnlessPlaying());
+  // snapshotOf is snapshot()'s answer for source `s`, made afresh.
+  function snapshotOf(s, here) {
+    const canEject = !!(tape && (take || (current && current.kind === 'feed')));
+    if (!s) {
+      return Object.freeze({
+        v, id: held, kind: null, title: '', href: '', playing: false, waiting: false,
+        pos: '', frame: 0, frac: 0, length: 1, sampleRate: 48000, lcd: null, display: null,
+        loop: false, canPlay: false, canLoop: false, canStart: false, canEject, startLabel: '', levels: null,
+      });
+    }
+    const lcd = Object.freeze({ ...s.lcd() });
+    const frame = s.pos();
+    const length = Math.max(1, s.length || 1);
+    return Object.freeze({
+      v,
+      id: held,
+      kind: s.kind,
+      title: s.title || '',
+      href: s.href,
+      playing: !!s.playing(),
+      waiting: !!s.waiting?.(),
+      pos: lcd.big || '',
+      frame,
+      frac: Math.max(0, Math.min(1, frame / length)),
+      length,
+      sampleRate: s.sampleRate || 48000,
+      lcd,
+      display: here == null ? null : Object.freeze(s.display(here)),
+      loop: !!s.loop,
+      canPlay: !!s.canPlay(),
+      canLoop: !!s.canLoop(),
+      canStart: s.canStart ? !!s.canStart() : true,
+      canEject,
+      startLabel: s.startLabel(),
+      levels: s.levels || null,
+    });
+  }
   const api = {
     ready,
     /** src: the source in the bar (the tape's, the feed's or a take's), or null; NowPlaying draws it. */
@@ -381,24 +424,102 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     /** kick says it again on the next frame, and every frame while the source plays. */
     kick,
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    snapshot() {
+    /**
+     * snapshot(here) is what the bar holds, as the bar draws it, frozen,
+     * cached on v: v is a cache key, bumped on every emit (each change the
+     * listeners hear, every frame while it plays) and every kick, whether or
+     * not anything it carries changed, so a new v need not mean a new value. `here` is this device's word for where a
+     * take or the feed plays (lib/bar/slots.js hereWord), for the display.
+     *   id           which source: a new number each time the bar holds another
+     *   kind, title  'tape', 'feed' or 'take' (null with nothing), and its name
+     *   href         its own page (Open ›)
+     *   playing      it plays; waiting: on the Pi, not yet heard here (▶ is
+     *                the tap it waits for)
+     *   frame, length, sampleRate, frac
+     *                where it is, of how long, in frames
+     *   pos, lcd     the display's big line, and the whole LCD
+     *                ({big, small, note, status, unit})
+     *   display      the display's keys for `here` ({tempo, source, out, said},
+     *                display.js); null asked with no `here`
+     *   loop         on Loop (Repeat, for a take)
+     *   canPlay, canLoop, canStart, canEject
+     *                ▶, ⟲, |◂ and ⏏ have something to do
+     *   startLabel   what |◂ goes back to, in words
+     *   levels       the reels' levels ({colors, at(frame)}), or null
+     */
+    snapshot(here = null) {
+      if (snap && snap.v === v && snap.here === here) return snap.it;
+      snap = { v, here, it: snapshotOf(current, here) };
+      return snap.it;
+    },
+    /**
+     * paintStrip draws what the bar holds on the strip's 2D context, `w` × `h`
+     * CSS pixels at density `dpr`, in `colors(name, fallback)`: the tape's
+     * overview, a take's trace, the feed's ring. False with nothing in the bar.
+     */
+    paintStrip(ctx, w, h, colors, dpr = 1) {
+      if (!current) return false;
+      current.paint(ctx, w, h, colors, dpr);
+      return true;
+    },
+    /**
+     * playPause is ▶: the source's own say first (the tape's sound waiting
+     * for a tap), else it plays, or stops. A stop by ▶ is the person's: in
+     * the Studio the tape comes back into the bar (tapeUnlessPlaying).
+     */
+    playPause() {
       const s = current;
-      if (!s) return { kind: null, title: '', playing: false, pos: '', frame: 0, frac: 0, length: 1, sampleRate: 48000, lcd: null };
-      const lcd = s.lcd();
-      const frame = s.pos();
-      const length = Math.max(1, s.length || 1);
-      const frac = Math.max(0, Math.min(1, frame / length));
-      return {
-        kind: s.kind,
-        title: s.title || '',
-        playing: !!s.playing(),
-        pos: lcd?.big || '',
-        frame,
-        frac,
-        length,
-        sampleRate: s.sampleRate || 48000,
-        lcd,
-      };
+      if (!s) return;
+      touch();
+      if (!s.press?.()) {
+        if (s.playing()) { s.pause(); tapeUnlessPlaying(); } else s.play();
+      }
+      kick();
+    },
+    /** seekFraction moves the playhead to fraction `f` (0–1) of what the bar holds: the strip's tap and drag, and Home. */
+    seekFraction(f) {
+      const s = current;
+      if (!s) return;
+      s.seek(f * s.length);
+      kick();
+    },
+    /** toEnd moves the playhead to the last frame (End on the strip). */
+    toEnd() {
+      const s = current;
+      if (!s) return;
+      s.seek(s.length - 1);
+      kick();
+    },
+    /** step moves the playhead `n` of the source's steps (← → on the strip). */
+    step(n) {
+      const s = current;
+      if (!s) return;
+      s.seek(s.pos() + n * s.step());
+      kick();
+    },
+    /** toStart is |◂: back to the source's start (the loop's, In, the live head). */
+    toStart() {
+      touch();
+      const s = current;
+      if (!s) return;
+      s.seek(s.start());
+      kick();
+    },
+    /** back5 is ↺ 5 s, or J: back five seconds of what this device hears, playing or not. */
+    back5() {
+      const s = current;
+      if (!s) return;
+      touch();
+      s.seek(Math.max(0, (s.heardHere ? s.heardHere() : s.pos()) - 5 * s.sampleRate));
+      kick();
+    },
+    /** setLoop is ⟲: Loop (Repeat, for a take) on or off. */
+    setLoop(on) {
+      touch();
+      const s = current;
+      if (!s) return;
+      s.setLoop(!!on);
+      kick();
     },
   };
   const audioApi = {
@@ -450,4 +571,20 @@ function tapeStream(tape, onToast) {
   tape.on(() => { if (player.state === 'playing') wasPlaying = tape.playing(); });
   rejoin(player);
   return player;
+}
+
+/**
+ * noteHere is ✎ on a page with no notes drawer: the take in the bar and its
+ * frame at this moment are taken first -- before the page changes, and
+ * before anything else runs, so the gap does not move it -- and kept for the
+ * next page; then the take opens. Null, and nothing happens, when the bar
+ * holds no take. The take page does not read the kept frame until F6 (nor
+ * does it pick up where the bar is), so until then ✎ simply opens the take.
+ */
+export function noteHere({ frameNow, stash, go }) {
+  const f = frameNow();
+  if (!f) return null;
+  stash(f);
+  go(takeHref(f.take));
+  return f;
 }

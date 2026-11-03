@@ -278,10 +278,10 @@ unmoved:
      bar's, from the models, in every room: (b) (above).
 
    **The split**, each PR green and the screen unchanged, interface first:
-   5a, the interfaces (`menu.js` rows that need no `doc` and a key that
+   5a, *built* (#260), the interfaces (`menu.js` rows that need no `doc` and a key that
    opens a dialog; a canvas sizing helper; `onSchemeChange` that turns
    off; a shell scope to mount in, with `cx.visible()`; fixtures for the
-   bar, the recorder and the layout); 5b, the engine's bar gets the verbs,
+   bar, the recorder and the layout); 5b, *built* (#261), the engine's bar gets the verbs,
    a frozen snapshot and a strip painter, so the bar stops reading
    `bar.src`, and the lamp and the strip are drawn from the models
    (`engine.stream`, the tape's `snapshot()` and `live.clock`), the same

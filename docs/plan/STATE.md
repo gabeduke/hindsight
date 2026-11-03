@@ -157,7 +157,7 @@ and still looks it:
         made by `boot.js`) draws it and wires the source menu, ● on the
         mini player and the output sheet; Guardrail 18
         (`architecture/bar.md`, *The engine*). Left for d: the engine
-        still imports `noteHere`, `carry.js` and `handoff.js` from
+        still imports `carry.js` and `handoff.js` from
         `lib/bar/`; Guardrail 18 matches the source makers by name (an
         aliased import gets past it).
      d. **The extraction** into `lib/components/transport/`: a spec
@@ -196,7 +196,14 @@ and still looks it:
         document and `dialogKey` (`lib/ui/menu.js`), `sizeCanvas`
         (`lib/ui/canvas.js`), `onSchemeChange`'s off, `shellScope`
         (`lib/shell/view.js`) and `cx.visible()`, and fixture makers for
-        `bar`, `recorder` and `layout`. **Next**: 5b.
+        `bar`, `recorder` and `layout` (#260). 5b is built (#261):
+        `engine.bar`'s verbs (`playPause`, `toStart`, `back5`,
+        `setLoop`, `seekFraction`, `toEnd`, `step`), a frozen
+        `snapshot(here)` with a `v` and `paintStrip`; `noteHere` in the
+        engine; `NowPlaying` draws from them and holds no source; the
+        lamp and the output strip are the bar's, from the tape's
+        snapshot and `engine.stream` (`lib/bar/tape-status.js`), the
+        Studio's ghost lent through its hands. **Next**: 5c.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.

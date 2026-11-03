@@ -251,7 +251,7 @@ export function mountTapePage(ctx, { overview = null } = {}) {
     engine = ctx.engine;
     engine.setTapes?.({ loaded: state.id });
     tapeModel.load(state.id);
-    output = initOutput({ engine, getTape: () => state.tape, getGhost: () => ghost });
+    output = initOutput({ engine, getTape: () => state.tape });
     wire();
     // What the page's tape hears is shown while the Studio is; hidden, it
     // catches up on show.
@@ -340,7 +340,8 @@ const barHands = {
 // lib/bar/tape-keys.js), for as long as it is mounted: what is armed here
 // and what it records from, the body a verb sends (replace or overdub; the
 // jam-only sheet and "arm a track" refuse it), the words for its answer
-// with the Studio's Undo, and Catch's outline on the lanes.
+// with the Studio's Undo, Catch's outline on the lanes, and a locate this
+// phone has not heard yet, for the bar's output strip.
 const studioHands = {
   layers: null, // the Studio's scope, set as it mounts
   armed: () => state.recTracks,
@@ -369,6 +370,7 @@ const studioHands = {
       });
     }
   },
+  ghost: () => ghost,
   hover(on) {
     if (state.catchHover !== on) { state.catchHover = on; drawLanes(); }
   },
@@ -718,7 +720,6 @@ function render() {
   $('tap').classList.toggle('second', !!(live && live.tapped));
 
   noteMixdown(live && live.mixdown);
-  renderClock(live && live.clock, t);
   renderPasses();
   const canCatch = live && live.aligned !== 'none';
   for (const b of $('catch-bars').querySelectorAll('button')) b.disabled = !canCatch || !t.grid;
@@ -812,19 +813,6 @@ async function drop(merge = false, onRange = false) {
   } catch (e) {
     toast(`Could not paste: ${e.message}`, 'bad');
   }
-}
-
-// --- the clock ---------------------------------------------------------------
-
-// renderClock says who follows the tape's clock (TAPE_CLOCK=lead).
-function renderClock(c, t) {
-  const el = $('np-clock-out');
-  el.hidden = !c;
-  if (!c) return;
-  const who = c.devices.length ? c.devices.join(', ') : 'no device plugged in';
-  el.textContent = !t.grid ? 'clock: once the tape has a tempo'
-    : `clock → ${who}${c.running ? ' ●' : ''}${c.running && c.heard_bpm ? ` · hears ${c.heard_bpm} BPM` : ''}`;
-  el.classList.toggle('none', !c.devices.length);
 }
 
 // --- mixdown and export ------------------------------------------------------

@@ -98,12 +98,16 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
  *                        the words for a verb's answer ('record',
  *                        'punchOut', 'catch'), with the Studio's Undo
  *       hover(on)        Catch pointed at, or not: its outline on the lanes
+ *       ghost()          a locate the Studio sent that this phone has not
+ *                        heard yet ({pos, until}), or null: the bar's
+ *                        output strip says where it is moving to
  *   draw()               the keys again: the Studio's armed tracks or their
  *                        inputs changed
  *   press(name)          'rec', 'catch' or 'click', as a tap on it (R, C,
  *                        M); nothing while it is disabled or with no hands
  *   catch(what)          Catch `what` ({pass}, {bars}, {out}), as its ▾ does
  *   closeMenu()          Catch's ▾ shut
+ *   ghost()              the lent hands' ghost(), null with none lent
  *
  * With no hands lent the keys are not drawn and do nothing: they show in
  * the Studio alone (data-for="studio").
@@ -267,5 +271,6 @@ export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneR
     press(name) { if (hands) keys[name]?.(); },
     catch: doCatch,
     closeMenu() { menu?.close(); },
+    ghost: () => hands?.ghost?.() || null,
   };
 }
