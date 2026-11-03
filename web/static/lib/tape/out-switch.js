@@ -40,10 +40,11 @@ export function outSheet(doc = document) {
 }
 
 /**
- * wireOutput hooks the keys that say where the tape plays (`keys`: OUT on
- * the bar's display) to the Output sheet: a key opens it, a choice calls
- * choose(mode). name() is the loaded tape's name, for the sheet's first
- * line; onOpen() runs as it opens. Answers the sheet.
+ * wireOutput wires the page's Output sheet: open() opens it, and a choice
+ * calls choose(mode). name() is the loaded tape's name, for the sheet's
+ * first line; onOpen() runs as it opens. `keys` that say where the tape
+ * plays open it too; the shell's bar has none here, it calls open() (the
+ * surface's, lib/shell/boot.js). Answers { sheet, open }.
  */
 export function wireOutput({ choose, name, onOpen = () => {}, keys = [] }) {
   const sheet = outSheet();
@@ -55,7 +56,7 @@ export function wireOutput({ choose, name, onOpen = () => {}, keys = [] }) {
   for (const b of keys.filter(Boolean)) b.addEventListener('click', open);
   document.getElementById('out-close').addEventListener('click', () => sheet.close());
   for (const b of sheet.querySelectorAll('.out-choice')) b.addEventListener('click', () => choose(b.dataset.mode));
-  return sheet;
+  return { sheet, open };
 }
 
 /** paintOutSheet marks the choice in force, and how late a phone hears it. */

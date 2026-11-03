@@ -1395,6 +1395,14 @@ function selectAll() {
 // click it waits (waitForBar). Its keys for clips are always the same ones,
 // so it's as tall for one clip as for several: Split, Keep and Details… are
 // one clip's, unlit for several. Align has the clip to itself.
+// docked shows or hides a part of the Studio's docked above the bar (the
+// action bar, the clip editor): through the dock's slot, which tells the
+// bar's root (data-docked), or by its own `hidden` without a shell.
+function docked(el, on) {
+  if (viewCtx?.dockSlot?.show) viewCtx.dockSlot.show(el, on);
+  else el.hidden = !on;
+}
+
 function renderClipBar() {
   const ps = state.tape ? picks() : [];
   const n = ps.length;
@@ -1403,7 +1411,7 @@ function renderClipBar() {
   selectionOnStack(n > 0 || !!r);
   const bar = $('multi-bar');
   const was = !bar.hidden;
-  bar.hidden = (!n && !r) || !!state.align || (!was && performance.now() < barWaitUntil);
+  docked(bar, !((!n && !r) || !!state.align || (!was && performance.now() < barWaitUntil)));
   if (!was && !bar.hidden) barShownAt = performance.now();
   if (bar.hidden) return;
   bar.querySelector('.clip-keys').hidden = !n;
@@ -2123,7 +2131,7 @@ function renderAlign() {
   const a = state.align;
   alignOnStack(!!a);
   const el = $('clip-editor');
-  el.hidden = !a;
+  docked(el, !!a);
   el.parentElement.classList.toggle('editing', !!a);
   renderClipBar(); // the action bar goes: the editor has the clip
   if (!a) return;

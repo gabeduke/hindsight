@@ -80,9 +80,9 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
 /**
  * tapeKeys wires ●, Catch and its ▾, and the click in `doc` on the page's
  * `tape` (the tape model) and its phone recorder (`whenRecorder(fn)`, which
- * hands it over once a room has made it). `toast` is the page's; `offer()`
- * opens the mini player's ▾ of this phone's inputs (phone-key.js), which a
- * hold on ● asks for on a phone. Null on a page without the keys or a tape.
+ * hands it over once there is one: the shell makes it at boot). `toast` is
+ * the page's; `offer()` opens the mini player's ▾ of this phone's inputs
+ * (phone-key.js), which a hold on ● asks for on a phone. Null on a page without the keys or a tape.
  *
  * Answers:
  *   lend(hands) -> off   the Studio's hands, until off():
@@ -247,7 +247,7 @@ export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneR
   pass.addEventListener('pointerleave', () => hover(false));
   pass.addEventListener('focus', () => { if (pass.matches(':focus-visible')) hover(true); });
   pass.addEventListener('blur', () => hover(false));
-  // The recorder, once a room has made it: ● shows a recording from this
+  // The recorder, once there is one: ● shows a recording from this
   // phone, wherever it was started.
   whenRecorder((r) => { recorder = r; r.onChange(draw); draw(); });
   tape.onChange(draw);

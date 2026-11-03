@@ -584,7 +584,10 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     shown = active && open;
     setOpen(body, shown);
     setFold(body, active && open && !st.unfolded);
-    el.panel.hidden = !open;
+    // Docked above the bar: through the dock's slot, which tells the bar's
+    // root (data-docked), or by its own `hidden` without a shell.
+    if (ctx?.dockSlot?.show) ctx.dockSlot.show(el.panel, open);
+    else el.panel.hidden = !open;
     if (opening) revealLanes(); // the boxes it reads are laid out as it reads them
     // GRAB on the feed: its words follow the tempo, and the picker its N.
     const hasGrid = !!d?.tape?.grid;

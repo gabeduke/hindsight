@@ -11,6 +11,10 @@ import { watchLink } from '/lib/link.js';
 import { createEngine } from '/lib/models/engine.js';
 import { NowPlaying } from '/lib/bar/bar.js';
 import { barLayout } from '/lib/bar/layout.js';
+import { playerSheet, PHONE } from '/lib/bar/player.js';
+import { measureBar } from '/lib/bar/slots.js';
+import { phoneRecorder } from '/lib/phone/recorder.js';
+import { wireOutput, paintOutSheet, outDelay } from '/lib/tape/out-switch.js';
 import { createView } from '/lib/shell/view.js';
 import { createRouter } from '/lib/shell/router.js';
 import { roomView } from '/lib/shell/views/room.js';
@@ -52,12 +56,47 @@ const takes = createTakes({ protocol });
 const tape = createTape({ protocol, link });
 let router = null;
 const engine = createEngine({ tapes, takes, tape, protocol, onToast: toast, go: (url, opts) => router?.go(url, opts) });
-// The bar's layout (lib/bar/layout.js): folded, the phone's player up; the
-// page lays out around it, and the Studio hears it change (ctx.barLayout).
-const layout = barLayout(document);
+// What is the page's around the bar, the surface's (step 5c): the bar's
+// root is #np, in the dock (#np-dock) with what a room docks above it.
+const npRoot = $('np');
+// The bar's layout (lib/bar/layout.js): folded, the phone's player up,
+// something docked above it; the page lays out around it, the Studio hears
+// it change (ctx.barLayout), and the bar's root says it on itself. The
+// fold is kept for the visit.
+const pageStorage = (() => { try { return sessionStorage; } catch { return null; } })();
+const layout = barLayout(document, { root: npRoot, storage: pageStorage });
+// Its height, for the pages that keep clear of it (--np-h on <html>).
+measureBar(npRoot);
+// The phone's player (lib/bar/player.js): the dock, the bar and its
+// drawers, pulled up over the page as a sheet; the bar's keys open it.
+const player = npRoot ? playerSheet($('np-dock') || npRoot, { root: npRoot, layers, layout, phone: matchMedia(PHONE) }) : null;
+// The page's one phone recorder (lib/phone/recorder.js), on the phone
+// sheet stamped above: the bar's ● keys and the rooms' ● Phone show it.
+const recorder = phoneRecorder(document, { toast });
+// The Output sheet, where the tape plays (lib/tape/out-switch.js): wired
+// the first time it is opened, from OUT on the bar's display or the
+// Studio, once the engine has a tape to send; it asks the Pi as it opens,
+// so it's never a few seconds behind.
+let output = null;
+function openOutput() {
+  if (!engine.tape) return;
+  if (!output) {
+    const { transport } = engine;
+    output = wireOutput({
+      name: () => engine.tape.title,
+      onOpen: () => transport.refresh(),
+      choose: (mode) => engine.output.setMode(mode),
+    });
+    transport.onChange(() => {
+      const stream = engine.stream;
+      paintOutSheet(transport.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : transport.streamDelayMs()));
+    });
+  }
+  output.open();
+}
 // The bar (lib/bar/bar.js) draws the engine on #np, the same in every room;
 // the room shown is the router's, and the bar is kicked as it switches.
-const np = new NowPlaying({ engine, onToast: toast, layout, room: () => router?.shown() ?? null, tape });
+const np = new NowPlaying({ engine, onToast: toast, layout, player, recorder, output: openOutput, room: () => router?.shown() ?? null, tape });
 
 // The notes drawer (lib/room/drawer.js), the shell's one, the same in every
 // room: ✎ on the bar opens it on the take in the bar at the frame being
@@ -101,11 +140,14 @@ const tapeOn = () => {
   }
 };
 
+const docked = new Map(); // each view's dock slot: whether what it holds shows
 const slots = {
   // A room's context goes at the start of the header (css/chrome.css), after
   // the brand; a part of it for the tools zone says so where it adds it.
   header: { parent: () => document.querySelector('.appbar-start') },
-  dock: { parent: () => $('np-dock'), before: () => $('np') },
+  // What a room shows there is docked above the bar: the bar's root says
+  // so (data-docked), whichever room's it is.
+  dock: { parent: () => $('np-dock'), before: () => $('np'), onShown: (who, on) => { docked.set(who, on); layout.set({ docked: [...docked.values()].some(Boolean) }); } },
   // The bar: its strip ([data-slot="strip"]) is a place a room fills, the
   // Studio with its overview, at the strip's start.
   bar: { parent: () => $('np'), places: { strip: () => $('np')?.querySelector('[data-slot="strip"]') } },
@@ -158,6 +200,10 @@ router = createRouter({
     setHelp(page) {
       help.setPage?.(page);
     },
+    // The room arriving has its body classes: the bar's root says its fold
+    // now, in the same frame (lib/bar/layout.js), not in setPath, which
+    // runs once the room has been revealed.
+    classesGiven: () => layout.sync(),
     // Switching rooms closes the menus (☰ belongs to no room), and the
     // room's own sheets and selection, which its hide would close anyway,
     // before the history is written; the phone's player stays up.
