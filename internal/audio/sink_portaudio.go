@@ -17,7 +17,8 @@ import (
 // deviceSink is the tape's output through PortAudio: an output-only stream
 // on the capture's own card, kept open by its own supervisor. A rescan the
 // capture makes closes it (through the shared lifecycle), and the supervisor
-// opens it again in the new generation; so does a stall.
+// opens it again in the new generation; so does a stall, and so does the
+// capture moving to another card (outputOffTheCapturesCard).
 //
 // It is a separate stream rather than a duplex one, so the dashcam's health
 // never depends on playback's.
@@ -168,6 +169,8 @@ func (s *deviceSink) supervise() {
 			reason = "closed by a device rescan"
 		case last != 0 && time.Since(time.Unix(0, last)) > staleAfter:
 			reason = fmt.Sprintf("stalled (no callback for %s)", staleAfter)
+		case outputOffTheCapturesCard(s.Name(), s.captureName()):
+			reason = fmt.Sprintf("is on %q, the capture on %q", CardName(s.Name()), CardName(s.captureName()))
 		}
 		if reason == "" {
 			continue

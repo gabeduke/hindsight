@@ -219,6 +219,42 @@ func TestTheTapeOutputGoesToTheCapturesCardOrNowhere(t *testing.T) {
 	}
 }
 
+// DEVICE_MATCH names one card and the capture fell back to another (on
+// 2026-11-02 the AMS-24, with two inputs, was chosen and the capture opened
+// the EP-136's eight): the output follows the card that is recording, not
+// the one named. The AMS-24's output never gave a callback, so the tape
+// stalled and reopened there forever, and ▶ did nothing.
+func TestTheTapeOutputFollowsTheCardTheCaptureOpened(t *testing.T) {
+	devs := []outDev{
+		{Name: "AMS-24: USB Audio (hw:3,0)", MaxOut: 4},
+		{Name: "EP-136: USB Audio (hw:2,0)", MaxOut: 4},
+	}
+	if i, err := pickOutput(devs, "EP-136: USB Audio (hw:2,0)", "AMS-24", 4); err != nil || i != 1 {
+		t.Fatalf("capture on the EP-136, DEVICE_MATCH=AMS-24: output %d, %v; want the EP-136", i, err)
+	}
+	// With nothing captured yet, DEVICE_MATCH still names the card.
+	if i, err := pickOutput(devs, "", "AMS-24", 4); err != nil || i != 0 {
+		t.Fatalf("no capture yet: %d, %v", i, err)
+	}
+	if !outputOffTheCapturesCard("AMS-24: USB Audio (hw:3,0)", "EP-136: USB Audio (hw:2,0)") {
+		t.Fatal("an output on the AMS-24 with the capture on the EP-136 should be reopened")
+	}
+	if outputOffTheCapturesCard("EP-136: USB Audio (hw:2,0)", "EP-136: USB Audio (hw:2,0)") ||
+		outputOffTheCapturesCard("EP-136: USB Audio (hw:2,0)", "default") ||
+		outputOffTheCapturesCard("EP-136: USB Audio (hw:2,0)", "") {
+		t.Fatal("only a capture on another direct card moves the output")
+	}
+	// On a Mac the input and the output are different devices, named apart:
+	// DEVICE_MATCH still names the output, and nothing is reopened.
+	mac := []outDev{{Name: "MacBook Pro Speakers", MaxOut: 2}}
+	if i, err := pickOutput(mac, "MacBook Pro Microphone", "Speakers", 2); err != nil || i != 0 {
+		t.Fatalf("a Mac's speakers = %d, %v", i, err)
+	}
+	if outputOffTheCapturesCard("MacBook Pro Speakers", "MacBook Pro Microphone") {
+		t.Fatal("a CoreAudio name isn't a card to follow")
+	}
+}
+
 // IfUp looks only at a library something else brought up: listing inputs
 // must never initialise PortAudio by itself.
 func TestIfUpNeverInits(t *testing.T) {

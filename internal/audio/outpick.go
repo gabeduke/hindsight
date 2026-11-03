@@ -12,21 +12,25 @@ type outDev struct {
 }
 
 // pickOutput chooses the device the tape plays through: a direct device on
-// the card DEVICE_MATCH names -- the capture's own device if it's one,
-// otherwise the most direct match. Never a plug, a mixer or a sound server
-// ("default", "pulse"), and never another card: the tape out of HDMI, on
-// another clock, would be worse than no tape. So no match is an error.
+// the card the capture is recording from -- the capture's own device if it
+// can play, otherwise the most direct device on its card. DEVICE_MATCH names
+// the card only while the capture has none of its own (nothing open yet, or
+// a plug like "default"): a capture that fell back to another card takes the
+// output with it, since that card is the ring's clock and the one that
+// answers (2026-11-02: AMS-24 chosen, the capture on the EP-136, the output
+// stalled on the AMS-24 and ▶ did nothing). Never a plug, a mixer or a sound
+// server ("default", "pulse"), and never another card: the tape out of HDMI,
+// on another clock, would be worse than no tape. So no match is an error.
 //
-// Under DEVICE_MATCH=auto (match "") the card is the capture's own: its name
-// up to the colon. With no capture open yet there is none, and that is an
-// error too, which the tape retries.
+// With no capture open yet and DEVICE_MATCH=auto (match "") there is no card
+// at all, and that is an error too, which the tape retries.
 func pickOutput(devs []outDev, captureName, match string, channels int) (int, error) {
-	if match == "" {
-		match = CardName(captureName)
+	if card := captureCard(captureName); card != "" {
+		match = card
 	}
 	best, bestScore := -1, -1
 	for i, d := range devs {
-		if d.MaxOut < channels || match == "" || !strings.Contains(d.Name, match) {
+		if d.MaxOut < channels || !onCard(d.Name, match) {
 			continue
 		}
 		s := deviceScore(d.Name)
@@ -61,4 +65,30 @@ func deviceScore(name string) int {
 	default:
 		return 3 // bare "EP-136: USB Audio (hw:2,0)" style
 	}
+}
+
+// outputOffTheCapturesCard reports an output open on one card while the
+// capture records on another direct device: the output is reopened, so it
+// follows the card that's recording.
+func outputOffTheCapturesCard(outputName, captureName string) bool {
+	card := captureCard(captureName)
+	return outputName != "" && card != "" && !onCard(outputName, card)
+}
+
+// onCard is how a device is matched to a card, here and in pickOutput alike,
+// so an output pickOutput chose is never then reported off its card.
+func onCard(name, card string) bool {
+	return card != "" && strings.Contains(name, card)
+}
+
+// captureCard is the card a capture device is on: an ALSA direct device's
+// name up to the colon, "EP-136" of "EP-136: USB Audio (hw:2,0)". Anything
+// else is "" ("default", a plug, nothing open, or a CoreAudio name on a Mac,
+// whose input and output are different devices with different names), and
+// DEVICE_MATCH names the card instead.
+func captureCard(captureName string) string {
+	if !strings.Contains(captureName, "(hw:") {
+		return ""
+	}
+	return CardName(captureName)
 }
