@@ -81,8 +81,13 @@ and still looks it:
 
 - **Extra inputs** (`extra-inputs.md`, spec 2026-11-02): the AMS-24's two
   inputs recorded beside the EP-136's as channels 9–10, resampled onto its
-  clock, never played out of. Decided, not built (2026-11-02): the build
-  order's eight steps wait for their place in the queue. How Gabe hears
+  clock, never played out of. Built 2026-11-03 (#265–#271): steps 1–4 and
+  6, and the Settings choice; turned on with `EXTRA_INPUTS=AMS-24`. Left:
+  step 5's correlation lock against `aux` (the offset is by hand,
+  `EXTRA_INPUT_OFFSET_MS`), a take or KEEP that includes 9–10 waiting the
+  lag and recording the extra input's gaps, a flow (the flows' demo is
+  8-channel), step 7 at the rig (IN 1 → channel 9 with a signal, then drop
+  the profile's `placeholder`) and step 8's decision record. How Gabe hears
   the guitar (decision 2) is his wiring, recommended but his to change.
 - **Decided for Gabe while he was away, his to overrule** (2026-10-30): in
   the Studio a take or the feed that isn't playing gives the bar back to
