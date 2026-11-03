@@ -285,18 +285,15 @@ unmoved:
    a frozen snapshot and a strip painter, so the bar stops reading
    `bar.src`, and the lamp and the strip are drawn from the models
    (`engine.stream`, the tape's `snapshot()` and `live.clock`), the same
-   in every room; 5c, in two PRs, the surface takes what is the page's
-   (5c-1, *built* (#262): `--np-h`, the fold's storage in `layout.js`, the
-   player's sheet the surface's (`playerSheet`, the bar's keys handing it
-   their drag by `sheet.grab`), the Output sheet wired at boot, the
-   recorder made at boot, and `data-fold`/`data-open`/`data-docked` on the
-   bar's root, the fold synced from the router's `chrome.classesGiven` and
-   `data-docked` said by the dock's slot) (`--np-h`, the
-   fold's storage, the player's sheet, the output sheet, the recorder
-   made at boot, `data-fold`/`data-open`/`data-docked` on the root, set
-   by a router hook straight after `giveClasses` rather than in
-   `setPath`, which runs after `await reveal()`; the Studio's look-ups
-   become verbs); 5d, `css/bar.css` rewritten to start at `.np`, in
+   in every room; 5c, in two PRs: 5c-1, *built* (#262), the surface takes
+   what is the page's (`--np-h` measured by the boot; the fold's storage
+   in `layout.js`; the player's sheet the surface's, `playerSheet`, the
+   bar's keys handing it their drag by `sheet.grab`; the Output sheet and
+   the recorder made at boot; `data-fold`/`data-open`/`data-docked` on the
+   bar's root, the fold synced by a router hook, `chrome.classesGiven`,
+   straight after `giveClasses` rather than in `setPath`, which runs after
+   `await reveal()`, and `data-docked` said by the dock's slot), and 5c-2,
+   the Studio's look-ups become verbs; 5d, `css/bar.css` rewritten to start at `.np`, in
    place, proved by before and after storyboards of both pages at every
    size and in both schemes; 5e, the three menu panels into the bar,
    `#catch-menu` as `#np-catch-menu`; 5f, the modules keep Guardrail 15

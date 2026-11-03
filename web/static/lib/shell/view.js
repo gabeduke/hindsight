@@ -188,6 +188,17 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *     A node shown or hidden by its own `hidden` is not heard.
  */
 
+/**
+ * showDocked shows or hides `node`, a part docked above the bar (the
+ * Studio's clip editor and action bar, Capture's drawer): through the
+ * view's dock slot (ctx.dockSlot.show), which tells the bar's root
+ * (data-docked), or by its own `hidden` with no shell (`ctx` null).
+ */
+export function showDocked(ctx, node, on) {
+  if (ctx?.dockSlot?.show) ctx.dockSlot.show(node, on);
+  else node.hidden = !on;
+}
+
 /** classesOf is a view's bodyClass as a list: a string, space-separated, or an array. */
 export function classesOf(def) {
   return [].concat(def?.bodyClass ?? []).flatMap((c) => String(c).split(/\s+/)).filter(Boolean);

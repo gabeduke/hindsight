@@ -62,8 +62,10 @@ sideways scroll).
   foot of the phone's player pulled up, under the thumb; the display's OUT
   is hidden there. Both open the shell's Output sheet (`NowPlaying`'s
   `output()`, the shell's `openOutput`: `lib/tape/out-switch.js`
-  `wireOutput`, wired the first time it opens, once the engine has a
-  tape), and `paintDisplay` writes both.
+  `outputSheet(engine)`, which does nothing until the engine has a tape,
+  and the first time wires the sheet (`wireOutput`) and marks the mode and
+  the delay at once, then on every transport change); they are keys only
+  once the engine has a tape, the same test. `paintDisplay` writes both.
 - **Its height is measured** by the page around it (`measureBar` on the
   bar's root, called by the shell's boot and by Open, on
   `lib/ui/measure.js`'s `measureInto`: one `ResizeObserver` writing
@@ -125,7 +127,10 @@ sideways scroll).
   `shell.md`): the Studio's clip editor or action bar, or Capture's
   drawer, showing above the bar. Open's root says `data-open` too, through
   `player.js`'s layout. Nothing reads them yet: `css/bar.css` moves onto
-  them in step 5d.
+  them in step 5d. On a switch, `data-docked` can read false for a moment
+  between the room left taking its docked parts out and the room arriving
+  putting its own back (both inside the turn's update, before it is
+  drawn): a rule on it must not animate that blink.
 - **The page around the bar is the page's.** What a page does about the bar
   is `styles.css`'s, not `css/bar.css`'s: `--dock-b` and the padding and
   toasts that keep clear of the bar on a phone, the player pulled up
