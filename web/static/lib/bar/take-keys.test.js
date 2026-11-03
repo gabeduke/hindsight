@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
-import { takeKeys, clock, noteHere } from './take-keys.js';
+import { takeKeys, clock } from './take-keys.js';
 import { icon, iconOf } from '../ui/icons.js';
 
 function bar() {
@@ -21,8 +21,9 @@ function bar() {
   const $ = (id) => doc.getElementById(id);
   return { doc, root, keys, said, $ };
 }
-const aTake = (pos = 0) => ({ kind: 'take', title: 'Blue bridge', href: '/wave.html?file=a.wav', pos: () => pos, sampleRate: 48000 });
-const aTape = { kind: 'tape', title: 'Tuesday groove', href: '/tape.html', pos: () => 0, sampleRate: 48000 };
+// What the bar holds, as the engine's bar snapshot() says it.
+const aTake = (frame = 0) => ({ kind: 'take', title: 'Blue bridge', href: '/wave.html?file=a.wav', frame, sampleRate: 48000 });
+const aTape = { kind: 'tape', title: 'Tuesday groove', href: '/tape.html', frame: 0, sampleRate: 48000 };
 
 test('it makes no key: ✎ and GRAB are the page’s, each in its slot, where they were', () => {
   const b = bar();
@@ -61,15 +62,4 @@ test('clock says minutes and whole seconds, never ahead of the playhead', () => 
   assert.equal(clock(60 * 48000, 48000), '1:00');
   assert.equal(clock(600 * 48000 + 5, 48000), '10:00');
   assert.equal(clock(-5, 48000), '0:00');
-});
-
-test('✎ takes the frame first, then keeps it, then goes: in that order, and not at all with no take', () => {
-  const order = [];
-  const frame = { take: 'a b.wav', frame: 100, sr: 48000, playing: true, at: 1 };
-  const got = noteHere({ frameNow: () => { order.push('frame'); return frame; }, stash: (f) => order.push(`stash ${f.frame}`), go: (u) => order.push(`go ${u}`) });
-  assert.deepEqual(order, ['frame', 'stash 100', 'go /wave.html?file=a%20b.wav']);
-  assert.equal(got, frame);
-  const none = [];
-  assert.equal(noteHere({ frameNow: () => null, stash: () => none.push('stash'), go: () => none.push('go') }), null);
-  assert.deepEqual(none, []);
 });

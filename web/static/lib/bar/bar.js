@@ -14,7 +14,11 @@
 // display says where it is, then the tempo, the source and where it plays
 // (display.js), each a key: the tempo's menu is the Studio's, the source's
 // is source-menu.js, where it plays is the output sheet. With a take, Open ›
-// and ✎ are at its end (take-keys.js), and ⟲ is Repeat.
+// and ✎ are at its end (take-keys.js), and ⟲ is Repeat. Across its top,
+// the output strip while the tape plays on this phone, and in the display
+// the clock-out lamp, drawn from the tape's snapshot and the engine's stream
+// in every room (tape-status.js). It draws from the engine's snapshot() and
+// presses its verbs: it never holds the source itself.
 
 import { ReelWindow } from '../objects/reel-window.js';
 import { tokenCache, onSchemeChange } from '../theme.js';
@@ -32,21 +36,27 @@ import { phoneRecorder } from '../phone/recorder.js';
 import { layersOf } from '../ui/layers.js';
 import { barTop } from '../ui/menu.js';
 import { wireOutput, paintOutSheet, outDelay } from '../tape/out-switch.js';
+import { sizeCanvas } from '../ui/canvas.js';
+import { outStrip, clockLamp } from './tape-status.js';
 
 const $ = (id) => document.getElementById(id);
 
 /**
  * NowPlaying draws `engine` (createEngine's, lib/models/engine.js) on #np:
- * whatever it holds, as it changes and every frame while it plays. It makes
- * no source and no audio; a press is one of the engine's verbs, or the
- * source's own (▶, Loop, a seek).
+ * whatever it holds, from its bar's snapshot(), as it changes and every
+ * frame while it plays. It makes no source and no audio, and holds none: a
+ * press is one of the engine's verbs (▶, ⟲, |◂, ↺ 5 s, a seek, ⏏). `tape` is
+ * the page's tape model: the Studio's keys, the clock-out lamp and the
+ * output strip are drawn from it.
  */
 export class NowPlaying {
   constructor({ engine, onToast, layout, room = () => null, tape = null } = {}) {
     this.engine = engine;
     const bar = engine.bar;
     this.root = $('np');
-    this.src = null;
+    // The source drawn: the snapshot's id, which moves as the bar holds another.
+    this.held = null;
+    this.tape = tape;
     // Where it plays opens the output sheet, once there's a tape to send.
     this.openOutput = null;
     const onTouch = () => bar.touch();
@@ -77,29 +87,15 @@ export class NowPlaying {
     window.matchMedia?.('(pointer: coarse)')?.addEventListener?.('change', () => { kind(); this.kick(); });
     window.matchMedia?.('(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)')?.addEventListener?.('change', () => { kind(); this.kick(); });
 
-    $('np-play').addEventListener('click', () => {
-      const s = this.src;
-      if (!s) return;
-      onTouch();
-      // The source's own say first: the tape's sound waiting for a tap.
-      if (!s.press?.()) {
-        // A pause by ▶ is the person's: in the Studio the engine puts the
-        // tape back in the bar (tapeUnlessPlaying).
-        if (s.playing()) { s.pause(); bar.tapeUnlessPlaying(); } else s.play();
-      }
-      this.kick();
-    });
-    $('np-loop').addEventListener('click', () => { onTouch(); if (this.src) this.src.setLoop(!this.src.loop); });
-    $('np-start').addEventListener('click', () => { onTouch(); if (this.src) this.src.seek(this.src.start()); });
+    // ▶ (the source's own say first: the tape's sound waiting for a tap; a
+    // stop by ▶ gives the Studio the tape back), ⟲, |◂ and ↺ 5 s: the
+    // engine's verbs, each a touch.
+    $('np-play').addEventListener('click', () => { bar.playPause(); this.kick(); });
+    $('np-loop').addEventListener('click', () => bar.setLoop(!bar.snapshot(this.here).loop));
+    $('np-start').addEventListener('click', () => bar.toStart());
     // ↺ 5 s, or J: back five seconds of what this device hears, playing or
     // not.
-    const back5 = () => {
-      const s = this.src;
-      if (!s) return;
-      onTouch();
-      s.seek(Math.max(0, (s.heardHere ? s.heardHere() : s.pos()) - 5 * s.sampleRate));
-      this.kick();
-    };
+    const back5 = () => { bar.back5(); this.kick(); };
     $('np-back5').addEventListener('click', back5);
     // By the character, as the take page reads its keys.
     addEventListener('keydown', (e) => {
@@ -110,7 +106,7 @@ export class NowPlaying {
       // the page's stack, not read off the page; an inspector is on the
       // stack and not modal, so J still steps under one.
       if (layersOf(document).covered()) return;
-      if (this.root.hidden || !this.src) return;
+      if (this.root.hidden || !bar.sourceKind) return;
       back5();
     });
     // ⏏ hides itself: the focus goes to ▶, not to the page.
@@ -123,12 +119,12 @@ export class NowPlaying {
     let down = null, sent = 0;
     const at = (e) => { const r = sc.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
     const seekTo = (f, final) => {
-      const s = this.src;
-      if (!s) return;
+      const kind = bar.sourceKind;
+      if (!kind) return;
       const now = performance.now();
-      if (!final && s.kind === 'tape' && now - sent < 150) return;
+      if (!final && kind === 'tape' && now - sent < 150) return;
       sent = now;
-      s.seek(f * s.length);
+      bar.seekFraction(f);
       this.kick();
     };
     sc.addEventListener('pointerdown', (e) => {
@@ -143,14 +139,13 @@ export class NowPlaying {
     sc.addEventListener('pointerup', up);
     sc.addEventListener('pointercancel', () => { down = null; });
     sc.addEventListener('keydown', (e) => {
-      const s = this.src;
-      if (!s || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!bar.sourceKind || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === ' ' || e.key === 'Home' || e.key === 'End' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') onTouch();
       if (e.key === ' ') { e.preventDefault(); if (!e.repeat) $('np-play').click(); return; }
-      if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); s.seek(e.key === 'Home' ? 0 : s.length - 1); this.kick(); return; }
+      if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); if (e.key === 'Home') bar.seekFraction(0); else bar.toEnd(); this.kick(); return; }
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       e.preventDefault();
-      s.seek(s.pos() + (e.key === 'ArrowRight' ? s.step() : -s.step()));
+      bar.step(e.key === 'ArrowRight' ? 1 : -1);
       this.kick();
     });
     new ResizeObserver(([e]) => {
@@ -179,19 +174,27 @@ export class NowPlaying {
     // Studio lends them its hands through its ctx (ctx.tapeKeys). A hold
     // on ● on a phone offers this phone's ▾.
     this.tapeKeys = tapeKeys({ doc: document, tape, toast: (m, k, o) => onToast?.(m, k, o), offer: () => phone?.offer() });
+    // The output strip's tap, for this phone's sound held back.
+    $('np-out-strip-resume')?.addEventListener('click', () => engine.stream?.resume());
+    // The lamp and the strip, from the tape's answers and the transport's
+    // changes (the stream's state among them), in every room.
+    tape?.onChange(() => this.paintTape());
+    engine.transport?.onChange(() => this.paintTape());
 
     // What the engine holds, drawn as it changes and every frame it plays;
     // a hidden page is drawn again as it comes back (visibilitychange).
     engine.bar.onChange(() => {
-      if (bar.src !== this.src) this.load(bar.src);
+      const s = bar.snapshot(this.here);
+      if (s.id !== this.held) this.load(s);
       if (engine.tape && !this.openOutput) this.mountTape();
       const ej = $('np-eject');
-      if (ej.hidden !== !bar.canEject) ej.hidden = !bar.canEject;
-      if (!document.hidden) this.render();
+      if (ej.hidden !== !s.canEject) ej.hidden = !s.canEject;
+      if (!document.hidden) { this.render(); this.paintTape(); }
     });
-    if (bar.src) this.load(bar.src);
+    this.load(bar.snapshot(this.here));
     if (engine.tape) this.mountTape();
-    $('np-eject').hidden = !bar.canEject;
+    $('np-eject').hidden = !bar.snapshot(this.here).canEject;
+    this.paintTape();
   }
 
   /**
@@ -220,21 +223,55 @@ export class NowPlaying {
     this.kick();
   }
 
-  /** load draws `src`, the engine's now; null empties and hides the bar. */
-  load(src) {
-    if (src === this.src) return;
-    this.src = src;
+  /**
+   * load draws the source in snapshot `s`, the engine's now, as the bar
+   * comes to hold it; nothing in it empties and hides the bar.
+   */
+  load(s) {
+    if (s.id === this.held) return;
+    this.held = s.id;
     this.colors.clear();
-    this.root.hidden = !src;
+    this.root.hidden = !s.kind;
     // What it holds -- feed, tape or take -- for the CSS and the checks that look.
-    if (src) this.root.setAttribute('data-source', src.kind);
+    if (s.kind) this.root.setAttribute('data-source', s.kind);
     else this.root.removeAttribute('data-source');
-    if (!src) { this.keys?.paint(null); return; }
-    if (src.levels) this.reels.setLevels(src.levels.colors, src.levels.at);
+    if (!s.kind) { this.keys?.paint(null); return; }
+    if (s.levels) this.reels.setLevels(s.levels.colors, s.levels.at);
     else this.reels.setLevels([], () => []);
     // The keys say what this source does.
-    $('np-play').dataset.tip = src.kind === 'tape' ? 'tape-play' : 'play';
-    $('np-start').dataset.tip = src.kind === 'tape' ? 'to-start' : 'take-to-start';
+    $('np-play').dataset.tip = s.kind === 'tape' ? 'tape-play' : 'play';
+    $('np-start').dataset.tip = s.kind === 'tape' ? 'to-start' : 'take-to-start';
+  }
+
+  /**
+   * paintTape draws the clock-out lamp and the output strip from the
+   * models, the same in every room: the tape's snapshot() (who follows its
+   * clock, where it plays, whether it plays), the engine's stream (this
+   * phone's sound), and a locate the Studio sent and this phone has not
+   * heard yet (its hands, through tapeKeys).
+   */
+  paintTape() {
+    const { tape: t = null, live = null } = this.tape?.snapshot?.() || {};
+    const lamp = $('np-clock-out');
+    if (lamp) {
+      const c = clockLamp(live && live.clock, t);
+      if (lamp.hidden !== c.hidden) lamp.hidden = c.hidden;
+      if (!c.hidden) {
+        setText(lamp, c.text);
+        lamp.classList.toggle('none', c.none);
+      }
+    }
+    const strip = $('np-out-strip');
+    if (!strip) return;
+    const o = outStrip({ stream: this.engine.stream, live, tape: t, ghost: this.tapeKeys?.ghost?.() || null, now: performance.now() });
+    if (strip.hidden !== o.hidden) strip.hidden = o.hidden;
+    const resume = $('np-out-strip-resume');
+    const noResume = o.hidden || !o.resume;
+    if (resume && resume.hidden !== noResume) resume.hidden = noResume;
+    if (o.hidden) return;
+    setAttr($('np-out-strip-led'), 'class', `out-led ${o.led}`);
+    setText($('np-out-strip-text'), o.text);
+    setText($('np-out-strip-right'), o.right);
   }
 
   // kick draws on the next frame, and every frame while the source plays.
@@ -254,13 +291,13 @@ export class NowPlaying {
   }
 
   render() {
-    const s = this.src;
-    if (!s) return;
+    const bar = this.engine.bar;
+    const s = bar.snapshot(this.here);
+    if (!s.kind) return;
     this.paintRoom();
-    const lcd = s.lcd();
-    const playing = s.playing();
+    const { lcd, playing } = s;
     // Playing on the Pi, but not yet heard here: ▶ is the tap it waits for.
-    const waiting = !!s.waiting?.();
+    const waiting = s.waiting;
     setText($('np-position'), lcd.big);
     // A note (tap ▶ to play here, a mixdown's progress) in the time's place.
     const time = $('np-time');
@@ -276,12 +313,12 @@ export class NowPlaying {
     setIcon(play, shown ? (s.kind === 'tape' ? 'stop' : 'pause') : 'play');
     setAttr(play, 'aria-label', waiting ? 'Play here' : shown ? (s.kind === 'tape' ? 'Stop' : 'Pause') : 'Play');
     play.classList.toggle('playing', shown);
-    play.disabled = !playing && !waiting && !s.canPlay();
+    play.disabled = !playing && !waiting && !s.canPlay;
     this.keys?.paint(s);
-    setAttr($('np-loop'), 'aria-pressed', String(!!s.loop));
-    $('np-loop').disabled = !s.canLoop();
-    $('np-start').disabled = s.canStart ? !s.canStart() : false;
-    setAttr($('np-start'), 'aria-label', s.startLabel());
+    setAttr($('np-loop'), 'aria-pressed', String(s.loop));
+    $('np-loop').disabled = !s.canLoop;
+    $('np-start').disabled = !s.canStart;
+    setAttr($('np-start'), 'aria-label', s.startLabel);
     // What's in the bar opens on its own page: a take's, or the tape's Studio.
     const open = $('np-open');
     setAttr(open, 'href', s.href);
@@ -289,33 +326,25 @@ export class NowPlaying {
     // The strip, and what a screen reader hears of it.
     // Measured once, before its observer has said (a bar just made).
     const r = this.scrubSize ||= (({ width, height }) => ({ width, height }))(this.scrub.getBoundingClientRect());
-    const dpr = window.devicePixelRatio || 1;
-    if (r.width > 0) {
-      if (this.scrub.width !== Math.round(r.width * dpr) || this.scrub.height !== Math.round(r.height * dpr)) {
-        this.scrub.width = Math.round(r.width * dpr);
-        this.scrub.height = Math.round(r.height * dpr);
-      }
-      const ctx = this.scrub.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      s.paint(ctx, r.width, r.height, (n, d) => this.colors.get(n, d), dpr);
-    }
+    const drawn = sizeCanvas(this.scrub, r.width, r.height);
+    if (drawn) bar.paintStrip(drawn.ctx, r.width, r.height, (n, d) => this.colors.get(n, d), drawn.dpr);
     const tenth = s.sampleRate / 10;
-    const p = Math.round(s.pos() / tenth) * tenth;
+    const p = Math.round(s.frame / tenth) * tenth;
     setAttr(this.scrub, 'aria-valuemax', String(Math.round(s.length)));
     setAttr(this.scrub, 'aria-valuenow', String(Math.round(p)));
     setAttr(this.scrub, 'aria-valuetext', `${lcd.unit === 'BAR' ? `bar ${lcd.big}, ` : ''}${secs(p / s.sampleRate)}`);
     if (s.levels) this.reels.setLevels(s.levels.colors, s.levels.at);
     else this.reels.setLevels([], () => []);
-    this.reels.poll({ heard: s.pos(), playing, length: s.length, sampleRate: s.sampleRate });
+    this.reels.poll({ heard: s.frame, playing, length: s.length, sampleRate: s.sampleRate });
   }
 
   /**
-   * paintDisplay writes the display's three keys for source `s`: its tempo
-   * (a key in the Studio, with the tape, where the tempo's menu is), the
-   * source, and where it plays (a key once there is a tape to send).
+   * paintDisplay writes the display's three keys for snapshot `s`: its
+   * tempo (a key in the Studio, with the tape, where the tempo's menu is),
+   * the source, and where it plays (a key once there is a tape to send).
    */
   paintDisplay(s) {
-    const d = s.display(this.here);
+    const d = s.display;
     setText($('np-tempo-short'), d.tempo.short);
     setText($('np-tempo-long'), d.tempo.long);
     setText($('np-source-short'), d.source.short);

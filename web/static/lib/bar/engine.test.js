@@ -44,7 +44,8 @@ test('with no tape on the Pi the engine holds nothing, and the bar waits hidden'
   assert.equal(engine.stream, null);
   assert.equal(engine.feed, null, 'the feed is not made until it is chosen');
   assert.equal(engine.bar.src, null);
-  assert.equal(page.np.src, null);
+  assert.equal(engine.bar.snapshot().kind, null);
+  assert.equal(page.np.held, engine.bar.snapshot().id, 'the bar has drawn the engine’s nothing');
   assert.equal(bar.sourceKind, null);
   assert.equal($('np').hidden, true);
 });
@@ -63,7 +64,8 @@ test('a tape made after the engine was (a Pi'+"'"+'s first) is mounted by setTap
 test('with a tape on the Pi the bar holds it, and the engine has the tape and its player on this device', async () => {
   const { engine, bar, $, frames } = await open();
   assert.equal(engine.tape.kind, 'tape');
-  assert.equal(page.np.src, engine.tape, 'the bar NowPlaying draws is the engine’s');
+  assert.equal(page.np.held, engine.bar.snapshot().id, 'the bar NowPlaying draws is the engine’s');
+  assert.equal($('np').getAttribute('data-source'), 'tape');
   assert.equal(bar.sourceKind, 'tape');
   assert.equal(engine.stream.active, false, 'not listening here until asked');
   assert.equal($('np').hidden, false);
@@ -408,7 +410,8 @@ test('what redraws the bar from outside (a room switch, the scheme, the screen�
   w.raf.length = 0;
   page.np.kick();
   assert.ok(w.raf.length > 0, 'a frame is asked for');
-  assert.equal(page.np.src, engine.tape);
+  assert.equal(page.np.held, engine.bar.snapshot().id);
+  assert.equal(engine.bar.snapshot().kind, 'tape');
 });
 
 test('the tempo opens its menu with the tape in the Studio, as the surface says the room, and not elsewhere', async () => {
