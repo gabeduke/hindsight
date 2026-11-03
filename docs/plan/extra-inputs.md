@@ -8,7 +8,9 @@ to change. Built: the bug (#265), steps 1 (#266), 2 (#267), 3 (#268), 4
 `docs/architecture/capture.md` (*Extra inputs*) and `tape.md` (*Sources*).
 Left: step 5's correlation lock (the offset is set by hand), a take or KEEP
 of 9–10 waiting the lag and recording the extra gaps, a flow, step 7 at the
-rig, and step 8.
+rig (IN 1 = channel 9 was confirmed with a guitar on 2026-11-03, and the
+profile's `placeholder` dropped; a catch over a session is still to try), and
+step 8.
 
 On 2026-11-02 Gabe chose the Zoom AMS-24 as the Interface in Settings to get
 his guitar in. The capture fell back to the EP-136 (it wants 8 channels), the

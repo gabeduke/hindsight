@@ -148,7 +148,7 @@ func TestNewProfilesMatchByNameOnly(t *testing.T) {
 			t.Errorf("ForMIDI(%q) took it for %s", name, p.ID)
 		}
 	}
-	for _, id := range []string{"mpc-sample", "smk-37-elite", "scarlett-solo-4g", "zoom-r20", "zoom-ams-24", "aks-mini"} {
+	for _, id := range []string{"mpc-sample", "smk-37-elite", "scarlett-solo-4g", "zoom-r20", "aks-mini"} {
 		for _, p := range Profiles() {
 			if p.ID == id && !p.Placeholder {
 				t.Errorf("%s names ports nobody has read off a unit, so it must stay a placeholder", id)
