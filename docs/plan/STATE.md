@@ -203,7 +203,15 @@ and still looks it:
         engine; `NowPlaying` draws from them and holds no source; the
         lamp and the output strip are the bar's, from the tape's
         snapshot and `engine.stream` (`lib/bar/tape-status.js`), the
-        Studio's ghost lent through its hands. **Next**: 5c.
+        Studio's ghost lent through its hands. 5c-1 is built (#262):
+        the surface's pieces (`--np-h` measured by the boot; the fold's
+        storage in `barLayout`; `data-fold`, `data-open` and
+        `data-docked` on the bar's root, the fold synced by the router's
+        `chrome.classesGiven`, docked said by `ctx.dockSlot.show`; the
+        phone's player sheet the surface's, `playerSheet`, dragged from
+        the bar's handles by `sheet.grab`; the Output sheet and the
+        recorder made at boot). **Next**: 5c-2, the Studio's reaches into
+        the bar as verbs and callbacks.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
