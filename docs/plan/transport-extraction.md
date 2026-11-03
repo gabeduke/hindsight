@@ -298,9 +298,12 @@ unmoved:
    drawn by the bar, ▶ and L on the engine's verbs, focusing ▶ and the
    tempo menu through `ctx.tapeKeys`, OUT through `ctx.openOutput`, the
    doorway's grease through `ctx.barSlot` and its reading by the engine's
-   `snapshot()`, Guardrail 22); 5d, `css/bar.css` rewritten to start at `.np`, in
-   place, proved by before and after storyboards of both pages at every
-   size and in both schemes; 5e, the three menu panels into the bar,
+   `snapshot()`, Guardrail 22); 5d, *built*, `css/bar.css` rewritten to start at `.np`, in
+   place (on `data-fold`, `data-open` and `data-docked`; the player's
+   sheet, `.tempo-menu` and `.kb-lit`'s colours to `styles.css`; the five
+   `@media` kept, D1), with a test that every selector starts at `.np` but
+   a menu panel the shell holds outside `#np`, proved by before and after
+   storyboards of both pages at every size and in both schemes; 5e, the three menu panels into the bar,
    `#catch-menu` as `#np-catch-menu`; 5f, the modules keep Guardrail 15
    in place, with no copies (maybe two PRs); 5g, the move itself; 5h,
    `display` inside the bar, opened for Gabe to look at, not merged

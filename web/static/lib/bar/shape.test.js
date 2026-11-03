@@ -100,8 +100,10 @@ test('what shows is said positively: one rule shows each source’s keys, with n
   assert.ok(show.sel.some((s) => s.startsWith('.np[data-room="studio"]') && s.includes('[data-for~="studio"]')), 'the Studio’s keys, in the Studio');
   for (const s of show.sel) assert.doesNotMatch(s, /\bbody\b/, `${s}: the room is on the root, not the body`);
   assert.ok(show.sel.some((s) => s.includes('[data-size="mini"][data-source="tape"] [data-mini~="away"]')), 'the tape’s mini keys away from the Studio');
-  // A key a script has hidden (⏏ with no tape) stays hidden: #np outranks them all.
-  assert.ok(barRules.some((r) => r.sel.includes('#np [hidden]') && /display:\s*none/.test(r.body)));
+  // A key a script has hidden (⏏ with no tape) stays hidden: the show rules
+  // pass over it, and .np [hidden] hides it.
+  for (const s of show.sel) assert.ok(s.endsWith(':not([hidden])'), `${s}: a hidden key stays hidden`);
+  assert.ok(barRules.some((r) => r.sel.includes('.np [hidden]') && /display:\s*none/.test(r.body)));
 });
 
 test('the phone’s mini player lists its zones for each source, and its tail is one width, so ▶ stands still', () => {
@@ -116,7 +118,7 @@ test('the phone’s mini player lists its zones for each source, and its tail is
 });
 
 test('wider, the deck’s width hangs on the bar’s row alone, so ▶ stands at one x whatever the bar holds', () => {
-  const tiers = barRules.filter((r) => r.at.some((a) => a.startsWith('@container bar')) && r.sel.includes('.np-zones'));
+  const tiers = barRules.filter((r) => r.at.some((a) => a.startsWith('@container bar')) && r.sel.includes('.np .np-zones'));
   assert.ok(tiers.length >= 2, 'a tablet’s tier and a wider one');
   for (const r of tiers) {
     const d = Object.fromEntries(decls(r.body).map((x) => [x.prop, x.value]));
@@ -127,7 +129,7 @@ test('wider, the deck’s width hangs on the bar’s row alone, so ▶ stands at
   // The container is the first row: not the bar, nor the dock, whose fixed
   // descendants (the phone's player, the menus) a container would hold.
   const holders = rules(cssOf()).filter((r) => decls(r.body).some((d) => d.prop === 'container' || d.prop === 'container-type'));
-  assert.deepEqual(holders.flatMap((r) => r.sel).filter((s) => /\.np\b|#np|np-dock/.test(s)), ['.np-row-1']);
+  assert.deepEqual(holders.flatMap((r) => r.sel).filter((s) => /\.np\b|#np|np-dock/.test(s)), ['.np .np-row-1']);
 });
 
 test('the bar’s height is measured, never written: no stylesheet sets --np-h', () => {

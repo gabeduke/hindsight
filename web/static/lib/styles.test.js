@@ -322,7 +322,7 @@ test('the tape deck tokens exist, and the bar\'s LCD reads', () => {
   // The bar's display is css/bar.css's: its position, its time, and the
   // values and legends of its three keys.
   const all = rules(cssOf());
-  for (const sel of ['.np-pos', '.np-time', '.np-lcd-val', '.np-lcd-key']) {
+  for (const sel of ['.np .np-pos', '.np .np-time', '.np .np-lcd-val', '.np .np-lcd-key']) {
     const r = all.filter((x) => x.sel.includes(sel)).map((x) => /(?:^|[;{\s])color:\s*([^;]+);/.exec(x.body)).filter(Boolean).at(-1);
     assert.ok(r, `${sel} has a colour`);
     for (const [scheme, t] of [['light', light], ['dark', dark]]) {

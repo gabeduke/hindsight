@@ -97,10 +97,12 @@ test('the bench draws its reels with the bar\'s own rules, kept in step', () => 
   const bench = rules(/<style>([\s\S]*?)<\/style>/.exec(html)[1]);
   const bar = rules(fileCss('css/bar.css'));
   const norm = (b) => b.replace(/\s+/g, ' ').trim();
-  const reel = bar.filter((r) => r.sel.length === 1 && /^(\.np-reel\.rendered )?\.np-(well|pack|turn|flange|hub|frames|drawn)$/.test(r.sel[0]));
+  // The bar's start at its root (.np .np-well), the bench's at its reel.
+  const reel = bar.filter((r) => r.sel.length === 1 && /^\.np (\.np-reel\.rendered )?\.np-(well|pack|turn|flange|hub|frames|drawn)$/.test(r.sel[0]));
   assert.ok(reel.length >= 8, `found ${reel.length} of the reel's rules in bar.css`);
   for (const r of reel) {
-    const sel = r.sel[0].startsWith('.np-reel') ? r.sel[0].replace('.np-reel', '.bench-reel') : `.bench-reel ${r.sel[0]}`;
+    const own = r.sel[0].slice('.np '.length);
+    const sel = own.startsWith('.np-reel') ? own.replace('.np-reel', '.bench-reel') : `.bench-reel ${own}`;
     const twin = bench.find((b) => b.sel.includes(sel));
     assert.ok(twin, `objects.html should have ${sel}`);
     assert.equal(norm(twin.body), norm(r.body), sel);
@@ -112,7 +114,7 @@ test('the reel\'s flange takes no press, so its film strip covers nothing', () =
   // and clipped to one: at some angles its box reaches the Studio's last
   // track head, and a box that takes presses there counted as covering the
   // level (a flaky target-size fail in J2.2, by where the reel stopped).
-  const turn = rules(fileCss('css/bar.css')).filter((r) => r.sel.includes('.np-turn'));
+  const turn = rules(fileCss('css/bar.css')).filter((r) => r.sel.includes('.np .np-turn'));
   assert.ok(turn.length, 'bar.css has the reel\'s .np-turn rule');
   assert.ok(turn.some((r) => /pointer-events:\s*none/.test(r.body)), '.np-turn says pointer-events: none');
 });

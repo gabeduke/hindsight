@@ -214,8 +214,13 @@ and still looks it:
         the rooms' reaches into the bar are verbs and callbacks (SYNC
         the bar's; ▶ and L the engine's; `ctx.tapeKeys.focusPlay()` and
         `tempo(fn)`; `ctx.openOutput()`; the grease through
-        `ctx.barSlot`), Guardrail 22. **Next**: 5d, `css/bar.css` onto
-        the root's attributes.
+        `ctx.barSlot`), Guardrail 22. 5d is built: `css/bar.css`
+        starts every selector at `.np` and reads the fold, the player and
+        the dock off the root (`data-fold`, `data-open`, `data-docked`),
+        the player's sheet, the tempo menu and `.kb-lit`'s colours in
+        `styles.css`, its five `@media` kept (D1); a test holds it, but
+        for the three menu panels outside `#np`. **Next**: 5e, those
+        panels into the bar.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
