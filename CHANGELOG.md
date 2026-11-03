@@ -5,6 +5,22 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.7 — 2026-11-03
+
+- Settings offers Extra inputs as a choice of the cards plugged in, and the buffer's memory line counts them (40266cec)
+- One card named two ways is one box on the rig, and an extra input's USB id is read whole (79c84aa9)
+- The rig draws the AMS-24 as an extra input: a box of its own, its USB into the kit's USB IN, IN 1 and IN 2 on ams1 and ams2 (aa425042)
+- Two extra inputs of one name get sources of their own (2f5aecab)
+- The tape can catch the guitar: sources ams1 and ams2 on the extra input, read a lag behind, refused across its gaps (93fe82d7)
+- An extra input's meters fall silent when it stops, and its gaps are spans (9c8c66df)
+- An extra input records beside the main interface: EXTRA_INPUTS, its channels after the main ones, on the main one's clock (fae9cf6a)
+- An extra input can open a USB card through ALSA directly, so a replug needs no rescan (5e625389)
+- The steered resampler holds its ratio near 1 and is tested against a single float sum and an over-trim (fd4c7598)
+- A resampler whose ratio can be steered, to bring a second interface onto the main one's clock (df27c5c5)
+- The AMS-24's profile says only what is true before its extra input is built (5bd8b6a7)
+- The AMS-24's profile has its USB id and its two inputs, and no returns: nothing plays out of it (ccfe403f)
+
+
 ## v2026.11.03.6 — 2026-11-03
 
 - The tape plays out of the card the capture opened, not the one chosen as the Interface (9c6d349b)
