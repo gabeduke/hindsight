@@ -39,7 +39,7 @@ func filled(frames uint64, ch int, v int32) []int32 {
 // moves the head on by the lag first, then the extra input's last frames
 // before the press are written, as the ring writer does them.
 func joinLater(c *Capture, head uint64) {
-	time.Sleep(30 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond) // the save has its snapshot by now
 	lag := c.ExtraLag()
 	c.Ring().WriteNarrow(make([]int32, 2*lag), 2)
 	time.Sleep(30 * time.Millisecond) // the moment between the head moving and the joiner writing
@@ -80,6 +80,32 @@ func TestASpanOfAnExtraInputWaitsForItsLag(t *testing.T) {
 	for f := 0; f < len(all)/2; f++ {
 		if all[2*f] != 1000 {
 			t.Fatalf("frame %d is %d: the span lost the extra input's last frames", f, all[2*f])
+		}
+	}
+}
+
+// A KEEP of the whole ring, full, still gets the extra input's last frames:
+// only the tail past the joiner is read again, so the ring overwriting its
+// oldest frames while the KEEP waits doesn't cost the fix.
+func TestAKeepOfAFullRingStillWaitsForTheExtraInput(t *testing.T) {
+	cfg, c, s, _ := extraSaveFixture(t, []int{2, 3})
+	r := c.Ring()
+	more := uint64(r.Capacity()) // fill it: the KEEP starts at its oldest frame
+	lag := c.ExtraLag()
+	_, head := r.Window()
+	r.WriteNarrow(make([]int32, 2*more), 2)
+	r.WriteChannels(head+more-uint64(r.Capacity()), 2, 2, filled(uint64(r.Capacity())-lag, 2, 1000))
+	c.extras[0].written.Store(head + more - lag)
+	go joinLater(c, head+more)
+	name, err := s.Save(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, all := readTake(t, filepath.Join(cfg.OutputDir, name))
+	n := len(all) / 2
+	for f := n - int(lag) - 100; f < n; f++ {
+		if all[2*f] != 1000 {
+			t.Fatalf("frame %d of %d is %d: the full ring's KEEP lost the extra input's end", f, n, all[2*f])
 		}
 	}
 }

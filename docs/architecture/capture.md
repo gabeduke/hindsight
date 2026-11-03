@@ -91,8 +91,10 @@ joiner writes behind it. In a gap the frontier moves on with the head, so a
 wait never hangs on an unplugged card. A KEEP or a span saved from the ring
 whose channels include an extra input's waits for it to reach the press
 (`Capture.AwaitExtra`, at most the lag and a second) and reads those
-channels again over the take's window (`Saver.settleExtra`), so the take
-doesn't end on the lag's silence; the take's dropouts include the extra
+channels again from where the joiner was at the snapshot to where it got
+(`Saver.settleExtra`: only that tail, so a take from the ring's oldest frame
+doesn't lose its start meanwhile), so the take doesn't end on the lag's
+silence; the take's dropouts include the extra
 input's gaps (`Capture.ExtraGapsIn`). A take of the main interface's
 channels alone waits for nothing. Its meters don't wait: they are fed from the extra stream's
 own blocks (`Levels.AccumulateAt`), counting their own samples per bin.

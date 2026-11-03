@@ -351,9 +351,9 @@ func (c *Capture) ExtraWait() time.Duration {
 	return time.Duration(c.ExtraLag())*time.Second/time.Duration(c.cfg.SampleRate) + time.Second
 }
 
-// ExtraGapsIn are the extra inputs' gaps strictly inside the ring frames
-// [start, end) for channels chs, in frames from start, as Dropouts answers:
-// what a take of those channels must say it lost.
+// ExtraGapsIn are the extra inputs' gaps over the ring frames [start, end)
+// for channels chs, in frames from start (0 for one the span starts inside,
+// as Gaps answers): what a take of those channels lost.
 func (c *Capture) ExtraGapsIn(chs []int, start, end uint64) []int64 {
 	var out []int64
 	seen := map[*extraInput]bool{}

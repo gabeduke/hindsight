@@ -270,7 +270,8 @@ reaches it: `ams1=9,9 ams2=10,10` for the AMS-24 beside the EP-136
 a tap, a grab, a copy from the ribbon, and their handles -- takes its newest
 frame from `Engine.window`, which stops short at the joiner's frontier for a
 source on an extra input (`Capture.NewestFor`, through the optional
-`ExtraAware`) and nowhere else. A span across an extra input's gap is refused for its sources
+`ExtraAware`) and nowhere else: a joiner that has stalled ends the window
+where it stopped, rather than handing out the silence after it. A span across an extra input's gap is refused for its sources
 (`ErrExtraGap`, *INPUT DROPPED OUT*), as one with a slip is; a gap only in
 its handles is silence there, not a refusal. A second card whose names would
 clash takes the bus channel's (`in11`).
