@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.5 — 2026-11-03
+
+- The bar's stylesheet test counts only the bar's own menu panels as not inside it yet (20d5818d)
+- The bar's stylesheet reads its own root, not the page: nothing on screen changes (f735c2b3)
+
+
 ## v2026.11.03.4 — 2026-11-03
 
 - Guardrail 22 reads every module of the rooms and the Studio, not a list; the spec no longer counts readBar (68669369)
