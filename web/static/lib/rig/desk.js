@@ -32,8 +32,9 @@ export function desk(g) {
   const kit = (g.kit && g.kit.sockets) || [];
   const of = (pred) => kit.filter(pred).map((s) => sock(g, s, 'kit'));
   const iface = devices.find((d) => d.role === 'interface');
+  const from = [iface, ...devices.filter((d) => d.role === 'input')].filter(Boolean).map((d) => d.short).join(' and ');
   const rows = [
-    { id: 'taps', title: iface ? `From the ${iface.short} · USB taps` : 'USB taps', sockets: of((s) => s.id === 'kit.usb' || s.id.startsWith('kit.usb.') || s.kind === 'tap') },
+    { id: 'taps', title: from ? `From the ${from} · USB taps` : 'USB taps', sockets: of((s) => s.id === 'kit.usb' || s.id.startsWith('kit.usb.') || s.kind === 'tap') },
     { id: 'tracks', title: 'Into the tape · track inputs', sockets: of((s) => s.kind === 'track') },
     { id: 'back', title: 'Back out', sockets: of((s) => s.kind === 'bus' || s.kind === 'out') },
     { id: 'midi', title: 'MIDI and KEEP', sockets: of((s) => s.kind === 'midi' || s.kind === 'keep') },

@@ -58,6 +58,7 @@ test('an extra input is drawn after the interface, its USB IN in the taps row', 
   assert.equal(roles[0], 'interface');
   assert.equal(roles[1], 'input');
   assert.match(d.devices[1].sub, /records only/);
+  assert.match(d.rows.find((r) => r.id === 'taps').title, /Sidekick and AMS-24/);
   assert.ok(d.rows.find((r) => r.id === 'taps').sockets.some((s) => s.id === 'kit.usb.input-ams-24'));
   const ids = allSockets(d).map((s) => s.id);
   assert.equal(new Set(ids).size, ids.length, 'every socket once');

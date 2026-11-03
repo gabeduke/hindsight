@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/gabeduke/hindsight/internal/config"
 )
 
 // Setting is one setting as the rig reads it: the value saved (what the
@@ -361,17 +363,12 @@ func (b *builder) interfaceDevice() {
 // not running, or running and taken out, its cable waits for the restart;
 // running and not open (unplugged), it carries nothing.
 func (b *builder) extraInputs() {
-	saved, running := list(b.set(keyExtra).Value), list(b.set(keyExtra).Running)
-	seen := map[string]bool{}
-	ch := b.in.Channels
+	saved, running := extraList(b.set(keyExtra).Value), extraList(b.set(keyExtra).Running)
+	drawn := map[string]bool{}
 	for _, m := range append(running, saved...) {
-		if strings.EqualFold(m, "none") || seen[strings.ToLower(m)] {
-			continue
-		}
-		seen[strings.ToLower(m)] = true
 		var live *ExtraView
 		for i := range b.in.Extras {
-			if strings.EqualFold(b.in.Extras[i].Match, m) {
+			if config.SameCard(b.in.Extras[i].Match, m) {
 				live = &b.in.Extras[i]
 			}
 		}
@@ -386,12 +383,24 @@ func (b *builder) extraInputs() {
 		if !ok {
 			p = Generic(m, 2, 0)
 		}
-		offset := ch
+		id := "input-" + slug(p.Short)
+		if drawn[id] {
+			continue // the same card by another name ("AMS-24", "AMS24")
+		}
+		drawn[id] = true
+		// Running, it's where the capture put it; saved only, where the
+		// restart will, numbered in the saved order.
+		offset := b.in.Channels
 		if live != nil {
 			offset = live.Channels[0] - 1
+		} else {
+			for i, s := range saved {
+				if config.SameCard(s, m) {
+					offset = b.in.Channels + i*config.ExtraInputChannels
+					break
+				}
+			}
 		}
-		ch = offset + 2
-		id := "input-" + slug(p.Short)
 		d := Device{ID: id, Role: "input", Name: p.Name, Short: p.Short, Profile: p.ID, Generic: p.Generic,
 			Placeholder: p.Placeholder, Note: p.Note, Match: m}
 		if live != nil {
@@ -430,8 +439,8 @@ func (b *builder) extraInputs() {
 			c.About += " Not locked to the main clock yet."
 		}
 		has := func(get func(string) string) bool {
-			for _, x := range list(get(keyExtra)) {
-				if strings.EqualFold(x, m) {
+			for _, x := range extraList(get(keyExtra)) {
+				if config.SameCard(x, m) {
 					return true
 				}
 			}
@@ -439,6 +448,18 @@ func (b *builder) extraInputs() {
 		}
 		b.both(c, has)
 	}
+}
+
+// extraList reads EXTRA_INPUTS: not list(), whose nudge would cut a USB id
+// ("1234:5678") at its colon. none is none.
+func extraList(v string) []string {
+	var out []string
+	for _, x := range strings.Split(v, ",") {
+		if x = strings.TrimSpace(x); x != "" && !strings.EqualFold(x, "none") {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // extraFor is the extra input whose profile's MIDI name is in a port's

@@ -99,6 +99,44 @@ func TestAnExtraInputsCableSaysWhereItStands(t *testing.T) {
 	}
 }
 
+// Two names for one card are one box: running AMS-24, saved AMS24, it's
+// drawn once, with ids that are each used once.
+func TestOneCardByTwoNamesIsOneBox(t *testing.T) {
+	in := withAMS(true, true)
+	in.Settings[keyExtra] = Setting{Value: "AMS24", Running: "AMS-24"}
+	g := Build(in)
+	n := 0
+	ids := map[string]int{}
+	for _, d := range g.Devices {
+		if d.Role == "input" {
+			n++
+		}
+		for _, s := range d.Sockets {
+			ids[s.ID]++
+		}
+	}
+	for _, s := range g.Kit.Sockets {
+		ids[s.ID]++
+	}
+	for _, c := range g.Cables {
+		ids[c.ID]++
+	}
+	if n != 1 {
+		t.Fatalf("%d input boxes", n)
+	}
+	for id, k := range ids {
+		if k > 1 {
+			t.Fatalf("%s used %d times", id, k)
+		}
+	}
+	if c, _ := cable(g, "usb:input-ams-24"); c.Pending != "" {
+		t.Fatalf("the same card saved by another name is pending %q", c.Pending)
+	}
+	if _, ok := ForName("24"); ok {
+		t.Fatal("ForName(24) found a profile")
+	}
+}
+
 // An extra input's device name ("hw:CARD=AMS24,0") finds its USB id through
 // the card's id, which ALSA links to its number.
 func TestAnExtraInputsUSBIDIsReadByItsCardID(t *testing.T) {
