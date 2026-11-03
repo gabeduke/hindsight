@@ -62,6 +62,11 @@ func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, erro
 	if _, ok := s.clampRange(from, to, &out); !ok {
 		return out, fmt.Errorf("%w: that span is no longer in the buffer", ErrRangeGone)
 	}
+	// An extra input's channels are written a lag behind the head: a span
+	// that runs up to it waits for them, as a KEEP does.
+	if !s.cap.AwaitExtra(takeChannels(cfg), out.To, s.cap.ExtraWait()) {
+		log.Printf("[!] save: the extra input didn't reach the span's end in time; its end may be silent on those channels")
+	}
 
 	// Low on disk: the trash first, as for a capture (see EnsureFree).
 	if free, _ := s.FreeGB(); free < cfg.MinFreeGB {
@@ -93,7 +98,7 @@ func (s *Saver) SaveRange(from, to uint64, opts ...SaveOption) (SavedRange, erro
 	endAt := s.wallAt(out.To)
 	startAt := s.wallAt(out.From)
 	takeFlags := flagsForWindow(s.cap.Flags().Active(total, uint64(cfg.RingFrames())), out.From, out.To)
-	drops := s.cap.Dropouts(out.From, out.To)
+	drops := s.dropoutsIn(out.From, out.To)
 	ring := s.cap.Ring()
 
 	started := time.Now()

@@ -95,6 +95,12 @@ type extraInput struct {
 	errAvg   float64 // the steering's error, smoothed over a second
 	lockFrom uint64  // the ring frame the error came within extraLockFrames at; 0 while outside
 
+	// written is how far the joiner is done: every frame of its channels
+	// before it is written, or left silent for good (a gap). Readers wait on
+	// it (Capture.NewestFor), never on the head less the lag: the head moves
+	// a moment before the joiner writes behind it.
+	written atomic.Uint64
+
 	locked atomic.Bool
 	ppm    atomic.Int64 // the ratio's distance from 1, in thousandths of a ppm
 
@@ -219,8 +225,24 @@ func (x *extraInput) supervise(stop <-chan struct{}) {
 
 // join runs on the ring writer, after each block of the main interface's
 // reaches the ring: it takes the extra stream's blocks in, and writes their
-// frames, resampled, into the ring up to the head less the lag.
+// frames, resampled, into the ring up to the head less the lag. Then it says
+// how far it is done (written).
 func (x *extraInput) join(ring *Ring, main *ClockBridge) {
+	x.joinStep(ring, main)
+	_, head := ring.Window()
+	done := uint64(0)
+	if head >= x.lag {
+		done = head - x.lag // placed or not, nothing more is written before here
+	}
+	if x.seeded {
+		done = x.next // still writing: the frontier is where it got to
+	}
+	if done > x.written.Load() {
+		x.written.Store(min(done, head))
+	}
+}
+
+func (x *extraInput) joinStep(ring *Ring, main *ClockBridge) {
 	x.take()
 	oldest, head := ring.Window()
 	if head < x.lag {

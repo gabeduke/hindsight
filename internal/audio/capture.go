@@ -299,34 +299,80 @@ func (c *Capture) ExtraInputs() []ExtraInputStatus {
 }
 
 // NewestFor is the ring's window as a reader of channels chs (0-indexed)
-// should see it: [oldest, newest), where newest stops ExtraLag short of the
-// head when any of them is an extra input's, whose newest frames aren't
-// written yet. Read under one lock, as Ring.Window.
+// should see it: [oldest, newest), where newest stops where the joiner has
+// got to (about ExtraLag short of the head) when any of them is an extra
+// input's, whose newest frames aren't written yet.
 func (c *Capture) NewestFor(chs []int) (oldest, newest uint64) {
 	oldest, newest = c.ring.Window()
-	if len(c.extras) == 0 {
-		return oldest, newest
-	}
 	for _, ch := range chs {
-		if ch >= c.cfg.Channels {
-			lag := c.ExtraLag()
-			if newest < oldest+lag {
-				return oldest, oldest
-			}
-			return oldest, newest - lag
+		if x := c.extraOf(ch); x != nil {
+			newest = min(newest, max(x.written.Load(), oldest))
 		}
 	}
 	return oldest, newest
+}
+
+// extraOf is the extra input whose channels hold ch (0-indexed), or nil.
+func (c *Capture) extraOf(ch int) *extraInput {
+	for _, x := range c.extras {
+		if ch >= x.first && ch < x.first+x.width {
+			return x
+		}
+	}
+	return nil
+}
+
+// AwaitExtra waits, at most wait, for the extra inputs' channels among chs
+// (0-indexed) to be written up to ring frame end, and says whether they are:
+// at once with none of theirs among chs. It gives up early if the ring stops
+// coming in. A KEEP and a span saved from the ring wait on it, so a take of
+// the guitar doesn't end on the lag's silence.
+func (c *Capture) AwaitExtra(chs []int, end uint64, wait time.Duration) bool {
+	deadline := time.Now().Add(wait)
+	_, last := c.ring.Window()
+	moved := time.Now()
+	for {
+		if _, n := c.NewestFor(chs); n >= end {
+			return true
+		}
+		if _, head := c.ring.Window(); head != last {
+			last, moved = head, time.Now()
+		}
+		if time.Now().After(deadline) || time.Since(moved) > staleAfter {
+			return false
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// ExtraWait is how long a save waits for the extra inputs to catch up with
+// its end: the lag, and a second for the joiner to be late.
+func (c *Capture) ExtraWait() time.Duration {
+	return time.Duration(c.ExtraLag())*time.Second/time.Duration(c.cfg.SampleRate) + time.Second
+}
+
+// ExtraGapsIn are the extra inputs' gaps over the ring frames [start, end)
+// for channels chs, in frames from start (0 for one the span starts inside,
+// as Gaps answers): what a take of those channels lost.
+func (c *Capture) ExtraGapsIn(chs []int, start, end uint64) []int64 {
+	var out []int64
+	seen := map[*extraInput]bool{}
+	for _, ch := range chs {
+		if x := c.extraOf(ch); x != nil && !seen[x] {
+			seen[x] = true
+			out = append(out, x.Gaps(start, end)...)
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
 }
 
 // ExtraGaps answers where an extra input's audio stops holding strictly
 // inside the ring frames [start, end), in frames from start, for the extra
 // input whose channels hold ch (0-indexed); nil for a main channel.
 func (c *Capture) ExtraGaps(ch int, start, end uint64) []int64 {
-	for _, x := range c.extras {
-		if ch >= x.first && ch < x.first+x.width {
-			return x.Gaps(start, end)
-		}
+	if x := c.extraOf(ch); x != nil {
+		return x.Gaps(start, end)
 	}
 	return nil
 }

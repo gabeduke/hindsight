@@ -235,6 +235,9 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		}
 	}
 
+	// How far the extra inputs' channels were written before the snapshot:
+	// past it, the snapshot may hold their lag's silence (settleExtra).
+	_, settled := s.cap.NewestFor(takeChannels(cfg))
 	data, gotFrames, endFrame := s.cap.Ring().SnapshotAt(frames)
 	if snapping && gotFrames > 0 {
 		winStart := endFrame - uint64(gotFrames)
@@ -257,6 +260,11 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	if gotFrames == 0 {
 		return "", ErrNoAudio
 	}
+	// An extra input's channels are written a lag behind the head: wait for
+	// them to reach the press, and read them again over the same window.
+	if err := s.settleExtra(data, endFrame-uint64(gotFrames), endFrame, settled); err != nil {
+		log.Printf("[!] save: %v; the take's end may be silent on those channels", err)
+	}
 	if lowDisk {
 		if freeGB = EnsureFree(cfg.OutputDir, cfg.MinFreeGB); freeGB < cfg.MinFreeGB {
 			return "", fmt.Errorf("%w: %.2f GB free, need %.2f GB", ErrLowDisk, freeGB, cfg.MinFreeGB)
@@ -271,7 +279,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		s.cap.Flags().Active(endFrame, uint64(s.cap.cfg.RingFrames())),
 		winStart, endFrame,
 	)
-	drops := s.cap.Dropouts(winStart, endFrame)
+	drops := s.dropoutsIn(winStart, endFrame)
 
 	s.beginSave()
 	defer s.endSave()
@@ -584,6 +592,74 @@ func stampFlagsAt(metaWav, cueWav string, flags []Flag) {
 
 // stampDropouts writes where a take lost audio into its sidecar, saying so in
 // the log: a take with a gap in it is worth knowing about.
+// takeChannels are the ring channels a take is made from (OutMix's), once
+// each, 0-indexed.
+func takeChannels(cfg *config.Config) []int {
+	var out []int
+	for _, in := range cfg.OutMix() {
+		out = append(out, in...)
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+// dropoutsIn are where a take of the ring frames [start, end) lost audio,
+// strictly inside it: the capture's dropouts, and the extra inputs' gaps on
+// its channels (one the take starts inside is at 0, so is left out, as a
+// dropout at its start is).
+func (s *Saver) dropoutsIn(start, end uint64) []int64 {
+	out := s.cap.Dropouts(start, end)
+	for _, g := range s.cap.ExtraGapsIn(takeChannels(s.cap.cfg), start, end) {
+		if g > 0 {
+			out = append(out, g)
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+// settleExtra fills in the extra inputs' channels of a take whose snapshot,
+// data, holds the ring frames [from, end) bus-wide. They were written up to
+// settled when it was taken; it waits for them to reach end, then copies
+// [settled, end) of them into data: only that tail, so a take that starts
+// at the ring's oldest frame doesn't lose its start while it waits. If they
+// don't reach end in time it copies what they did reach, and says so. A take
+// of the main interface alone returns at once.
+func (s *Saver) settleExtra(data []int32, from, end, settled uint64) error {
+	var chs []int
+	for _, ch := range takeChannels(s.cap.cfg) {
+		if s.cap.extraOf(ch) != nil {
+			chs = append(chs, ch)
+		}
+	}
+	if len(chs) == 0 || settled >= end {
+		return nil
+	}
+	reached := s.cap.AwaitExtra(chs, end, s.cap.ExtraWait())
+	lo := max(from, settled)
+	_, hi := s.cap.NewestFor(chs)
+	hi = min(hi, end)
+	if hi > lo {
+		bus := s.cap.cfg.BusChannels()
+		f := int(lo - from)
+		if err := s.cap.Ring().Range(lo, hi, chs, func(b []int32) error {
+			for i := 0; i+len(chs) <= len(b); i += len(chs) {
+				for k, ch := range chs {
+					data[f*bus+ch] = b[i+k]
+				}
+				f++
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if !reached {
+		return fmt.Errorf("the extra input reached ring frame %d of %d in time", hi, end)
+	}
+	return nil
+}
+
 func stampDropouts(wav string, drops []int64) {
 	if len(drops) == 0 {
 		return
