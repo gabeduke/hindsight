@@ -189,7 +189,7 @@ unmoved:
      `hindsight:phone-offer` and `hindsight:phone-record` are gone: the bar
      calls `phoneKey`'s `offer()` and the recorder's `quick()`.
    - **The slot**: the overview's half *built*, #256; the clock-out
-     lamp and the output strip *stopped*, for Gabe. The overview is the
+     lamp and the output strip *decided* (b), the bar's, built in 5b. The overview is the
      Studio's markup (the end of `#view-studio`), put at the start of the
      bar's strip by `ctx.barSlot.add(overview, { place: 'strip' })` (a
      Slot's new `{ place }`, the zones the shell names in it: the bar's
@@ -201,13 +201,11 @@ unmoved:
      while the tape plays on this phone, drawn by `output-ui.js` on each
      change of the bar's tape source), and a slot of the Studio's is out of
      the page while another room is shown. Moving them takes them out of
-     the other rooms, a change in what the bar shows there. Two ways on:
-     (a) Gabe agrees they are the Studio's only (the lamp's
-     `data-for="studio"`, as SYNC beside it has; the strip only in the
-     Studio, where ▶ still resumes a locked stream elsewhere); or (b) they
-     are the bar's, drawn from the models in every room (the strip from
-     `engine.stream` and the tape's `snapshot()`, the lamp from the tape's
-     `live.clock`), and move into the Transport in step 5.
+     the other rooms, a change in what the bar shows there. *Decided*
+     (2026-11-02, (b) over (a), the Studio's only): they are the bar's,
+     drawn from the models in every room (the strip from `engine.stream`
+     and the tape's `snapshot()`, the lamp from the tape's `live.clock`),
+     and move into the Transport with it; 5b builds them on the models.
 4. **The ids** (decision 1): *built*, #255, ahead of step 3's slot. The
    twelve renamed (`#np-position`, `#np-rec`, `#np-catch-pass`,
    `#np-catch-more`, `#np-click`, `#np-tape-overview`, `#np-clock-out`,
@@ -223,8 +221,8 @@ unmoved:
    beside it), `css/bar.css` as its stylesheet, scoped to `.np`, the
    harness check (`scripts/components/transport.check.mjs`, every size),
    `ci.yml`'s globs and AGENTS.md's list, `SHELL`, and AGENTS.md's bar
-   rule and 0047 amended. **Not one PR, and stopped for Gabe**
-   (audited 2026-11-02, on main after #255). Moved as it is, the bar
+   rule and 0047 amended. **Not one PR** (audited 2026-11-02, on main
+   after #255); Gabe's calls below are *decided*, as recommended. Moved as it is, the bar
    breaks Guardrail 15 on 30 lines (`bar.js` 16, `player.js` 6,
    `fold.js` 3, one each in `phone-key`, `press-note`, `source-menu`,
    `tape-keys`, `slots`), beside what its regexes don't see: about 63
@@ -249,7 +247,8 @@ unmoved:
    `handoff` (the engine's), `layout` (the surface's) and `bar-harness`
    stay where they are.
 
-   **Gabe's calls**, each with a recommendation:
+   **Gabe's calls**, each *decided* as recommended (2026-11-02; D1–D6
+   by Gabe, the lamp and the strip handed to us and taken as (b)):
    - **D1, the `@media`.** `components.md` 1.4 agreed container queries
      in place of the viewport `@media`, but at least 8 rules style the
      root itself, which a container query never reaches, and 3 of the 5
@@ -274,8 +273,8 @@ unmoved:
      misplaced by its transforms. *Recommended*: `menu()` opens them in
      the top layer as popovers, opt-in, the bar's three first, looked at
      on the tablet and the phone.
-   - And step 3's: **the clock-out lamp and the output strip**, (a) the
-     Studio's alone or (b) the bar's from the models (above).
+   - And step 3's: **the clock-out lamp and the output strip** are the
+     bar's, from the models, in every room: (b) (above).
 
    **The split**, each PR green and the screen unchanged, interface first:
    5a, the interfaces (`menu.js` rows that need no `doc` and a key that
@@ -283,7 +282,9 @@ unmoved:
    off; a shell scope to mount in, with `cx.visible()`; fixtures for the
    bar, the recorder and the layout); 5b, the engine's bar gets the verbs,
    a frozen snapshot and a strip painter, so the bar stops reading
-   `bar.src`; 5c, the surface takes what is the page's (`--np-h`, the
+   `bar.src`, and the lamp and the strip are drawn from the models
+   (`engine.stream`, the tape's `snapshot()` and `live.clock`), the same
+   in every room; 5c, the surface takes what is the page's (`--np-h`, the
    fold's storage, the player's sheet, the output sheet, the recorder
    made at boot, `data-fold`/`data-open`/`data-docked` on the root, set
    by a router hook straight after `giveClasses` rather than in
@@ -293,7 +294,7 @@ unmoved:
    size and in both schemes; 5e, the three menu panels into the bar,
    `#catch-menu` as `#np-catch-menu`; 5f, the modules keep Guardrail 15
    in place, with no copies (maybe two PRs); 5g, the move itself; 5h,
-   `display` inside the bar. 5d and 5e lean on D1 and D6, 5f on D3, 5c on
-   D4 and D5.
+   `display` inside the bar, opened for Gabe to look at, not merged
+   without him. 5d and 5e follow D1 and D6, 5f D3, 5c D4 and D5.
 
 Then Gabe tries the bar on the tablet, before the List (item 2) starts.
