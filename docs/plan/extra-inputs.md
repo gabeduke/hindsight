@@ -1,6 +1,9 @@
 # Extra inputs: a second interface that only records
 
-**Status: spec, waiting on Gabe's decisions (2026-11-02).** Nothing built.
+**Status: decided, not built (2026-11-02).** Gabe handed the implementation
+calls to the agents; decisions 1 and 3–7 are settled as written below.
+Decision 2 is his wiring, so it is the recommendation, his to change.
+The build waits for its place in the queue (`STATE.md`).
 
 On 2026-11-02 Gabe chose the Zoom AMS-24 as the Interface in Settings to get
 his guitar in. The capture fell back to the EP-136 (it wants 8 channels), the
@@ -56,9 +59,10 @@ is IN 1 and 2 is IN 2 (FL FR suggests it; it needs a signal into IN 1 alone
 and a look at the meters), and the power budget with phantom power on (a
 guitar doesn't need it: leave it off).
 
-## Decisions for Gabe
+## Decisions
 
-Each is the recommendation; the alternatives are what he could pick instead.
+Settled unless marked otherwise. An alternative named under one is what
+was weighed and left.
 
 ### 1. The EP-136 is the clock; the AMS-24 is resampled into it
 
@@ -96,22 +100,22 @@ AMS-24's channels would slide up to 90 ms against the EP-136's over a
   a take records its gaps. The resampler re-seeds when frames come back.
 - *Replugging the AMS-24*: PortAudio can't see it again without a rescan,
   and a rescan closes the EP-136's stream too: a hole in the dashcam, the
-  one failure that can't be repaired. **Recommended: open the extra input
-  through ALSA directly** (`hw:CARD=AMS24`, found by its USB id), outside
+  one failure that can't be repaired. **So the extra input opens through
+  ALSA directly** (`hw:CARD=AMS24`, found by its USB id), outside
   PortAudio, so a replug is just an open that starts working again, with no
-  rescan. The alternative is PortAudio, where a replugged AMS-24 comes back
-  only at the capture's next rescan or a restart (the rig says so).
+  rescan. (Left: PortAudio, where a replugged AMS-24 would come back only
+  at the capture's next rescan or a restart.)
 - *The EP-136 overflows or is unplugged*: as today, the capture restarts;
   the ring doesn't advance, so nothing is written to 9–10 either, and the
   joiner re-places itself from the bridges when the ring moves again.
 - *The EP-136 is absent and the AMS-24 present*: nothing records, because
-  the main interface is the clock. (The alternative, the AMS-24 recording
-  alone, would mean the ring's clock changes with what's plugged in; not
-  recommended.)
+  the main interface is the clock. (Left: the AMS-24 recording alone,
+  which would make the ring's clock change with what's plugged in.)
 
-### 2. How Gabe hears the guitar
+### 2. How Gabe hears the guitar (recommended; his wiring, his to change)
 
-The Pi never monitors. Two ways, both outside Hindsight:
+The Pi never monitors. Two ways, both outside Hindsight. Nothing in the
+build depends on which, except how the offset is measured (step 5):
 
 - **Recommended: AMS-24 DIRECT MONITOR on, its OUTPUT A into the
   Sidekick's AUX.** The guitar is then in the Sidekick's MAIN, heard with
@@ -149,9 +153,8 @@ MUSIC mode, not STREAMING, so IN 1 and IN 2 stay apart.
   channel 1); the rig adds the main interface's channel count when it
   matches them to sources.
 
-Alternative: one stereo source `ams=9,10`, if Gabe ever puts a stereo
-synth into it. Both can exist; the recommendation is the two monos, since
-the guitar is mono.
+Two mono sources, since the guitar is mono. A stereo `ams=9,10` can be
+added to `TAPE_SOURCES` by hand if a stereo synth ever goes into it.
 
 ### 4. What reads the extra channels late
 
@@ -232,8 +235,8 @@ Each step its own PR; Go steps run on the Pi before they merge (0026).
    of frames stays within a sample, and that a step in the ratio leaves no
    click.
 3. **The extra input** (`internal/audio`): `EXTRA_INPUTS` in config and
-   Settings; a second input on its own supervisor that never rescans
-   (decision 1: ALSA-direct, or PortAudio on the shared lifecycle); the
+   Settings; a second input on its own supervisor that never rescans,
+   opened through ALSA directly (decision 1); the
    joiner in the ring writer, at head − `L`; gaps marked; `Channels` = main
    + extra everywhere the ring is sized; `SAVE_CHANNELS` checked over the
    bus, and the Settings sheet's ring note (`ringNote`) counts them; a demo extra input with a deliberate +80 ppm drift, so the demo and
@@ -241,8 +244,9 @@ Each step its own PR; Go steps run on the Pi before they merge (0026).
 4. **The tape**: per-source "newest frame" (head − `L` for an extra
    channel); default `TAPE_SOURCES` gains `ams1`/`ams2`; a catch across an
    extra-input gap refused. `docs/architecture/tape.md`, *Sources*.
-5. **The offset**: `EXTRA_INPUT_OFFSET_MS`, and with decision 2's wiring,
-   the correlation lock against `aux`.
+5. **The offset**: `EXTRA_INPUT_OFFSET_MS`, measured once by hand; and,
+   if Gabe wires it as decision 2 recommends, the correlation lock against
+   `aux`.
 6. **The rig** (`internal/rig/graph.go`, `web/static/lib/rig`): the `input`
    device, `kit.usb.<id>`, its taps; a flow that the demo's rig draws the
    extra input joined to the kit and Settings shows *Extra inputs*.

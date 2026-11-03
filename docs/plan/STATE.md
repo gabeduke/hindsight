@@ -81,9 +81,9 @@ and still looks it:
 
 - **Extra inputs** (`extra-inputs.md`, spec 2026-11-02): the AMS-24's two
   inputs recorded beside the EP-136's as channels 9–10, resampled onto its
-  clock, never played out of. Seven decisions wait for Gabe (the clock,
-  how he hears the guitar, numbering, Settings, the rig, the budget,
-  replugging); then the build order's eight steps.
+  clock, never played out of. Decided, not built (2026-11-02): the build
+  order's eight steps wait for their place in the queue. How Gabe hears
+  the guitar (decision 2) is his wiring, recommended but his to change.
 - **Decided for Gabe while he was away, his to overrule** (2026-10-30): in
   the Studio a take or the feed that isn't playing gives the bar back to
   the tape, so ▶ there plays the tape (`docs/architecture/bar.md`, *In the
