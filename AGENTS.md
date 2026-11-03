@@ -310,10 +310,12 @@ proof-of-concept shortcuts don't come back
   `lib/rooms/` read structured state from controllers and models and
   call explicit controller methods; they never scrape text out of the DOM
   or `.click()` a hidden control. The test checks it where it went wrong:
-  `lib/room/doorway.js` hears the bar through `np.onChange`, never by
-  polling the DOM with `setInterval` (`readBar` is only its fallback for a
-  bar with no `snapshot()`), and in the rooms only `lib/bar` writes the
-  bar's display ids (`#np-position`, `#np-time`, …).
+  `lib/room/doorway.js` hears the bar through `np.onChange` and reads it
+  by its `snapshot()`, never by polling the DOM with `setInterval`; in the
+  rooms only `lib/bar` writes the bar's display ids (`#np-position`,
+  `#np-time`, …); and the Studio and the rooms look up no id inside the
+  bar (Guardrail 22: its verbs, `ctx.tapeKeys`, `ctx.openOutput`,
+  `ctx.barSlot`).
 - **Visual objects come from `lib/objects/` and `lib/scene/`:** no reel,
   cassette or VU markup or `@keyframes` spin outside `lib/objects/`; reels,
   cassettes and meters are `ReelWindow`, `CassetteFace` and `VUMeters` on

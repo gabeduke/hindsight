@@ -46,8 +46,13 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   by its grabber*): `folded`, `open`, `docked` and `onChange(fn)`, shared.
 - `tapeKeys`: the bar's ●, Catch and the click (`lib/bar/tape-keys.js`;
   `bar.md`, *The Studio's keys*), shared: the Studio lends them its hands
-  (`lend(hands)`) and presses them (`press(name)`, `catch(what)`), never
-  looking them up.
+  (`lend(hands)`) and presses them (`press(name)`, `catch(what)`), focuses
+  ▶ (`focusPlay()`) and wires its tempo menu on the bar's tempo key
+  (`tempo(fn)`, which hands `fn` the key), never looking them up.
+- `openOutput()`: opens the shell's Output sheet, where the tape plays
+  (`lib/tape/out-switch.js` `wireOutput`, wired by the boot the first time
+  it opens, once the engine has a tape; nothing before): OUT on the bar's
+  display, and the Studio's jam-only sheet.
 - `engine`, `go(url)`, `tapes`, `takes`, `tape`, `toast`, `link`: shared. A view never creates
   the bar's audio and never assigns `location` to a room path. `takes` is
   the page's takes model (`lib/models/takes.js`): `snapshot()` (`{v,
@@ -91,9 +96,11 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   the node, not look it up. `add(node, where)` puts it in the slot's own
   place, `{ before: el }` or `{ after: el }`, `'first'`, or `{ place: name }`:
   the start of a zone the shell names in the slot (`boot.js`,
-  `slots.bar.places`), an error at `add` for a name it hasn't got. The bar's
-  one place is `'strip'` (`[data-slot="strip"]`), where the Studio's
-  overview goes (`bar.md`, *The Studio's part of the bar*). `dockSlot.show(node, on)` shows or hides a node the view docked
+  `slots.bar.places`), an error at `add` for a name it hasn't got, or its
+  end with `{ place: name, at: 'end' }`. The bar's one place is `'strip'`
+  (`[data-slot="strip"]`), where the Studio's overview goes at its start
+  (`bar.md`, *The Studio's part of the bar*) and the doorway's grease at
+  its end. `dockSlot.show(node, on)` shows or hides a node the view docked
   and says so: the dock's spec hears `onShown(slot, any)` (whether anything
   that view docks shows, false while it is hidden), from which the boot has
   the bar's root say `data-docked` (`barLayout.set({docked})`). A docked
