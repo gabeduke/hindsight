@@ -6,8 +6,7 @@
   "match": {"usb": "1686:067f", "midi": "AMS-24"},
   "rate": 48000,
   "format": "S32_LE",
-  "placeholder": true,
-  "note": "A USB audio interface (2 in, 4 out). Set as an extra input (EXTRA_INPUTS), its two inputs are recorded after the Sidekick's, on the Sidekick's clock, and nothing plays out of it; otherwise the rig draws it by its MIDI port. Which capture channel is IN 1 is still to be confirmed with a signal, so it stays a placeholder.",
+  "note": "A USB audio interface (2 in, 4 out). Set as an extra input (EXTRA_INPUTS), its two inputs are recorded after the Sidekick's, on the Sidekick's clock, and nothing plays out of it; otherwise the rig draws it by its MIDI port. IN 1 is its first capture channel, checked with a guitar on 2026-11-03.",
   "source": "https://zoomcorp.com/en/us/audio-interface/audio-interfaces/ams-series/",
   "ports": [
     {"id": "in1", "label": "IN 1", "kind": "audio", "dir": "in", "about": "XLR/TRS combo jack: mic, line or guitar. +48 V phantom power."},
@@ -23,7 +22,7 @@
     {"id": "in2", "usb": [2, 2], "from": "in2", "about": "IN 2, mono: the AMS-24's second capture channel."}
   ],
   "hardware": {
-    "extending": "A second USB audio interface beside the Sidekick: a pair of mic, line or guitar inputs, recorded as extra inputs (EXTRA_INPUTS) on the main interface's clock, never played out of. Everything under \"hardware\" is ignored by the Go loader: it is notes for people. Drop 'placeholder' once a signal into IN 1 alone has shown on channel 9.",
+    "extending": "A second USB audio interface beside the Sidekick: a pair of mic, line or guitar inputs, recorded as extra inputs (EXTRA_INPUTS) on the main interface's clock, never played out of. Everything under \"hardware\" is ignored by the Go loader: it is notes for people.",
     "kinds": [
       "audio-interface"
     ],
@@ -79,10 +78,6 @@
       }
     ],
     "unknowns": [
-      {
-        "question": "Is capture channel 1 IN 1 and channel 2 IN 2?",
-        "how": "Play into IN 1 alone, with MUSIC mode on, and watch channels 9 and 10's meters."
-      },
       {
         "question": "Does the Pi's USB power budget hold with phantom power on?",
         "how": "dmesg | grep -iE 'under-voltage|usb' after a few minutes of capture with +48 V on (a guitar doesn't need it)."
