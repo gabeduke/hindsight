@@ -13,7 +13,7 @@ folder is the notes beside them.
 | `smk-37-elite` | M-VAVE SMK-37 Elite | Planned | MIDI name `SMK-37` (a guess) | the real MIDI port name, its ports, what each control sends |
 | `scarlett-solo-4g` | Focusrite Scarlett Solo 4th Gen | Planned: the self-contained kit | nothing yet | the USB id, which capture channel is which |
 | `zoom-r20` | Zoom R20 | No: a reference, and a tester's recorder | nothing yet | the USB ids, if its USB audio is ever used |
-| `zoom-ams-24` | Zoom AMS-24 | USB; drawn by its MIDI port, since the capture is on the Sidekick | MIDI name `AMS-24` (a guess) | the USB id, the MIDI port name, which channel is which |
+| `zoom-ams-24` | Zoom AMS-24 | USB, an extra input beside the Sidekick: records only, nothing plays out of it (`docs/plan/extra-inputs.md`) | USB id `1686:067f`, MIDI name `AMS-24` (read off the Pi, 2026-11-02) | that capture channel 1 is IN 1, with a signal |
 | `aks-mini` | Behringer AKS mini | USB MIDI; no USB audio, its sound comes in through an interface | MIDI name `AKS` (a guess) | the real MIDI port name, the USB id |
 
 A profile that matches nothing is inert: the rig never reaches for it. The
