@@ -29,10 +29,8 @@ export function outStrip({ stream = null, live = null, tape = null, ghost = null
   const s = stream.state;
   const moving = ghost && now < ghost.until && tape && tape.grid ? ghost : null;
   const wait = s === 'buffering' || s === 'lost' || s === 'locked';
-  // Where this phone stopped hearing it: what it heard last, else the Pi's.
-  const heard = () => { const h = stream.heard?.(); return h ? h.pos : live.heard; };
   const text = s === 'buffering' ? 'Starting on this phone…'
-    : s === 'lost' ? `Stream lost · paused at ${(live && tape && barBeat(heard(), tape.grid)) || 'the same spot'}`
+    : s === 'lost' ? `Stream lost · paused at ${(live && tape && barBeat(live.heard, tape.grid)) || 'the same spot'}`
     : s === 'locked' ? (stream.waitingTap ? 'Still on this phone' : 'Paused when the screen locked')
     : moving ? `Moving to bar ${barBeat(moving.pos, tape.grid) || ''}…`
     : live && live.playing ? 'Playing on this phone' : 'Ready on this phone';

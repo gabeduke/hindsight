@@ -33,7 +33,7 @@ test('the strip says how it is going on this phone, and how far behind', () => {
   const lost = outStrip({ stream: stream('lost'), live, tape: TAPE });
   assert.equal(lost.text, 'Stream lost · paused at 4.1');
   assert.equal(lost.right, 'reconnecting');
-  assert.equal(outStrip({ stream: stream('lost', { heard: { pos: 5 * BAR } }), live, tape: TAPE }).text, 'Stream lost · paused at 6.1', 'what this phone heard last');
+  assert.equal(outStrip({ stream: stream('lost', { heard: { pos: 5 * BAR } }), live, tape: TAPE }).text, 'Stream lost · paused at 4.1', 'where the tape says it is heard, as the Studio has always said it');
   assert.equal(outStrip({ stream: stream('lost'), live, tape: { ...TAPE, grid: null } }).text, 'Stream lost · paused at the same spot');
   assert.deepEqual(outStrip({ stream: stream('locked'), live, tape: TAPE }),
     { hidden: false, resume: true, led: 'wait', text: 'Paused when the screen locked', right: '' });
@@ -111,6 +111,25 @@ test('the bar draws the output strip while the tape plays on this phone, with no
   assert.equal($('np-out-strip-resume').hidden, false);
   $('np-out-strip-resume').dispatchEvent({ type: 'click' });
   assert.equal(resumed, 1);
+});
+
+test('with a take in the bar, the strip still follows this phone’s sound as it changes', async () => {
+  const { $, engine } = await open({ output_mode: 'phone', playing: true });
+  const { aTake } = await import('./bar-harness.js');
+  const take = aTake('jam_a.wav');
+  engine.bar.loadTake(take.t, take.player);
+  assert.equal(engine.bar.sourceKind, 'take');
+  let state = 'playing';
+  Object.defineProperty(engine.stream, 'active', { get: () => true, configurable: true });
+  Object.defineProperty(engine.stream, 'state', { get: () => state, configurable: true });
+  engine.stream.delayMs = () => 800;
+  // The stream says its state changed as StreamPlayer's onState does: the
+  // engine's tape source is told (tapeStream), not the bar.
+  engine.tape.changed();
+  assert.equal($('np-out-strip-text').textContent, 'Playing on this phone');
+  state = 'buffering';
+  engine.tape.changed();
+  assert.equal($('np-out-strip-text').textContent, 'Starting on this phone…', 'repainted with the take still in the bar');
 });
 
 test('the strip says where a locate the Studio sent is moving to, from the hands it lends the bar', async () => {

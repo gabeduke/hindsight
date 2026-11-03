@@ -177,9 +177,12 @@ export class NowPlaying {
     // The output strip's tap, for this phone's sound held back.
     $('np-out-strip-resume')?.addEventListener('click', () => engine.stream?.resume());
     // The lamp and the strip, from the tape's answers and the transport's
-    // changes (the stream's state among them), in every room.
+    // changes, in every room and whatever the bar holds. The engine makes
+    // its transport with itself, before any tape is loaded, so this always
+    // subscribes; the stream's state reaches it as the engine's tape source
+    // says it changed (tapeStream's onState: tape.changed()).
     tape?.onChange(() => this.paintTape());
-    engine.transport?.onChange(() => this.paintTape());
+    engine.transport.onChange(() => this.paintTape());
 
     // What the engine holds, drawn as it changes and every frame it plays;
     // a hidden page is drawn again as it comes back (visibilitychange).

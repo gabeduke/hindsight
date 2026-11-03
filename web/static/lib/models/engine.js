@@ -425,9 +425,10 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     kick,
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     /**
-     * snapshot(here) is what the bar holds, as the bar draws it, frozen: the
-     * same object until the listeners next hear (every frame while it
-     * plays), and v counts those. `here` is this device's word for where a
+     * snapshot(here) is what the bar holds, as the bar draws it, frozen,
+     * cached on v: v is a cache key, bumped on every emit (each change the
+     * listeners hear, every frame while it plays) and every kick, whether or
+     * not anything it carries changed, so a new v need not mean a new value. `here` is this device's word for where a
      * take or the feed plays (lib/bar/slots.js hereWord), for the display.
      *   id           which source: a new number each time the bar holds another
      *   kind, title  'tape', 'feed' or 'take' (null with nothing), and its name

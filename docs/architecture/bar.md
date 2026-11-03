@@ -259,7 +259,7 @@ what this device hears), `setLoop(on)` (⟲), each a touch, and the strip's
 `seekFraction(f)` (a tap, a drag, Home), `toEnd()` (End) and `step(n)`
 (← →), which are not (the bar counts the strip's touch itself).
 
-| `snapshot(here)` | frozen, the same object until something moves (`v` moves with it) |
+| `snapshot(here)` | frozen, cached on `v`: a cache key bumped on every emit and every kick, not only when something it carries changes |
 |---|---|
 | `id` | which source: a new number each time the bar holds another |
 | `kind`, `title`, `href` | `tape`, `feed` or `take` (null with nothing), its name, its own page (Open ›) |
