@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.8 — 2026-11-03
+
+- The AMS-24's profile is no longer a placeholder: IN 1 is channel 9, checked with a guitar (c3e3e5b9)
+- The extra inputs spec and STATE say what's built and what's left (244f22b2)
+
+
 ## v2026.11.03.7 — 2026-11-03
 
 - Settings offers Extra inputs as a choice of the cards plugged in, and the buffer's memory line counts them (40266cec)
