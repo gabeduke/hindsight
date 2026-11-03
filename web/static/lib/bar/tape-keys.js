@@ -82,7 +82,8 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
  * `tape` (the tape model) and its phone recorder (`whenRecorder(fn)`, which
  * hands it over once there is one: the shell makes it at boot). `toast` is
  * the page's; `offer()` opens the mini player's ▾ of this phone's inputs
- * (phone-key.js), which a hold on ● asks for on a phone. Null on a page without the keys or a tape.
+ * (phone-key.js), which a hold on ● asks for on a phone. Null on a page
+ * without the keys or a tape.
  *
  * Answers:
  *   lend(hands) -> off   the Studio's hands, until off():
@@ -108,6 +109,12 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
  *   catch(what)          Catch `what` ({pass}, {bars}, {out}), as its ▾ does
  *   closeMenu()          Catch's ▾ shut
  *   ghost()              the lent hands' ghost(), null with none lent
+ *   focusPlay()          the keyboard's focus to ▶ (the Studio's, as it
+ *                        puts away what had it: the clip editor)
+ *   tempo(fn)            fn(key) with the display's tempo key, which the
+ *                        Studio wires its tempo menu on; answers what fn
+ *                        does, or null on a bar without one (the bar says
+ *                        when the key opens it: lib/bar/bar.js)
  *
  * With no hands lent the keys are not drawn and do nothing: they show in
  * the Studio alone (data-for="studio").
@@ -115,6 +122,7 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
 export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneRecorder(doc, fn), toast = () => {}, offer = () => {}, matchMedia = (q) => doc.defaultView?.matchMedia?.(q) } = {}) {
   const $ = (id) => doc.getElementById(id);
   const rec = $('np-rec'), click = $('np-click'), pass = $('np-catch-pass'), more = $('np-catch-more'), panel = $('catch-menu');
+  const play = $('np-play'), tempoKey = $('np-tempo');
   if (!tape || !rec || !click || !pass || !more || !panel) return null;
   let hands = null;
   let recorder = null;
@@ -272,5 +280,7 @@ export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneR
     catch: doCatch,
     closeMenu() { menu?.close(); },
     ghost: () => hands?.ghost?.() || null,
+    focusPlay() { play?.focus({ preventScroll: true }); },
+    tempo: (fn) => (tempoKey ? fn(tempoKey) : null),
   };
 }

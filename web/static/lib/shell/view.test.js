@@ -410,6 +410,24 @@ test('dockSlot.show shows a docked part and says whether anything the view docks
   assert.throws(() => ctx.dockSlot.show(t.el('div'), true), /dockSlot\.show: a node this view did not add/);
 });
 
+test('a node added at the end of a place goes after what the place holds, and back there on each show', async () => {
+  // The doorway's grease, after the bar's own canvas in its strip.
+  const t = aView({ mount: (ctx) => { ctx.barSlot.add(grease, { place: 'strip', at: 'end' }); return {}; } }, {
+    slots: { bar: { parent: () => t.np, places: { strip: () => strip } } },
+  });
+  const strip = t.el('div', 'np-strip');
+  strip.append(t.scrub);
+  t.np.append(strip);
+  const grease = t.el('span', 'room-grease');
+  const ids = (e) => e.children.map((c) => c.id);
+  await t.v.show();
+  assert.deepEqual(ids(strip), ['np-scrub', 'room-grease']);
+  await t.v.hide();
+  assert.deepEqual(ids(strip), ['np-scrub']);
+  await t.v.show();
+  assert.deepEqual(ids(strip), ['np-scrub', 'room-grease']);
+});
+
 test('a place the slot does not have is an error when a view adds to it, not a node that never shows', async () => {
   const t = aView({ mount: (ctx) => { ctx.barSlot.add(t.el('canvas'), { place: 'nowhere' }); return {}; } });
   await assert.rejects(t.v.show(), /barSlot has no place nowhere/);

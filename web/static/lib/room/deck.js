@@ -3,7 +3,6 @@
 // flow-design.md, "What happens to today's surfaces"): what the bar holds and
 // how far it has got. It has no keys of its own -- no PUT IT ON, no ▶, no
 // Play from… -- because the bar is the only transport; a tap on it is Open.
-// Pure, but for readBar, which reads the bar's face off the page.
 
 import { takeTitle, fmtLen } from '../rooms/takename.js';
 
@@ -59,19 +58,4 @@ export function deckWords(d, { playing = false, pos = '' } = {}) {
     meta: `tape · in the Studio${playing ? ' · playing' : ''}`,
     lcd, href: '/tape.html', forTape: true,
   };
-}
-
-/**
- * readBar reads the bar's own face: whether ▶ is lit, how far its strip is
- * ({0..1}) and its clock's words. The bar has no events of its own for the
- * room to hear, and a take can be moved by its keys, its strip, a page's
- * hand-off or the take's end, so the deck is of what the bar shows.
- */
-export function readBar(doc) {
-  const playing = !!doc.getElementById('np-play')?.classList.contains('playing');
-  const scrub = doc.getElementById('np-scrub');
-  const max = Number(scrub?.getAttribute('aria-valuemax')) || 0;
-  const frac = max > 0 ? Math.max(0, Math.min(1, Number(scrub.getAttribute('aria-valuenow')) / max)) : 0;
-  const pos = doc.getElementById('np-position')?.textContent || '';
-  return { playing, frac, pos };
 }

@@ -25,7 +25,8 @@ about who owns what:
   J4.4; `#tape-overview`: J1.10). Beside the flows: the Studio
   (`lib/tape/page.js`), `lib/tape/output-ui.js`, the bar itself (`bar.js`
   writes `#position`, `press-note.js` finds `#rec`), `lib/room/deck.js`'s
-  `readBar` (`#position`), `lib/help/tips.js` (`tape-overview`,
+  `readBar` (`#position`; gone in 5c-2, the doorway reads the engine's
+  `snapshot()`), `lib/help/tips.js` (`tape-overview`,
   `catch-more`), `styles.css`'s `#out-strip-*`, and the tests that name
   them (`architecture.test.js`'s Step 5a, `deck.test.js`, `lcd.test.js`,
   `bar-room.test.js`, `engine.test.js`). Open's `#position` is its own
@@ -293,7 +294,11 @@ unmoved:
    bar's root, the fold synced by a router hook, `chrome.classesGiven`,
    straight after `giveClasses` rather than in `setPath`, which runs after
    `await reveal()`, and `data-docked` said by the dock's slot), and 5c-2,
-   the Studio's look-ups become verbs; 5d, `css/bar.css` rewritten to start at `.np`, in
+   *built* (#263), the Studio's look-ups become verbs and callbacks (SYNC
+   drawn by the bar, ▶ and L on the engine's verbs, focusing ▶ and the
+   tempo menu through `ctx.tapeKeys`, OUT through `ctx.openOutput`, the
+   doorway's grease through `ctx.barSlot` and its reading by the engine's
+   `snapshot()`, Guardrail 22); 5d, `css/bar.css` rewritten to start at `.np`, in
    place, proved by before and after storyboards of both pages at every
    size and in both schemes; 5e, the three menu panels into the bar,
    `#catch-menu` as `#np-catch-menu`; 5f, the modules keep Guardrail 15

@@ -26,8 +26,7 @@ sideways scroll).
   no tape) stays hidden.
 - **Every id inside the shell's `#np` is `np-<name>`**, as `cx.id(name)`
   will name the Transport's (`components.md` 1.3): `#np-position` (the
-  display's big line, `bar.js`'s, and what `lib/room/deck.js` `readBar`
-  reads), `#np-rec`, `#np-catch-pass`, `#np-catch-more` and `#np-click`
+  display's big line, `bar.js`'s), `#np-rec`, `#np-catch-pass`, `#np-catch-more` and `#np-click`
   (`lib/bar/tape-keys.js`), `#np-clock-out` and `#np-out-strip` with its
   `-led`, `-text`, `-right` and `-resume` (`bar.js`, from
   `lib/bar/tape-status.js`). Guardrail 20
@@ -202,6 +201,8 @@ up, taken back on destroy):
 | `press(name)` | `'rec'`, `'catch'` or `'click'`, as a tap (R, C, M); nothing while it is disabled |
 | `catch(what)` | Catch `{pass}`, `{bars}` or `{out}`: its ▾'s, and the Studio's passes and last-bars keys |
 | `closeMenu()` | Catch's ▾ shut (the Studio's `closeMenus`) |
+| `focusPlay()` | the keyboard's focus to ▶ (the Studio's, as the clip editor it was in goes) |
+| `tempo(fn)` | `fn(key)` with the display's tempo key, on which the Studio wires its tempo menu; answers what `fn` made, or null on a bar without the key |
 
 | `hands` | |
 |---|---|
@@ -221,6 +222,20 @@ up `#np-rec`, `#np-catch-pass`, `#np-catch-more`, `#catch-menu` or
 `querySelector` on `#np-rec`): a guard against the old wiring coming back,
 not a proof; an id held in a variable, or another module of the Studio's,
 gets past it.
+
+The rest of what the Studio and the Listening Room do to the bar is a verb
+or a callback too (step 5c): ▶ and Space are the engine's `playPause()`,
+L is `setLoop()` (both nothing while the key is unlit), OUT and the
+jam-only sheet's *Switch* are `ctx.openOutput()`, SYNC is the bar's
+(*The lamp and the output strip*, below), the doorway's grease goes at the
+end of the strip through `ctx.barSlot` (`{ place: 'strip', at: 'end' }`)
+and takes the strip's box, the doorway reads the bar by the engine's
+`snapshot()`, and ▶'s `data-gives-enter` is what tells the buffer's ↵
+(`lib/buffer/keys.js`) that ▶ never keeps it. Guardrail 22 fails on
+`lib/tape/page.js`, `lib/rooms/studio.js`, `lib/shell/views/studio.js`,
+`lib/room/deck.js`, `lib/room/doorway.js` or `lib/buffer/keys.js` looking
+up any id inside the shell's `#np` (by `$`, `getElementById`, a selector
+naming `#id`, or `press('id')`), and on ▶ without `data-gives-enter`.
 
 ## The Studio's part of the bar
 
@@ -244,7 +259,10 @@ the strip.
 ## The lamp and the output strip
 
 The clock-out lamp (`#np-clock-out`, who follows the tape's clock with
-`TAPE_CLOCK=lead`) and the output strip across the bar's top
+`TAPE_CLOCK=lead`), SYNC (`#np-sync`, how playback and recording line up:
+`display.js` `syncState`, from `live.aligned`, out while the tape is
+stopped or plays on a phone; a key for the Studio, `data-for="studio"`)
+and the output strip across the bar's top
 (`#np-out-strip…`, while the tape plays on this phone) are the bar's, in
 every room, not the Studio's: `NowPlaying.paintTape()` draws them from the
 models as the tape answers (`tape.onChange`), as the transport changes (the
@@ -290,7 +308,9 @@ by hand: the tape stays until a take is picked by hand), `backToTape()`,
 counted in `touches`). The bar's own keys are verbs too: `playPause()` (▶:
 the source's own say first, the tape's sound waiting for a tap; a stop by
 ▶ is `tapeUnlessPlaying()`), `toStart()` (|◂), `back5()` (↺ 5 s and J, of
-what this device hears), `setLoop(on)` (⟲), each a touch, and the strip's
+what this device hears), `setLoop(on)` (⟲), each a touch (▶ and ⟲ do
+nothing while unlit: `canPlay` false and not playing or waiting, `canLoop`
+false, whoever presses them), and the strip's
 `seekFraction(f)` (a tap, a drag, Home), `toEnd()` (End) and `step(n)`
 (← →), which are not (the bar counts the strip's touch itself).
 
@@ -311,7 +331,7 @@ the engine (`new NowPlaying({engine, onToast, layout, room, tape, player,
 recorder, output})`: `layout` the shell's `barLayout`, `room()` the room
 the router shows, so the tempo opens its menu in the Studio; the shell
 kicks the bar as it switches; `tape` the page's tape model, for the
-Studio's keys, `np.tapeKeys`, the lamp and the output strip; and
+Studio's keys, `np.tapeKeys`, the lamp, SYNC and the output strip; and
 what is the page's, the surface's, handed in (step 5c): `player`, the
 phone's player sheet, `recorder`, the page's phone recorder, made at boot,
 and `output()`, which opens the Output sheet), it draws the engine's `snapshot()` on `#np` from its

@@ -70,3 +70,31 @@ test('the menu’s guide opens at the page you’re on', () => {
   click(doc, guide);
   assert.equal(guide.getAttribute('href'), '/guide.html#31-the-takes-page');
 });
+
+test('in help mode a shortcut on a focused slider is swallowed; only a field that takes text keeps its keys', () => {
+  // Step 5c-2: Space and L are the bar's verbs, not a click on ▶ or ⟲
+  // that help mode catches, so its own keydown must stop them from a
+  // track's level (a range) as from anywhere else.
+  const { doc, item } = shell();
+  click(doc, item);
+  const key = (target, k) => {
+    const e = { type: 'keydown', key: k, target, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, stopImmediatePropagation() { this.stopped = true; } };
+    doc.dispatchEvent(e);
+    return e;
+  };
+  const level = doc.createElement('input');
+  level.type = 'range';
+  level.setAttribute('type', 'range');
+  level.setAttribute('data-tip', 'track-level');
+  doc.body.append(level);
+  assert.ok(key(level, ' ').stopped, 'Space on a slider does not reach the page');
+  assert.ok(key(level, 'l').stopped, 'nor does L');
+  const name = doc.createElement('input');
+  name.type = 'text';
+  name.setAttribute('type', 'text');
+  doc.body.append(name);
+  assert.ok(!key(name, 'l').stopped, 'a field that takes text keeps its keys');
+  const notes = doc.createElement('textarea');
+  doc.body.append(notes);
+  assert.ok(!key(notes, ' ').stopped);
+});

@@ -89,6 +89,25 @@ test('the bar draws the clock-out lamp from the tape’s clock, with no Studio',
   assert.equal($('np-clock-out').classList.contains('none'), false);
 });
 
+test('the bar draws SYNC from the tape’s snapshot, with no Studio: lit while the tape plays lined up in the jam room (step 5c)', async () => {
+  const { $ } = await open({ playing: true, aligned: 'exact' });
+  const sync = $('np-sync');
+  assert.equal(sync.hidden, false);
+  assert.equal(sync.getAttribute('data-state'), 'ok');
+  assert.match(sync.getAttribute('aria-label'), /^Sync: lined up to the sample/);
+});
+
+test('SYNC goes out while the tape is stopped', async () => {
+  const { $ } = await open({ playing: false, aligned: 'none' });
+  assert.equal($('np-sync').hidden, true);
+});
+
+test('SYNC goes out while the tape plays on a phone: nothing to line up', async () => {
+  const { $ } = await open({ playing: true, aligned: 'none', output_mode: 'phone' });
+  assert.equal($('np-sync').hidden, true);
+  assert.equal($('np-sync').getAttribute('data-state'), 'off');
+});
+
 test('the bar draws the output strip while the tape plays on this phone, with no Studio, and its tap wakes the sound', async () => {
   const { $, engine } = await open({ output_mode: 'phone', playing: true });
   assert.equal($('np-out-strip').hidden, true, 'not heard here yet');

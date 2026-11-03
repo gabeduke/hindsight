@@ -466,10 +466,14 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
      * playPause is ▶: the source's own say first (the tape's sound waiting
      * for a tap), else it plays, or stops. A stop by ▶ is the person's: in
      * the Studio the tape comes back into the bar (tapeUnlessPlaying).
+     * Nothing while ▶ has nothing to do (it is unlit: not playing, not
+     * waiting, and canPlay false), whoever presses it: the key, Space in
+     * the Studio.
      */
     playPause() {
       const s = current;
       if (!s) return;
+      if (!s.playing() && !s.waiting?.() && !s.canPlay()) return;
       touch();
       if (!s.press?.()) {
         if (s.playing()) { s.pause(); tapeUnlessPlaying(); } else s.play();
@@ -513,11 +517,11 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
       s.seek(Math.max(0, (s.heardHere ? s.heardHere() : s.pos()) - 5 * s.sampleRate));
       kick();
     },
-    /** setLoop is ⟲: Loop (Repeat, for a take) on or off. */
+    /** setLoop is ⟲: Loop (Repeat, for a take) on or off; nothing while ⟲ is unlit (canLoop false), whoever presses it: the key, L in the Studio. */
     setLoop(on) {
-      touch();
       const s = current;
-      if (!s) return;
+      if (!s || !s.canLoop()) return;
+      touch();
       s.setLoop(!!on);
       kick();
     },

@@ -80,7 +80,7 @@ test('a spine says which take is in the bar and whether it plays, as the bar cha
   assert.match(a.getAttribute('aria-label'), /in the bar/);
   assert.equal(a.getAttribute('aria-pressed'), 'false', 'in the bar, not playing');
   assert.equal(r.spine('jam_b.wav').classList.contains('on-deck'), false);
-  r.doc.getElementById('np-play').classList.add('playing');
+  r.np.playing = true; // the engine's bar says it plays
   r.tick();
   assert.equal(r.spine('jam_a.wav').getAttribute('aria-pressed'), 'true', 'playing');
   r.np.takeName = 'jam_b.wav'; // a tap on another take

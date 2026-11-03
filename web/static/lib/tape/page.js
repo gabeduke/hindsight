@@ -41,7 +41,6 @@ import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
 import { lightTrackHead } from '../bar/press-note.js';
 import * as sel from './selection.js';
-import { syncState } from '../bar/display.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
 import { readResponse, failToast, editTape } from './refusal.js';
@@ -691,24 +690,11 @@ function render() {
   $('tape-empty').hidden = !(empty && !t.grid);
   $('tape-undo').disabled = !state.undo;
   $('tape-redo').disabled = !state.redo;
-  const lock = live ? live.aligned : 'none';
   // The sign over the door: lit only while a punch is going onto tape.
   const onAir = !!(live && live.playing && live.record && live.record.state === 'on' && live.record.tape === t.id);
   $('rec-sign').classList.toggle('on', onAir);
-  // SYNC on the bar's display: how playback and recording line up, while
-  // the tape plays in the jam room. Playing on a phone there is nothing to
-  // line up, nor while the tape is stopped: it goes out, rather than show
-  // an alarm in a quiet room.
-  const phoneOut = !!(live && live.output_mode === 'phone');
-  const idle = lock === 'none' && !(live && (live.playing || live.count_in > 0));
-  const sync = $('np-sync');
-  if (sync) {
-    const said = syncState(lock, { phoneOut, idle });
-    sync.hidden = said.state === 'off';
-    setIf(sync, 'data-state', said.state);
-    setIf(sync, 'title', said.words);
-    setIf(sync, 'aria-label', `Sync: ${said.words}`);
-  }
+  // SYNC on the bar's display is the bar's, drawn from the tape's snapshot
+  // (lib/bar/bar.js paintTape).
 
   if (engine?.tape) engine.transport.ingest({ tape: t, live });
   setIf(overviewCv, 'aria-valuemax', String(t.length));
@@ -2121,7 +2107,7 @@ function closeAlign() {
   renderAlign();
   drawLanes();
   // The editor's keys are gone; keyboard focus goes back to the transport.
-  if (inside) $('np-play')?.focus({ preventScroll: true });
+  if (inside) tapeKeys?.focusPlay();
 }
 
 function renderAlign() {
@@ -2703,7 +2689,7 @@ function wireOverview() {
     if (e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
-      if (!e.repeat) $('np-play').click();
+      if (!e.repeat) engine?.bar.playPause();
       return;
     }
     if (state.align || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
@@ -4488,8 +4474,9 @@ function mountMenus() {
   menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, floor: undefined, side: 'below', align: 'start', render: renderTapeMenu, focus: 'checked' });
   // The tempo's, from the bar's display (the bar's own keys say when it
   // opens: css/bar.css, lib/bar/bar.js): a panel, since −1, +1 and TAP
-  // keep it open.
-  if ($('np-tempo')) menus.tempoBar = menu($('np-tempo'), $('tempo-menu'), { ...opts, role: 'dialog', floor: undefined, align: 'start', render: renderTempo });
+  // keep it open. The bar hands its key to it (ctx.tapeKeys.tempo).
+  const tempoBar = tapeKeys?.tempo((key) => menu(key, $('tempo-menu'), { ...opts, role: 'dialog', floor: undefined, align: 'start', render: renderTempo }));
+  if (tempoBar) menus.tempoBar = tempoBar;
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
 }
 
@@ -4681,10 +4668,11 @@ function confirmSheet(title, line) {
 
 function wire() {
   $('jam-only-close').addEventListener('click', () => $('jam-only').close());
-  // Where it plays is a key on the bar's display: it opens the output sheet.
-  $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); $('np-output').click(); });
+  // Where it plays is a key on the bar's display: it opens the shell's
+  // Output sheet (ctx.openOutput), as these do.
+  $('jam-only-switch').addEventListener('click', () => { $('jam-only').close(); viewCtx?.openOutput?.(); });
   $('jam-only-share').addEventListener('click', () => { $('jam-only').close(); exportMix(); });
-  $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); $('np-output').click(); });
+  $('jam-only-change').addEventListener('click', (e) => { e.preventDefault(); viewCtx?.openOutput?.(); });
   // The Studio's buffer (lib/buffer) changed the clipboard: the range's Paste
   // and Insert follow it now, not at the next fetch. And it dropped onto the
   // tape: show that now too.
@@ -4835,7 +4823,7 @@ function wire() {
         return;
       }
     }
-    if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex]:not(.view), input:not([type=range])')) { e.preventDefault(); $('np-play').click(); }
+    if (e.key === ' ' && !e.target.closest?.('button, a, [tabindex]:not(.view), input:not([type=range])')) { e.preventDefault(); engine?.bar.playPause(); }
     // With a keyboard -- a laptop, or a tablet with one: the transport, and
     // which track catches go onto. Not under a dialog or a menu, and not on
     // a held key's repeats, which would toggle Rec or the loop over and over.
@@ -4853,7 +4841,8 @@ function wire() {
     };
     switch (e.code) {
       case 'KeyR': pressKey('rec'); break;
-      case 'KeyL': press('np-loop'); break;
+      // L is ⟲, the bar's: its verb, which does nothing while ⟲ is unlit.
+      case 'KeyL': if (!e.repeat && engine) engine.bar.setLoop(!engine.bar.snapshot().loop); break;
       case CLICK_KEY: pressKey('click'); break;
       // S splits the one selected clip, as the action bar's Split does; with
       // none, the selected track at the playhead.

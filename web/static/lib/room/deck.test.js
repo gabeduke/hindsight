@@ -4,8 +4,7 @@
 // how far it has got, with no keys of its own, and a tap on it is Open.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deckOf, deckWords, readBar, fmtLen } from './deck.js';
-import { fakeDoc } from '../play/fake-dom.js';
+import { deckOf, deckWords, fmtLen } from './deck.js';
 
 const take = { name: 'jam_a.wav', label: 'Funk', created: '2026-10-15T12:43:00', duration_seconds: 119 };
 const tape = { id: 't1', name: 'Tuesday groove' };
@@ -71,22 +70,4 @@ test('lengths', () => {
   assert.equal(fmtLen(119), '1:59');
   assert.equal(fmtLen(0), '0:00');
   assert.equal(fmtLen(59.6), '0:59');
-});
-
-// readBar reads the bar's own face -- its ▶, its strip, its clock -- so the
-// deck is of the bar as it is now, whichever page or hand moved it.
-test('readBar: playing from ▶, how far from the strip, the clock from the LCD', () => {
-  const doc = fakeDoc();
-  const play = doc.createElement('button'); play.id = 'np-play';
-  const scrub = doc.createElement('canvas'); scrub.id = 'np-scrub';
-  const pos = doc.createElement('span'); pos.id = 'np-position';
-  doc.body.append(play, scrub, pos);
-  assert.deepEqual(readBar(doc), { playing: false, frac: 0, pos: '' });
-  play.classList.add('playing');
-  scrub.setAttribute('aria-valuemax', '200');
-  scrub.setAttribute('aria-valuenow', '50');
-  pos.textContent = '0:12';
-  assert.deepEqual(readBar(doc), { playing: true, frac: 0.25, pos: '0:12' });
-  scrub.setAttribute('aria-valuenow', '999');
-  assert.equal(readBar(doc).frac, 1, 'clamped');
 });

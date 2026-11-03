@@ -45,10 +45,11 @@ const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], d
 // And a button -- a toast's Undo, Loop -- but only one the keyboard brought
 // the focus to. Chrome focuses a button that's clicked: arm a track with its
 // ●, press ↵ for DROP, and the ↵ went to the ●, which disarmed it. ▶ never
-// keeps it: ↵ there would stop the tape mid-jam. A cue clip's pad is a key
+// keeps it: ↵ there would stop the tape mid-jam (the bar marks it
+// data-gives-enter: the Studio reads no id of the bar's). A cue clip's pad is a key
 // too (lib/tape/cuelane.js): ↵ launches it only when the keyboard went to it;
 // held with a mouse to open its drawer, ↵ is the drawer's DROP.
-const BUTTON = 'button:not(#np-play), .cue-pad';
+const BUTTON = 'button:not([data-gives-enter]), .cue-pad';
 
 /**
  * blocked says the page isn't the buffer's to answer: a key typed into a

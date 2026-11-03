@@ -34,7 +34,7 @@ import { createTap, wireRack, askedTake } from './tap.js';
 import { createFlights, rectOf } from './fly.js';
 import { tagKey } from './tagpick.js';
 import { openTagManager } from '../tags-dialog.js';
-import { deckOf, readBar } from './deck.js';
+import { deckOf } from './deck.js';
 import { familyCounts, familySticker } from '../shelf.js';
 import { takeTitle, fmtLen } from '../rooms/takename.js';
 import { tagStore } from '../tags.js';
@@ -307,7 +307,9 @@ export function mount(h) {
     sec.style.setProperty('--n', String(s.count));
     return sec;
   }
-  const barNow = () => (h.np?.snapshot ? h.np.snapshot() : readBar(document));
+  // What the bar holds and does: the engine's bar's snapshot(); with no
+  // bar, nothing plays.
+  const barNow = () => h.np?.snapshot?.() ?? { playing: false, frac: 0, pos: '' };
   function render() {
     const now = Date.now();
     const opts = h.opts();
@@ -404,16 +406,17 @@ export function mount(h) {
   const offBar = h.np?.onChange?.(renderPlaces);
 
   // The dock is the bar (its Open › opens a take, or the tape in the
-  // Studio: lib/bar/bar.js), with grease marks at a take's In and Out.
+  // Studio: lib/bar/bar.js), with grease marks at a take's In and Out, at
+  // the end of the bar's strip (ctx.barSlot), over its canvas: the strip
+  // holds that alone in this room, so the grease takes the strip's box.
   const grease = el('span', 'room-grease', { 'aria-hidden': 'true' }, el('i', 'room-grease-in'), el('i', 'room-grease-out'));
-  if (h.barSlot) h.barSlot.add(grease, { after: $('np-scrub') });
-  else $('np-scrub')?.after(grease);
+  h.barSlot?.add(grease, { place: 'strip', at: 'end' });
   function renderDock(d) {
     const t = d && d.kind === 'take' ? d.take : null;
     const tr = t && t.trim;
     const total = t ? (t.duration_seconds || 0) * (t.sample_rate || 48000) : 0;
     grease.hidden = !tr || !total;
-    const sc = $('np-scrub');
+    const sc = grease.parentElement;
     if (tr && total && sc) {
       grease.style.left = `${sc.offsetLeft}px`;
       grease.style.top = `${sc.offsetTop}px`;

@@ -510,6 +510,43 @@ test('Guardrail 21: the overview is the Studio’s, put into the bar’s strip t
   assert.match(read('lib/shell/views/studio.js'), /barSlot\.add\(\s*overview\s*,\s*\{\s*place:\s*'strip'\s*\}\s*\)/, 'the Studio puts its overview into the bar’s strip through its slot');
 });
 
+test('Guardrail 22: the Studio and the rooms reach the bar through its verbs and callbacks, never by the ids inside #np', () => {
+  // docs/plan/transport-extraction.md, step 5c; bar.md, *The Studio's
+  // keys*: ▶ is the engine's verb (ctx.engine.bar.playPause()), and so is
+  // L (setLoop); focusing ▶ and wiring the tempo's menu on its key are
+  // calls on ctx.tapeKeys (focusPlay(), tempo(fn), which hands fn the key);
+  // OUT is ctx.openOutput(); SYNC is drawn by the bar; the doorway's grease
+  // goes in the bar's strip through ctx.barSlot. A look-up by an id inside
+  // the bar's root (its template's, once it is a component) reaches inside
+  // it, and breaks the day those ids are cx.id's.
+  const ids = [...npMarkup().matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(ids.includes('np-play') && ids.includes('np-sync'), 'read the ids inside #np');
+  const IDS = ids.map((id) => id.replace(/[-]/g, '\\-')).join('|');
+  const lookups = [
+    new RegExp(`(?<![\\w$])(\\$|getElementById)\\(\\s*['"\`](${IDS})['"\`]`),
+    new RegExp(`['"\`][^'"\`]*#(${IDS})(?![\\w-])`),
+    new RegExp(`(?<![.\\w$])press\\(\\s*['"\`](${IDS})['"\`]`),
+  ];
+  // Every module of the rooms' and the Studio's, tests left out, so a look-up
+  // in a new one fails too.
+  const files = [];
+  for (const dir of ['lib/tape', 'lib/room', 'lib/rooms', 'lib/shell/views', 'lib/buffer']) {
+    for (const d of fs.readdirSync(path.join(STATIC, dir), { withFileTypes: true })) {
+      if (d.isFile() && d.name.endsWith('.js') && !d.name.endsWith('.test.js')) files.push(`${dir}/${d.name}`);
+    }
+  }
+  assert.ok(files.includes('lib/tape/page.js') && files.includes('lib/room/doorway.js'), 'read the rooms’ modules');
+  const found = [];
+  for (const f of files) {
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    for (const line of src.split('\n')) if (lookups.some((re) => re.test(line))) found.push(`${f}: ${line.trim()}`);
+  }
+  assert.deepEqual(found, [], 'reaches inside the bar by an id: press its verb (ctx.engine.bar), call ctx.tapeKeys or ctx.openOutput, or go through ctx.barSlot');
+  // ▶ never keeps ↵ from the Studio's buffer (lib/buffer/keys.js): the bar
+  // says so on the key, which the buffer reads instead of its id.
+  assert.match(npMarkup(), /<button\b[^>]*\bid="np-play"[^>]*\bdata-gives-enter\b/, '▶ is marked data-gives-enter');
+});
+
 // ---- the components: lib/components/ ---------------------------------------
 // The kit (docs/architecture/components.md; docs/plan/components.md, 1.5): a
 // component draws inside the root it is given, from its models' snapshots,

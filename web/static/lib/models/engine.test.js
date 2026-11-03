@@ -189,6 +189,21 @@ test('playPause asks the source first: the tape’s sound waiting for a tap is w
   assert.equal(woke, 1);
 });
 
+test('playPause and setLoop do nothing while ▶ and ⟲ are unlit, whoever presses them (Space and L in the Studio, step 5c)', async () => {
+  const { engine } = await open();
+  const take = aTake('jam_a.wav');
+  engine.bar.loadTake(take.t, take.player);
+  const src = engine.bar.src;
+  src.canPlay = () => false;
+  src.canLoop = () => false;
+  const t0 = engine.bar.touches;
+  engine.bar.playPause();
+  assert.equal(take.audio.paused, true, '▶ unlit plays nothing');
+  engine.bar.setLoop(true);
+  assert.equal(engine.bar.snapshot().loop, false, '⟲ unlit loops nothing');
+  assert.equal(engine.bar.touches, t0, 'and neither is a touch');
+});
+
 test('the seeks: a fraction, a step, back five seconds, the end, the start', async () => {
   const { engine } = await open();
   const take = aTake('jam_a.wav', { seconds: 100 });

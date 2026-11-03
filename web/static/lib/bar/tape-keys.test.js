@@ -251,6 +251,16 @@ test('tapeKeys: pointing at Catch is the Studio’s outline', () => {
   assert.deepEqual(seen, [true, false]);
 });
 
+test('tapeKeys: the Studio focuses ▶ and wires its tempo menu on the bar’s key through it, never by their ids (step 5c)', () => {
+  const { k, doc } = keys({ tape: aTape(), live: playing() });
+  k.focusPlay();
+  assert.equal(doc.activeElement, doc.getElementById('np-play'));
+  const handed = [];
+  const made = k.tempo((key) => { handed.push(key); return 'the menu'; });
+  assert.deepEqual(handed, [doc.getElementById('np-tempo')], 'fn is handed the tempo key');
+  assert.equal(made, 'the menu', 'and tempo answers what fn made');
+});
+
 test('tapeKeys: a page without the keys, or without a tape, has none', () => {
   assert.equal(tapeKeys({ doc: fakeDoc(), tape: aTapeModel({}) }), null);
   assert.equal(tapeKeys({ doc: shell().doc, tape: null }), null);

@@ -137,7 +137,7 @@ const slots = {
   bar: { parent: () => $('np'), places: { strip: () => $('np')?.querySelector('[data-slot="strip"]') } },
 };
 
-const shared = { engine, barLayout: layout, tapeKeys: np.tapeKeys, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
+const shared = { engine, barLayout: layout, tapeKeys: np.tapeKeys, openOutput, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
 
 const views = [];
 const studioRoot = $('view-studio');
