@@ -125,18 +125,27 @@ sideways scroll).
   reveal is awaited). `docked` is said by the dock's slot (`ctx.dockSlot.show`,
   `shell.md`): the Studio's clip editor or action bar, or Capture's
   drawer, showing above the bar. Open's root says `data-open` too, through
-  `player.js`'s layout. Nothing reads them yet: `css/bar.css` moves onto
-  them in step 5d. On a switch, `data-docked` can read false for a moment
+  `player.js`'s layout. `css/bar.css` reads them (step 5d): its fold,
+  player and docked rules key on `.np[data-fold]`, `.np[data-open]` and
+  `.np[data-docked]`, never on `<body>`. On a switch, `data-docked` can read false for a moment
   between the room left taking its docked parts out and the room arriving
   putting its own back (both inside the turn's update, before it is
   drawn): a rule on it must not animate that blink.
 - **The page around the bar is the page's.** What a page does about the bar
   is `styles.css`'s, not `css/bar.css`'s: `--dock-b` and the padding and
   toasts that keep clear of the bar on a phone, the player pulled up
-  holding the page still and covering the tabs, select mode hiding the
-  bar, and the Studio's `#np-dock`. `css/bar.css` draws the bar, though
-  some of its rules inside the bar still key on `body.np-fold` and
-  `body.player-open` until the bar is a component (1d, step 5).
+  holding the page still, covering the tabs and being the sheet (fixed
+  over the page: `#np-dock` in the rooms, Open's `#np` itself, which has
+  no dock), select mode hiding the bar, the Studio's `#np-dock` and its
+  tempo menu (`.tempo-menu`), and a pressed key's colour (`.kb-lit`, which
+  lights a track's head too). `css/bar.css` draws the bar, and keeps
+  Guardrail 15's stylesheet half in place (step 5d): every selector starts
+  at `.np` and goes into it (`architecture.test.js`, *css/bar.css starts
+  every selector at .np*), but for the menus' panels the shell holds
+  outside `#np` (Catch's ▾, the source's, the phone's), which come inside
+  in 5e. Its five viewport `@media` blocks stay (D1): a container query
+  can't ask a height, an orientation or a preference, nor style the root
+  itself.
 - **✎ is the page's** (`lib/bar/take-keys.js`, `engine.setOnNote`): the
   shell's notes drawer (`rooms.md`, *The notes drawer*) takes the frame
   being heard (`frameNow`); a page without one opens the take on its own

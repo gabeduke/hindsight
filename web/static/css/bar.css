@@ -19,7 +19,18 @@
    alone. Its widths are its own: a container query on its first row, never
    the window's, since a bar is as wide as its room leaves it. Its height is
    measured (lib/bar/slots.js measureBar writes --np-h on the root), never
-   written here. */
+   written here.
+
+   Every selector starts at .np, its root (Guardrail 15,
+   docs/architecture/components.md), and the page's state is read off the
+   root, never off <body>: data-fold (folded by its grabber), data-open (the
+   phone's player pulled up) and data-docked (something docked above it),
+   which lib/bar/layout.js writes. What lays the page out around the bar
+   (the player's sheet, --dock-b) is styles.css's. The viewport @media
+   blocks stay (decision D1): a container query can't ask a height, an
+   orientation or a preference, nor style the root itself. The menus'
+   panels (Catch's ▾, the source's, the phone's) are held outside the root
+   until they come inside it (docs/plan/transport-extraction.md, 5e). */
 
 /* ---------- the bar ---------- */
 .np {
@@ -39,8 +50,8 @@
 /* The first row is the container its widths are asked of (not .np, nor the
    dock: a container contains its fixed descendants, and the phone's player
    is a fixed sheet). The zones are a grid inside it. */
-.np-row-1 { container: bar / inline-size; }
-.np-zones {
+.np .np-row-1 { container: bar / inline-size; }
+.np .np-zones {
   display: grid; align-items: center; gap: 10px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   grid-template-areas:
@@ -49,36 +60,36 @@
     "verb verb verb verb verb verb"
     "modes modes modes end end end";
 }
-.np-window { grid-area: deck; }
-.np-transport { grid-area: transport; }
-.np-verb { grid-area: verb; }
-.np-modes { grid-area: modes; }
-.np-end { grid-area: end; }
-.np-zone { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.np-row-2 { display: flex; align-items: center; gap: 10px; height: 40px; min-width: 0; }
+.np .np-window { grid-area: deck; }
+.np .np-transport { grid-area: transport; }
+.np .np-verb { grid-area: verb; }
+.np .np-modes { grid-area: modes; }
+.np .np-end { grid-area: end; }
+.np .np-zone { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.np .np-row-2 { display: flex; align-items: center; gap: 10px; height: 40px; min-width: 0; }
 
 /* ---------- which keys show ---------- */
 /* Each for the sources its data-for (or, in the mini player, data-mini)
    names, the tape's "studio" and "away" keys for the room it is in (its
    data-room, the surface's room() as the bar draws); a key a script has hidden (⏏ with no tape to go back to) stays
-   hidden. */
+   hidden: the show rules skip [hidden], and .np [hidden] hides it. */
 .np :is([data-for], [data-mini]) { display: none; }
-.np[data-size="full"][data-source="tape"] [data-for~="tape"],
-.np[data-size="full"][data-source="take"] [data-for~="take"],
-.np[data-size="full"][data-source="feed"] [data-for~="feed"],
-.np[data-room="studio"][data-size="full"][data-source="tape"] [data-for~="studio"],
-.np:is([data-room="room"], [data-room="capture"])[data-size="full"][data-source="tape"] [data-for~="away"],
-.np[data-size="mini"][data-source="tape"] [data-mini~="tape"],
-.np[data-size="mini"][data-source="take"] [data-mini~="take"],
-.np[data-size="mini"][data-source="feed"] [data-mini~="feed"],
-.np[data-room="studio"][data-size="mini"][data-source="tape"] [data-mini~="studio"],
-.np:is([data-room="room"], [data-room="capture"])[data-size="mini"][data-source="tape"] [data-mini~="away"] { display: inline-flex; }
-#np [hidden] { display: none; }
+.np[data-size="full"][data-source="tape"] [data-for~="tape"]:not([hidden]),
+.np[data-size="full"][data-source="take"] [data-for~="take"]:not([hidden]),
+.np[data-size="full"][data-source="feed"] [data-for~="feed"]:not([hidden]),
+.np[data-room="studio"][data-size="full"][data-source="tape"] [data-for~="studio"]:not([hidden]),
+.np:is([data-room="room"], [data-room="capture"])[data-size="full"][data-source="tape"] [data-for~="away"]:not([hidden]),
+.np[data-size="mini"][data-source="tape"] [data-mini~="tape"]:not([hidden]),
+.np[data-size="mini"][data-source="take"] [data-mini~="take"]:not([hidden]),
+.np[data-size="mini"][data-source="feed"] [data-mini~="feed"]:not([hidden]),
+.np[data-room="studio"][data-size="mini"][data-source="tape"] [data-mini~="studio"]:not([hidden]),
+.np:is([data-room="room"], [data-room="capture"])[data-size="mini"][data-source="tape"] [data-mini~="away"]:not([hidden]) { display: inline-flex; }
+.np [hidden] { display: none; }
 
 /* ---------- the deck: the reel window ---------- */
 /* The deck's brushed metal, a reel either side of the display, and the tape
    running under it from reel to reel. */
-.np-window {
+.np .np-window {
   position: relative; min-width: 0; height: 112px;
   display: flex; align-items: center; gap: 6px; padding: 0 8px;
   border-radius: 10px; border: 1px solid var(--edge);
@@ -87,85 +98,85 @@
     linear-gradient(180deg, var(--deck-hi), var(--deck-lo));
   box-shadow: inset 0 1px 0 var(--hl), 0 2px 6px -3px var(--sh-strong);
 }
-.np-window::after {
+.np .np-window::after {
   content: ''; position: absolute; left: 22px; right: 22px; bottom: 3px; height: 2.5px;
   border-radius: 2px; background: var(--tape-pack);
 }
-.np-reel { flex: none; width: clamp(48px, 15cqi, 88px); height: clamp(48px, 15cqi, 88px); position: relative; z-index: 1; }
-.np-well { fill: rgba(0,0,0,.06); }
-.np-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
+.np .np-reel { flex: none; width: clamp(48px, 15cqi, 88px); height: clamp(48px, 15cqi, 88px); position: relative; z-index: 1; }
+.np .np-well { fill: rgba(0,0,0,.06); }
+.np .np-pack { fill: var(--tape-pack); stroke: var(--tape-sheen); stroke-width: 1; }
 /* The flange is a picture, not a key: it takes no press. Its rendered
    sheet is the whole film strip, laid out at full size and clipped to one
    cell, so its box reaches far past the reel -- up to the Studio's last
    track head at some angles -- and a box that takes presses there counted
    as covering whatever it overlaps (axe's target-size failed track 4's
    level, by the angle the reel stopped at). */
-.np-turn { transform-box: view-box; pointer-events: none; }
-.np-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
-.np-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
+.np .np-turn { transform-box: view-box; pointer-events: none; }
+.np .np-flange { fill: var(--reel-metal); stroke: var(--reel-edge); stroke-width: 1.2; }
+.np .np-hub { fill: var(--reel-hub); stroke: var(--reel-hub-edge); stroke-width: 1.5; }
 /* The rendered flange (lib/objects/spin.js) once its sheet has loaded; the
    drawn one above until then. The frames' box shows one cell of the sheet. */
-.np-frames { display: none; overflow: hidden; }
-.np-reel.rendered .np-frames { display: inline; }
-.np-reel.rendered .np-drawn { display: none; }
+.np .np-frames { display: none; overflow: hidden; }
+.np .np-reel.rendered .np-frames { display: inline; }
+.np .np-reel.rendered .np-drawn { display: none; }
 /* The window is the mini player's handle (below); the full bar has none. */
-.np-expand { display: none; }
+.np .np-expand { display: none; }
 
 /* ---------- the display ---------- */
 /* Amber on black in both schemes, like every counter here: where it is
    (the lamp, BAR and the position, the time under them), then three keys,
    each a value over its legend -- the tempo, the source and where it plays
    -- ruled apart. A tap on one opens its menu (lib/bar/bar.js). */
-.np-lcd {
+.np .np-lcd {
   position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; height: auto;
   display: flex; flex-wrap: wrap; align-items: stretch; overflow: hidden;
   border-radius: 7px; background: var(--lcd); font-family: var(--mono);
   box-shadow: inset 0 2px 5px var(--lcd-edge), inset 0 0 0 1px var(--lcd-edge), 0 1px 0 var(--hl);
 }
-.np-lcd-pos {
+.np .np-lcd-pos {
   flex: 1 1 100%; min-width: 92px; min-height: 44px; padding: 0 4px 0 7px;
   display: flex; flex-direction: column; justify-content: center; gap: 2px;
 }
-.np-lcd-top { height: 20px; display: flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; }
-.np-lcd-sub { height: 12px; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
-.np-pos {
+.np .np-lcd-top { height: 20px; display: flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; }
+.np .np-lcd-sub { height: 12px; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.np .np-pos {
   color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
   flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   font-weight: 600; font-size: 19px; line-height: 20px;
 }
-.np-time, .np-unit, .np-clock {
+.np .np-time, .np .np-unit, .np .np-clock {
   color: var(--lcd-dim); text-shadow: 0 0 5px color-mix(in srgb, var(--lcd-ink) 35%, transparent); font-size: 10.5px;
 }
-.np-unit { flex: none; font: 700 9.5px var(--label-font); letter-spacing: .14em; }
-.np-unit:empty, .np-time:empty { display: none; }
+.np .np-unit { flex: none; font: 700 9.5px var(--label-font); letter-spacing: .14em; }
+.np .np-unit:empty, .np .np-time:empty { display: none; }
 /* The time and the clock line give all their room before the position gives any. */
-.np-time, .np-clock { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.np .np-time, .np .np-clock { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* A note in the time's place (tap ▶ to play here, a mixdown's progress) is lit. */
-.np-time.note { color: var(--lcd-ink); }
-.np-clock.none { color: var(--warn); }
+.np .np-time.note { color: var(--lcd-ink); }
+.np .np-clock.none { color: var(--warn); }
 /* SYNC: how the tape's playback and recording line up while it plays in
    the jam room (lib/bar/display.js syncState), as a deck's annunciator:
    green to the sample, amber by the clocks, red not lined up yet. Out while
    the tape is stopped or plays on a phone. */
-.np-sync { flex: none; font: 700 9.5px var(--label-font); letter-spacing: .14em; color: var(--lcd-dim); }
-.np-sync[data-state="ok"] { color: var(--go); }
-.np-sync[data-state="wait"] { color: var(--lcd-ink); }
-.np-sync[data-state="bad"] { color: var(--rec); }
+.np .np-sync { flex: none; font: 700 9.5px var(--label-font); letter-spacing: .14em; color: var(--lcd-dim); }
+.np .np-sync[data-state="ok"] { color: var(--go); }
+.np .np-sync[data-state="wait"] { color: var(--lcd-ink); }
+.np .np-sync[data-state="bad"] { color: var(--rec); }
 /* The lamp: ▶ playing, ■ stopped, ❚❚ a take paused, ● red recording (blinking) or armed (steady). */
-.np-status { flex: none; width: 10px; height: 10px; background: var(--lcd-dim); clip-path: inset(12%); }
-.np-status[data-state="play"] { background: var(--lcd-ink); clip-path: polygon(8% 0, 100% 50%, 8% 100%); }
-.np-status[data-state="pause"] { background: linear-gradient(90deg, var(--lcd-dim) 0 34%, transparent 34% 66%, var(--lcd-dim) 66%); clip-path: inset(10%); }
-.np-status[data-state="rec"], .np-status[data-state="armed"] {
+.np .np-status { flex: none; width: 10px; height: 10px; background: var(--lcd-dim); clip-path: inset(12%); }
+.np .np-status[data-state="play"] { background: var(--lcd-ink); clip-path: polygon(8% 0, 100% 50%, 8% 100%); }
+.np .np-status[data-state="pause"] { background: linear-gradient(90deg, var(--lcd-dim) 0 34%, transparent 34% 66%, var(--lcd-dim) 66%); clip-path: inset(10%); }
+.np .np-status[data-state="rec"], .np .np-status[data-state="armed"] {
   clip-path: none; border-radius: 50%; background: #ff4a3d; box-shadow: 0 0 8px rgba(255,74,61,.9);
 }
-.np-status[data-state="rec"] { animation: recblink 1s steps(1) infinite; }
-.np-levels { margin-left: auto; flex: none; display: none; align-items: flex-end; gap: 2px; height: 14px; }
-.np-levels i {
+.np .np-status[data-state="rec"] { animation: recblink 1s steps(1) infinite; }
+.np .np-levels { margin-left: auto; flex: none; display: none; align-items: flex-end; gap: 2px; height: 14px; }
+.np .np-levels i {
   display: block; width: 3px; height: 100%; border-radius: 1px; transform-origin: bottom; transform: scaleY(.08);
   box-shadow: 0 0 5px currentColor; transition: transform .12s linear;
 }
 /* The three keys. */
-.np-lcd-key {
+.np .np-lcd-key {
   flex: 1 1 0; min-width: 0; height: 40px; margin: 0; padding: 0 2px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   border: 0; border-top: 1px solid var(--well-rule); border-left: 1px solid var(--well-rule); border-radius: 0; background: transparent;
@@ -173,28 +184,28 @@
   transition: background var(--t-release) var(--ease-out);
 }
 /* In a narrow bar (the phone's player) they are a row under the position. */
-.np-tempo { border-left: 0; }
-button.np-lcd-key { cursor: pointer; }
-.np-lcd-key:active, .np-lcd-key.down { background: var(--well-rule); transition-duration: var(--t-press); }
-.np-lcd-key:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.np-lcd-key:disabled { cursor: default; }
-.np-lcd-key:disabled .np-lcd-chev { visibility: hidden; }
-.np-lcd-key[aria-expanded="true"] { background: var(--well-rule); }
-.np-lcd-val {
+.np .np-tempo { border-left: 0; }
+.np button.np-lcd-key { cursor: pointer; }
+.np .np-lcd-key:active, .np .np-lcd-key.down { background: var(--well-rule); transition-duration: var(--t-press); }
+.np .np-lcd-key:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.np .np-lcd-key:disabled { cursor: default; }
+.np .np-lcd-key:disabled .np-lcd-chev { visibility: hidden; }
+.np .np-lcd-key[aria-expanded="true"] { background: var(--well-rule); }
+.np .np-lcd-val {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
   font: 600 12px/14px var(--mono);
 }
-.np-source .np-lcd-val, .np-output .np-lcd-val { font-size: 11px; letter-spacing: -.02em; }
-.np-lcd-leg {
+.np .np-source .np-lcd-val, .np .np-output .np-lcd-val { font-size: 11px; letter-spacing: -.02em; }
+.np .np-lcd-leg {
   display: flex; align-items: center; gap: 1px; max-width: 100%; overflow: hidden; white-space: nowrap;
   font: 700 9.5px/11px var(--label-font); letter-spacing: .14em;
   text-shadow: 0 0 5px color-mix(in srgb, var(--lcd-ink) 35%, transparent);
 }
-.np-lcd-chev { flex: none; stroke-width: 3.5; }
+.np .np-lcd-chev { flex: none; } /* its stroke is a small icon's (styles.css, .i[width="8"]) */
 /* A value has a short form and a long one (96 / 96 BPM · 4 BARS): the
    long where the display has the room, at its widest. */
-.np-long { display: none; }
+.np .np-long { display: none; }
 
 /* ---------- the keyboard's press ---------- */
 /* A press on the keyboard (lib/bar/press-note.js): its words over the
@@ -204,7 +215,7 @@ button.np-lcd-key { cursor: pointer; }
    refusal is an amber band with dark words, so it reads apart from the
    display's own amber. It covers the display and nothing else, out of the
    layout, and lets taps through to the display's keys. */
-.np-press {
+.np .np-press {
   position: absolute; inset: 0; pointer-events: none;
   display: flex; align-items: center; gap: 8px; padding: 0 10px; min-width: 0;
   background: var(--lcd); color: var(--kb, var(--lcd-ink));
@@ -213,21 +224,21 @@ button.np-lcd-key { cursor: pointer; }
 }
 /* At rest it is there for a screen reader (a live region) and not to see;
    a press shows it (data-kb, its role). */
-.np-press { opacity: 0; }
-.np-press[data-kb] { opacity: 1; }
-.np-press-mark { flex: none; }
-.np-press-words { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.np-press[data-kb="refused"] {
+.np .np-press { opacity: 0; }
+.np .np-press[data-kb] { opacity: 1; }
+.np .np-press-mark { flex: none; }
+.np .np-press-words { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.np .np-press[data-kb="refused"] {
   background: color-mix(in srgb, var(--warn) 88%, var(--lcd)); color: var(--lcd); text-shadow: none;
 }
-/* What the press changed, lit for its second in its colour: ▶ and ● here,
-   a track's head in the Studio (styles.css, .tt-head.kb-lit). */
-:is(.np-press, .kb-lit)[data-kb="play"] { --kb: var(--go); }
-:is(.np-press, .kb-lit)[data-kb="rec"] { --kb: var(--rec); }
-:is(.np-press, .kb-lit)[data-kb="mixer"][data-kb-track="1"] { --kb: var(--t1); }
-:is(.np-press, .kb-lit)[data-kb="mixer"][data-kb-track="2"] { --kb: var(--t2); }
-:is(.np-press, .kb-lit)[data-kb="mixer"][data-kb-track="3"] { --kb: var(--t3); }
-:is(.np-press, .kb-lit)[data-kb="mixer"][data-kb-track="4"] { --kb: var(--t4); }
+/* The press's colour. What it changed is lit for its second in the same
+   colour (.kb-lit, styles.css: ▶ and ● here, a track's head in the Studio). */
+.np .np-press[data-kb="play"] { --kb: var(--go); }
+.np .np-press[data-kb="rec"] { --kb: var(--rec); }
+.np .np-press[data-kb="mixer"][data-kb-track="1"] { --kb: var(--t1); }
+.np .np-press[data-kb="mixer"][data-kb-track="2"] { --kb: var(--t2); }
+.np .np-press[data-kb="mixer"][data-kb-track="3"] { --kb: var(--t3); }
+.np .np-press[data-kb="mixer"][data-kb-track="4"] { --kb: var(--t4); }
 .np .icon-btn.kb-lit { outline: 2px solid var(--kb, var(--lcd-ink)); outline-offset: 2px; }
 
 /* ---------- the keys ---------- */
@@ -307,9 +318,9 @@ button.np-lcd-key { cursor: pointer; }
 }
 .np .np-catch-more { width: 44px; border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
 .np .np-catch-more .i { stroke-width: 2.25; }
-.np-catch-word { font-size: 15.5px; font-weight: 700; }
-.np-catch-sub { font: 500 10.5px var(--mono); opacity: .88; white-space: nowrap; }
-.np-catch-mini { display: none; } /* the phone's mini player shows it (below) */
+.np .np-catch-word { font-size: 15.5px; font-weight: 700; }
+.np .np-catch-sub { font: 500 10.5px var(--mono); opacity: .88; white-space: nowrap; }
+.np .np-catch-mini { display: none; } /* the phone's mini player shows it (below) */
 /* Catch is the page's one main action: the orange key, lit from above --
    unless the tape is on a phone, when it says it needs the jam room. */
 .np :is(#np-catch-pass, #np-catch-more) {
@@ -332,8 +343,8 @@ button.np-lcd-key { cursor: pointer; }
 .catch-menu { min-width: 230px; max-width: calc(100vw - 16px); }
 /* The bar's menus open over the phone's player pulled up (z 50), where its
    Catch and its display are: under it, the source's couldn't be tapped. */
-:is(.catch-menu, .tempo-menu, .np-source-menu) { z-index: 60; }
-.catch-menu-head { padding: 6px 12px 8px; }
+.catch-menu, .np-source-menu { z-index: 60; }
+.catch-menu > .catch-menu-head { padding: 6px 12px 8px; }
 .catch-menu > .menu-item > .menu-sub { white-space: normal; }
 .catch-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
 /* The feed's GRAB: the feed into the Studio's buffer, a paper key with GRAB's ring. */
@@ -341,8 +352,8 @@ button.np-lcd-key { cursor: pointer; }
   width: auto; min-width: 104px; padding: 0 10px; gap: 0;
   box-shadow: inset 0 1px 0 var(--hl), 0 0 0 2px var(--accent), 0 2px 4px -2px var(--sh);
 }
-.np-grab-word { font: 700 15px var(--label-font); letter-spacing: .14em; }
-.np-grab-sub { font: 400 11px var(--font); color: var(--ink-dim); white-space: nowrap; }
+.np .np-grab-word { font: 700 15px var(--label-font); letter-spacing: .14em; }
+.np .np-grab-sub { font: 400 11px var(--font); color: var(--ink-dim); white-space: nowrap; }
 
 /* ---------- the source's menu (lib/bar/source-menu.js) ---------- */
 .np-source-menu { min-width: 240px; max-width: calc(100vw - 16px); }
@@ -354,14 +365,14 @@ button.np-lcd-key { cursor: pointer; }
 /* ---------- the foot ---------- */
 /* Where it plays, at the foot of the phone's player pulled up (below):
    nowhere else, where the display's OUT says it. */
-.np-foot { display: none; }
+.np .np-foot { display: none; }
 
 /* ---------- the strip ---------- */
 /* The whole tape, or the take or the feed, to scrub: a well, like the
    tape's overview; a take paints its tape over it. */
 .np .np-scrub { flex: 1 1 0; min-width: 0; height: 40px; border-radius: 8px; }
 .np .np-scrub:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-#np-scrub { background: var(--well); outline: 1px solid var(--well-line); outline-offset: -1px; cursor: pointer; }
+.np #np-scrub { background: var(--well); outline: 1px solid var(--well-line); outline-offset: -1px; cursor: pointer; }
 
 /* ---------- its widths ---------- */
 /* Wider than a phone's player, the zones are a row: the deck at a width
@@ -369,69 +380,69 @@ button.np-lcd-key { cursor: pointer; }
    bar holds; then |◀ ▶ ●, the verb, the modes, and the end pushed to the
    right. The end is laid out first: the deck gives way before it does. */
 @container bar (min-width: 600px) {
-  .np-zones {
+  .np .np-zones {
     gap: 10px;
     grid-template-columns: var(--deck-w) auto auto auto minmax(0, 1fr);
     grid-template-areas: "deck transport verb modes end";
     --deck-w: clamp(204px, calc(100cqi - 468px), 300px);
   }
-  .np-end { justify-self: end; }
-  .np-window { height: 56px; padding: 0 4px; }
+  .np .np-end { justify-self: end; }
+  .np .np-window { height: 56px; padding: 0 4px; }
   /* The display is one row: where it is, then the keys, each its width --
      the tempo's number is short, the source and where it plays are words
      (THIS TABLET the longest); the position has the rest. */
-  .np-lcd { height: 48px; flex-wrap: nowrap; }
-  .np-lcd-pos { flex: 1 1 92px; min-height: 0; }
-  .np-lcd-key { height: 100%; border-top: 0; }
-  .np-tempo { flex: 0 0 42px; border-left: 1px solid var(--well-rule); }
-  .np-source { flex: 0 1 60px; }
-  .np-output { flex: 0 1 78px; }
-  .np-window::after { left: 22px; right: 22px; }
+  .np .np-lcd { height: 48px; flex-wrap: nowrap; }
+  .np .np-lcd-pos { flex: 1 1 92px; min-height: 0; }
+  .np .np-lcd-key { height: 100%; border-top: 0; }
+  .np .np-tempo { flex: 0 0 42px; border-left: 1px solid var(--well-rule); }
+  .np .np-source { flex: 0 1 60px; }
+  .np .np-output { flex: 0 1 78px; }
+  .np .np-window::after { left: 22px; right: 22px; }
   /* Narrower than a tablet on its side: the display alone, its reels gone. */
-  .np-reel { display: none; }
+  .np .np-reel { display: none; }
 }
 @container bar (min-width: 960px) {
   /* A tablet on its side and wider: the deck as the kit draws it, 352 at
      1024, growing with the bar to 768; the verb's and the modes' widths
      kept, so ⟲ stands where it did when Catch is not there. */
-  .np-zones {
+  .np .np-zones {
     grid-template-columns: var(--deck-w) auto minmax(150px, auto) minmax(114px, auto) minmax(0, 1fr);
     --deck-w: clamp(320px, calc(100cqi - 642px), 768px);
   }
-  .np-window { gap: 4px; }
-  .np-reel { display: block; width: 32px; height: 32px; }
+  .np .np-window { gap: 4px; }
+  .np .np-reel { display: block; width: 32px; height: 32px; }
 }
 @container bar (min-width: 1180px) {
   /* The widest: the display's values say it all (96 BPM · 4 BARS, TAPE ·
      its name), and the position has room for its time. */
-  .np-lcd-pos { flex: 0 0 132px; }
-  .np-lcd-key { flex: 1 1 auto; }
-  .np-reel { width: 36px; height: 36px; }
-  .np-levels { display: flex; }
-  .np-short { display: none; }
-  .np-long { display: inline; }
+  .np .np-lcd-pos { flex: 0 0 132px; }
+  .np .np-lcd-key { flex: 1 1 auto; }
+  .np .np-reel { width: 36px; height: 36px; }
+  .np .np-levels { display: flex; }
+  .np .np-short { display: none; }
+  .np .np-long { display: inline; }
 }
 
 /* ---------- the grabber, and the bar folded ---------- */
 /* A pill on a lip above the bar's top edge, inside a 96×44 button that
    rises from the bar's top padding, so its hit area never covers a key
    (lib/bar/fold.js: a tap folds or unfolds, a drag down folds, up unfolds). */
-.np-grabber {
+.np .np-grabber {
   position: absolute; left: 50%; top: -35px; z-index: 2; translate: -50% 0;
   width: 96px; height: 44px; margin: 0; padding: 0; border: 0; background: transparent;
   display: none; justify-content: center; align-items: flex-start;
   cursor: grab; touch-action: none;
 }
-.np-lip {
+.np .np-lip {
   margin-top: 22px; width: 72px; height: 14px; box-sizing: border-box;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--edge-strong); border-bottom: 0; border-radius: 9px 9px 0 0;
   background: var(--face-hi); box-shadow: inset 0 1px 0 var(--hl);
 }
-.np-pill { display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--led-off); transition: background var(--t-release) var(--ease-out); }
-.np-grabber:active .np-pill, .np-grabber.down .np-pill { background: var(--ink-faint); transition-duration: var(--t-press); }
-.np-grabber:focus-visible { outline: none; }
-.np-grabber:focus-visible .np-lip { outline: 2px solid var(--focus); outline-offset: 2px; }
+.np .np-pill { display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--led-off); transition: background var(--t-release) var(--ease-out); }
+.np .np-grabber:active .np-pill, .np .np-grabber.down .np-pill { background: var(--ink-faint); transition-duration: var(--t-press); }
+.np .np-grabber:focus-visible { outline: none; }
+.np .np-grabber:focus-visible .np-lip { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* The bar slides as it folds (fold.js moves it by transform, from where it
    was), its strip fading. */
 .np.np-sliding { transition: transform var(--t-spring-lid) var(--spring-lid); }
@@ -443,26 +454,28 @@ button.np-lcd-key { cursor: pointer; }
 }
 @media (min-width: 700px) and (min-height: 441px) {
   .np[data-size="full"] .np-grabber { display: flex; }
-  /* Something docked over the bar (the action bar, the clip editor): its
-     keys are just above the edge, so the grabber keeps to its lip and the
-     bar's top padding, clear of them. */
-  .np-dock > :not([hidden]) ~ .np .np-grabber { top: -14px; height: 24px; }
-  .np-dock > :not([hidden]) ~ .np .np-lip { margin-top: 1px; }
-  /* Folded: one row of keys 44 tall, the deck as tall, the strip gone. */
-  body.np-fold .np[data-size="full"] { padding-top: 4px; padding-bottom: calc(4px + env(safe-area-inset-bottom)); gap: 0; }
-  body.np-fold .np[data-size="full"] .np-row-2 { display: none; }
-  body.np-fold .np[data-size="full"] .np-window { height: 44px; }
-  body.np-fold .np[data-size="full"] .np-window::after { display: none; }
-  body.np-fold .np[data-size="full"] .np-reel { width: 28px; height: 28px; }
-  body.np-fold .np[data-size="full"] .np-lcd { height: 38px; }
-  body.np-fold .np[data-size="full"] .np-lcd-pos { justify-content: center; }
-  body.np-fold .np[data-size="full"] .np-lcd-sub { display: none; }
-  body.np-fold .np[data-size="full"] .np-pos { font-size: 16px; }
-  body.np-fold .np[data-size="full"] .icon-btn { height: 44px; min-height: 44px; flex-direction: row; gap: 5px; }
-  body.np-fold .np[data-size="full"] .np-catch-sub { display: none; }
-  body.np-fold .np[data-size="full"] .loop-face { flex-direction: row; gap: 3px; }
-  body.np-fold .np[data-size="full"] .tb-loop { width: auto; padding: 0 8px; }
-  body.np-fold .np[data-size="full"] .np-grab-sub { display: none; }
+  /* Something docked over the bar (the action bar, the clip editor;
+     data-docked): its keys are just above the edge, so the grabber keeps
+     to its lip and the bar's top padding, clear of them. */
+  /* (The player's grabber, .np[data-open] below, is the phone's: its block
+     and this one never apply together, so neither outranks the other.) */
+  .np[data-docked] .np-grabber { top: -14px; height: 24px; }
+  .np[data-docked] .np-lip { margin-top: 1px; }
+  /* Folded (data-fold): one row of keys 44 tall, the deck as tall, the strip gone. */
+  .np[data-fold][data-size="full"] { padding-top: 4px; padding-bottom: calc(4px + env(safe-area-inset-bottom)); gap: 0; }
+  .np[data-fold][data-size="full"] .np-row-2 { display: none; }
+  .np[data-fold][data-size="full"] .np-window { height: 44px; }
+  .np[data-fold][data-size="full"] .np-window::after { display: none; }
+  .np[data-fold][data-size="full"] .np-reel { width: 28px; height: 28px; }
+  .np[data-fold][data-size="full"] .np-lcd { height: 38px; }
+  .np[data-fold][data-size="full"] .np-lcd-pos { justify-content: center; }
+  .np[data-fold][data-size="full"] .np-lcd-sub { display: none; }
+  .np[data-fold][data-size="full"] .np-pos { font-size: 16px; }
+  .np[data-fold][data-size="full"] .icon-btn { height: 44px; min-height: 44px; flex-direction: row; gap: 5px; }
+  .np[data-fold][data-size="full"] .np-catch-sub { display: none; }
+  .np[data-fold][data-size="full"] .loop-face { flex-direction: row; gap: 3px; }
+  .np[data-fold][data-size="full"] .tb-loop { width: auto; padding: 0 8px; }
+  .np[data-fold][data-size="full"] .np-grab-sub { display: none; }
 }
 
 /* ---------- the phone ---------- */
@@ -474,7 +487,8 @@ button.np-lcd-key { cursor: pointer; }
    it is. The player pulled up is the whole bar, large, over the page, and on
    the tape page its drawers under it (lib/bar/player.js); its grabber, Back
    or Escape puts it away. Where the page keeps clear of it (--dock-b, its
-   padding, the toasts) is styles.css's, the page's. */
+   padding, the toasts) and the sheet it is pulled up as (fixed over the
+   page) are styles.css's, the page's. */
 @media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
   /* The mini player, under the app bar (z 20), whose menus open over it. */
   .np[data-size="mini"] {
@@ -538,36 +552,30 @@ button.np-lcd-key { cursor: pointer; }
     border: 0; border-radius: inherit; background: transparent; cursor: pointer;
     touch-action: none; /* a drag up on it pulls the player up (lib/ui/sheet.js) */
   }
-  .np-expand:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .np .np-expand:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-  /* The player: the bar, large, and on the tape page its drawers, over the
-     page (the page under it, and the tabs, are styles.css's). */
-  body.player-open .np-dock, body.player-open > .np {
-    position: fixed; inset: 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain;
-    display: flex; flex-direction: column; gap: 14px; height: auto;
-    padding: calc(52px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
-    background: linear-gradient(180deg, var(--face-hi), var(--face-lo));
-  }
-  body.player-open .np-dock > .np { order: -1; position: static; padding: 0; background: none; border: 0; box-shadow: none; }
-  body.player-open .np { flex: none; gap: 14px; }
-  body.player-open .np-row-2 { height: 52px; }
-  body.player-open .np .np-scrub { height: 52px; }
-  body.player-open .np-levels { display: flex; }
-  body.player-open .np-pos { font-size: 26px; line-height: 30px; }
-  body.player-open .np .np-catch-more { flex: 0 0 56px; }
-  body.player-open .np-lcd-top { height: 30px; }
-  body.player-open .np .np-zone > * { flex: 1 1 0; width: auto; }
-  body.player-open .np .np-catch-split > * { flex: 1 1 0; }
+  /* The player (data-open): the bar, large, and on the tape page its
+     drawers, over the page (the sheet, the page under it and the tabs are
+     styles.css's). */
+  .np[data-open] { flex: none; gap: 14px; }
+  .np[data-open] .np-row-2 { height: 52px; }
+  .np[data-open] .np-scrub { height: 52px; }
+  .np[data-open] .np-levels { display: flex; }
+  .np[data-open] .np-pos { font-size: 26px; line-height: 30px; }
+  .np[data-open] .np-catch-more { flex: 0 0 56px; }
+  .np[data-open] .np-lcd-top { height: 30px; }
+  .np[data-open] .np-zone > * { flex: 1 1 0; width: auto; }
+  .np[data-open] .np-catch-split > * { flex: 1 1 0; }
   /* Its grabber, at the top of the sheet, puts it away. */
-  body.player-open .np-grabber {
+  .np[data-open] .np-grabber {
     display: flex; position: fixed; top: env(safe-area-inset-top); left: 50%; z-index: 51;
   }
-  body.player-open .np-lip { margin-top: 18px; width: auto; height: auto; border: 0; background: none; box-shadow: none; }
-  body.player-open .np-pill { width: 44px; }
+  .np[data-open] .np-lip { margin-top: 18px; width: auto; height: auto; border: 0; background: none; box-shadow: none; }
+  .np[data-open] .np-pill { width: 44px; }
 }
 @media (max-width: 479.98px) {
   /* The player's display keeps its room for where it is. */
-  body.player-open .np-levels { display: none; }
+  .np[data-open] .np-levels { display: none; }
   /* The mini player's display, with ● and its ▾ beside |◀ ▶: where it is,
      without its reels. */
   .np[data-size="mini"] :is(.np-reel, .np-status, .np-lcd-sub) { display: none; }
@@ -580,10 +588,7 @@ button.np-lcd-key { cursor: pointer; }
      reels and the display as its art, the strip, then the keys low, in the
      thumb's reach, and where it plays at the foot. Its zones are laid out
      on the bar itself, so the strip can sit between the art and the keys. */
-  body.player-open .np-dock, body.player-open > .np {
-    border-radius: 16px 16px 0 0; box-shadow: 0 -12px 32px -12px var(--sh-strong);
-  }
-  body.player-open .np {
+  .np[data-open] {
     flex: 1 0 auto; display: grid; gap: 14px; align-content: stretch;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto auto;
@@ -597,21 +602,21 @@ button.np-lcd-key { cursor: pointer; }
       "modes modes modes end end end"
       "foot foot foot foot foot foot";
   }
-  body.player-open .np :is(.np-row-1, .np-zones) { display: contents; }
-  body.player-open .np .out-strip { grid-area: out; }
-  body.player-open .np .np-row-2 { grid-area: strip; }
+  .np[data-open] :is(.np-row-1, .np-zones) { display: contents; }
+  .np[data-open] .out-strip { grid-area: out; }
+  .np[data-open] .np-row-2 { grid-area: strip; }
   /* The art: the reels large either side of the display; a drag on it
      moves the sheet. */
-  body.player-open .np .np-window { height: 132px; touch-action: none; }
-  body.player-open .np .np-reel { width: 76px; height: 76px; }
-  body.player-open .np .np-transport .icon-btn { height: 64px; min-height: 64px; }
-  body.player-open .np .np-output { display: none; }
-  body.player-open .np .np-foot { grid-area: foot; display: flex; }
-  body.player-open .np .np-out-foot { flex: 1 1 auto; flex-direction: row; height: 52px; justify-content: space-between; padding: 0 16px; gap: 10px; }
-  .np-out-leg { font: 600 11px var(--label-font); letter-spacing: .14em; color: var(--ink-dim); }
-  .np-out-val { flex: 1 1 auto; text-align: left; font: 600 15px var(--mono); letter-spacing: .06em; }
+  .np[data-open] .np-window { height: 132px; touch-action: none; }
+  .np[data-open] .np-reel { width: 76px; height: 76px; }
+  .np[data-open] .np-transport .icon-btn { height: 64px; min-height: 64px; }
+  .np[data-open] .np-output { display: none; }
+  .np[data-open] .np-foot { grid-area: foot; display: flex; }
+  .np[data-open] .np-out-foot { flex: 1 1 auto; flex-direction: row; height: 52px; justify-content: space-between; padding: 0 16px; gap: 10px; }
+  .np .np-out-leg { font: 600 11px var(--label-font); letter-spacing: .14em; color: var(--ink-dim); }
+  .np .np-out-val { flex: 1 1 auto; text-align: left; font: 600 15px var(--mono); letter-spacing: .06em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .np-status[data-state="rec"] { animation: none; }
+  .np .np-status[data-state="rec"] { animation: none; }
 }

@@ -42,7 +42,7 @@ font of its own, so a key fitted on a laptop ran off a tablet in CI's fonts.
   mode's tips and the keys' own handlers see the key.
 - **State is the key's, not its picture's**: ▶ is `.playing` while it is
   heard playing, whatever it draws (▶, ❚❚ for a take, ■ for the tape); a
-  fold's ▾ turns over by `body.np-fold` or `aria-expanded`, in CSS.
+  fold's ▾ turns over by `.np[data-fold]` or `aria-expanded`, in CSS.
 - **A key keeps the width its glyph gave it**: an icon's box is wider than
   its line, and where a ▾ or ⌗ follows a word its blank sides come off the
   key's gap or padding (the rules say so where they do it).

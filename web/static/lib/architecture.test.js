@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fileCss } from './stylesheets.js';
+import { fileCss, rules } from './stylesheets.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STATIC = path.resolve(HERE, '..');
@@ -651,15 +651,38 @@ function compounds(sel) {
   return out;
 }
 
+/** word matches `c` (a class with its dot, say) as a whole name, not a part of a longer one. */
+const word = (c) => new RegExp(`(?<![\\w-])${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
+
+/**
+ * rootedProblems is Guardrail 15's stylesheet half, for the stylesheet
+ * `file` (a path under web/static) and the class `root`: every selector
+ * starts at .root and goes into it, never beside it (.root + .x styles
+ * something else). `out(first)`, given a selector's first compound, says
+ * it is not this stylesheet's root's to keep (yet). `css` is the file's,
+ * unless given.
+ */
+function rootedProblems(file, root, out = () => null, css = read(file)) {
+  const re = word(`.${root}`);
+  const problems = [];
+  for (const r of rules(css, { file })) {
+    for (const sel of r.sel) {
+      const c = compounds(sel);
+      if (c.length && out(c[0].text)) continue;
+      if (!c.length || !re.test(c[0].text) || !c[0].text.startsWith(`.${root}`)) problems.push(`${file}:${r.line}: ${sel} doesn’t start at its root, .${root}`);
+      else if (c[1] && /[+~]/.test(c[1].comb)) problems.push(`${file}:${r.line}: ${sel} styles beside its root, not inside it`);
+    }
+  }
+  return problems;
+}
+
 test('Guardrail 15: each component is { id, root, needs, css, mount }, has its harness check, and its stylesheet is its own', async () => {
   const { lacks } = await import('./components/mount.js');
-  const { rules } = await import('./stylesheets.js');
   const dirs = fs.readdirSync(path.join(STATIC, 'lib/components'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
   assert.ok(dirs.length > 0, 'a component, or this checks nothing');
   const sheets = fs.readdirSync(STATIC, { recursive: true }).filter((f) => f.endsWith('.css')).map((f) => f.split(path.sep).join('/'));
   const pages = fs.readdirSync(STATIC, { recursive: true }).map((f) => f.split(path.sep).join('/'))
     .filter((f) => /\.(js|html)$/.test(f) && !f.endsWith('.test.js'));
-  const word = (c) => new RegExp(`(?<![\\w-])${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
   const problems = [];
   for (const id of dirs) {
     const file = `lib/components/${id}/index.js`;
@@ -671,16 +694,9 @@ test('Guardrail 15: each component is { id, root, needs, css, mount }, has its h
     if (!fs.existsSync(path.join(STATIC, '..', '..', 'scripts', 'components', `${id}.check.mjs`))) problems.push(`${id}: no harness check (scripts/components/${id}.check.mjs)`);
     if (!sheets.includes(def.css)) { problems.push(`${id}: its stylesheet ${def.css} is not under web/static`); continue; }
     const root = word(`.${def.root}`);
-    // Its own: every selector starts at its root, and goes into it, never
-    // beside it (.root + .x styles something else).
+    // Its own: every selector starts at its root, and goes into it.
+    problems.push(...rootedProblems(def.css, def.root));
     const own = rules(read(def.css), { file: def.css });
-    for (const r of own) {
-      for (const sel of r.sel) {
-        const c = compounds(sel);
-        if (!c.length || !root.test(c[0].text) || !c[0].text.startsWith(`.${def.root}`)) problems.push(`${def.css}:${r.line}: ${sel} doesn’t start at its root, .${def.root}`);
-        else if (c[1] && /[+~]/.test(c[1].comb)) problems.push(`${def.css}:${r.line}: ${sel} styles beside its root, not inside it`);
-      }
-    }
     // The classes it owns: those its stylesheet styles that nothing outside
     // its directory writes. Another stylesheet naming one, or naming its
     // root before a combinator, reaches inside it.
@@ -708,4 +724,53 @@ test('Guardrail 15 reads a selector’s compounds: what is inside brackets whole
   assert.deepEqual(texts(':is(.np, .x) .y'), ['|:is(.np,.x)', ' |.y']);
   assert.deepEqual(texts('body:has(.np .a:not(.b)) .toast'), ['|body', ' |.toast']);
   assert.deepEqual(texts('.np[data-size="mini"] .x'), ['|.np[data-size="mini"]', ' |.x']);
+});
+
+// The bar's stylesheet keeps Guardrail 15's stylesheet half in place, before
+// the bar moves into lib/components/ (docs/plan/transport-extraction.md, 5d):
+// every selector in css/bar.css starts at .np, its root, and reads the page
+// only off the root (data-fold, data-open, data-docked), never off <body>.
+// The one thing not counted yet is a menu panel of the bar's that the shell
+// still holds outside #np (5e brings them in): a .menu outside #np in
+// shell.html that a module of the bar's opens, by its id (lib/bar/). A
+// selector is the panel's when its first compound is exactly that panel's
+// class; what follows it is inside the panel. Derived, not listed: the day a
+// panel moves inside #np it stops being one, and its rules are counted.
+
+/** barPanels is the classes of the bar's menu panels the shell holds outside #np. */
+function barPanels() {
+  const outside = read('shell.html').replace(npMarkup(), '');
+  const dir = path.join(STATIC, 'lib/bar');
+  const bar = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js'))
+    .map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
+  const opened = (id) => new RegExp(`(?:\\$|getElementById)\\(\\s*['"]${id}['"]`).test(bar);
+  return [...outside.matchAll(/<[a-z]+\b[^>]*>/g)].map((m) => m[0])
+    .map((tag) => ({ id: /\bid="([^"]+)"/.exec(tag)?.[1], cls: (/\bclass="([^"]*)"/.exec(tag)?.[1] ?? '').split(/\s+/) }))
+    .filter((t) => t.id && t.cls.includes('menu') && opened(t.id))
+    .flatMap((t) => t.cls.filter((c) => c && c !== 'menu'));
+}
+/** panelOf answers the panel a selector's first compound is exactly, or null. */
+const panelOf = (panels) => (first) => panels.find((c) => first === `.${c}`) ?? null;
+
+test('Guardrail 15: css/bar.css starts every selector at .np, the bar’s root', () => {
+  const panels = barPanels();
+  // What the derivation finds: panels of the bar's, held outside #np, and
+  // not a menu of the page's (the Studio's tempo menu is the Studio's).
+  assert.ok(panels.length > 0, 'the bar opens a panel the shell holds outside #np (until 5e)');
+  assert.ok(!panels.includes('tempo-menu'), 'the tempo menu is the Studio’s, not the bar’s');
+  for (const c of panels) assert.doesNotMatch(npMarkup(), new RegExp(`class="[^"]*\\b${c}\\b`), `${c} is outside #np`);
+  assert.ok(rules(read('css/bar.css'), { file: 'css/bar.css' }).length > 100, 'reads css/bar.css');
+  assert.deepEqual(rootedProblems('css/bar.css', 'np', panelOf(panels)), []);
+});
+
+test('the bar’s guardrail reads a selector that starts outside .np, beside it, on <body>, or on a menu not the bar’s', () => {
+  const panels = barPanels();
+  const sheet = (css) => rootedProblems('css/bar.css', 'np', panelOf(panels), css).length;
+  for (const bad of ['.np-reel { x: 1 }', 'body.np-fold .np .x { x: 1 }', '#np [hidden] { x: 1 }', '.np + .x { x: 1 }', '.np-dock > .np .x { x: 1 }',
+    ':is(.np-press, .kb-lit) { x: 1 }', '.tempo-menu { z-index: 60 }', ':is(.catch-menu, .tempo-menu) { z-index: 60 }',
+    '.catch-menu.tempo-menu { x: 1 }', '.app-menu .catch-menu { x: 1 }'])
+    assert.equal(sheet(bad), 1, `caught: ${bad}`);
+  for (const fine of ['.np .np-reel { x: 1 }', '.np[data-fold][data-size="full"] .x { x: 1 }', '.np [hidden] { x: 1 }', '.np:is([data-room="room"]) .x { x: 1 }',
+    '.catch-menu > .menu-item { x: 1 }', '.catch-menu, .np-source-menu { z-index: 60 }'])
+    assert.equal(sheet(fine), 0, `let be: ${fine}`);
 });

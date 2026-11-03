@@ -88,7 +88,14 @@ list of exceptions:
 A test beside it lists what these catch and what they let be. Each
 component directory has an `index.js` exporting the five and a harness
 check. Its stylesheet starts every selector at `.root` and goes into it,
-never beside it (`.root + .x`). No other stylesheet may reach inside it:
+never beside it (`.root + .x`). The bar's `css/bar.css` keeps the same
+rule already, rooted at `.np`, before the bar moves in
+(`architecture.test.js`, *css/bar.css starts every selector at .np*; the
+menu panels the bar opens from outside `#np` are not counted until they
+come inside it, transport-extraction 5e). It reads the page's state off its
+root (`data-fold`, `data-open`, `data-docked`) and keeps its five viewport
+`@media` blocks, which a container query can't say (`docs/plan/components.md`
+1.4, amended by D1). No other stylesheet may reach inside it:
 it may not name the root before a combinator, or name a class the
 component owns (one its stylesheet styles that nothing outside its
 directory writes). It may name the root to place it, or lay out around it

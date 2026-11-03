@@ -177,13 +177,20 @@ make it the component's alone:
   which is a surface's. So the harness can mount it at any size and see
   what a page would. `bar.css` has six viewport `@media` blocks today, and
   sets the dock's `--dock-b` on `body`: the first become container queries,
-  the second goes to the surface's stylesheet.
+  the second goes to the surface's stylesheet. *Amended* (D1,
+  `transport-extraction.md`, 2026-11-02): a viewport `@media` stays where
+  a container query can't say it: a height, an orientation or a
+  preference, or a rule on the root itself, which a container query never
+  styles. The Transport keeps its five in `css/bar.css` (5d); Guardrail 15
+  does not forbid them. `--dock-b` went to `styles.css` earlier.
 - **Told its state on its root**, never by the page's body classes:
   `bar.css` keys rules on `body.player-open` (thirty times), `body.np-fold`,
   `body.tape-page`, `body.shelf-page`, `body.main-page`, `body.wave-page`,
   `body.selecting` and `body.notes-open`. They become attributes on the
   root (`data-size` and `data-source` are already there), set from the
-  models and the surface.
+  models and the surface. *Done for the bar* (5c, 5d): `data-room`,
+  `data-fold`, `data-open` and `data-docked`, and what lays the page out
+  around it (the player's sheet) in `styles.css`.
 
 All of that moves in the Transport's extraction.
 

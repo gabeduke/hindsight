@@ -2210,8 +2210,15 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
   padding: 4px; border: 1px solid var(--line);
 }
 /* The head of the track a press on the keyboard put a clip on, lit for its
-   second (lib/bar/press-note.js lightFor; its colour is css/bar.css's). */
+   second (lib/bar/press-note.js lightFor), and the bar's ▶ or ● it pressed
+   (css/bar.css draws their outline), each in the press's colour. */
 .tt-head.kb-lit { outline: 2px solid var(--kb, var(--ink)); outline-offset: -2px; }
+.kb-lit[data-kb="play"] { --kb: var(--go); }
+.kb-lit[data-kb="rec"] { --kb: var(--rec); }
+.kb-lit[data-kb="mixer"][data-kb-track="1"] { --kb: var(--t1); }
+.kb-lit[data-kb="mixer"][data-kb-track="2"] { --kb: var(--t2); }
+.kb-lit[data-kb="mixer"][data-kb-track="3"] { --kb: var(--t3); }
+.kb-lit[data-kb="mixer"][data-kb-track="4"] { --kb: var(--t4); }
 .tt-name { appearance: none; background: none; border: 0; color: var(--ink); font: 600 13px var(--font); min-height: 28px; padding: 0 4px; cursor: pointer; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Square keys, lit when pressed: mute yellow, solo blue. The inspector's
    M and S are lit the same, and so is a touch screen's ›, which stands for
@@ -4700,10 +4707,15 @@ body.buffer-fold .tape-track:not(.buffer-target) .tt-head .tt-arm-dot { width: 8
    What the page does about the bar (css/bar.css draws the bar itself):
    select mode's actions take its place; on a phone the page keeps clear of
    it and of the tabs under it (--dock-b, the bar's measured --np-h), and
-   the player pulled up holds the page still and covers the tabs. Last in
-   this file, where it stands in the cascade as it did at the head of
-   css/bar.css: body.room-on.selecting, above, does not outrank it. */
+   the player pulled up holds the page still, covers the tabs and is the
+   sheet: the dock, with the bar in it, in the rooms; on Open, where there
+   is no dock, the bar itself. Last in this file, where it stands in the
+   cascade as it did at the head of css/bar.css: body.room-on.selecting,
+   above, does not outrank it. */
 body.selecting .np { display: none; }
+/* The Studio's tempo menu, opened from the bar's display: over the phone's
+   player pulled up (z 50), as the bar's own menus are (css/bar.css). */
+.tempo-menu { z-index: 60; }
 @media (max-width: 699.98px) { body:has(.np) { --dock-b: calc(61px + env(safe-area-inset-bottom)); } }
 @media (orientation: landscape) and (max-height: 440px) and (min-width: 700px) { body:has(.np) { --dock-b: env(safe-area-inset-bottom); } }
 @media (max-width: 699.98px), (orientation: landscape) and (max-height: 440px) {
@@ -4712,4 +4724,20 @@ body.selecting .np { display: none; }
   body:has(.np:not([hidden])) :is(#toasts, .tip-pop) { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px) + 12px); }
   body.player-open { overflow: hidden; }
   body.player-open .appnav { display: none; }
+  /* The player pulled up: the sheet over the page. Its flex, its gap and
+     its grid are the bar's own (css/bar.css, .np[data-open]); the dock
+     lays the bar and the Studio's drawers out in a column. */
+  body.player-open .np-dock, body.player-open > .np {
+    position: fixed; inset: 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain; height: auto;
+    padding: calc(52px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    background: linear-gradient(180deg, var(--face-hi), var(--face-lo));
+  }
+  body.player-open .np-dock { display: flex; flex-direction: column; gap: 14px; }
+  body.player-open .np-dock > .np { order: -1; position: static; padding: 0; background: none; border: 0; box-shadow: none; }
+}
+@media (max-width: 699.98px) {
+  /* Upright, a sheet you drag (lib/bar/player.js): its top rounded. */
+  body.player-open .np-dock, body.player-open > .np {
+    border-radius: 16px 16px 0 0; box-shadow: 0 -12px 32px -12px var(--sh-strong);
+  }
 }
