@@ -36,10 +36,33 @@ that already has one mounted.
 | `loop(fn)` | `ctx.loop`, parked on hide, started on show if it was wanted (one that parked itself stays parked) |
 | `layers` | its scope of the view's: `scope()` on the view's scope (`lib/ui/layers.js`, where a scope's scope is a share of it). What it opened closes on hide (`'navigate'`) and unmount, newest first, and the view's own stay open |
 | `media(query, fn)` | the view's `ctx.media(query)`, a MediaQueryList read where it is needed (`.matches`); `fn`, if given, hears its `change` as `on` does, quiet while hidden, off on unmount |
+| `visible()` | shown, and its view `active()` (shown, the document visible): what it reads in place of `document.hidden`; false once unmounted |
 | `floor` | `menu()`'s floor: the bar's top (`barTop`) |
 | `toast`, `go` | `ctx`'s |
 | `id(name)` | its root's id and the name: root `np` and `play` make `np-play` |
 | `props` | the surface's, frozen |
+
+What belongs to no room (the shell's chrome: the bar, once it is a
+component) mounts in the shell scope, `shellScope()` (`lib/shell/view.js`;
+`shell.md`, *The shell scope*): a view that is always shown, so its
+components are quiet only while the document is hidden.
+
+What a component can't reach for itself has a helper outside
+`lib/components/` that takes no window or document:
+- **its menus' rows**: `menuItem(opts)`, `menuRows(groups)`,
+  `menuDivider()`, `menuGroup(label)` (`lib/ui/menu.js`), made with no
+  document handed in, or with the panel in its place
+  (`menuRows(panel, groups)`), in that panel's document;
+- **a key that opens a dialog**: `dialogKey(button, dialog)`
+  (`lib/ui/menu.js`), which says so (`aria-haspopup="dialog"`,
+  `aria-controls`), so neither its template nor its script writes
+  `aria-haspopup` (Guardrail 13);
+- **a canvas at the screen's density**: `sizeCanvas(cv, w, h)`
+  (`lib/ui/canvas.js`), answering `{ctx, dpr}`, the context scaled to CSS
+  pixels, or null for a canvas with no width yet;
+- **the scheme flipping**: `onSchemeChange(fn)` (`lib/theme.js`), which
+  answers its off, for its `unmount`; or `cx.media('(prefers-color-scheme:
+  dark)', fn)`, which is taken off by itself.
 
 It mounts shown. A surface out of sight hides it at once (a prewarmed
 view's `hide()` runs before its first show, decision 0048, so a view that
@@ -134,7 +157,21 @@ verbs in `calls` and answers or refuses them as scripted
 (`watch`, `set(noun, body)`, `press(p)`). `fixtureModels(fx, needs)` makes
 the models a component needs over it, `{models, ready, stop()}`, each
 made over the fixture as the page makes it over its client. A refused verb
-throws to whoever pressed it, as on the page.
+throws to whoever pressed it, as on the page. `MODELS` names the nouns it
+can make:
+- `takes`, `tape`, `transport`: the page's models, over the fixture;
+- `bar`: the engine's bar (`lib/models/engine.js`), with the tape in it
+  when the `tape` fixture is the loaded one. The engine owns the bar's
+  audio, so it needs a page: a browser, or `lib/bar/bar-harness.js`'s
+  stand-in. A take in it needs its Audio and peaks, which no fixture serves
+  yet;
+- `recorder`: the phone's recorder as a component sees it, its
+  `snapshot()` (`{mode, seconds}`, from the `recorder` body, closed by
+  default) and its verbs `open`, `quick` and `stop`, recorded (or refused)
+  in `calls` as `recorder.<verb>`. A verb moves nothing:
+  `set('recorder', …)` does;
+- `layout`: `barLayout` (`lib/bar/layout.js`) itself, on a body no page
+  shows, from the `layout` body (`{folded, open}`, neither by default).
 
 The snapshots are the Pi's answers, saved: `testdata/protocol/<noun>/<case>.json`
 (`tape/` is `GET /api/tapes/state`, `takes/` is `GET /api/jams`). Outside

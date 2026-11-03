@@ -10,8 +10,10 @@
 //             things (lib/ui/layers.js)
 //   splitKey  a key with a ▾ of its own beside it, the ▾ opening a panel of
 //             how the key does its verb (KEEP ▾, GRAB ▾)
-//   menuItem, menuDivider, menuGroup
-//             a menu's rows, in the one style (styles.css, "Menus")
+//   dialogKey a key that opens a dialog, not a menu: it says so
+//   menuItem, menuDivider, menuGroup, menuRows
+//             a menu's rows, in the one style (styles.css, "Menus"), made
+//             with or without a document handed in
 //
 // A menu closes only through its layer: a press outside it, Escape or Back,
 // a pick, or a switch of rooms (lib/ui/layers.js). Tab closes it too, and
@@ -321,9 +323,34 @@ export function barTop(doc = globalThis.document) {
 }
 
 /**
+ * dialogKey marks `button` as a key that opens a dialog (a sheet: where it
+ * plays), for assistive tech: aria-haspopup, and aria-controls when it is
+ * given the `dialog` (the element, or its id). A key that opens a menu is
+ * menu()'s, which says so itself; this is the one other place a button
+ * says it opens something, so a template or a script never writes
+ * aria-haspopup by hand (Guardrail 13). Answers the button.
+ */
+export function dialogKey(button, dialog = null) {
+  button.setAttribute('aria-haspopup', 'dialog');
+  const id = typeof dialog === 'string' ? dialog : dialog?.id;
+  if (id) button.setAttribute('aria-controls', id);
+  return button;
+}
+
+// The rows below are made in the document they are handed (the first
+// argument, as they always were), the document of a node handed in its
+// place (the panel they go in), or, handed neither, the one of the element
+// a row is made of (menuItem's `el`), else the page's. So a component,
+// which may not name the document (Guardrail 15), makes its rows with no
+// document argument at all.
+const isDoc = (x) => !!x && typeof x === 'object' && (typeof x.createElement === 'function' || !!x.ownerDocument);
+const docOf = (x) => (typeof x?.createElement === 'function' ? x : x?.ownerDocument) || globalThis.document;
+
+/**
  * menuItem is a menu's row, in the one style (styles.css, "Menus"): a
  * check's column, the word, a line under it (what it does, or why it
- * can't), and something at its end (a lamp). 48 px tall.
+ * can't), and something at its end (a lamp). 48 px tall. Called
+ * menuItem(doc, opts), menuItem(panel, opts), or menuItem(opts).
  *
  *   word             its word
  *   sub, subClass    the line under it ('' for one a module fills later),
@@ -336,9 +363,13 @@ export function barTop(doc = globalThis.document) {
  *                    (its children are replaced, its id kept)
  *   className, attrs more of its own
  */
-export function menuItem(doc, {
-  word, sub, subClass = '', role = 'menuitem', href, checked, danger = false, end, el, className = '', attrs = {},
-} = {}) {
+export function menuItem(...args) {
+  const given = isDoc(args[0]) ? args[0] : null;
+  const opts = (given ? args[1] : args[0]) || {};
+  const {
+    word, sub, subClass = '', role = 'menuitem', href, checked, danger = false, end, el, className = '', attrs = {},
+  } = opts;
+  const doc = docOf(given || el);
   const span = (cls, text) => {
     const e = doc.createElement('span');
     e.className = cls;
@@ -365,17 +396,22 @@ export function menuItem(doc, {
   return row;
 }
 
-/** menuDivider is the line between a menu's groups. */
-export function menuDivider(doc) {
-  const hr = doc.createElement('div');
+/** menuDivider is the line between a menu's groups: menuDivider(doc), menuDivider(panel) or menuDivider(). */
+export function menuDivider(where) {
+  const hr = docOf(where).createElement('div');
   hr.className = 'menu-divider';
   hr.setAttribute('role', 'separator');
   return hr;
 }
 
-/** menuGroup is a group's name over its rows: for the eye (a reader hears the rows). */
-export function menuGroup(doc, label) {
-  const p = doc.createElement('p');
+/**
+ * menuGroup is a group's name over its rows: for the eye (a reader hears
+ * the rows). menuGroup(doc, label), menuGroup(panel, label) or menuGroup(label).
+ */
+export function menuGroup(...args) {
+  const given = isDoc(args[0]) ? args[0] : null;
+  const label = given ? args[1] : args[0];
+  const p = docOf(given).createElement('p');
   p.className = 'menu-group';
   p.setAttribute('aria-hidden', 'true');
   p.textContent = label;
@@ -387,8 +423,12 @@ export function menuGroup(doc, label) {
  * rows, or { label, rows }), a divider between one and the next, and
  * whatever destroys something (a danger row) last, after a divider of its
  * own, so it is never the row a finger meant for its neighbour.
+ * menuRows(doc, groups), menuRows(panel, groups) or menuRows(groups).
  */
-export function menuRows(doc, groups) {
+export function menuRows(...args) {
+  const given = isDoc(args[0]) ? args[0] : null;
+  const groups = (given ? args[1] : args[0]) || [];
+  const doc = docOf(given);
   const rowsOf = (g) => (Array.isArray(g) ? g : g?.rows || []);
   const isDanger = (r) => !!r?.classList?.contains('danger');
   const out = [];

@@ -95,6 +95,19 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   one place is `'strip'` (`[data-slot="strip"]`), where the Studio's
   overview goes (`bar.md`, *The Studio's part of the bar*).
 
+**The shell scope.** The shell's own chrome (the bar, once it is a
+component: `docs/plan/transport-extraction.md`, step 5) belongs to no
+room, and a component mounts inside a `ctx`. `shellScope({shared, doc,
+timers, clock, onError})` (`lib/shell/view.js`) is that `ctx`: a view made
+by the same `createView`, always shown, with no root in the page, and
+answering `{ctx, ready, destroy()}`. Its `ctx` is there at once and
+carries what the shell shares, `id` (`'shell'`), `active`, `on`, `every`,
+`loop`, `socket`, `media`, `signal` and `layers` (a scope of the stack),
+and no root, slot or `setTitle`. `active()` is false while the document is
+hidden, so its polls skip then and its components' `cx.visible()` is
+false. A loop or poll started before `ready` starts with it. Nothing
+mounts in it yet (step 5g).
+
 All views share one id namespace, since hidden ones stay in the DOM
 (`pages.test.js` checks the union). The CSS is global and keyed on the body
 class the router sets (`tape-page`, `shelf-page`, `main-page`).
@@ -248,7 +261,12 @@ as it fades in over `--t-touch`, and fade it out over `--t-exit` (eased
 in, as anything leaving is), taking no press while it goes. `splitKey(verb, more, panel)` is a key with a ▾ of
 its own (KEEP ▾, GRAB ▾). Its rows are `menuItem`s, the one style (☰'s, 48
 px, a line under the word), with `menuRows` putting a divider between
-groups and anything that destroys last. Several buttons may share one
+groups and anything that destroys last; they, `menuDivider` and
+`menuGroup` take the document to make them in, a node of it (the panel),
+or nothing (the page's), so a component makes its rows without naming the
+document. A key that opens a dialog rather than a menu (where it plays)
+says so with `dialogKey(button, dialog)`, the one other place a button
+gets `aria-haspopup`. Several buttons may share one
 panel (the Studio's four input chips, one input menu): it shows for one at
 a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
 (a key of its own beside Catch), the tape's name, the tempo on the bar's

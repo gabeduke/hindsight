@@ -109,7 +109,10 @@ What a frame may do, in the Studio and anything else on the ticker:
   A page turn repaints, once.
 - **Never measure or read style.** Canvas sizes come from a
   `ResizeObserver`; colours from `tokenCache` (`lib/theme.js`), forgotten
-  when the scheme flips. A measure after a DOM write is a forced layout.
+  when the scheme flips (`onSchemeChange`, which answers its off). A
+  canvas's store is sized at the screen's density by `sizeCanvas(cv, w,
+  h)` (`lib/ui/canvas.js`), set only when it changes, since setting it
+  clears it. A measure after a DOM write is a forced layout.
 - **Write the page only when it changes**, and text that changes often in
   place (`lib/text.js` `setText`): a text node put in or taken out makes
   Chromium check every `:has()` rule above it, and `styles.css`'s

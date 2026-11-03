@@ -13,6 +13,8 @@ import { Refusal } from './protocol.js';
 import { createTakes } from './takes.js';
 import { createTape } from './tape.js';
 import { createTransport } from './transport.js';
+import { createEngine } from './engine.js';
+import { barLayout } from '../bar/layout.js';
 
 const clone = (v) => (v == null ? v : structuredClone(v));
 
@@ -114,6 +116,64 @@ const MAKERS = {
     transport.load(id);
     transport.setActive(true);
     return { model: transport, ready, stop: () => transport.destroy() };
+  },
+  // The engine's bar (lib/models/engine.js), what plays in the bar, over
+  // the fixture: the tape, when its fixture is the loaded one. The engine
+  // owns the bar's audio, so it needs a page (Audio, location, storage): a
+  // browser, or bar-harness.js's stand-in one. A take in it needs its Audio
+  // and peaks, which no fixture serves yet.
+  bar(fx) {
+    const state = fx.peek('tape');
+    const loaded = state?.loaded ? state.tape?.id || null : null;
+    const engine = createEngine({ tapes: { loaded }, protocol: fx, onToast: () => {} });
+    const stop = () => { engine.tape?.destroy(); engine.transport.destroy(); engine.feed?.destroy(); };
+    return { model: engine.bar, ready: engine.bar.ready, stop };
+  },
+  // The phone's recorder (lib/phone/recorder.js) as a component sees it:
+  // its snapshot, {mode, seconds}, from the fixture's `recorder` body
+  // (closed, by default), and its verbs, recorded (or refused) as the Pi's
+  // are, as recorder.open, .quick and .stop. A verb moves nothing: the
+  // check moves it with fx.set('recorder', …), as it does the Pi's state.
+  recorder(fx) {
+    const fns = new Set();
+    let snap = null;
+    const snapshot = () => {
+      const r = fx.peek('recorder') || {};
+      const mode = r.mode || 'closed';
+      const seconds = Math.floor(Number(r.seconds) || 0);
+      if (!snap || snap.mode !== mode || snap.seconds !== seconds) snap = Object.freeze({ mode, seconds });
+      return snap;
+    };
+    const sock = fx.watch({
+      onNudge: () => {
+        const before = snap;
+        if (snapshot() !== before) for (const fn of [...fns]) fn(snap);
+      },
+    });
+    snapshot();
+    const verb = (name) => () => fx.verb('recorder', name);
+    const model = Object.freeze({
+      snapshot,
+      state: () => ({ ...snapshot() }),
+      onChange(fn) { fns.add(fn); return () => fns.delete(fn); },
+      open: verb('open'),
+      quick: verb('quick'),
+      stop: verb('stop'),
+    });
+    return { model, ready: Promise.resolve(), stop: () => sock.close() };
+  },
+  // The bar's layout (lib/bar/layout.js), the page's: barLayout itself, on
+  // a body of its own that no page shows, from the fixture's `layout`
+  // ({folded, open}, both false by default). set() moves it, as the
+  // surface's grabber and the player do.
+  layout(fx) {
+    const at = fx.peek('layout') || {};
+    const classes = new Set([at.folded ? 'np-fold' : '', at.open ? 'player-open' : ''].filter(Boolean));
+    const classList = {
+      contains: (c) => classes.has(c),
+      toggle(c, on = !classes.has(c)) { if (on) classes.add(c); else classes.delete(c); return on; },
+    };
+    return { model: barLayout({ body: { classList } }), ready: Promise.resolve(), stop() {} };
   },
 };
 

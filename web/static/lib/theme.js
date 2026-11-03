@@ -55,8 +55,16 @@ export function tokenCache(el = () => document.documentElement) {
   };
 }
 
-/** onSchemeChange calls `cb` whenever the device flips light <-> dark. */
+/**
+ * onSchemeChange calls `cb` whenever the device flips light <-> dark, and
+ * answers its off, so a component mounted and unmounted again takes its
+ * listener away rather than leaving one behind per mount. Without a
+ * matchMedia the off does nothing.
+ */
 export function onSchemeChange(cb) {
-  if (typeof matchMedia !== 'function') return;
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => cb());
+  if (typeof matchMedia !== 'function') return () => {};
+  const mql = matchMedia('(prefers-color-scheme: dark)');
+  const heard = () => cb();
+  mql.addEventListener('change', heard);
+  return () => mql.removeEventListener('change', heard);
 }

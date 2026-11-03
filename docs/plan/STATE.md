@@ -191,7 +191,12 @@ and still looks it:
         D5, the surface owns the phone's sheet; D6, menus in the top
         layer. The clock-out lamp and the output strip are the bar's,
         drawn from the models in every room (5b), not the Studio's slot.
-        Gabe tries the bar on the tablet after 5h.
+        Gabe tries the bar on the tablet after 5h. 5a, the interfaces,
+        is built and adopted by nothing yet: menu rows with no
+        document and `dialogKey` (`lib/ui/menu.js`), `sizeCanvas`
+        (`lib/ui/canvas.js`), `onSchemeChange`'s off, `shellScope`
+        (`lib/shell/view.js`) and `cx.visible()`, and fixture makers for
+        `bar`, `recorder` and `layout`. **Next**: 5b.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.

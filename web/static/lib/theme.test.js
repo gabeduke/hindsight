@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { withAlpha, tokenCache } from './theme.js';
+import { withAlpha, tokenCache, onSchemeChange } from './theme.js';
 
 test('a token colour takes an alpha, whichever way it is written', () => {
   assert.equal(withAlpha('#cb4b16', 0.5), 'rgba(203,75,22,0.5)');
@@ -34,5 +34,41 @@ test('a token cache reads each property once, until it is cleared', () => {
     assert.equal(reads.length, 3);
   } finally {
     globalThis.getComputedStyle = saved;
+  }
+});
+
+// A listener that can't be taken off leaks across a component's unmount and
+// mount (docs/plan/transport-extraction.md, step 5a): it answers its off.
+test('onSchemeChange hears the scheme flip, and its off takes the listener away', () => {
+  const saved = globalThis.matchMedia;
+  const fns = new Set();
+  const asked = [];
+  globalThis.matchMedia = (q) => {
+    asked.push(q);
+    return { matches: false, addEventListener: (t, fn) => { if (t === 'change') fns.add(fn); }, removeEventListener: (t, fn) => { if (t === 'change') fns.delete(fn); } };
+  };
+  try {
+    let heard = 0;
+    const off = onSchemeChange(() => heard++);
+    assert.deepEqual(asked, ['(prefers-color-scheme: dark)']);
+    for (const fn of [...fns]) fn({ matches: true });
+    assert.equal(heard, 1);
+    assert.equal(typeof off, 'function', 'it answers its off');
+    off();
+    assert.equal(fns.size, 0, 'nothing left listening');
+  } finally {
+    globalThis.matchMedia = saved;
+  }
+});
+
+test('onSchemeChange with no matchMedia answers an off that does nothing', () => {
+  const saved = globalThis.matchMedia;
+  delete globalThis.matchMedia;
+  try {
+    const off = onSchemeChange(() => {});
+    assert.equal(typeof off, 'function');
+    off();
+  } finally {
+    if (saved) globalThis.matchMedia = saved;
   }
 });
