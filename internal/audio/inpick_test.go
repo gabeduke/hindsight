@@ -2,6 +2,7 @@ package audio
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -128,5 +129,24 @@ func TestIsVirtualInput(t *testing.T) {
 		if isVirtualInput(n) {
 			t.Errorf("%q virtual", n)
 		}
+	}
+}
+
+// An extra input is never the main interface: not by auto, not as a
+// fallback when DEVICE_MATCH's card is missing.
+func TestAnExtraInputIsNeverTheMainInterface(t *testing.T) {
+	isExtra := func(n string) bool { return strings.HasPrefix(n, "AMS-24") }
+	devs := func() []inDev {
+		return []inDev{{Name: "AMS-24: USB Audio (hw:3,0)", MaxIn: 2}, {Name: "bcm2835 HDMI: (hw:0,0)", MaxIn: 0}}
+	}
+	if _, _, err := pickInput(withoutExtras(devs(), isExtra), "", 0); !errors.Is(err, ErrNoDevice) {
+		t.Fatalf("auto with only the extra input: %v, want ErrNoDevice", err)
+	}
+	if i, fell, err := pickInput(withoutExtras(devs(), isExtra), "EP-136", 2); err == nil {
+		t.Fatalf("a fallback took %d (fell back %v)", i, fell)
+	}
+	// Without it set as an extra input, it is picked as it always was.
+	if i, _, err := pickInput(devs(), "", 0); err != nil || i != 0 {
+		t.Fatalf("auto = %d, %v", i, err)
 	}
 }

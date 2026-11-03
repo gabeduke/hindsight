@@ -14,6 +14,8 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/gabeduke/hindsight/internal/config"
 )
 
 // Port is a socket on a device.
@@ -182,6 +184,26 @@ func ForUSB(id string) (Profile, bool) {
 	for _, p := range profiles {
 		if p.Match.USB != "" && strings.ToLower(p.Match.USB) == id {
 			return p, true
+		}
+	}
+	return Profile{}, false
+}
+
+// ForName finds a profile by how EXTRA_INPUTS may name its card: its USB id,
+// or a name of it ("AMS-24", "AMS24", "Zoom AMS-24"), as config.SameCard
+// matches them. A name of fewer than three letters names nothing ("24").
+func ForName(name string) (Profile, bool) {
+	if p, ok := ForUSB(name); ok {
+		return p, true
+	}
+	if len(strings.TrimSpace(name)) < 3 {
+		return Profile{}, false
+	}
+	for _, p := range profiles {
+		for _, x := range []string{p.Short, p.Match.MIDI} {
+			if x != "" && config.SameCard(name, x) {
+				return p, true
+			}
 		}
 	}
 	return Profile{}, false

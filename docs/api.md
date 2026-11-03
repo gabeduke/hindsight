@@ -97,6 +97,8 @@ The poll everything else hangs off. The UI reads it every two seconds.
   "capture_waiting": false,
   "last_error": "",
   "device": "Demo signal generator (synthetic, 96 BPM)",
+  "extra_inputs": [ { "match": "AMS-24", "device": "AMS-24 (hw:CARD=AMS24,0)", "channels": [9, 10],
+                      "live": true, "locked": true, "ppm": 41.2 } ],
   "xruns": 0,
   "ring_seconds": 60,
   "buffered_seconds": 4.82,
@@ -333,6 +335,15 @@ loaded tape and what's plugged in, so the picture can't disagree with the Pi.
   its taps *USB 1/2, 3/4…* hearing nothing, and `offer` suggests them as
   `TAPE_SOURCES`. The demo says its interface is the Sidekick: it's routed as
   one.
+- **An extra input** (`EXTRA_INPUTS`) is a device of its own, `role`
+  `input`, found by its USB id (or, saved and not running yet, by its name),
+  with its MIDI port folded in. Its USB cable goes to a kit socket of its
+  own, `kit.usb.<id>` (*USB IN*), writes `EXTRA_INPUTS` and is `fixed`; it
+  is `off` while the card isn't plugged in, and its `about` says when the
+  resampler hasn't locked to the main clock yet. Its jacks show the tap
+  they land on, its taps numbered on after the main interface's; its
+  outputs say Hindsight never plays there. The demo's extra input is drawn
+  as the AMS-24.
 - **The kit's taps are `TAPE_SOURCES`**, as the tape catches from them now.
 - **Each cable is written through the route that owns it:** a tap into a
   track is `PATCH /api/tapes` `{input}` -- its input only; arming is the

@@ -23,6 +23,16 @@ type Config struct {
 	FramesPerBuf   int
 	InputLatencyMS int // explicit latency; low values make PortAudio busy-poll
 
+	// ExtraInputs are the cards that only record (EXTRA_INPUTS): each part
+	// of a card's name or its USB id, never DEVICE_MATCH's card. Each adds
+	// ExtraInputChannels channels after the main interface's, resampled onto
+	// its clock (docs/architecture/capture.md, Extra inputs).
+	ExtraInputs []string
+	// ExtraInputOffsetMS moves the extra inputs' channels this much later
+	// in the ring: what their path's delay differs from the main one's by,
+	// which the clock bridges can't see.
+	ExtraInputOffsetMS float64
+
 	// Ring buffer
 	RingSeconds int
 
@@ -117,40 +127,42 @@ func LoadFrom(get func(string) string) (*Config, error) {
 	home, _ := os.UserHomeDir()
 
 	c := &Config{
-		DeviceMatch:      autoBlank(env(get, "DEVICE_MATCH", "auto")),
-		SampleRate:       envInt(get, "SAMPLE_RATE", 48000),
-		FramesPerBuf:     envInt(get, "FRAMES_PER_BUFFER", 2048),
-		InputLatencyMS:   envInt(get, "INPUT_LATENCY_MS", 100),
-		RingSeconds:      envInt(get, "RING_SECONDS", 900),
-		OutputDir:        env(get, "OUTPUT_DIR", filepath.Join(home, "hindsight", "jam_saves")),
-		SaveAllChannels:  envBool(get, "SAVE_ALL_CHANNELS", false),
-		SaveMix:          strings.ToLower(strings.TrimSpace(env(get, "SAVE_MIX", "stereo"))),
-		MinFreeGB:        envFloat(get, "MIN_FREE_GB", 1.0),
-		MaxSaves:         envInt(get, "MAX_SAVES", 0),
-		MIDICapture:      envBool(get, "MIDI_CAPTURE", true),
-		MIDIDevices:      splitList(env(get, "MIDI_DEVICES", "")),
-		MIDIIgnore:       splitList(env(get, "MIDI_IGNORE", "")),
-		MIDIRingEvents:   envInt(get, "MIDI_RING_EVENTS", 1_000_000),
-		MIDILatencyMS:    envFloat(get, "MIDI_LATENCY_MS", 0),
-		MIDISnapBars:     envBool(get, "MIDI_SNAP_BARS", true),
-		TapeDir:          env(get, "TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
-		TapeTracks:       envInt(get, "TAPE_TRACKS", 4),
-		TapeLengthS:      envInt(get, "TAPE_LENGTH_S", 1200),
-		TapeSources:      env(get, "TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
-		TapeMixdownTailS: envFloat(get, "TAPE_MIXDOWN_TAIL_S", 2),
-		TapeHandleS:      envFloat(get, "TAPE_HANDLE_S", 2),
-		TapeClock:        strings.ToLower(strings.TrimSpace(env(get, "TAPE_CLOCK", "free"))),
-		TapeClockOut:     env(get, "TAPE_CLOCK_OUT", ""),
-		TapeController:   splitList(env(get, "TAPE_CONTROLLER", "")),
-		OutputLatencyMS:  envInt(get, "OUTPUT_LATENCY_MS", 100),
-		TapeLatencyMS:    envFloat(get, "TAPE_LATENCY_MS", 0),
-		TapeDemoAlign:    envBool(get, "TAPE_DEMO_ALIGN", false),
-		Port:             env(get, "PORT", "5000"),
-		UpdateRepo:       env(get, "UPDATE_REPO", "gabeduke/hindsight"),
-		HubURL:           strings.TrimRight(strings.TrimSpace(get("HUB_URL")), "/"),
-		HubToken:         strings.TrimSpace(get("HUB_TOKEN")),
-		HubTLSAddr:       env(get, "HUB_TLS_ADDR", "127.0.0.1:5001"),
-		Version:          "dev",
+		DeviceMatch:        autoBlank(env(get, "DEVICE_MATCH", "auto")),
+		SampleRate:         envInt(get, "SAMPLE_RATE", 48000),
+		FramesPerBuf:       envInt(get, "FRAMES_PER_BUFFER", 2048),
+		InputLatencyMS:     envInt(get, "INPUT_LATENCY_MS", 100),
+		ExtraInputs:        extraInputs(env(get, "EXTRA_INPUTS", "")),
+		ExtraInputOffsetMS: envFloat(get, "EXTRA_INPUT_OFFSET_MS", 0),
+		RingSeconds:        envInt(get, "RING_SECONDS", 900),
+		OutputDir:          env(get, "OUTPUT_DIR", filepath.Join(home, "hindsight", "jam_saves")),
+		SaveAllChannels:    envBool(get, "SAVE_ALL_CHANNELS", false),
+		SaveMix:            strings.ToLower(strings.TrimSpace(env(get, "SAVE_MIX", "stereo"))),
+		MinFreeGB:          envFloat(get, "MIN_FREE_GB", 1.0),
+		MaxSaves:           envInt(get, "MAX_SAVES", 0),
+		MIDICapture:        envBool(get, "MIDI_CAPTURE", true),
+		MIDIDevices:        splitList(env(get, "MIDI_DEVICES", "")),
+		MIDIIgnore:         splitList(env(get, "MIDI_IGNORE", "")),
+		MIDIRingEvents:     envInt(get, "MIDI_RING_EVENTS", 1_000_000),
+		MIDILatencyMS:      envFloat(get, "MIDI_LATENCY_MS", 0),
+		MIDISnapBars:       envBool(get, "MIDI_SNAP_BARS", true),
+		TapeDir:            env(get, "TAPE_DIR", filepath.Join(home, "hindsight", "tapes")),
+		TapeTracks:         envInt(get, "TAPE_TRACKS", 4),
+		TapeLengthS:        envInt(get, "TAPE_LENGTH_S", 1200),
+		TapeSources:        env(get, "TAPE_SOURCES", "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"),
+		TapeMixdownTailS:   envFloat(get, "TAPE_MIXDOWN_TAIL_S", 2),
+		TapeHandleS:        envFloat(get, "TAPE_HANDLE_S", 2),
+		TapeClock:          strings.ToLower(strings.TrimSpace(env(get, "TAPE_CLOCK", "free"))),
+		TapeClockOut:       env(get, "TAPE_CLOCK_OUT", ""),
+		TapeController:     splitList(env(get, "TAPE_CONTROLLER", "")),
+		OutputLatencyMS:    envInt(get, "OUTPUT_LATENCY_MS", 100),
+		TapeLatencyMS:      envFloat(get, "TAPE_LATENCY_MS", 0),
+		TapeDemoAlign:      envBool(get, "TAPE_DEMO_ALIGN", false),
+		Port:               env(get, "PORT", "5000"),
+		UpdateRepo:         env(get, "UPDATE_REPO", "gabeduke/hindsight"),
+		HubURL:             strings.TrimRight(strings.TrimSpace(get("HUB_URL")), "/"),
+		HubToken:           strings.TrimSpace(get("HUB_TOKEN")),
+		HubTLSAddr:         env(get, "HUB_TLS_ADDR", "127.0.0.1:5001"),
+		Version:            "dev",
 	}
 	// The clock device defaults to the audio interface, so a rig where the
 	// EP-136 is the only thing sending clock keeps its tempo stamp with no
@@ -197,7 +209,7 @@ func LoadFrom(get func(string) string) (*Config, error) {
 	if max == 0 {
 		max = MaxChannels
 	}
-	ch, err := parseChannels(env(get, "SAVE_CHANNELS", "1,2"), max)
+	ch, err := parseChannels(env(get, "SAVE_CHANNELS", "1,2"), max+c.ExtraChannels())
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +240,71 @@ func LoadFrom(get func(string) string) (*Config, error) {
 	default:
 		return nil, fmt.Errorf("TAPE_CLOCK must be free, lead or follow, got %q", c.TapeClock)
 	}
+	if math.Abs(c.ExtraInputOffsetMS) > 500 || math.IsNaN(c.ExtraInputOffsetMS) {
+		return nil, fmt.Errorf("EXTRA_INPUT_OFFSET_MS must be -500 to 500, got %g", c.ExtraInputOffsetMS)
+	}
+	// One card can't be both: the main interface is the clock and the
+	// output, an extra input never plays.
+	for _, x := range c.ExtraInputs {
+		if c.DeviceMatch != "" && SameCard(x, c.DeviceMatch) {
+			return nil, fmt.Errorf("EXTRA_INPUTS %q is the Interface (DEVICE_MATCH %q): choose another card", x, c.DeviceMatch)
+		}
+	}
 	return c, nil
+}
+
+// ExtraInputChannels is how many channels each extra input records: the
+// AMS-24's two. The ring is sized for them while the card is unplugged, so
+// the numbering never moves with what is plugged in.
+const ExtraInputChannels = 2
+
+// IsExtraInput says the device named name is one of the extra inputs, by
+// its name: an extra input given only by USB id isn't recognised this way.
+func (c *Config) IsExtraInput(name string) bool {
+	for _, x := range c.ExtraInputs {
+		if SameCard(CardOf(name), x) {
+			return true
+		}
+	}
+	return false
+}
+
+// CardOf is a device name without ALSA's suffix, the card's own name:
+// "AMS-24: USB Audio (hw:3,0)" is "AMS-24".
+func CardOf(name string) string {
+	if i := strings.Index(name, ":"); i > 0 {
+		return strings.TrimSpace(name[:i])
+	}
+	return strings.TrimSpace(name)
+}
+
+// ExtraChannels is how many channels the extra inputs add to the bus.
+func (c *Config) ExtraChannels() int { return ExtraInputChannels * len(c.ExtraInputs) }
+
+// BusChannels is the ring's width: the main interface's channels, then the
+// extra inputs'. Every channel a person types (SAVE_CHANNELS, TAPE_SOURCES)
+// is numbered on it.
+func (c *Config) BusChannels() int { return c.Channels + c.ExtraChannels() }
+
+// extraInputs splits EXTRA_INPUTS, where "none" is none.
+func extraInputs(v string) []string {
+	var out []string
+	for _, x := range splitList(v) {
+		if !strings.EqualFold(x, "none") {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+
+// SameCard says two names for a card name the same one: either contains
+// the other, ignoring case, spaces and hyphens ("AMS-24" and "AMS24").
+func SameCard(a, b string) bool {
+	norm := func(s string) string {
+		return strings.NewReplacer(" ", "", "-", "").Replace(strings.ToLower(s))
+	}
+	a, b = norm(a), norm(b)
+	return a != "" && b != "" && (strings.Contains(a, b) || strings.Contains(b, a))
 }
 
 // HubOn says the hub client should run: both HUB_URL and HUB_TOKEN set.
@@ -254,11 +330,11 @@ func (c *Config) SetChannels(n int) (note string) {
 	}
 	c.Channels = n
 	for _, s := range c.SaveChannels {
-		if s >= n {
+		if s >= c.BusChannels() {
 			old := c.SaveChannels
 			c.SaveChannels = []int{0, min(1, n-1)}
-			return fmt.Sprintf("SAVE_CHANNELS %v is past the %d channel(s) this interface has; saving %v",
-				oneBased(old), n, oneBased(c.SaveChannels))
+			return fmt.Sprintf("SAVE_CHANNELS %v is past the %d channel(s) this interface and the extra inputs have; saving %v",
+				oneBased(old), c.BusChannels(), oneBased(c.SaveChannels))
 		}
 	}
 	return ""
@@ -287,7 +363,7 @@ func (c *Config) RingFrames() int { return c.RingSeconds * c.SampleRate }
 // OutChannels returns the zero-based channel indices actually written to a take.
 func (c *Config) OutChannels() []int {
 	if c.SaveAllChannels {
-		all := make([]int, c.Channels)
+		all := make([]int, c.BusChannels())
 		for i := range all {
 			all[i] = i
 		}
@@ -321,11 +397,11 @@ func (c *Config) String() string {
 		dev = "auto"
 	}
 	return fmt.Sprintf(
-		"device=%q channels=%d rate=%d frames/buf=%d latency=%dms ring=%ds (%d frames, %s) "+
+		"device=%q extra_inputs=%q channels=%d rate=%d frames/buf=%d latency=%dms ring=%ds (%d frames, %s) "+
 			"save_channels=%v save_mix=%s save_all=%t min_free=%.1fGB max_saves=%d out=%s "+
 			"midi_capture=%t midi_clock=%q midi_latency=%.1fms",
-		dev, c.Channels, c.SampleRate, c.FramesPerBuf, c.InputLatencyMS,
-		c.RingSeconds, c.RingFrames(), humanBytes(int64(c.RingFrames())*int64(c.Channels)*4),
+		dev, c.ExtraInputs, c.BusChannels(), c.SampleRate, c.FramesPerBuf, c.InputLatencyMS,
+		c.RingSeconds, c.RingFrames(), humanBytes(int64(c.RingFrames())*int64(c.BusChannels())*4),
 		disp, c.SaveMix, c.SaveAllChannels, c.MinFreeGB, c.MaxSaves, c.OutputDir,
 		c.MIDICapture, c.MIDIClockDevice, c.MIDILatencyMS,
 	)

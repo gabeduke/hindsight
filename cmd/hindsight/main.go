@@ -116,6 +116,18 @@ func main() {
 	defer stopAll()
 
 	cap := audio.NewCapture(cfg, src)
+	// The extra inputs record beside the main interface, on its clock
+	// (EXTRA_INPUTS); in the demo, a synthetic guitar 80 ppm fast.
+	var extras []audio.ExtraSource
+	for _, match := range cfg.ExtraInputs {
+		if *demo {
+			extras = append(extras, audio.NewDemoExtraSource(cfg.SampleRate))
+			continue
+		}
+		extras = append(extras, audio.NewExtraSource(match, config.ExtraInputChannels, cfg.SampleRate,
+			1024, time.Duration(cfg.InputLatencyMS)*time.Millisecond))
+	}
+	cap.AddExtraInputs(extras)
 	// Under CHANNELS=auto the ring fits the interface found at startup. One
 	// with a different number of inputs turning up later (booted with
 	// nothing plugged in, then the EP-136) is handed to fitInterface below,
@@ -187,8 +199,14 @@ func main() {
 	if *demo {
 		// The demo's synthetic interface is routed as the Sidekick is --
 		// MAIN, the two strips each hearing a bus, and AUX -- so the rig
-		// draws it from the Sidekick's profile, by the Sidekick's USB id.
-		srvAPI.SetRigUSB(func(string) string { return "2367:9420" })
+		// draws it from the Sidekick's profile, by the Sidekick's USB id; its
+		// extra input, a guitar, by the AMS-24's.
+		srvAPI.SetRigUSB(func(device string) string {
+			if device == audio.DemoExtraName {
+				return "1686:067f"
+			}
+			return "2367:9420"
+		})
 	}
 	if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
 		srvAPI.SetTape(eng)
@@ -346,8 +364,9 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 	spec := cfg.TapeSources
 	if spec == tape.DefaultSourcesSpec {
 		spec = tape.FitSources(spec, cfg.Channels) // nobody chose: use what this interface has
+		spec = tape.WithExtraSources(spec, cfg.Channels, cfg.ExtraInputs, config.ExtraInputChannels)
 	}
-	sources, err := tape.ParseSources(spec, cfg.Channels)
+	sources, err := tape.ParseSources(spec, cfg.BusChannels())
 	if err != nil {
 		log.Printf("[!] tape off: %v", err)
 		return nil

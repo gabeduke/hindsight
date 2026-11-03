@@ -280,8 +280,13 @@ channels*), then the Pi's settings, after any Preview features.
   folded.
 
 - **Interface** is *Automatic*, or one of the interfaces plugged in now.
-  Automatic records from the one with the most inputs. **Channels** at
-  *auto* opens all of its inputs.
+  Automatic records from the one with the most inputs. It is the main
+  interface: the tape plays out of it, and its clock is the feed's.
+  **Channels** at *auto* opens all of its inputs.
+- **Extra inputs** records a second interface's inputs too, numbered on
+  after the main one's: the Zoom AMS-24's IN 1 and IN 2 beside the EP-136
+  are inputs 9 and 10. Nothing plays out of it; hear it through its own
+  direct monitor. **Extra input delay** moves it later, if it lands early.
 - **Inputs in TAKES** and **Mix** say what a take is made from. On a
   two-input interface like the Scarlett Solo, input 1 is the mic and input 2
   the instrument: **stereo** keeps them left and right, **mono** puts both in

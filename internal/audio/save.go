@@ -240,7 +240,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		winStart := endFrame - uint64(gotFrames)
 		if snapTo > winStart && snapTo < endFrame {
 			trim := int(snapTo - winStart)
-			data = data[trim*cfg.Channels:]
+			data = data[trim*cfg.BusChannels():]
 			gotFrames -= trim
 		}
 	}
@@ -289,7 +289,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 
 	mix := cfg.OutMix()
 	start := time.Now()
-	peaks, pyr, err := writeWAV(tmpPath, data, cfg.Channels, mix, cfg.SampleRate)
+	peaks, pyr, err := writeWAV(tmpPath, data, cfg.BusChannels(), mix, cfg.SampleRate)
 	if err != nil {
 		os.Remove(tmpPath)
 		return "", fmt.Errorf("write wav: %w", err)

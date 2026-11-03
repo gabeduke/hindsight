@@ -92,6 +92,7 @@ var refusals = []struct {
 	{tape.ErrNotLined, "NOT LINED UP YET"},
 	{tape.ErrNotPlayed, "BARS NOT PLAYED"},
 	{tape.ErrSlipped, "SLIPPED: TRY AGAIN"},
+	{tape.ErrExtraGap, "INPUT DROPPED OUT"},
 	{tape.ErrEmptyClipboard, "BUFFER IS EMPTY"},
 	{errNothingToDrop, "CUE LANE IS EMPTY"},
 	{errTooManyLanes, "TOO MANY LANES"},

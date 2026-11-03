@@ -194,6 +194,15 @@ func (a *API) rigInputs(defaultSource string) rig.Inputs {
 	if device != "" {
 		in.USBID = a.rigUSBID(device)
 	}
+	if a.cap != nil {
+		for _, x := range a.cap.ExtraInputs() {
+			v := rig.ExtraView{Match: x.Match, Device: x.Device, Channels: x.Channels, Live: x.Live, Locked: x.Locked}
+			if x.Device != "" {
+				v.USBID = a.rigUSBID(x.Device)
+			}
+			in.Extras = append(in.Extras, v)
+		}
+	}
 	_, in.Controller = config.Lookup("TAPE_CONTROLLER")
 	if a.tape != nil {
 		for _, s := range a.tape.Sources() {
@@ -219,7 +228,7 @@ func (a *API) rigInputs(defaultSource string) rig.Inputs {
 			}
 			in.Tape = tv
 		}
-	} else if srcs, err := tape.ParseSources(settings["TAPE_SOURCES"].Running, max(a.cfg.Channels, 1)); err == nil {
+	} else if srcs, err := tape.ParseSources(settings["TAPE_SOURCES"].Running, max(a.cfg.BusChannels(), 1)); err == nil {
 		// The tape is off: the taps are still what a KEEP chooses among.
 		for _, s := range srcs {
 			in.Sources = append(in.Sources, rig.SourceView{Name: s.Name, Pair: [2]int{s.Pair[0] + 1, s.Pair[1] + 1}, Hears: s.Leaks})

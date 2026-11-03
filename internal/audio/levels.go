@@ -29,7 +29,14 @@ type Frame struct {
 // result out to subscribers. All methods are safe for concurrent use; the
 // accumulate path is allocation-free so it can run on the audio callback.
 type Levels struct {
-	channels   int
+	channels int
+	width    int // Accumulate's block width, when narrower than channels (SetWidth)
+	// The extra inputs' channels arrive on their own stream, so they count
+	// their own samples per bin, and a bin they put nothing in shows what
+	// the last one did: the main interface's blocks close bins in bursts.
+	extraN     []int
+	held       []int // bins in a row each extra channel has been held
+	lastBin    Bin
 	binFrames  int // frames per bin
 	sampleRate int
 
@@ -51,6 +58,22 @@ type Levels struct {
 
 	subsMu sync.Mutex
 	subs   map[chan Frame]struct{}
+}
+
+// maxHeldBins is how many bins in a row an extra channel shows the last
+// one's level when its stream put nothing in them: a main block of 2048
+// frames closes four 10 ms bins at once.
+const maxHeldBins = 8
+
+// SetWidth says Accumulate's blocks carry only the first width channels:
+// the main interface's, on a bus with extra inputs. Call it before any
+// audio arrives.
+func (l *Levels) SetWidth(width int) {
+	if width < l.channels {
+		l.width = width
+		l.extraN = make([]int, l.channels)
+		l.held = make([]int, l.channels)
+	}
 }
 
 func NewLevels(channels, sampleRate, binMillis int) *Levels {
@@ -100,10 +123,15 @@ func (l *Levels) resetBin() {
 	l.curCount = 0
 }
 
-// Accumulate folds one interleaved block into the current bins.
+// Accumulate folds one interleaved block into the current bins. Its width is
+// the meters' unless SetWidth says the main interface's is narrower (extra
+// inputs fill the rest, AccumulateAt).
 func (l *Levels) Accumulate(block []int32) {
 	const scale = 1.0 / 2147483648.0
 	ch := l.channels
+	if l.width > 0 {
+		ch = l.width
+	}
 
 	l.mu.Lock()
 	for off := 0; off+ch <= len(block); off += ch {
@@ -128,14 +156,56 @@ func (l *Levels) Accumulate(block []int32) {
 	l.mu.Unlock()
 }
 
+// AccumulateAt folds a block of width channels into the meters' channels
+// first..first+width-1: an extra input's, from its own stream, so its meters
+// move at once rather than when its frames reach the ring. Bins close on the
+// main interface's frames (Accumulate); at the same rate, these fill them
+// alike.
+func (l *Levels) AccumulateAt(first, width int, block []int32) {
+	const scale = 1.0 / 2147483648.0
+	if first < 0 || first+width > l.channels {
+		return
+	}
+	l.mu.Lock()
+	for off := 0; off+width <= len(block); off += width {
+		for c := 0; c < width; c++ {
+			v := float32(float64(block[off+c]) * scale)
+			k := first + c
+			if v < l.curMin[k] {
+				l.curMin[k] = v
+			}
+			if v > l.curMax[k] {
+				l.curMax[k] = v
+			}
+			l.curSumSq[k] += float64(v) * float64(v)
+			if v >= 0.999 || v <= -0.999 {
+				l.clip[k] = true
+			}
+			l.extraN[k]++
+		}
+	}
+	l.mu.Unlock()
+}
+
 func (l *Levels) flushBinLocked() {
 	b := Bin{
 		Min: make([]float32, l.channels),
 		Max: make([]float32, l.channels),
 		RMS: make([]float32, l.channels),
 	}
-	n := float64(l.curCount)
 	for c := 0; c < l.channels; c++ {
+		n := float64(l.curCount)
+		if l.width > 0 && c >= l.width {
+			// Held across one main block's burst at most: an extra input
+			// that has stopped reads silent, not its last level.
+			if l.extraN[c] == 0 && l.lastBin.RMS != nil && l.held[c] < maxHeldBins {
+				b.Min[c], b.Max[c], b.RMS[c] = l.lastBin.Min[c], l.lastBin.Max[c], l.lastBin.RMS[c]
+				l.held[c]++
+				continue
+			}
+			n = float64(l.extraN[c])
+			l.extraN[c], l.held[c] = 0, 0
+		}
 		b.Min[c] = l.curMin[c]
 		b.Max[c] = l.curMax[c]
 		db := FloorDB
@@ -153,6 +223,7 @@ func (l *Levels) flushBinLocked() {
 		}
 	}
 	copy(l.lastRMS, b.RMS)
+	l.lastBin = b
 	if l.env != nil {
 		l.env.PushBin(b)
 	}

@@ -92,3 +92,32 @@ func TestLevelsWithoutAnEnvelopeStillWork(t *testing.T) {
 		t.Fatal("Levels broke when no envelope was attached")
 	}
 }
+
+// An extra input's channels arrive on their own stream: a main block that
+// closes four bins at once shows the extra level in all four, not in the
+// first alone.
+func TestAnExtraInputsMetersHoldAcrossABurstOfBins(t *testing.T) {
+	l := NewLevels(4, 48000, 10)
+	l.SetWidth(2)
+	x := make([]int32, 480*2)
+	for i := range x {
+		x[i] = 1 << 29 // a quarter of full scale: -12 dB
+	}
+	l.AccumulateAt(2, 2, x)
+	l.Accumulate(make([]int32, 4*480*2))
+	f := l.Drain()
+	if len(f.Bins) != 4 {
+		t.Fatalf("%d bins, want 4", len(f.Bins))
+	}
+	for i, b := range f.Bins {
+		if b.RMS[2] < -13 || b.RMS[2] > -11 || b.RMS[0] != FloorDB {
+			t.Fatalf("bin %d: %v, want the extra channels at -12 dB and the main ones silent", i, b.RMS)
+		}
+	}
+	// It stops (unplugged): after a held burst, the meter falls silent.
+	l.Accumulate(make([]int32, 20*480*2))
+	f = l.Drain()
+	if last := f.Bins[len(f.Bins)-1]; last.RMS[2] != FloorDB || last.Max[2] != 0 {
+		t.Fatalf("an extra input that stopped still reads %v", last.RMS)
+	}
+}

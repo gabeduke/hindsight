@@ -39,6 +39,72 @@ A ring buffer has no latency requirement, so `INPUT_LATENCY_MS` is set
 explicitly and generously and the draw is about 1%. See "Why
 `INPUT_LATENCY_MS` is not small" in [configuration.md](../configuration.md).
 
+## Extra inputs
+
+`EXTRA_INPUTS` names cards that only record, beside the main interface: the
+Zoom AMS-24 beside the EP-136, for a guitar. The EP-136 stays the main
+interface: the tape plays out of it, it is the monitor, and its clock is the
+ring's. Nothing ever plays out of an extra input; its playback side is never
+opened. (`docs/plan/extra-inputs.md` has the decisions until it lands.)
+
+**The bus.** Each extra input adds `config.ExtraInputChannels` (2) channels
+after the main interface's, so the AMS-24's IN 1 and IN 2 are channels 9 and
+10. `Config.BusChannels` is the ring's width, the meters', a take's under
+`SAVE_ALL_CHANNELS`, and what `SAVE_CHANNELS` and `TAPE_SOURCES` are checked
+against. The ring is sized for the extra channels while the card is unplugged,
+so the numbering never moves with what is plugged in; they are silence until
+it is.
+
+**Its stream** (`ExtraSource`, `extra_alsa.go`) opens the card through ALSA
+directly, `hw:CARD=<id>,0`, found in `/proc/asound` by name, id or USB id:
+outside PortAudio, so a replugged AMS-24 is just an open that starts working
+again. A PortAudio rescan closes every stream, the EP-136's too, and that hole
+in the dashcam is the one failure that can't be repaired. Its own supervisor
+(`extraInput.supervise`) reopens it after 2 s without a block, with backoff,
+and never rescans. `DEVICE_MATCH=auto` and the capture's fallback never pick
+an extra input's card (`withoutExtras`), and `LoadFrom` refuses one card as
+both.
+
+**The joiner** (`extra.go`). The two interfaces run on two crystals, up to
+±100 ppm apart: left alone, the guitar would slide 90 ms against the synths
+over a 15-minute ring. So the ring writer, still the one writer, writes each
+EP-136 block at the head (`Ring.WriteNarrow`, zeros in the extra channels),
+then the extra input's frames for the same moments into channels 9-10 a
+fixed lag behind it (`Ring.WriteChannels`), resampled onto the EP-136's
+frames by `steeredResampler` (`resample.go`). Where each frame goes comes
+from the two clock bridges: ring frame *f* was converted at the main
+bridge's `NSAt(f)`, which the extra stream's own bridge maps to the input
+frame being converted then, less `EXTRA_INPUT_OFFSET_MS`. The ratio is
+steered so the resampler reads there: proportional and integral on that
+error, critically damped at 10 s, within ±200 ppm (0.35 cents: no audible
+wobble). In the tests it lands within a frame and a half of the main
+interface's pulses at 8 kHz, and within a frame at 48 kHz with 3 ms of USB
+jitter. *Locked* is the error, smoothed over a second, within 1 ms for 2 s.
+
+The lag (`Capture.ExtraLag`) is one main block, the extra stream's latency,
+50 ms of slack and any negative `EXTRA_INPUT_OFFSET_MS`, about 200 ms: the newest that long of an extra channel is
+not written yet. Its meters don't wait: they are fed from the extra stream's
+own blocks (`Levels.AccumulateAt`), counting their own samples per bin.
+
+**When one side fails.** A block lost on the way, an overflow the device
+reports, a reopen, a stretch with nothing for over a second, or an error past
+20 ms (a clock that jumped) all re-seed: the resampler is emptied and placed
+again from the bridges, and the span from where it was writing to where it
+is placed again is an extra-input gap (`Capture.ExtraGaps`), silence. Its
+meters hold their last level across one burst of bins at most, then read
+silent. Each open, and each
+overflow, starts a fresh bridge, so a stretch of the extra stream's frames
+never has a hole in it. The EP-136 stalling stops the ring, so nothing is
+written to 9-10 either; the joiner re-places itself when it moves again.
+With the EP-136 absent nothing records, since it is the clock.
+
+`/api/status` reports each extra input (`extra_inputs`): what it opened, its
+channels, live, locked, and how far its clock runs from the main one's.
+
+In the demo, `EXTRA_INPUTS` set to anything opens a synthetic guitar
+(`NewDemoExtraSource`) whose clock runs 80 ppm fast, so the steering is
+exercised without hardware.
+
 ## The `Source` seam
 
 `audio.Source` is the interface between the capture supervisor and whatever is

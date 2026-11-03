@@ -61,6 +61,40 @@ export function ringNote(seconds, rate, channels, memory) {
   return { text, warn };
 }
 
+/** EXTRA_CHANNELS is how many channels each extra input adds (config.ExtraInputChannels). */
+export const EXTRA_CHANNELS = 2;
+
+/** extraCount is how many cards EXTRA_INPUTS names: none is none. */
+export function extraCount(v) {
+  return String(v || '').split(',').map((x) => x.trim()).filter((x) => x && x.toLowerCase() !== 'none').length;
+}
+
+/**
+ * ringChannels is how many channels the ring will hold under the values in
+ * the sheet: the main interface's (CHANNELS, or what the ring holds now less
+ * the extra inputs running) and the extra inputs' (EXTRA_INPUTS as edited).
+ */
+export function ringChannels(channels, sized, runningExtra, extra) {
+  const main = /^\d+$/.test(String(channels)) ? Number(channels) : sized - EXTRA_CHANNELS * extraCount(runningExtra);
+  return main + EXTRA_CHANNELS * extraCount(extra);
+}
+
+/**
+ * extraOptions are Extra inputs' choices: none, then every card plugged in
+ * but the main interface (an extra input is never it), then what's set if it
+ * isn't plugged in.
+ */
+export function extraOptions(inputs, main, current) {
+  const card = (n) => n.replace(/:.*$/, '').trim() || n;
+  const opts = [['none', 'None']];
+  for (const inp of inputs) {
+    if (main && main !== 'auto' && card(inp.name) === main) continue;
+    opts.push([card(inp.name), inputLabel(inp)]);
+  }
+  if (current && current !== 'none' && !opts.some(([v]) => v === current)) opts.push([current, `${current} · not connected`]);
+  return opts;
+}
+
 /** inputLabel is "Scarlett Solo 4th Gen · 2 in" for a PortAudio input. */
 export function inputLabel(inp) {
   const name = inp.name.replace(/:.*$/, '').trim() || inp.name;
@@ -416,7 +450,8 @@ export function initSettings() {
   function drawNotes() {
     const ring = body.querySelector('[data-note="RING_SECONDS"]');
     if (ring) {
-      const ch = /^\d+$/.test(valueOf('CHANNELS')) ? Number(valueOf('CHANNELS')) : data.channels;
+      const extra = data.settings.find((x) => x.key === 'EXTRA_INPUTS');
+      const ch = ringChannels(valueOf('CHANNELS'), data.channels, extra ? extra.running : '', valueOf('EXTRA_INPUTS'));
       const n = ringNote(valueOf('RING_SECONDS'), valueOf('SAMPLE_RATE'), ch, data.memory_bytes || 0);
       ring.textContent = n.text;
       ring.classList.toggle('warn', n.warn);
@@ -440,6 +475,15 @@ export function initSettings() {
       for (const inp of data.inputs) opts.push([inp.name.replace(/:.*$/, '').trim() || inp.name, inputLabel(inp)]);
       if (!opts.some(([val]) => val === v)) opts.push([v, `${v} · not connected`]);
       for (const [val, label] of opts) {
+        const o = el('option', null, label);
+        o.value = val;
+        input.append(o);
+      }
+      input.value = v;
+      input.addEventListener('change', () => edit(s.key, input.value));
+    } else if (s.key === 'EXTRA_INPUTS') {
+      input = el('select');
+      for (const [val, label] of extraOptions(data.inputs, valueOf('DEVICE_MATCH'), v)) {
         const o = el('option', null, label);
         o.value = val;
         input.append(o);

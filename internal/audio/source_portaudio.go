@@ -153,7 +153,7 @@ func (s *deviceSource) pickDevice() (*portaudio.DeviceInfo, error) {
 	if s.cfg.ChannelsAuto {
 		need = 0
 	}
-	i, fellBack, err := pickInput(inDevs(devices), s.cfg.DeviceMatch, need)
+	i, fellBack, err := pickInput(withoutExtras(inDevs(devices), s.cfg.IsExtraInput), s.cfg.DeviceMatch, need)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +202,7 @@ func ProbeInput(cfg *config.Config) (name string, channels int) {
 		if cfg.ChannelsAuto {
 			need = 0
 		}
-		i, _, err := pickInput(inDevs(devices), cfg.DeviceMatch, need)
+		i, _, err := pickInput(withoutExtras(inDevs(devices), cfg.IsExtraInput), cfg.DeviceMatch, need)
 		if err != nil {
 			return err
 		}

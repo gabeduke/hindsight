@@ -131,9 +131,13 @@ func (e *Engine) TapPairs(id string, pairs []Pair, ns int64) (TapResult, error) 
 	r := e.capture.Ring()
 	// Wait for the ring to hold the second tap's window, and the overhang
 	// past wherever in it the loop's end snaps to.
+	srcs := make([]Source, len(tracks))
+	for i, p := range tracks {
+		srcs[i] = p.src
+	}
 	for tries := 0; ; tries++ {
-		_, total := r.Window()
-		if ring+after+over <= int64(total) {
+		_, total := e.window(srcs...)
+		if ring+after+over <= total {
 			break
 		}
 		if tries >= 100 {
@@ -159,12 +163,15 @@ func (e *Engine) TapPairs(id string, pairs []Pair, ns int64) (TapResult, error) 
 	if start-over < int64(oldest) {
 		return TapResult{}, ErrGone
 	}
+	if err := e.extraGap(start-over, end+over, srcs...); err != nil {
+		return TapResult{}, err
+	}
 	if e.minFreeGB > 0 {
 		if free, _ := audio.FreeGB(e.store.Dir()); free < e.minFreeGB {
 			return TapResult{}, fmt.Errorf("%w: %.2f GB free where the tapes are, need %.2f GB", audio.ErrLowDisk, free, e.minFreeGB)
 		}
 	}
-	lo, hi := ringHandles(r, sr, start-over, end+over, e.handle(sr)-over)
+	lo, hi := e.ringHandles(sr, start-over, end+over, e.handle(sr)-over, srcs...)
 	clips := map[string]Clip{} // by input: two tracks on one tap share its file
 	for _, p := range tracks {
 		if _, ok := clips[p.src.Name]; ok {
