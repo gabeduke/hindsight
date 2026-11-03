@@ -23,6 +23,7 @@ export function sizeCanvas(cv, w, h) {
     cv.height = ph;
   }
   const ctx = cv.getContext('2d');
+  if (!ctx) return null;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, dpr };
 }

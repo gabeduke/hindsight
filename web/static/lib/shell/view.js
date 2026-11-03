@@ -664,6 +664,9 @@ export function shellScope({ shared = {}, doc, timers, clock, onError } = {}) {
   const root = { hidden: true, hasAttribute: () => true, setAttribute() {} };
   const view = createView({ id: 'shell', mount(c) { made = c; } }, { root, shared, doc, timers, clock, onError });
   const ready = view.show();
+  // show() mounts before its first await, so `made` is set here; say so
+  // plainly if that ever stops being true.
+  if (!made) throw new Error('shellScope: the view did not mount synchronously');
   const { id, active, on, every, loop, socket, media, signal, layers } = made;
   const ctx = Object.freeze({
     ...shared,
