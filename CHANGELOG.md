@@ -5,6 +5,23 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.1 — 2026-11-03
+
+- Canvas sizing answers nothing without a 2D context; the shell scope says when its view did not mount (49f917b8)
+- Docs: the interfaces for the bar's move (step 5a) in components, shell, css-and-motion and the code map; STATE.md (86153bdc)
+- Test fixtures can make the bar's engine, the phone's recorder and the bar's layout (4383e849)
+- The shell gets a scope for its own chrome to mount components in, and a component can ask whether it is seen (91e00a35)
+- A listener for the light and dark scheme flipping can be taken off again (74e3c74e)
+- A canvas is sized at the screen's density by one helper, sizeCanvas (405a45c4)
+- Menus: rows can be made without handing in a document, and a key can say it opens a dialog (f08fde47)
+- Spec: extra inputs, three corrections from review (LoadFrom, the resampler's ratio, tape.md's Sources) (8b43e976)
+- Spec: extra inputs decided, not built; how Gabe hears the guitar stays his call (dde669d2)
+- Spec: the overview alone stays the Studio's (95d36813)
+- Spec: record a second interface's inputs beside the main one, never playing out of it (af2aeb04)
+- Spec and STATE.md: step 5's calls taken as recommended; the clock-out lamp and the output strip are the bar's, from the models (974f5a55)
+- Spec and STATE.md: the Transport's move audited and split into eight PRs; the lamp, the strip and six calls wait for Gabe (ec8ab73e)
+
+
 ## v2026.11.02.8 — 2026-11-02
 
 - Spec and STATE.md: the overview's slot is #256; the clock-out lamp and the output strip wait for Gabe (a761ddf5)
