@@ -210,8 +210,12 @@ and still looks it:
         `chrome.classesGiven`, docked said by `ctx.dockSlot.show`; the
         phone's player sheet the surface's, `playerSheet`, dragged from
         the bar's handles by `sheet.grab`; the Output sheet and the
-        recorder made at boot). **Next**: 5c-2, the Studio's reaches into
-        the bar as verbs and callbacks.
+        recorder made at boot). 5c-2 is built (#263): the Studio's and
+        the rooms' reaches into the bar are verbs and callbacks (SYNC
+        the bar's; ▶ and L the engine's; `ctx.tapeKeys.focusPlay()` and
+        `tempo(fn)`; `ctx.openOutput()`; the grease through
+        `ctx.barSlot`), Guardrail 22. **Next**: 5d, `css/bar.css` onto
+        the root's attributes.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.

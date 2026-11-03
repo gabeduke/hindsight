@@ -291,7 +291,11 @@ unmoved:
    their drag by `sheet.grab`), the Output sheet wired at boot, the
    recorder made at boot, and `data-fold`/`data-open`/`data-docked` on the
    bar's root, the fold synced from the router's `chrome.classesGiven` and
-   `data-docked` said by the dock's slot) (`--np-h`, the
+   `data-docked` said by the dock's slot; 5c-2, *built* (#263): SYNC drawn
+   by the bar, ▶ and L on the engine's verbs, focusing ▶ and the tempo
+   menu through `ctx.tapeKeys` (`focusPlay`, `tempo(fn)`), OUT through
+   `ctx.openOutput`, the doorway's grease through `ctx.barSlot`, `readBar`
+   gone, Guardrail 22) (`--np-h`, the
    fold's storage, the player's sheet, the output sheet, the recorder
    made at boot, `data-fold`/`data-open`/`data-docked` on the root, set
    by a router hook straight after `giveClasses` rather than in
