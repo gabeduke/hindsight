@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fixture, fixtureModels, MODELS } from './fixture.js';
 import { Refusal } from './protocol.js';
+import { barPage } from '../bar/bar-harness.js';
 
 const saved = (path) => JSON.parse(readFileSync(new URL(`../../../../testdata/protocol/${path}`, import.meta.url), 'utf8'));
 
@@ -73,6 +74,77 @@ test('the transport, made over a fixture, holds the tape, and its presses are re
     ['transport', 'play', {}], ['transport', 'stop', {}], ['transport', 'locate', { pos: 1000 }], ['transport', 'setLoop', { on: false }], ['transport', 'setTempo', { bpm: 90 }],
   ]);
   stop();
-  assert.deepEqual(MODELS, ['takes', 'tape', 'transport']);
+  assert.deepEqual(MODELS, ['takes', 'tape', 'transport', 'bar', 'recorder', 'layout']);
   assert.throws(() => fixtureModels(fx, ['rig']), /no fixture model for rig/);
+});
+
+// The Transport's models (docs/plan/transport-extraction.md, decision 8):
+// the engine's bar, the phone's recorder and the page's layout, so its
+// check mounts it on fixtures as the display's is.
+test('the engine’s bar, made over a fixture, holds the loaded tape, and its presses go to the fixture', async () => {
+  // The engine owns the bar's audio: it needs a page, the bar harness's.
+  const page = await barPage({ drawn: false });
+  const fx = fixture({ tape: saved('tape/stopped.json') });
+  const { models, ready, stop } = fixtureModels(fx, ['bar']);
+  try {
+    await ready;
+    const { bar } = models;
+    assert.equal(typeof bar.snapshot, 'function');
+    assert.equal(typeof bar.onChange, 'function');
+    await new Promise((r) => setTimeout(r, 20));
+    const s = bar.snapshot();
+    assert.equal(s.kind, 'tape');
+    assert.equal(s.title, 'Tape 1');
+    assert.equal(s.playing, false);
+    await bar.src.play();
+    assert.ok(fx.calls.some((c) => c.noun === 'transport' && c.name === 'play'), 'the tape’s ▶, sent to the fixture');
+  } finally {
+    stop();
+    page.bar.src?.destroy?.();
+  }
+});
+
+test('the recorder, made over a fixture, is closed until the fixture says otherwise; its verbs are recorded or refused', async () => {
+  const fx = fixture({}, { refuse: { 'recorder.quick': { code: 'no_mic', message: 'no microphone' } } });
+  const { models, ready, stop } = fixtureModels(fx, ['recorder']);
+  await ready;
+  const { recorder } = models;
+  const was = recorder.snapshot();
+  assert.deepEqual(was, { mode: 'closed', seconds: 0 });
+  assert.ok(Object.isFrozen(was));
+  assert.equal(recorder.snapshot(), was, 'the same object until it moves');
+  const heard = [];
+  const off = recorder.onChange((s) => heard.push(s));
+  fx.set('recorder', { mode: 'recording', seconds: 12.6 });
+  assert.deepEqual(heard, [{ mode: 'recording', seconds: 12 }]);
+  fx.set('recorder', { mode: 'recording', seconds: 12.9 });
+  assert.equal(heard.length, 1, 'the whole seconds have not moved: nothing to hear');
+  await recorder.open();
+  await assert.rejects(recorder.quick(), (e) => e.code === 'no_mic');
+  await recorder.stop();
+  assert.deepEqual(fx.calls.map((c) => `${c.noun}.${c.name}`), ['recorder.open', 'recorder.quick', 'recorder.stop']);
+  off();
+  stop();
+  fx.set('recorder', { mode: 'closed' });
+  assert.equal(heard.length, 1, 'stopped, it hears nothing');
+});
+
+test('the layout, made over a fixture, is barLayout’s: it starts where the fixture says and moves by set()', async () => {
+  const fx = fixture({ layout: { folded: true } });
+  const { models, ready, stop } = fixtureModels(fx, ['layout']);
+  await ready;
+  const { layout } = models;
+  assert.deepEqual(layout.snapshot(), { folded: true, open: false });
+  const heard = [];
+  layout.onChange((after, before) => heard.push([after.folded, before.folded]));
+  layout.set({ folded: false });
+  assert.deepEqual(layout.snapshot(), { folded: false, open: false });
+  assert.deepEqual(heard, [[false, true]]);
+  layout.set({ folded: false });
+  assert.equal(heard.length, 1, 'nothing moved, nothing heard');
+  layout.set({ open: true });
+  assert.equal(layout.open, true);
+  stop();
+  const plain = fixtureModels(fixture({}), ['layout']).models.layout;
+  assert.deepEqual(plain.snapshot(), { folded: false, open: false }, 'neither, by default');
 });
