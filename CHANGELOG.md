@@ -5,6 +5,15 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.2 — 2026-11-03
+
+- The phone strip says where the stream was lost as the Studio always has, and follows this phone's sound whatever the bar holds (ea011db4)
+- Spec and STATE: step 5b of the Transport's extraction built (#261) (2f4c6938)
+- Docs: the bar's engine verbs and snapshot, and the lamp and output strip as the bar's (step 5b), in bar.md and shell.md (498158d4)
+- The bar's clock-out lamp and phone strip are drawn from the tape in every room, current rather than as the Studio last left them (0d7ee7ff)
+- The bar's engine answers its keys' verbs, a frozen snapshot of what the bar draws, and the strip's picture (58e334b1)
+
+
 ## v2026.11.03.1 — 2026-11-03
 
 - Canvas sizing answers nothing without a 2D context; the shell scope says when its view did not mount (49f917b8)
