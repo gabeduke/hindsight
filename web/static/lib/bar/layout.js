@@ -2,17 +2,16 @@
 // The bar's layout, as the page lays out around it: folded by its grabber
 // (fold.js), the phone's player pulled up (player.js), and something docked
 // above it (the Studio's clip editor or action bar, Capture's drawer, in
-// #np-dock). The page's own rules read the fold and the player off <body>
-// (body.np-fold, body.player-open), and the router keeps a room's body
-// classes with the room (np-fold) or for the shell (player-open,
-// KEEP_CLASSES), so the body is where those are kept: this is the surface's
-// one place that writes them, and what the Studio hears them change by
-// (ctx.barLayout), in place of a page-wide event
-// (docs/plan/transport-extraction.md, decisions 2 and 3).
+// #np-dock). The router keeps a room's body classes with the room (np-fold)
+// or for the shell (player-open, KEEP_CLASSES), so <body> is where the fold
+// and the player are kept, and the page's own rules (styles.css) read the
+// player off it: this is the surface's one place that writes them, and
+// what the Studio hears them change by (ctx.barLayout), in place of a
+// page-wide event (docs/plan/transport-extraction.md, decisions 2 and 3).
 //
 // The bar's root says the same on itself (data-fold, data-open,
-// data-docked), so its own stylesheet reads its root and never <body>
-// (step 5c): written by set(), and by sync(), which the shell calls the
+// data-docked), and the bar's own stylesheet (css/bar.css) reads only the
+// root, never <body> (steps 5c, 5d): written by set(), and by sync(), which the shell calls the
 // moment the router has given a room its classes (chrome.classesGiven),
 // in the same frame as the body. The fold is kept for the visit (through a
 // reload) in the page's storage, when the page hands one.

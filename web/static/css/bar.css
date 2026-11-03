@@ -343,7 +343,7 @@
 .catch-menu { min-width: 230px; max-width: calc(100vw - 16px); }
 /* The bar's menus open over the phone's player pulled up (z 50), where its
    Catch and its display are: under it, the source's couldn't be tapped. */
-:is(.catch-menu, .np-source-menu) { z-index: 60; }
+.catch-menu, .np-source-menu { z-index: 60; }
 .catch-menu > .catch-menu-head { padding: 6px 12px 8px; }
 .catch-menu > .menu-item > .menu-sub { white-space: normal; }
 .catch-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
@@ -457,6 +457,8 @@
   /* Something docked over the bar (the action bar, the clip editor;
      data-docked): its keys are just above the edge, so the grabber keeps
      to its lip and the bar's top padding, clear of them. */
+  /* (The player's grabber, .np[data-open] below, is the phone's: its block
+     and this one never apply together, so neither outranks the other.) */
   .np[data-docked] .np-grabber { top: -14px; height: 24px; }
   .np[data-docked] .np-lip { margin-top: 1px; }
   /* Folded (data-fold): one row of keys 44 tall, the deck as tall, the strip gone. */
