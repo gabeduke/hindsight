@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.6 — 2026-11-03
+
+- The tape plays out of the card the capture opened, not the one chosen as the Interface (9c6d349b)
+
+
 ## v2026.11.03.5 — 2026-11-03
 
 - The bar's stylesheet test counts only the bar's own menu panels as not inside it yet (20d5818d)
