@@ -1,10 +1,12 @@
 // The bar's fold (fold.js): the grabber on its top edge folds it and
 // unfolds it with a tap, a drag down folds it and a drag up unfolds it, the
 // click a drag's lift sends is not also a tap, and it stays folded for the
-// visit. On a phone the grabber is the player's, and folds nothing.
+// visit (the page's layout keeps it: layout.js). On a phone the grabber is
+// the player's, and folds nothing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initFold, NP_FOLD_KEY, slideFrom } from './fold.js';
+import { initFold, slideFrom } from './fold.js';
+import { barLayout, NP_FOLD_KEY } from './layout.js';
 import { GESTURE } from '../ui/press.js';
 
 class MockStorage {
@@ -60,17 +62,16 @@ function press(g, dy = 0) {
 }
 
 test('a page with no grabber has no fold', () => {
-  assert.equal(initFold(makeDoc({ grabber: false }).doc, { storage: new MockStorage(), phone: desk, slide }), null);
+  assert.equal(initFold(makeDoc({ grabber: false }).doc, { phone: desk, slide }), null);
 });
 
-test('a tap on the grabber folds the bar, and another unfolds it; the fold is kept for the visit, and said', async () => {
+test('a tap on the grabber folds the bar, and another unfolds it; the fold is kept for the visit, and said', () => {
   const d = makeDoc();
   const store = new MockStorage();
-  const { barLayout } = await import('./layout.js');
-  const layout = barLayout(d.doc);
+  const layout = barLayout(d.doc, { storage: store });
   const heard = [];
   layout.onChange((l) => heard.push(l.folded));
-  initFold(d.doc, { layout, storage: store, phone: desk, slide });
+  initFold(d.doc, { layout, phone: desk, slide });
   assert.equal(folded(d), false);
   assert.equal(d.g.getAttribute('aria-expanded'), 'true');
   press(d.g);
@@ -88,7 +89,7 @@ test('a tap on the grabber folds the bar, and another unfolds it; the fold is ke
 
 test('a drag down folds it and a drag up unfolds it, and the lift’s click is no tap', () => {
   const d = makeDoc();
-  initFold(d.doc, { storage: new MockStorage(), phone: desk, slide });
+  initFold(d.doc, { phone: desk, slide });
   press(d.g, 40);
   assert.equal(folded(d), true, 'down folds');
   press(d.g, 40);
@@ -106,12 +107,12 @@ test('it moves the bar by its slide, not by jumping; restored on a reload, it is
   slides.length = 0;
   const d = makeDoc();
   const store = new MockStorage();
-  initFold(d.doc, { storage: store, phone: desk, slide });
+  initFold(d.doc, { layout: barLayout(d.doc, { storage: store }), phone: desk, slide });
   press(d.g);
   assert.deepEqual(slides, ['np']);
   slides.length = 0;
   const again = makeDoc();
-  initFold(again.doc, { storage: store, phone: desk, slide });
+  initFold(again.doc, { layout: barLayout(again.doc, { storage: store }), phone: desk, slide });
   assert.equal(folded(again), true);
   assert.equal(again.g.getAttribute('aria-expanded'), 'false');
   assert.deepEqual(slides, [], 'a page that opens folded does not slide into it');
@@ -119,7 +120,7 @@ test('it moves the bar by its slide, not by jumping; restored on a reload, it is
 
 test('on a phone the grabber is the player’s: it folds nothing', () => {
   const d = makeDoc();
-  initFold(d.doc, { storage: new MockStorage(), phone: { matches: true }, slide });
+  initFold(d.doc, { phone: { matches: true }, slide });
   press(d.g);
   press(d.g, 40);
   assert.equal(folded(d), false);
@@ -129,7 +130,7 @@ test('a storage that throws (private mode) neither throws nor stops the fold', (
   const d = makeDoc();
   const throwing = { getItem() { throw new Error('no'); }, setItem() { throw new Error('no'); }, removeItem() { throw new Error('no'); } };
   assert.doesNotThrow(() => {
-    initFold(d.doc, { storage: throwing, phone: desk, slide });
+    initFold(d.doc, { layout: barLayout(d.doc, { storage: throwing }), phone: desk, slide });
     press(d.g);
   });
   assert.equal(folded(d), true);

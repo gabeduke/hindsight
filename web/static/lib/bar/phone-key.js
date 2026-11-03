@@ -48,8 +48,9 @@ export function said(state) {
 /**
  * phoneKey wires the mini player's ● (#np-phone-rec) and its ▾
  * (#np-phone-more, opening #np-phone-menu). `recorder()` is the page's
- * recorder, asked for when a key is pressed (the rooms make it as they
- * mount); `whenRecorder(fn)` hands it over as soon as there is one, so the
+ * recorder, asked for when a key is pressed (the shell makes it at boot;
+ * a page without one may make it as a room mounts); `whenRecorder(fn)`
+ * hands it over as soon as there is one, so the
  * keys show a recording started anywhere. `playerUp()` is whether the
  * phone's player is pulled up (its sheet's isOpen), where the ▾ isn't.
  * Answers { menu, paint(state), offer() }, or null on a page without the
@@ -71,7 +72,7 @@ export function phoneKey({ doc = document, recorder, layers, floor, whenRecorder
     setAttr(rec, 'aria-label', said(state));
     setAttr(rec, 'title', said(state));
   };
-  // The recorder is made by a room: heard from when it is there.
+  // The recorder may come later than the keys: heard from when it is there.
   const listen = (r) => {
     if (!r || listening === r) return r;
     listening = r;

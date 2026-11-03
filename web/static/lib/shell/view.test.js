@@ -380,6 +380,36 @@ test('a node added to a place of the slot goes at the start of that place, and b
   assert.deepEqual(ids(strip), ['np-tape-overview', 'np-scrub']);
 });
 
+test('dockSlot.show shows a docked part and says whether anything the view docks shows; a hidden view docks nothing', async () => {
+  // Step 5c: what is docked above the bar (the Studio's clip editor and
+  // action bar, Capture's drawer) is said to the shell, which has the bar's
+  // root say it (data-docked: lib/bar/layout.js), whichever view docks it.
+  const heard = [];
+  let ctx = null;
+  const t = aView({ mount: (c) => { ctx = c; c.dockSlot.add(editor); c.dockSlot.add(bar); return {}; } }, {
+    slots: { dock: { parent: () => t.dock, before: () => t.np, onShown: (who, on) => heard.push([typeof who, on]) } },
+  });
+  const editor = t.el('div', 'clip-editor');
+  const bar = t.el('div', 'multi-bar');
+  editor.hidden = true;
+  bar.hidden = true;
+  await t.v.show();
+  assert.deepEqual(heard, [], 'nothing it docks shows: nothing to say');
+  ctx.dockSlot.show(editor, true);
+  assert.equal(editor.hidden, false);
+  assert.deepEqual(heard, [['object', true]]);
+  ctx.dockSlot.show(bar, true);
+  ctx.dockSlot.show(editor, false);
+  assert.deepEqual(heard, [['object', true]], 'still something shows: said once');
+  await t.v.hide();
+  assert.deepEqual(heard.at(-1), ['object', false], 'a hidden view docks nothing, whatever its nodes say');
+  await t.v.show();
+  assert.deepEqual(heard.at(-1), ['object', true], 'and shown again, what it docks is back');
+  ctx.dockSlot.show(bar, false);
+  assert.deepEqual(heard.at(-1), ['object', false]);
+  assert.throws(() => ctx.dockSlot.show(t.el('div'), true), /dockSlot\.show: a node this view did not add/);
+});
+
 test('a place the slot does not have is an error when a view adds to it, not a node that never shows', async () => {
   const t = aView({ mount: (ctx) => { ctx.barSlot.add(t.el('canvas'), { place: 'nowhere' }); return {}; } });
   await assert.rejects(t.v.show(), /barSlot has no place nowhere/);

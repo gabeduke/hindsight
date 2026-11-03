@@ -56,13 +56,17 @@ export function give(y, top = 0) {
  *   layers     the page's stack (layersOf(document), or a view's ctx.layers)
  *   kind       its kind on the stack: 'sheet', 'drawer' or 'player'
  *   modal      what is under it waits for it (the player)
- *   owner      the key that opened it, where the focus goes back to
+ *   owner      the key that opened it, where the focus goes back to; or a
+ *              function answering it, asked as it opens (the phone's
+ *              player: the bar lends it its key, lib/bar/player.js)
  *   detents    () => [px…], its stops, read each time it settles (a
  *              sheet's height changes); [0] by default: all the way up
  *   closed     () => px, where it comes from and goes to; its height by default
  *   closable   false: a drag never puts it away (Back and Escape still do)
  *   handles    what a drag starts on ([el] by default); a drag never starts
- *              on IGNORE, and only goes up and down
+ *              on IGNORE, and only goes up and down. A handle that is not
+ *              the owner's to list (the bar's, inside a component's root)
+ *              hands its pointerdown to grab(e) instead
  *   when       () => bool: whether a drag may start now (the player's
  *              handles are the bar's, which is no sheet wider than a phone)
  *   onShow     () => void, before it first moves in: lay it out
@@ -71,9 +75,12 @@ export function give(y, top = 0) {
  *   clock, reduced, slop   the ticker, a () => bool for less motion, and
  *              how far a finger goes before it is a drag; for the tests
  *
- * Answers { open({detent}), close(reason), snap(detent), isOpen, detent, y,
- * destroy() }. A drag that starts on a handle while it is put away (the
- * phone's mini player) and goes up opens it under the finger.
+ * Answers { open({detent}), close(reason), snap(detent), grab(e), isOpen,
+ * detent, y, destroy() }. A drag that starts on a handle while it is put
+ * away (the phone's mini player) and goes up opens it under the finger.
+ * grab(e) is a handle's pointerdown, called from that handle's own
+ * listener: e.currentTarget is the handle, which the sheet then hears the
+ * rest of the drag on (and the click its lift sends), as it does `handles`.
  */
 export function createSheet(el, {
   layers, kind = 'sheet', modal = false, owner = null,
@@ -182,7 +189,7 @@ export function createSheet(el, {
   function push() {
     if (layer?.open) return;
     layer = layers.open({
-      el, kind, modal, owner,
+      el, kind, modal, owner: typeof owner === 'function' ? owner() : owner,
       // The one way out: a swipe down, Back, Escape, a tap on its grabber,
       // or the owner's own close all come here.
       onClose: (reason) => {
@@ -286,17 +293,31 @@ export function createSheet(el, {
   }
   const wired = [];
   const on = (t, type, fn, opts) => { t.addEventListener(type, fn, opts); wired.push([t, type, fn, opts]); };
-  for (const h of handles.filter(Boolean)) {
-    on(h, 'pointerdown', onDown);
+  const heard = new Set(); // the handles the rest of a drag is heard on
+  const hear = (h) => {
+    if (heard.has(h)) return;
+    heard.add(h);
     on(h, 'pointermove', onMove);
     on(h, 'pointerup', onUp);
     on(h, 'pointercancel', onCancel);
     on(h, 'click', onClick, true);
+  };
+  for (const h of handles.filter(Boolean)) {
+    on(h, 'pointerdown', onDown);
+    hear(h);
+  }
+  // A handle's own pointerdown, handed in (handles above, for one that
+  // isn't the owner's to list): heard from then on as one of them.
+  function grab(e) {
+    const h = e?.currentTarget;
+    if (h && typeof h.addEventListener === 'function') hear(h);
+    onDown(e);
   }
 
   return {
     open,
     close,
+    grab,
     /** snap moves an open sheet to another of its detents. */
     snap(detent) { if (shown && closing === null) go(detent, 0); },
     get isOpen() { return shown && closing === null; },
@@ -305,6 +326,7 @@ export function createSheet(el, {
     destroy() {
       for (const [t, type, fn, opts] of wired) t.removeEventListener(type, fn, opts);
       wired.length = 0;
+      heard.clear();
       loop.stop();
       if (layer?.open) layer.close('program');
       hide();

@@ -3,7 +3,8 @@
 // bar.md, "It folds by its grabber"): a tap folds it or unfolds it, a drag
 // down folds it and a drag up unfolds it. Folded, it is one row of keys and
 // no strip, so the Studio's lanes have the room (css/bar.css). It stays
-// folded for the visit, through a reload (sessionStorage).
+// folded for the visit, through a reload: the page's layout keeps it
+// (layout.js, with the page's sessionStorage).
 //
 // It slides, not jumps: the page takes its new layout at once, then the bar
 // is moved back to where it was by a transform and let go on the lid spring
@@ -14,23 +15,20 @@ import { GESTURE } from '../ui/press.js';
 import { PHONE } from './player.js';
 import { barLayout } from './layout.js';
 
-export const NP_FOLD_KEY = 'hindsight.npFold';
-
 /**
  * initFold wires the page's #np-grabber, if it has one: answers
  * { apply(folded), toggle(), destroy() }, or null. `layout` is the page's
- * (barLayout, layout.js), which says the fold to the page; `storage` keeps
- * the fold for the visit (sessionStorage); `phone` is a MediaQueryList for
- * a phone, whose grabber is the player's; `slide` moves the bar from where
- * it was (slideFrom, below), handed in for the tests.
+ * (barLayout, layout.js), which says the fold to the page and keeps it for
+ * the visit, so a page reloaded folded is folded before this is wired;
+ * `phone` is a MediaQueryList for a phone, whose grabber is the player's;
+ * `slide` moves the bar from where it was (slideFrom, below), handed in for
+ * the tests.
  */
 export function initFold(doc = document, {
   layout = barLayout(doc),
-  storage = null,
   phone = (doc.defaultView || globalThis).matchMedia?.(PHONE) ?? { matches: false },
   slide = slideFrom,
 } = {}) {
-  const store = storage ?? (typeof sessionStorage !== 'undefined' ? sessionStorage : null);
   const grabber = doc.getElementById('np-grabber');
   if (!grabber) return null;
   const np = doc.getElementById('np');
@@ -47,18 +45,9 @@ export function initFold(doc = document, {
     };
     if (moved && np) slide(np, change);
     else change();
-    try {
-      if (store) {
-        if (on) store.setItem(NP_FOLD_KEY, '1');
-        else store.removeItem(NP_FOLD_KEY);
-      }
-    } catch { /* private mode */ }
   };
 
-  let restored = false;
-  try { restored = store?.getItem(NP_FOLD_KEY) === '1'; } catch { /* fine */ }
-  if (restored) apply(true, { moved: false });
-  else say(false);
+  say(folded());
 
   // A press on the grabber: a tap toggles (the click), a drag decides by
   // its direction, and the click its lift sends is then not a tap.

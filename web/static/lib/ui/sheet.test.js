@@ -62,7 +62,7 @@ function aWindow() {
   };
 }
 
-function setup({ reduced = false, detents = [0], closable = true, animate = false } = {}) {
+function setup({ reduced = false, detents = [0], closable = true, animate = false, grabbed = false, owner = null } = {}) {
   const doc = fakeDoc();
   const win = aWindow();
   const layers = createLayers({ doc, win, CloseWatcher: undefined, history: undefined });
@@ -83,9 +83,11 @@ function setup({ reduced = false, detents = [0], closable = true, animate = fals
   const ck = aClock();
   const log = [];
   const sheet = createSheet(el, {
-    layers, kind: 'player', modal: true,
+    layers, kind: 'player', modal: true, owner,
     detents: () => detents, closed: () => 800, closable,
-    handles: [handle],
+    // grabbed: the handle is not the sheet's to list (the bar's, inside a
+    // component's root), and hands its pointerdown to grab(e).
+    handles: grabbed ? [] : [handle],
     onShow: () => log.push('show'),
     onHide: (why) => log.push(`hide:${why}`),
     onDetent: (i) => log.push(`detent:${i}`),
@@ -100,6 +102,7 @@ function setup({ reduced = false, detents = [0], closable = true, animate = fals
       preventDefault() { this.defaultPrevented = true; },
       stopImmediatePropagation() { this.stopped = true; },
     };
+    if (grabbed && type === 'pointerdown') sheet.grab(e);
     for (const fn of handle.listeners.get(type) || []) fn(e);
     return e;
   };
@@ -216,6 +219,34 @@ test('put away, a drag up from a handle opens it under the finger; a drag down t
   ck.run();
   assert.equal(sheet.y, 0);
   assert.equal(log.at(-1), 'detent:0');
+});
+
+test('a handle that hands it its pointerdown (grab) drags it as a listed one does, and its lift’s click is swallowed', () => {
+  // D5 (docs/plan/transport-extraction.md): the phone's player is the
+  // surface's sheet, and its handles are the bar's, inside the bar's root.
+  const { sheet, ck, ev, log, handle } = setup({ grabbed: true });
+  assert.equal((handle.listeners.get('pointerdown') || []).length, 0, 'the sheet listens on no handle until one is grabbed');
+  ev('pointerdown', 780);
+  ev('pointermove', 760);
+  assert.deepEqual(log, ['show'], 'a drag up from the grabbed handle opens it');
+  ev('pointermove', 300, { dt: 16 });
+  ev('pointerup', 300, { dt: 8 });
+  const click = ev('click', 300);
+  assert.equal(click.defaultPrevented, true, 'the lift’s click is not a tap');
+  ck.run();
+  assert.equal(sheet.y, 0);
+  assert.equal(log.at(-1), 'detent:0');
+});
+
+test('an owner given as a function is asked as the sheet opens: Back gives the focus back to it', () => {
+  const key = { focus() { this.focused = true; } };
+  let asked = 0;
+  const { sheet, layers } = setup({ owner: () => { asked++; return key; } });
+  assert.equal(asked, 0);
+  sheet.open();
+  assert.equal(asked, 1);
+  layers.top().close('back');
+  assert.equal(key.focused, true);
 });
 
 test('caught on its way out, it follows the finger again and stays open', () => {

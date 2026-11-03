@@ -134,11 +134,11 @@ test('the layout, made over a fixture, is barLayout’s: it starts where the fix
   const { models, ready, stop } = fixtureModels(fx, ['layout']);
   await ready;
   const { layout } = models;
-  assert.deepEqual(layout.snapshot(), { folded: true, open: false });
+  assert.deepEqual(layout.snapshot(), { folded: true, open: false, docked: false });
   const heard = [];
   layout.onChange((after, before) => heard.push([after.folded, before.folded]));
   layout.set({ folded: false });
-  assert.deepEqual(layout.snapshot(), { folded: false, open: false });
+  assert.deepEqual(layout.snapshot(), { folded: false, open: false, docked: false });
   assert.deepEqual(heard, [[false, true]]);
   layout.set({ folded: false });
   assert.equal(heard.length, 1, 'nothing moved, nothing heard');
@@ -146,5 +146,5 @@ test('the layout, made over a fixture, is barLayout’s: it starts where the fix
   assert.equal(layout.open, true);
   stop();
   const plain = fixtureModels(fixture({}), ['layout']).models.layout;
-  assert.deepEqual(plain.snapshot(), { folded: false, open: false }, 'neither, by default');
+  assert.deepEqual(plain.snapshot(), { folded: false, open: false, docked: false }, 'none, by default');
 });

@@ -6,8 +6,9 @@
 // strip. A tap on the strip moves the playhead there; a drag scrubs it; with
 // the strip focused, ← → step and Space plays. The engine decides what the
 // bar holds and owns its audio; NowPlaying draws it and hands each press to
-// it (⏏ is its eject). The source menu, ● on the phone's mini player and the
-// output sheet are wired here too, on the engine's verbs, and the tape's
+// it (⏏ is its eject). The source menu and ● on the phone's mini player are
+// wired here too, on the engine's verbs (the output sheet, the phone's
+// player and the recorder are the surface's, handed in), and the tape's
 // keys in the Studio, ●, Catch and the click, on the tape's (tape-keys.js),
 // which the Studio lends its hands (tapeKeys.lend). Its shape is css/bar.css's: #np says what it holds (data-source) and
 // the stylesheet shows each key for the sources it is for (slots.js). The
@@ -25,17 +26,16 @@ import { tokenCache, onSchemeChange } from '../theme.js';
 import { setText } from '../text.js';
 import { takeKeys } from './take-keys.js';
 import { setIcon } from '../ui/icons.js';
-import { initPlayer } from './player.js';
+import { playerKeys, PHONE } from './player.js';
 import { initFold } from './fold.js';
-import { measureBar, hereWord, deviceOf } from './slots.js';
+import { hereWord, deviceOf } from './slots.js';
+import { barLayout } from './layout.js';
 import { sourceMenu } from './source-menu.js';
 import { phoneKey } from './phone-key.js';
 import { tapeKeys } from './tape-keys.js';
 import { barPressNote } from './press-note.js';
-import { phoneRecorder } from '../phone/recorder.js';
 import { layersOf } from '../ui/layers.js';
 import { barTop } from '../ui/menu.js';
-import { wireOutput, paintOutSheet, outDelay } from '../tape/out-switch.js';
 import { sizeCanvas } from '../ui/canvas.js';
 import { outStrip, clockLamp } from './tape-status.js';
 
@@ -48,17 +48,28 @@ const $ = (id) => document.getElementById(id);
  * press is one of the engine's verbs (▶, ⟲, |◂, ↺ 5 s, a seek, ⏏). `tape` is
  * the page's tape model: the Studio's keys, the clock-out lamp and the
  * output strip are drawn from it.
+ *
+ * What is the page's, the surface hands it (step 5c): `layout` (barLayout,
+ * layout.js), `player` (the phone's player, playerSheet in player.js: the
+ * surface's sheet, which the bar's ▣, grabber and window open, put away and
+ * drag), `recorder` (the page's phone recorder, made at boot), and
+ * `output()`, which opens the Output sheet, where the tape plays. Without a
+ * player there is none; without output() where it plays is no key.
  */
 export class NowPlaying {
-  constructor({ engine, onToast, layout, room = () => null, tape = null } = {}) {
+  constructor({ engine, onToast, layout = barLayout(document), room = () => null, tape = null, player = null, recorder = null, output = null } = {}) {
     this.engine = engine;
     const bar = engine.bar;
     this.root = $('np');
     // The source drawn: the snapshot's id, which moves as the bar holds another.
     this.held = null;
     this.tape = tape;
-    // Where it plays opens the output sheet, once there's a tape to send.
-    this.openOutput = null;
+    this.layout = layout;
+    // Where it plays opens the output sheet (the surface's), once there's a
+    // tape to send.
+    this.output = output;
+    // What the tape brings, wired once the engine has one (mountTape).
+    this.tapeMounted = false;
     const onTouch = () => bar.touch();
     this.reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
     this.scrub = $('np-scrub');
@@ -68,11 +79,16 @@ export class NowPlaying {
     this.scrubSize = null;
     this.colors = tokenCache(() => this.scrub);
     onSchemeChange(() => { this.colors.clear(); this.kick(); });
-    // The phone's player, a sheet (player.js): null where the page has none.
-    this.player = initPlayer({ layout });
+    // The phone's player, the surface's sheet (player.js): ▣, the grabber
+    // and the window are its keys. Null where the page has none.
+    this.player = player;
+    if (player && $('np-expand')) {
+      playerKeys(this.root, {
+        player, layout, phone: window.matchMedia(PHONE),
+        btn: $('np-expand'), grabber: $('np-grabber'), handles: [$('np-grabber'), this.root.querySelector('.np-window')],
+      });
+    }
     initFold(document, { layout });
-    // Its height, for the pages that keep clear of it.
-    measureBar(this.root);
     // With a take, Open › and ✎; with the feed, GRAB; ⟲ is Repeat for a
     // take (take-keys.js).
     this.keys = takeKeys({ doc: document, root: this.root, onNote: () => bar.note(), onGrabFeed: () => bar.grabFeed() });
@@ -168,12 +184,17 @@ export class NowPlaying {
     }
     // The mini player's ● and its ▾: recording from this phone
     // (phone-key.js), on the page's one recorder.
-    const phone = phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), playerUp: () => !!this.player?.isOpen, recorder: () => phoneRecorder(document, { toast: (m, k, ms) => onToast?.(m, k, ms) }) });
+    // The recorder is the page's, made at boot (lib/phone/recorder.js).
+    const whenRecorder = recorder ? (fn) => fn(recorder) : undefined;
+    const phone = phoneKey({ doc: document, layers: layersOf(document), floor: barTop(document), playerUp: () => !!this.player?.isOpen, recorder: () => recorder, whenRecorder });
     // The tape's keys in the Studio, ●, Catch and its ▾ and the click
     // (tape-keys.js), on the page's tape (`tape`, the tape model): the
     // Studio lends them its hands through its ctx (ctx.tapeKeys). A hold
     // on ● on a phone offers this phone's ▾.
-    this.tapeKeys = tapeKeys({ doc: document, tape, toast: (m, k, o) => onToast?.(m, k, o), offer: () => phone?.offer() });
+    this.tapeKeys = tapeKeys({ doc: document, tape, toast: (m, k, o) => onToast?.(m, k, o), offer: () => phone?.offer(), whenRecorder });
+    // Where it plays (OUT on the display, and the player's foot) opens the
+    // surface's Output sheet.
+    for (const k of [$('np-output'), $('np-out-foot')]) k?.addEventListener('click', () => this.output?.());
     // The output strip's tap, for this phone's sound held back.
     $('np-out-strip-resume')?.addEventListener('click', () => engine.stream?.resume());
     // The lamp and the strip, from the tape's answers and the transport's
@@ -189,7 +210,7 @@ export class NowPlaying {
     engine.bar.onChange(() => {
       const s = bar.snapshot(this.here);
       if (s.id !== this.held) this.load(s);
-      if (engine.tape && !this.openOutput) this.mountTape();
+      if (engine.tape && !this.tapeMounted) this.mountTape();
       const ej = $('np-eject');
       if (ej.hidden !== !s.canEject) ej.hidden = !s.canEject;
       if (!document.hidden) { this.render(); this.paintTape(); }
@@ -201,28 +222,14 @@ export class NowPlaying {
   }
 
   /**
-   * mountTape wires what the tape brings, once the engine has one: the
-   * header's output button (and the phone player's OUT pill), where the tape
-   * plays, chosen from any room (the sheet asks the Pi as it opens, so it's
-   * never a few seconds behind); and a press on the keyboard, over the
-   * display for its second (press-note.js).
+   * mountTape wires what the tape brings, once the engine has one: a press
+   * on the keyboard, over the display for its second (press-note.js); and
+   * where it plays becomes a key (paintDisplay).
    */
   mountTape() {
-    const { engine } = this;
-    const { transport } = engine;
-    this.openOutput = wireOutput({
-      name: () => engine.tape.title,
-      onOpen: () => transport.refresh(),
-      choose: (mode) => engine.output.setMode(mode),
-      keys: [$('np-output'), $('np-out-foot')].filter(Boolean),
-    });
+    this.tapeMounted = true;
     let note = null;
-    transport.onPress((p) => { note ??= barPressNote(document); note.show(p); });
-    const paintOut = () => {
-      const stream = engine.stream;
-      paintOutSheet(transport.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : transport.streamDelayMs()));
-    };
-    transport.onChange(paintOut);
+    this.engine.transport.onPress((p) => { note ??= barPressNote(document); note.show(p); });
     this.kick();
   }
 
@@ -361,7 +368,9 @@ export class NowPlaying {
     setAttr(tempo, 'aria-label', tempoMenu ? `${d.said.tempo}: change it` : d.said.tempo);
     setAttr($('np-source'), 'aria-label', d.said.source);
     const out = $('np-output');
-    const sends = !!this.openOutput;
+    // Once the engine has a tape to send: the same test the shell's
+    // openOutput makes (lib/tape/out-switch.js outputSheet).
+    const sends = !!this.engine.tape && !!this.output;
     if (out.disabled !== !sends) out.disabled = !sends;
     setAttr(out, 'aria-label', d.said.out);
     if (foot) {

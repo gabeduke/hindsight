@@ -60,11 +60,17 @@ sideways scroll).
   from this phone*).
 - **The foot** (`data-slot="foot"`, `#np-out-foot`) is where it plays, at the
   foot of the phone's player pulled up, under the thumb; the display's OUT
-  is hidden there. Both open the output sheet (`wireOutput`'s keys), and
-  `paintDisplay` writes both.
-- **Its height is measured** (`measureBar`, on `lib/ui/measure.js`'s
-  `measureInto`: one `ResizeObserver` writing `--np-h` on the root), never
-  written into the CSS; every reader has its `0px` fallback.
+  is hidden there. Both open the shell's Output sheet (`NowPlaying`'s
+  `output()`, the shell's `openOutput`: `lib/tape/out-switch.js`
+  `outputSheet(engine)`, which does nothing until the engine has a tape,
+  and the first time wires the sheet (`wireOutput`) and marks the mode and
+  the delay at once, then on every transport change); they are keys only
+  once the engine has a tape, the same test. `paintDisplay` writes both.
+- **Its height is measured** by the page around it (`measureBar` on the
+  bar's root, called by the shell's boot and by Open, on
+  `lib/ui/measure.js`'s `measureInto`: one `ResizeObserver` writing
+  `--np-h` on `<html>`), never written into the CSS; every reader has its
+  `0px` fallback.
 - **The display says what plays** (`lib/bar/display.js`): where it is, then
   three keys on the LCD, each a value over its legend: the tempo (in the
   Studio, with the tape, the tempo's panel, `renderTempo`: a dialog with
@@ -101,13 +107,30 @@ sideways scroll).
   slides by a FLIP on the lid spring (a transform, never a height a frame).
   Folded it is one row of 44 px keys, `body.np-fold`, kept for the visit. On
   a phone the grabber is the player's, and puts it away. ▾ only ever opens
-  a menu. The fold and the player up are the page's bar layout
-  (`lib/bar/layout.js` `barLayout(doc)`: `folded`, `open`, `set()`,
-  `snapshot()`, `onChange(fn)`, `fn(after, before)`), the one place that writes `body.np-fold`
-  and `body.player-open`; the shell makes it and hands it to the bar and to
-  every view (`ctx.barLayout`), where the Studio hears a fold to draw its
-  lanes again. The router keeps `np-fold` with its room, so the body is
-  where it is kept.
+  a menu. The fold, the player up and what is docked above the bar are the
+  page's bar layout (`lib/bar/layout.js` `barLayout(doc, {root,
+  storage})`: `folded`, `open`, `docked`, `set({folded, open, docked})`,
+  `sync()`, `snapshot()`, `onChange(fn)`, `fn(after, before)`), the one
+  place that writes `body.np-fold` and `body.player-open`, and that keeps
+  the fold for the visit (`storage`, the page's `sessionStorage`: read once
+  as it is made, so a page reloaded folded opens folded; `fold.js` keeps
+  nothing). The shell makes it and hands it to the bar and to every view
+  (`ctx.barLayout`), where the Studio hears a fold to draw its lanes again.
+  The router keeps `np-fold` with its room, so the body is where it is
+  kept. **The bar's root says the same on itself** (step 5c):
+  `data-fold`, `data-open` and `data-docked`, each there while it is so,
+  written by `set()` and by `sync()`, which the shell calls from the
+  router's `chrome.classesGiven`, the moment a room has been given its
+  body classes and before it is revealed, so the root never paints a frame
+  apart from the body (not in `setPath`, which runs after the room's
+  reveal is awaited). `docked` is said by the dock's slot (`ctx.dockSlot.show`,
+  `shell.md`): the Studio's clip editor or action bar, or Capture's
+  drawer, showing above the bar. Open's root says `data-open` too, through
+  `player.js`'s layout. Nothing reads them yet: `css/bar.css` moves onto
+  them in step 5d. On a switch, `data-docked` can read false for a moment
+  between the room left taking its docked parts out and the room arriving
+  putting its own back (both inside the turn's update, before it is
+  drawn): a rule on it must not animate that blink.
 - **The page around the bar is the page's.** What a page does about the bar
   is `styles.css`'s, not `css/bar.css`'s: `--dock-b` and the padding and
   toasts that keep clear of the bar on a phone, the player pulled up
@@ -123,7 +146,19 @@ sideways scroll).
   holds another and puts it back in the bar over the feed or the tape;
   false when it can't be loaded (still saving).
 - **On a phone the player is a sheet you drag** (`lib/bar/player.js` on
-  `lib/ui/sheet.js`; `shell.md`, *Sheets*): a tap on the mini player's
+  `lib/ui/sheet.js`; `shell.md`, *Sheets*). The sheet is the surface's
+  (D5): `playerSheet(el, {root, layers, layout, phone})`, made by the
+  shell's boot over `#np-dock` (the bar and its drawers) and by Open over
+  its bar, stills the page under it (`inert` on the body's other children),
+  says the player up through the layout and closes as the bar empties or
+  the screen grows past a phone; it answers `{open(), close(), grab(e),
+  isOpen, lend(keys)}`. The keys are the bar's: `playerKeys(root, {player,
+  layout, phone, btn, grabber, handles})` opens and puts it away from ▣
+  and the grabber, hands the grabber's and the window's pointerdown to
+  `grab(e)` (the sheet hears the rest of that drag on the handle), keeps
+  `data-size` (`mini` or `full`), and lends `{owner, shown(), hidden()}`:
+  ▣, the key Back gives the focus back to, and what the bar does as the
+  player is laid out and put away. `initPlayer` is both, for Open. A tap on the mini player's
   window, or a drag up from it, pulls it up from where the mini player
   stood, so the mini player grows into the full one; a swipe down on its
   grabber or its art (the reels and the display), a tap on the grabber,
@@ -272,16 +307,19 @@ what this device hears), `setLoop(on)` (⟲), each a touch, and the strip's
 | `levels` | the reels' levels (`{colors, at(frame)}`), or null |
 
 `NowPlaying` (`lib/bar/bar.js`) is the bar drawn: made by the shell beside
-the engine (`new NowPlaying({engine, onToast, layout, room, tape})`: `layout` the
-shell's `barLayout`, `room()` the room the router shows, so the tempo opens
-its menu in the Studio; the shell kicks the bar as it switches; `tape` the
-page's tape model, for the Studio's keys, `np.tapeKeys`, the lamp and the
-output strip), it draws the engine's `snapshot()` on `#np` from its
+the engine (`new NowPlaying({engine, onToast, layout, room, tape, player,
+recorder, output})`: `layout` the shell's `barLayout`, `room()` the room
+the router shows, so the tempo opens its menu in the Studio; the shell
+kicks the bar as it switches; `tape` the page's tape model, for the
+Studio's keys, `np.tapeKeys`, the lamp and the output strip; and
+what is the page's, the surface's, handed in (step 5c): `player`, the
+phone's player sheet, `recorder`, the page's phone recorder, made at boot,
+and `output()`, which opens the Output sheet), it draws the engine's `snapshot()` on `#np` from its
 `onChange` (and the strip through `paintStrip`, on a canvas sized by
 `lib/ui/canvas.js` `sizeCanvas`), sets `#np[data-source]`,
 `#np[data-room]` and ⏏'s `hidden` (`canEject`), and hands each press to
 the engine's verbs. It holds no source. The source menu, ● on the phone's mini
-player, the output sheet and the Studio's keys are wired there too; the extraction moves them,
+player and the Studio's keys are wired there too; the extraction moves them,
 with `NowPlaying`, into the Transport component. Guardrail 18 fails on a
 module other than the engine that makes a source, on audio made for the bar
 under `lib/bar/`, `lib/room/`, `lib/shell/` or `lib/components/`, and on a

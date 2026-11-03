@@ -40,10 +40,11 @@ export function outSheet(doc = document) {
 }
 
 /**
- * wireOutput hooks the keys that say where the tape plays (`keys`: OUT on
- * the bar's display) to the Output sheet: a key opens it, a choice calls
- * choose(mode). name() is the loaded tape's name, for the sheet's first
- * line; onOpen() runs as it opens. Answers the sheet.
+ * wireOutput wires the page's Output sheet: open() opens it, and a choice
+ * calls choose(mode). name() is the loaded tape's name, for the sheet's
+ * first line; onOpen() runs as it opens. `keys` that say where the tape
+ * plays open it too; the shell's bar has none here, it calls open() (the
+ * surface's, lib/shell/boot.js). Answers { sheet, open }.
  */
 export function wireOutput({ choose, name, onOpen = () => {}, keys = [] }) {
   const sheet = outSheet();
@@ -55,7 +56,7 @@ export function wireOutput({ choose, name, onOpen = () => {}, keys = [] }) {
   for (const b of keys.filter(Boolean)) b.addEventListener('click', open);
   document.getElementById('out-close').addEventListener('click', () => sheet.close());
   for (const b of sheet.querySelectorAll('.out-choice')) b.addEventListener('click', () => choose(b.dataset.mode));
-  return sheet;
+  return { sheet, open };
 }
 
 /** paintOutSheet marks the choice in force, and how late a phone hears it. */
@@ -101,4 +102,37 @@ export async function switchOutput(mode, { player, transport, toast }) {
     toast(e.message, 'bad');
     return false;
   }
+}
+
+/**
+ * outputSheet is the page's way to open the Output sheet, for the shell
+ * (lib/shell/boot.js, ctx.openOutput): an open() that does nothing until
+ * the engine has a tape to send, and the first time wires the sheet
+ * (wireOutput: the tape's name, the Pi asked as it opens, a choice is
+ * engine.output.setMode) and marks it as it stands, the mode in force and
+ * how late a phone hears it, then again on every change of the transport.
+ * `wire` and `paint` are wireOutput and paintOutSheet, handed in for the
+ * tests.
+ */
+export function outputSheet(engine, { wire = wireOutput, paint = paintOutSheet } = {}) {
+  let sheet = null;
+  return function open() {
+    if (!engine.tape) return undefined;
+    if (!sheet) {
+      const { transport } = engine;
+      sheet = wire({
+        name: () => engine.tape.title,
+        onOpen: () => transport.refresh(),
+        choose: (mode) => engine.output.setMode(mode),
+      });
+      const mark = () => {
+        const stream = engine.stream;
+        paint(transport.mode() || 'jam', outDelay(stream?.active ? stream.delayMs() : transport.streamDelayMs()));
+      };
+      transport.onChange(mark);
+      mark();
+    }
+    sheet.open();
+    return undefined;
+  };
 }

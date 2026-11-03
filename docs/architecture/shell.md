@@ -43,7 +43,7 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 (`lib/shell/view.js`) carries:
 
 - `barLayout`: the bar's layout (`lib/bar/layout.js`; `bar.md`, *It folds
-  by its grabber*): `folded`, `open` and `onChange(fn)`, shared.
+  by its grabber*): `folded`, `open`, `docked` and `onChange(fn)`, shared.
 - `tapeKeys`: the bar's ●, Catch and the click (`lib/bar/tape-keys.js`;
   `bar.md`, *The Studio's keys*), shared: the Studio lends them its hands
   (`lend(hands)`) and presses them (`press(name)`, `catch(what)`), never
@@ -93,7 +93,11 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   the start of a zone the shell names in the slot (`boot.js`,
   `slots.bar.places`), an error at `add` for a name it hasn't got. The bar's
   one place is `'strip'` (`[data-slot="strip"]`), where the Studio's
-  overview goes (`bar.md`, *The Studio's part of the bar*).
+  overview goes (`bar.md`, *The Studio's part of the bar*). `dockSlot.show(node, on)` shows or hides a node the view docked
+  and says so: the dock's spec hears `onShown(slot, any)` (whether anything
+  that view docks shows, false while it is hidden), from which the boot has
+  the bar's root say `data-docked` (`barLayout.set({docked})`). A docked
+  node is shown and hidden through it, never by its own `hidden`.
 
 **The shell scope.** The shell's own chrome (the bar, once it is a
 component: `docs/plan/transport-extraction.md`, step 5) belongs to no
@@ -121,7 +125,10 @@ page, and shows the new one, inside a View Transition when there is one
 `popstate` switches only when the path names another view, so an entry of
 the same room (the stack's own, in Safari) is left to its owner. Before a
 switch the router calls `chrome.beforeSwitch` (the stack's `leave()`), which
-closes everything open but the phone's player; on a tap it then waits for
+closes everything open but the phone's player, and `chrome.classesGiven(id)`
+the moment the room arriving has its body classes, before it is revealed
+(at boot too), where the boot has the bar's root say the room's fold in
+the same frame (`barLayout.sync()`; `bar.md`); on a tap it then waits for
 the stack's own Back, or writes the room's entry over the stack's, so no
 dead entry is left for Back to land on. Each view keeps its own scroll. If `mount` or `show`
 throws, the router falls back to a full navigation.
@@ -278,7 +285,11 @@ the take's name and More. Open's lane menus are still their own
 the foot and follows the finger is `createSheet(el, {layers, kind, modal,
 owner, detents, closed, closable, handles, when, onShow, onHide,
 onDetent})`, answering `{open({detent}), close(reason), snap(detent),
-isOpen, detent, y, destroy()}`. It moves `el` by a transform alone, on the
+grab(e), isOpen, detent, y, destroy()}`. `owner` may be a function,
+asked as it opens. A handle the owner can't list (the bar's, inside its
+root, for the phone's player the surface makes) hands its pointerdown to
+`grab(e)`, from its own listener, and the sheet hears the rest of the drag,
+and the click its lift sends, on that handle. It moves `el` by a transform alone, on the
 shared ticker: a drag on one of its `handles` (never on `IGNORE`: a field,
 a canvas, what has a drag of its own; up and down only) follows the
 finger, past its top it gives (`give`), and let go it settles on the lid
@@ -292,7 +303,8 @@ way out, it is open again. The click a drag's lift sends is swallowed.
 With less motion it doesn't travel: it is there at once and fades in and
 out (`T.touch`, `T.exit`). The owner lays it out (`onShow`) and puts it
 away (`onHide`); the sheet only moves it. Its first user is the phone's
-player (`lib/bar/player.js`, `bar.md`); the notes drawer is the second
+player (`lib/bar/player.js` `playerSheet`, the surface's, made by the
+boot; the bar's keys drag it through `grab`: `bar.md`); the notes drawer is the second
 (`lib/room/drawer.js`, `rooms.md`, *The notes drawer*), with a half-way
 detent.
 
@@ -300,12 +312,14 @@ detent.
 written into a stylesheet: `measureInto(el, prop, {root, RO})` writes
 `el`'s height, as drawn, into the custom property `prop` on the page's
 `<html>`, once per change (0 hidden), and answers its disconnect. The bar's
-`--np-h` (`measureBar`, `bar.md`) and help mode's tip, `--tip-h`
+`--np-h` (`measureBar`, called by the shell's boot and Open on the bar's
+root: `bar.md`) and help mode's tip, `--tip-h`
 (`lib/help/help.js`, `take-page.md`), are its; every reader has a `0px`
 fallback.
 
 **Recording from this phone** (`lib/phone/recorder.js`). One recorder per
-page, `phoneRecorder(doc)`, on the page's `#phone-sheet`: Capture's and the
+page, `phoneRecorder(doc)`, on the page's `#phone-sheet`, made by the
+shell's boot and handed to the bar (`NowPlaying`'s `recorder`): Capture's and the
 Studio's ● Phone (`initPhone` wires a room's key to it), the tape's menu's
 Record from this phone… (`hindsight:phone`, the sheet), the mini player's
 ● and ▾ (`lib/bar/phone-key.js`) and the Studio's ● with the tape playing on
@@ -317,8 +331,8 @@ sheet, which says why), `stop()`, `inputs()`, `input()`, `setInput(id)`,
 seconds, and the same object until it moves, so a component watches it as
 a model: `components.md`), `onChange(fn)`, `onSaved(fn)`. A key that
 shows a recording without starting one (the mini player's ●, the Studio's)
-takes it by `onPhoneRecorder(doc, fn)`: now, or as soon as a room makes
-it.
+takes it by `onPhoneRecorder(doc, fn)`: now, or as soon as it is made
+(the shell's is made at boot, and the bar's keys are handed it).
 
 **The engine** (`lib/models/engine.js`; *The engine*, `bar.md`), made once by the shell, and the bar that draws it (`lib/bar/bar.js` `NowPlaying`), made beside it:
 

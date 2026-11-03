@@ -171,7 +171,8 @@ can make:
   in `calls` as `recorder.<verb>`. A verb moves nothing:
   `set('recorder', …)` does;
 - `layout`: `barLayout` (`lib/bar/layout.js`) itself, on a body no page
-  shows, from the `layout` body (`{folded, open}`, neither by default).
+  shows, from the `layout` body (`{folded, open}`, neither by default; its
+  snapshot says `docked` too, false until `set({docked})`).
 
 The snapshots are the Pi's answers, saved: `testdata/protocol/<noun>/<case>.json`
 (`tape/` is `GET /api/tapes/state`, `takes/` is `GET /api/jams`). Outside
