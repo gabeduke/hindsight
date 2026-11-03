@@ -114,3 +114,8 @@ test('while ● Rec runs, its tracks’ inputs and what’s armed don’t move',
   assert.equal(armWrite(h, 4, true), null);
   assert.equal(armWrite(h, 2, false), null);
 });
+
+test("an extra input's USB IN on the kit is the kit's USB", () => {
+  assert.equal(role({ id: 'kit.usb.input-ams-24', kind: 'usb', device: 'kit' }), 'kit-usb');
+  assert.equal(role({ id: 'kit.usb', kind: 'usb', device: 'kit' }), 'kit-usb');
+});

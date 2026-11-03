@@ -23,6 +23,7 @@ export function role(s) {
   if (!s) return '';
   if (s.device === 'kit' || s.id.startsWith('kit.')) {
     if (s.kind === 'tap' || s.kind === 'track' || s.kind === 'bus' || s.kind === 'out' || s.kind === 'keep') return s.kind;
+    if (s.id.startsWith('kit.usb.')) return 'kit-usb'; // an extra input's USB IN
     return { 'kit.clock-out': 'clock-out', 'kit.clock-in': 'clock-in', 'kit.midi': 'kit-midi', 'kit.controls': 'controls', 'kit.usb': 'kit-usb' }[s.id] || '';
   }
   if (s.kind === 'network') return 'listener';

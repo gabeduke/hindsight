@@ -187,6 +187,28 @@ func ForUSB(id string) (Profile, bool) {
 	return Profile{}, false
 }
 
+// ForName finds a profile by how EXTRA_INPUTS may name its card: its USB id,
+// or a name of it ("AMS-24", "AMS24", "Zoom AMS-24"), ignoring case,
+// spaces and hyphens.
+func ForName(name string) (Profile, bool) {
+	if p, ok := ForUSB(name); ok {
+		return p, true
+	}
+	norm := func(s string) string { return strings.NewReplacer(" ", "", "-", "").Replace(strings.ToLower(s)) }
+	n := norm(name)
+	if n == "" {
+		return Profile{}, false
+	}
+	for _, p := range profiles {
+		for _, x := range []string{p.Short, p.Match.MIDI} {
+			if x := norm(x); x != "" && (strings.Contains(n, x) || strings.Contains(x, n)) {
+				return p, true
+			}
+		}
+	}
+	return Profile{}, false
+}
+
 // ForMIDI finds the profile of a MIDI port by its name: the profile's
 // substring in the port's name, case-insensitively, as MIDI_DEVICES matches.
 func ForMIDI(name string) (Profile, bool) {

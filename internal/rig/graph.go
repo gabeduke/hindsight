@@ -57,14 +57,27 @@ type SourceView struct {
 	PeakDB *float64
 }
 
+// ExtraView is an extra input (EXTRA_INPUTS) as the capture has it now.
+type ExtraView struct {
+	Match    string // as EXTRA_INPUTS names it
+	Device   string // what it opened; "" while it isn't open
+	USBID    string
+	Channels [2]int // the bus's channels it fills, 1-indexed
+	Live     bool
+	Locked   bool // resampled onto the main interface's clock, and holding there
+}
+
 // Inputs is everything the graph is drawn from.
 type Inputs struct {
 	Interface string // the capture's device name; "" with none open
 	USBID     string // its USB id, when the system says
 	Channels  int    // its inputs, as the ring was sized
 	Outputs   int    // its outputs, if known
-	MIDI      []MIDIPort
-	Settings  map[string]Setting
+	// Extras are the extra inputs running now (EXTRA_INPUTS); the setting
+	// says which are saved.
+	Extras   []ExtraView
+	MIDI     []MIDIPort
+	Settings map[string]Setting
 	// Sources are the taps catches use now: TAPE_SOURCES as running.
 	Sources []SourceView
 	Tape    *TapeView // nil with the tape off, or nothing loaded
@@ -109,8 +122,9 @@ type Socket struct {
 // Device is a box on the desk.
 type Device struct {
 	ID string `json:"id"`
-	// Role: interface (the USB audio the capture opened), midi, kit, or
-	// listener (a phone on the network).
+	// Role: interface (the USB audio the capture opened), input (an extra
+	// input: a second interface that only records), midi, kit, or listener
+	// (a phone on the network).
 	Role        string   `json:"role"`
 	Name        string   `json:"name"`
 	Short       string   `json:"short"`
@@ -233,6 +247,7 @@ const (
 	keyDevices    = "MIDI_DEVICES"
 	keyCapture    = "MIDI_CAPTURE"
 	keyControl    = "TAPE_CONTROLLER"
+	keyExtra      = "EXTRA_INPUTS"
 	signalFloorDB = -50.0
 )
 
@@ -251,6 +266,15 @@ type builder struct {
 	g      Graph
 	ifaceN int // the interface's index in g.Devices, or -1
 	prof   Profile
+	extras []extraDev
+}
+
+// extraDev is an extra input drawn: its profile, and where its channels
+// start on the bus (its taps are its own channels, numbered on from there).
+type extraDev struct {
+	id     string
+	prof   Profile
+	offset int
 }
 
 // iface is the interface's device, or nil. By index: g.Devices grows.
@@ -278,6 +302,7 @@ func (b *builder) under(saved bool) func(string) string {
 func (b *builder) build() Graph {
 	b.g = Graph{Labels: b.labels, RestartNeeded: b.in.RestartNeeded, Cables: []Cable{}, Warnings: []Warning{}, Devices: []Device{}}
 	b.interfaceDevice()
+	b.extraInputs()
 	b.kit()
 	b.midiDevices()
 	b.tapeCables()
@@ -330,6 +355,108 @@ func (b *builder) interfaceDevice() {
 		About:  fmt.Sprintf("USB audio: %d in, %d out. The capture records every input.", d.In, d.Out)})
 }
 
+// extraInputs are the extra inputs (EXTRA_INPUTS, saved or running): each a
+// box of its own, role input, its USB into a kit socket of its own, its
+// jacks showing the taps they land on, its outputs never played. Saved and
+// not running, or running and taken out, its cable waits for the restart;
+// running and not open (unplugged), it carries nothing.
+func (b *builder) extraInputs() {
+	saved, running := list(b.set(keyExtra).Value), list(b.set(keyExtra).Running)
+	seen := map[string]bool{}
+	ch := b.in.Channels
+	for _, m := range append(running, saved...) {
+		if strings.EqualFold(m, "none") || seen[strings.ToLower(m)] {
+			continue
+		}
+		seen[strings.ToLower(m)] = true
+		var live *ExtraView
+		for i := range b.in.Extras {
+			if strings.EqualFold(b.in.Extras[i].Match, m) {
+				live = &b.in.Extras[i]
+			}
+		}
+		var p Profile
+		ok := false
+		if live != nil {
+			p, ok = ForUSB(live.USBID)
+		}
+		if !ok {
+			p, ok = ForName(m)
+		}
+		if !ok {
+			p = Generic(m, 2, 0)
+		}
+		offset := ch
+		if live != nil {
+			offset = live.Channels[0] - 1
+		}
+		ch = offset + 2
+		id := "input-" + slug(p.Short)
+		d := Device{ID: id, Role: "input", Name: p.Name, Short: p.Short, Profile: p.ID, Generic: p.Generic,
+			Placeholder: p.Placeholder, Note: p.Note, Match: m}
+		if live != nil {
+			d.USB = live.USBID
+		}
+		if u, ok := p.Port("usb"); ok {
+			d.In, d.Out = u.In, u.Out
+		}
+		for _, port := range p.Ports {
+			s := Socket{ID: id + "." + port.ID, Label: port.Label, Kind: port.Kind, Dir: port.Dir, About: port.About}
+			if port.Kind == "audio" && port.Dir == "out" {
+				s.About = port.About + " Hindsight never plays here."
+			}
+			for _, t := range p.Taps {
+				if t.From != port.ID {
+					continue
+				}
+				for _, src := range b.in.Sources {
+					if src.Pair == [2]int{t.USB[0] + offset, t.USB[1] + offset} {
+						s.Tap = src.Name
+					}
+				}
+			}
+			d.Sockets = append(d.Sockets, s)
+		}
+		b.g.Devices = append(b.g.Devices, d)
+		b.extras = append(b.extras, extraDev{id: id, prof: p, offset: offset})
+		about := fmt.Sprintf("USB audio: %d in, resampled onto the main interface's clock; channels %d-%d. Nothing plays out.", max(d.In, 2), offset+1, offset+2)
+		c := Cable{ID: "usb:" + id, From: id + ".usb", To: "kit.usb." + id, Kind: "usb", Fixed: true,
+			Writes: "EXTRA_INPUTS", About: about}
+		switch {
+		case live != nil && !live.Live:
+			c.Off, c.Waiting = true, true
+			c.About += " Not plugged in: its channels are silence."
+		case live != nil && !live.Locked:
+			c.About += " Not locked to the main clock yet."
+		}
+		has := func(get func(string) string) bool {
+			for _, x := range list(get(keyExtra)) {
+				if strings.EqualFold(x, m) {
+					return true
+				}
+			}
+			return false
+		}
+		b.both(c, has)
+	}
+}
+
+// extraFor is the extra input whose profile's MIDI name is in a port's
+// name, or nil.
+func (b *builder) extraFor(port string) *Device {
+	for _, x := range b.extras {
+		if x.prof.Generic || x.prof.Match.MIDI == "" || !names([]string{x.prof.Match.MIDI}, port) {
+			continue
+		}
+		for i := range b.g.Devices {
+			if b.g.Devices[i].ID == x.id {
+				return &b.g.Devices[i]
+			}
+		}
+	}
+	return nil
+}
+
 // cardName is a PortAudio name without ALSA's suffix (audio.CardName).
 func cardName(name string) string {
 	if i := strings.Index(name, ":"); i > 0 {
@@ -345,6 +472,10 @@ func (b *builder) kit() {
 		k.Note = b.in.Version
 	}
 	k.Sockets = append(k.Sockets, Socket{ID: "kit.usb", Label: "USB", Kind: "usb", Dir: "in", About: "The interface's USB: every input it has, into the ring."})
+	for _, x := range b.extras {
+		k.Sockets = append(k.Sockets, Socket{ID: "kit.usb." + x.id, Label: "USB IN", Kind: "usb", Dir: "in",
+			About: fmt.Sprintf("%s's USB: its inputs into the ring, after the main interface's. It only records.", x.prof.Short)})
+	}
 	for _, s := range b.in.Sources {
 		sock := Socket{ID: "kit.tap." + s.Name, Label: strings.ToUpper(s.Name), Kind: "tap", Dir: "out",
 			Pair: []int{s.Pair[0], s.Pair[1]}, Hears: nonNil(s.Hears), PeakDB: s.PeakDB, Signal: s.PeakDB != nil && *s.PeakDB > signalFloorDB}
@@ -353,6 +484,15 @@ func (b *builder) kit() {
 			sock.About = t.About
 			if t.From != "" && t.From != "mix" {
 				sock.Name = b.labels[b.prof.ID+"."+t.From]
+			}
+		}
+		for _, x := range b.extras {
+			if t, ok := x.prof.TapAt([2]int{s.Pair[0] - x.offset, s.Pair[1] - x.offset}); ok {
+				sock.About = fmt.Sprintf("%s's %s, on channel %d. The tape never reaches it.", x.prof.Short, t.From, s.Pair[0])
+				if p, ok := x.prof.Port(t.From); ok {
+					sock.About = fmt.Sprintf("%s's %s, on channel %d. The tape never reaches it.", x.prof.Short, p.Label, s.Pair[0])
+				}
+				sock.Name = b.labels[x.id+"."+t.From]
 			}
 		}
 		if n := b.labels[sock.ID]; n != "" {
@@ -451,8 +591,17 @@ func (b *builder) midiDevices() {
 	if d := b.iface(); d != nil {
 		used[d.ID] = true
 	}
+	for _, x := range b.extras {
+		used[x.id] = true
+	}
 	for _, port := range ports {
 		if d := b.iface(); d != nil && !b.prof.Generic && b.prof.Match.MIDI != "" && names([]string{b.prof.Match.MIDI}, port.Name) {
+			d.MIDI = append(d.MIDI, port.Name)
+			b.midiCables(d, port)
+			continue
+		}
+		// An extra input's own MIDI port is folded into its box.
+		if d := b.extraFor(port.Name); d != nil {
 			d.MIDI = append(d.MIDI, port.Name)
 			b.midiCables(d, port)
 			continue
@@ -897,6 +1046,9 @@ func (b *builder) found() {
 		parts = append(parts, d.Short+" on USB")
 	} else {
 		parts = append(parts, "no audio interface")
+	}
+	for _, x := range b.extras {
+		parts = append(parts, x.prof.Short+" in")
 	}
 	var midi []string
 	for _, d := range b.g.Devices {

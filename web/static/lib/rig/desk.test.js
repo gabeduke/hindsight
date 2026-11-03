@@ -47,3 +47,18 @@ test('titles and levels read as the inspector says them', () => {
   assert.equal(levelWords(-120), 'silent');
   assert.equal(levelWords(undefined), 'no reading');
 });
+
+test('an extra input is drawn after the interface, its USB IN in the taps row', () => {
+  const x = structuredClone(g);
+  x.devices.push({ id: 'input-ams-24', role: 'input', name: 'Zoom AMS-24', short: 'AMS-24', in: 2, out: 4,
+    sockets: [{ id: 'input-ams-24.usb', label: 'USB-C', kind: 'usb', dir: 'both' }, { id: 'input-ams-24.in1', label: 'IN 1', kind: 'audio', dir: 'in', tap: 'ams1' }] });
+  x.kit.sockets.push({ id: 'kit.usb.input-ams-24', label: 'USB IN', kind: 'usb', dir: 'in' });
+  const d = desk(x);
+  const roles = d.devices.map((v) => v.role);
+  assert.equal(roles[0], 'interface');
+  assert.equal(roles[1], 'input');
+  assert.match(d.devices[1].sub, /records only/);
+  assert.ok(d.rows.find((r) => r.id === 'taps').sockets.some((s) => s.id === 'kit.usb.input-ams-24'));
+  const ids = allSockets(d).map((s) => s.id);
+  assert.equal(new Set(ids).size, ids.length, 'every socket once');
+});

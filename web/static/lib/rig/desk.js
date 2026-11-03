@@ -10,14 +10,14 @@ import { spoken } from './graph.js';
 const sock = (g, s, device) => ({ ...s, device, spoken: spoken(g, { ...s, device }) });
 
 /**
- * desk is the drawing: devices (the interface first, then MIDI devices,
- * then listeners), and the bay's rows. Every socket in the graph is in it
+ * desk is the drawing: devices (the interface first, then its extra
+ * inputs, then MIDI devices, then listeners), and the bay's rows. Every socket in the graph is in it
  * exactly once, as a button.
  */
 export function desk(g) {
-  const order = { interface: 0, midi: 1, listener: 2 };
+  const order = { interface: 0, input: 1, midi: 2, listener: 3 };
   const devices = [...(g.devices || [])]
-    .sort((a, b) => (order[a.role] ?? 3) - (order[b.role] ?? 3))
+    .sort((a, b) => (order[a.role] ?? 4) - (order[b.role] ?? 4))
     .map((d) => ({
       id: d.id,
       role: d.role,
@@ -33,7 +33,7 @@ export function desk(g) {
   const of = (pred) => kit.filter(pred).map((s) => sock(g, s, 'kit'));
   const iface = devices.find((d) => d.role === 'interface');
   const rows = [
-    { id: 'taps', title: iface ? `From the ${iface.short} · USB taps` : 'USB taps', sockets: of((s) => s.id === 'kit.usb' || s.kind === 'tap') },
+    { id: 'taps', title: iface ? `From the ${iface.short} · USB taps` : 'USB taps', sockets: of((s) => s.id === 'kit.usb' || s.id.startsWith('kit.usb.') || s.kind === 'tap') },
     { id: 'tracks', title: 'Into the tape · track inputs', sockets: of((s) => s.kind === 'track') },
     { id: 'back', title: 'Back out', sockets: of((s) => s.kind === 'bus' || s.kind === 'out') },
     { id: 'midi', title: 'MIDI and KEEP', sockets: of((s) => s.kind === 'midi' || s.kind === 'keep') },
@@ -46,6 +46,7 @@ function sub(d) {
     const ch = d.in ? `USB · ${d.in} in${d.out ? ` · ${d.out} out` : ''}` : 'USB';
     return d.generic ? `${ch} · no profile` : ch;
   }
+  if (d.role === 'input') return `USB · ${d.in || 2} in · records only`;
   if (d.role === 'midi') return d.placeholder ? 'MIDI · ports from its manual' : d.generic ? 'MIDI · no profile' : 'MIDI';
   if (d.role === 'listener') return 'on the Wi-Fi';
   return '';

@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+// DemoExtraName is what the demo's extra input opens as: the rig draws it
+// as the AMS-24 it stands in for.
+const DemoExtraName = "Demo extra input (synthetic guitar, +80 ppm)"
+
 // demoExtraPPM is how far the demo's extra input's clock runs from the main
 // one's, on purpose, so the demo and CI steer a drift as the AMS-24 does.
 const demoExtraPPM = 80
@@ -55,7 +59,7 @@ func (d *demoExtra) Open(sink func([]int32)) (string, error) {
 			}
 		}
 	}()
-	return "Demo extra input (synthetic guitar, +80 ppm)", nil
+	return DemoExtraName, nil
 }
 
 // demoPluck is a plucked A on every beat at 96 BPM: a decaying fundamental

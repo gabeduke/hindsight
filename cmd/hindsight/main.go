@@ -199,8 +199,14 @@ func main() {
 	if *demo {
 		// The demo's synthetic interface is routed as the Sidekick is --
 		// MAIN, the two strips each hearing a bus, and AUX -- so the rig
-		// draws it from the Sidekick's profile, by the Sidekick's USB id.
-		srvAPI.SetRigUSB(func(string) string { return "2367:9420" })
+		// draws it from the Sidekick's profile, by the Sidekick's USB id; its
+		// extra input, a guitar, by the AMS-24's.
+		srvAPI.SetRigUSB(func(device string) string {
+			if device == audio.DemoExtraName {
+				return "1686:067f"
+			}
+			return "2367:9420"
+		})
 	}
 	if eng := startTape(cfg, cap, saver, src, *demo); eng != nil {
 		srvAPI.SetTape(eng)

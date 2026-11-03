@@ -194,6 +194,15 @@ func (a *API) rigInputs(defaultSource string) rig.Inputs {
 	if device != "" {
 		in.USBID = a.rigUSBID(device)
 	}
+	if a.cap != nil {
+		for _, x := range a.cap.ExtraInputs() {
+			v := rig.ExtraView{Match: x.Match, Device: x.Device, Channels: x.Channels, Live: x.Live, Locked: x.Locked}
+			if x.Device != "" {
+				v.USBID = a.rigUSBID(x.Device)
+			}
+			in.Extras = append(in.Extras, v)
+		}
+	}
 	_, in.Controller = config.Lookup("TAPE_CONTROLLER")
 	if a.tape != nil {
 		for _, s := range a.tape.Sources() {

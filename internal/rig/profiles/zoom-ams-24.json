@@ -7,7 +7,7 @@
   "rate": 48000,
   "format": "S32_LE",
   "placeholder": true,
-  "note": "A USB audio interface (2 in, 4 out). Beside the Sidekick it is meant to be an extra input, its two inputs recorded on the Sidekick's clock and nothing played out of it; until that is built, the rig draws it by its MIDI port. Which capture channel is IN 1 is still to be confirmed with a signal, so it stays a placeholder.",
+  "note": "A USB audio interface (2 in, 4 out). Set as an extra input (EXTRA_INPUTS), its two inputs are recorded after the Sidekick's, on the Sidekick's clock, and nothing plays out of it; otherwise the rig draws it by its MIDI port. Which capture channel is IN 1 is still to be confirmed with a signal, so it stays a placeholder.",
   "source": "https://zoomcorp.com/en/us/audio-interface/audio-interfaces/ams-series/",
   "ports": [
     {"id": "in1", "label": "IN 1", "kind": "audio", "dir": "in", "about": "XLR/TRS combo jack: mic, line or guitar. +48 V phantom power."},
