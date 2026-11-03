@@ -103,3 +103,36 @@ export async function switchOutput(mode, { player, transport, toast }) {
     return false;
   }
 }
+
+/**
+ * outputSheet is the page's way to open the Output sheet, for the shell
+ * (lib/shell/boot.js, ctx.openOutput): an open() that does nothing until
+ * the engine has a tape to send, and the first time wires the sheet
+ * (wireOutput: the tape's name, the Pi asked as it opens, a choice is
+ * engine.output.setMode) and marks it as it stands, the mode in force and
+ * how late a phone hears it, then again on every change of the transport.
+ * `wire` and `paint` are wireOutput and paintOutSheet, handed in for the
+ * tests.
+ */
+export function outputSheet(engine, { wire = wireOutput, paint = paintOutSheet } = {}) {
+  let sheet = null;
+  return function open() {
+    if (!engine.tape) return undefined;
+    if (!sheet) {
+      const { transport } = engine;
+      sheet = wire({
+        name: () => engine.tape.title,
+        onOpen: () => transport.refresh(),
+        choose: (mode) => engine.output.setMode(mode),
+      });
+      const mark = () => {
+        const stream = engine.stream;
+        paint(transport.mode() || 'jam', outDelay(stream?.active ? stream.delayMs() : transport.streamDelayMs()));
+      };
+      transport.onChange(mark);
+      mark();
+    }
+    sheet.open();
+    return undefined;
+  };
+}

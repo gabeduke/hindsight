@@ -14,7 +14,7 @@ import { barLayout } from '/lib/bar/layout.js';
 import { playerSheet, PHONE } from '/lib/bar/player.js';
 import { measureBar } from '/lib/bar/slots.js';
 import { phoneRecorder } from '/lib/phone/recorder.js';
-import { wireOutput, paintOutSheet, outDelay } from '/lib/tape/out-switch.js';
+import { outputSheet } from '/lib/tape/out-switch.js';
 import { createView } from '/lib/shell/view.js';
 import { createRouter } from '/lib/shell/router.js';
 import { roomView } from '/lib/shell/views/room.js';
@@ -77,23 +77,7 @@ const recorder = phoneRecorder(document, { toast });
 // the first time it is opened, from OUT on the bar's display or the
 // Studio, once the engine has a tape to send; it asks the Pi as it opens,
 // so it's never a few seconds behind.
-let output = null;
-function openOutput() {
-  if (!engine.tape) return;
-  if (!output) {
-    const { transport } = engine;
-    output = wireOutput({
-      name: () => engine.tape.title,
-      onOpen: () => transport.refresh(),
-      choose: (mode) => engine.output.setMode(mode),
-    });
-    transport.onChange(() => {
-      const stream = engine.stream;
-      paintOutSheet(transport.mode() || 'jam', outDelay(stream.active ? stream.delayMs() : transport.streamDelayMs()));
-    });
-  }
-  output.open();
-}
+const openOutput = outputSheet(engine);
 // The bar (lib/bar/bar.js) draws the engine on #np, the same in every room;
 // the room shown is the router's, and the bar is kicked as it switches.
 const np = new NowPlaying({ engine, onToast: toast, layout, player, recorder, output: openOutput, room: () => router?.shown() ?? null, tape });

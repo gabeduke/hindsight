@@ -384,7 +384,9 @@ export class NowPlaying {
     setAttr(tempo, 'aria-label', tempoMenu ? `${d.said.tempo}: change it` : d.said.tempo);
     setAttr($('np-source'), 'aria-label', d.said.source);
     const out = $('np-output');
-    const sends = this.tapeMounted && !!this.output;
+    // Once the engine has a tape to send: the same test the shell's
+    // openOutput makes (lib/tape/out-switch.js outputSheet).
+    const sends = !!this.engine.tape && !!this.output;
     if (out.disabled !== !sends) out.disabled = !sends;
     setAttr(out, 'aria-label', d.said.out);
     if (foot) {

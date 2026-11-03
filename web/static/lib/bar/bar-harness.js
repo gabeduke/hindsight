@@ -108,6 +108,9 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   // The room shown, as the shell's router says it (w.room).
   w.room = null;
   const np = drawn ? new NowPlaying({ engine: made, onToast, room: () => w.room, tape: pageTape }) : null;
+  // What the shell does around the bar it makes (lib/shell/boot.js): its
+  // height into --np-h, measured on its root.
+  if (np) (await import('./slots.js')).measureBar(doc.getElementById('np'));
   const engine = whole ? made : null;
   const bar = made.bar;
   await bar.ready;

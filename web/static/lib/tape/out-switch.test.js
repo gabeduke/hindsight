@@ -3,7 +3,7 @@
 // the tap and never leaves the jam room silent.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { outName, outDelay, switchOutput } from './out-switch.js';
+import { outName, outDelay, switchOutput, outputSheet } from './out-switch.js';
 import { Refusal } from '../models/protocol.js';
 
 let store, puts;
@@ -94,4 +94,25 @@ test('back to the jam room stops the sound here and forgets the listener', async
   assert.equal(ok, true);
   assert.equal(player.active, false);
   assert.equal(localStorage.getItem('tape.listener'), null);
+});
+
+test('outputSheet: the first open marks the mode and the delay at once, and every transport change after', () => {
+  // Step 5c-1: the shell wires the Output sheet the first time it opens;
+  // it must not show an unmarked sheet until the Pi's answer moves something.
+  const changes = [];
+  const transport = { mode: () => 'phone', streamDelayMs: () => 1200, refresh() {}, onChange: (fn) => changes.push(fn) };
+  const engine = { tape: { title: 'T' }, transport, stream: { active: false }, output: { setMode() {} } };
+  const painted = [];
+  let opened = 0;
+  const open = outputSheet(engine, { wire: () => ({ open: () => { opened++; } }), paint: (mode, delay) => painted.push([mode, delay]) });
+  assert.deepEqual(painted, []);
+  open();
+  assert.deepEqual(painted, [['phone', '1.2 s']], 'marked as it first opens');
+  assert.equal(opened, 1);
+  transport.mode = () => 'jam';
+  for (const fn of changes) fn();
+  assert.deepEqual(painted.at(-1), ['jam', '1.2 s'], 'and on each change');
+  open();
+  assert.equal(changes.length, 1, 'wired once');
+  assert.equal(outputSheet({ tape: null, transport }, { wire: () => assert.fail('no tape: nothing to send') })(), undefined);
 });

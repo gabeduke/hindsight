@@ -31,6 +31,7 @@ import { Pending } from './pending.js';
 import { hitClip, ClipGesture, MIN_GRIPS_PX, HANDLE_PX, gripBands, SLOP_PX, EDGE_PX, HOLD_MS, targetTrack } from './clipgestures.js';
 import { rangeOf, tracksOf, covers, isLoop, rangeText, pasteFits, resize } from './range.js';
 import { SECTION_NAMES, SECTION_COLORS, colorOf, sectionHit, newName, isLooped, barsText as sectionBars, makeSpan, edgeTo } from './sections.js';
+import { showDocked } from '../shell/view.js';
 import { insertPreview, deletePreview, insertRefusal, spanWords, barOf as barNumber } from './timeedit.js';
 import { overviewWindow, onWindow, dragTo, tapAt, isDoubleTap, paintTapeOverview, paintOverviewHead, trackColor } from './overview.js';
 import { withAlpha, onSchemeChange, tokenCache } from '../theme.js';
@@ -1382,12 +1383,8 @@ function selectAll() {
 // so it's as tall for one clip as for several: Split, Keep and Details… are
 // one clip's, unlit for several. Align has the clip to itself.
 // docked shows or hides a part of the Studio's docked above the bar (the
-// action bar, the clip editor): through the dock's slot, which tells the
-// bar's root (data-docked), or by its own `hidden` without a shell.
-function docked(el, on) {
-  if (viewCtx?.dockSlot?.show) viewCtx.dockSlot.show(el, on);
-  else el.hidden = !on;
-}
+// action bar, the clip editor): lib/shell/view.js showDocked.
+const docked = (el, on) => showDocked(viewCtx, el, on);
 
 function renderClipBar() {
   const ps = state.tape ? picks() : [];

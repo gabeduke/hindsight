@@ -30,6 +30,7 @@ import { keyState, windowFrames, pulledTo } from './state.js';
 import { setOpen, setFold } from './fold.js';
 import { Overlay, Lift, boxesFor } from './lanes.js';
 import { SNAPS, FADE_SHAPES } from '../tape/geometry.js';
+import { showDocked } from '../shell/view.js';
 import { leftPct as axisPct, ageOf } from '../objects/ribbonmath.js';
 import { token } from '../theme.js';
 import { toast as defaultToast } from '../toast.js';
@@ -584,10 +585,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     shown = active && open;
     setOpen(body, shown);
     setFold(body, active && open && !st.unfolded);
-    // Docked above the bar: through the dock's slot, which tells the bar's
-    // root (data-docked), or by its own `hidden` without a shell.
-    if (ctx?.dockSlot?.show) ctx.dockSlot.show(el.panel, open);
-    else el.panel.hidden = !open;
+    // Docked above the bar (lib/shell/view.js showDocked).
+    showDocked(ctx, el.panel, open);
     if (opening) revealLanes(); // the boxes it reads are laid out as it reads them
     // GRAB on the feed: its words follow the tempo, and the picker its N.
     const hasGrid = !!d?.tape?.grid;
