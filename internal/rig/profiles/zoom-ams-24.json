@@ -7,7 +7,7 @@
   "rate": 48000,
   "format": "S32_LE",
   "placeholder": true,
-  "note": "A USB audio interface (2 in, 4 out), plugged in beside the EP-136 as an extra input: its two inputs are recorded as the bus's channels after the main interface's (9 and 10 beside the EP-136), resampled onto the main interface's clock. Nothing ever plays out of it. Which capture channel is IN 1 is still to be confirmed with a signal, so it stays a placeholder.",
+  "note": "A USB audio interface (2 in, 4 out). Beside the Sidekick it is meant to be an extra input, its two inputs recorded on the Sidekick's clock and nothing played out of it; until that is built, the rig draws it by its MIDI port. Which capture channel is IN 1 is still to be confirmed with a signal, so it stays a placeholder.",
   "source": "https://zoomcorp.com/en/us/audio-interface/audio-interfaces/ams-series/",
   "ports": [
     {"id": "in1", "label": "IN 1", "kind": "audio", "dir": "in", "about": "XLR/TRS combo jack: mic, line or guitar. +48 V phantom power."},
@@ -19,8 +19,8 @@
     {"id": "usb", "label": "USB-C", "kind": "usb", "dir": "both", "in": 2, "out": 4, "about": "USB Audio Class 2.0: 2 in, 4 out, up to 96 kHz at 24-bit. Bus-powered."}
   ],
   "taps": [
-    {"id": "in1", "usb": [1, 1], "from": "in1", "about": "IN 1, mono: the bus's first channel after the main interface's (9 beside the EP-136). The tape never reaches it."},
-    {"id": "in2", "usb": [2, 2], "from": "in2", "about": "IN 2, mono: the bus's second channel after the main interface's (10 beside the EP-136). The tape never reaches it."}
+    {"id": "in1", "usb": [1, 1], "from": "in1", "about": "IN 1, mono: the AMS-24's first capture channel."},
+    {"id": "in2", "usb": [2, 2], "from": "in2", "about": "IN 2, mono: the AMS-24's second capture channel."}
   ],
   "hardware": {
     "extending": "A second USB audio interface beside the Sidekick: a pair of mic, line or guitar inputs, recorded as extra inputs (EXTRA_INPUTS) on the main interface's clock, never played out of. Everything under \"hardware\" is ignored by the Go loader: it is notes for people. Drop 'placeholder' once a signal into IN 1 alone has shown on channel 9.",
