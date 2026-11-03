@@ -118,6 +118,19 @@ func pickInput(devs []inDev, match string, channels int) (idx int, fellBack bool
 	return -1, false, fmt.Errorf("%w: none with >=%d channels (is it off, unplugged, or in use by another process?)", ErrNoDevice, need)
 }
 
+// withoutExtras is devs with the extra inputs' devices shown as having no
+// inputs, so neither DEVICE_MATCH=auto nor a fallback ever picks one as the
+// main interface: it is the clock and the output, which an extra input never
+// is.
+func withoutExtras(devs []inDev, isExtra func(string) bool) []inDev {
+	for i := range devs {
+		if isExtra(devs[i].Name) {
+			devs[i].MaxIn = 0
+		}
+	}
+	return devs
+}
+
 // listHardware is ListInputs over devs: every hardware input, in order.
 func listHardware(devs []inDev) []Input {
 	var out []Input

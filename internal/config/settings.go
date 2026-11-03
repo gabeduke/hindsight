@@ -40,7 +40,11 @@ type Setting struct {
 // STATIC_DIR, SETTINGS_FILE, UPDATE_REPO) and development knobs.
 var Settings = []Setting{
 	{Key: "DEVICE_MATCH", Group: "Input", Label: "Interface", Kind: "text", Default: "auto",
-		Help: "Which audio interface to record from: auto, or part of its name"},
+		Help: "The main interface: the tape plays out of it, and its clock is the ring's. auto, or part of its name"},
+	{Key: "EXTRA_INPUTS", Group: "Input", Label: "Extra inputs", Kind: "text", Default: "none",
+		Help: "Records its inputs too, as channels after the main interface's. Nothing plays out of it. none, or part of a card's name"},
+	{Key: "EXTRA_INPUT_OFFSET_MS", Group: "Input", Label: "Extra input delay", Kind: "float", Min: -500, Max: 500, Unit: "ms", Default: "0",
+		Help: "Move the extra inputs this much later, to land on the main interface's audio"},
 	{Key: "CHANNELS", Group: "Input", Label: "Channels", Kind: "int", Auto: true, Min: 1, Max: MaxChannels, Default: "auto",
 		Help: "How many of its inputs to open; auto opens them all"},
 	{Key: "SAVE_CHANNELS", Group: "Input", Label: "Inputs to keep", Kind: "text", Default: "1,2",

@@ -74,6 +74,11 @@ type Capture struct {
 	lastErr    atomic.Value // string
 	waiting    atomic.Bool  // the last open failed with ErrNoDevice
 
+	// extras are the extra inputs (AddExtraInputs): their channels follow
+	// the main interface's in the ring, written by the ring writer behind
+	// the head.
+	extras []*extraInput
+
 	// onMismatch is called when an open finds an interface whose input count
 	// isn't the ring's (SetOnMismatch). Set before Start, read only by
 	// supervise.
@@ -88,9 +93,9 @@ func NewCapture(cfg *config.Config, src Source) *Capture {
 	c := &Capture{
 		cfg:    cfg,
 		src:    src,
-		ring:   NewRing(cfg.RingFrames(), cfg.Channels),
+		ring:   NewRing(cfg.RingFrames(), cfg.BusChannels()),
 		flags:  NewFlagStore(MaxLiveFlags),
-		levels: NewLevels(cfg.Channels, cfg.SampleRate, levelBinMillis),
+		levels: NewLevels(cfg.BusChannels(), cfg.SampleRate, levelBinMillis),
 		free:   make(chan []int32, blockPoolSize),
 		filled: make(chan []int32, blockPoolSize),
 		stop:   make(chan struct{}),
@@ -107,6 +112,7 @@ func NewCapture(cfg *config.Config, src Source) *Capture {
 	// the same pair even under SAVE_ALL_CHANNELS.
 	c.env = NewEnvelope(cfg.RingSeconds*1000/levelBinMillis, cfg.SaveChannels, levelBinMillis)
 	c.levels.SetEnvelope(c.env)
+	c.levels.SetWidth(cfg.Channels)
 	// One pair per block over the whole ring, plus slack for a source that
 	// delivers smaller blocks than configured.
 	fpb := cfg.FramesPerBuf
@@ -245,6 +251,63 @@ func (c *Capture) checkFit() {
 	}
 }
 
+// AddExtraInputs gives the capture its extra inputs' streams, one for each of
+// EXTRA_INPUTS in order, their channels numbered on after the main
+// interface's. Call it before Start.
+func (c *Capture) AddExtraInputs(srcs []ExtraSource) {
+	w := config.ExtraInputChannels
+	for i, src := range srcs {
+		if i >= len(c.cfg.ExtraInputs) {
+			break
+		}
+		c.extras = append(c.extras, newExtraInput(c.cfg.ExtraInputs[i], c.cfg.Channels+i*w, w,
+			c.cfg.SampleRate, src, c.levels, c.cfg.ExtraInputOffsetMS, c.ExtraLag()))
+	}
+}
+
+// ExtraLag is how far behind the head the extra inputs' channels are
+// written, in frames: one of the main interface's blocks, the extra stream's
+// latency, and slack. A reader that wants the newest audio of an extra
+// channel stops this far short of the head.
+func (c *Capture) ExtraLag() uint64 {
+	ms := c.cfg.InputLatencyMS + extraSlackMS
+	return uint64(c.cfg.FramesPerBuf + ms*c.cfg.SampleRate/1000)
+}
+
+// ExtraInputStatus is how one extra input is doing, for the status line and
+// the rig.
+type ExtraInputStatus struct {
+	Match    string  `json:"match"`
+	Device   string  `json:"device"`   // what it opened; "" while it isn't open
+	Channels [2]int  `json:"channels"` // the bus's channels it fills, 1-indexed
+	Live     bool    `json:"live"`
+	Locked   bool    `json:"locked"` // the resampler holds it where the bridges place it
+	PPM      float64 `json:"ppm"`    // how far its clock runs from the main interface's
+}
+
+// ExtraInputs reports each extra input.
+func (c *Capture) ExtraInputs() []ExtraInputStatus {
+	out := make([]ExtraInputStatus, 0, len(c.extras))
+	for _, x := range c.extras {
+		out = append(out, ExtraInputStatus{Match: x.match, Device: x.name.Load().(string),
+			Channels: [2]int{x.first + 1, x.first + x.width}, Live: x.live.Load(),
+			Locked: x.locked.Load(), PPM: float64(x.ppm.Load()) / 1000})
+	}
+	return out
+}
+
+// ExtraGaps answers where an extra input's audio stops holding strictly
+// inside the ring frames [start, end), in frames from start, for the extra
+// input whose channels hold ch (0-indexed); nil for a main channel.
+func (c *Capture) ExtraGaps(ch int, start, end uint64) []int64 {
+	for _, x := range c.extras {
+		if ch >= x.first && ch < x.first+x.width {
+			return x.Gaps(start, end)
+		}
+	}
+	return nil
+}
+
 // Start brings up the ring writer, the level broadcaster and the supervised
 // audio stream. It returns immediately; use Healthy to observe state.
 //
@@ -252,10 +315,16 @@ func (c *Capture) checkFit() {
 // synchronously; today every failure is discovered and retried inside
 // supervise, so this always returns nil.
 func (c *Capture) Start() error {
-	c.wg.Add(3)
+	c.wg.Add(3 + len(c.extras))
 	go c.ringWriter()
 	go c.broadcaster()
 	go c.supervise()
+	for _, x := range c.extras {
+		go func() {
+			defer c.wg.Done()
+			x.supervise(c.stop)
+		}()
+	}
 	return nil
 }
 
@@ -267,7 +336,10 @@ func (c *Capture) ringWriter() {
 		case <-c.stop:
 			return
 		case block := <-c.filled:
-			c.ring.WriteFrames(block)
+			c.ring.WriteNarrow(block, c.cfg.Channels)
+			for _, x := range c.extras {
+				x.join(c.ring, c.bridge)
+			}
 			select {
 			case c.free <- block:
 			default:
@@ -344,7 +416,7 @@ func (c *Capture) supervise() {
 		c.lastCallback.Store(time.Now().UnixNano())
 		c.healthy.Store(true)
 		log.Printf("[*] capture live on %q — ring %ds, %d ch @ %d Hz",
-			c.DeviceName(), c.cfg.RingSeconds, c.cfg.Channels, c.cfg.SampleRate)
+			c.DeviceName(), c.cfg.RingSeconds, c.cfg.BusChannels(), c.cfg.SampleRate)
 
 		// Watch for the stream going stale.
 		tick := time.NewTicker(500 * time.Millisecond)

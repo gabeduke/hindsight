@@ -116,6 +116,18 @@ func main() {
 	defer stopAll()
 
 	cap := audio.NewCapture(cfg, src)
+	// The extra inputs record beside the main interface, on its clock
+	// (EXTRA_INPUTS); in the demo, a synthetic guitar 80 ppm fast.
+	var extras []audio.ExtraSource
+	for _, match := range cfg.ExtraInputs {
+		if *demo {
+			extras = append(extras, audio.NewDemoExtraSource(cfg.SampleRate))
+			continue
+		}
+		extras = append(extras, audio.NewExtraSource(match, config.ExtraInputChannels, cfg.SampleRate,
+			1024, time.Duration(cfg.InputLatencyMS)*time.Millisecond))
+	}
+	cap.AddExtraInputs(extras)
 	// Under CHANNELS=auto the ring fits the interface found at startup. One
 	// with a different number of inputs turning up later (booted with
 	// nothing plugged in, then the EP-136) is handed to fitInterface below,
@@ -347,7 +359,7 @@ func startTape(cfg *config.Config, cap *audio.Capture, saver *audio.Saver, src a
 	if spec == tape.DefaultSourcesSpec {
 		spec = tape.FitSources(spec, cfg.Channels) // nobody chose: use what this interface has
 	}
-	sources, err := tape.ParseSources(spec, cfg.Channels)
+	sources, err := tape.ParseSources(spec, cfg.BusChannels())
 	if err != nil {
 		log.Printf("[!] tape off: %v", err)
 		return nil

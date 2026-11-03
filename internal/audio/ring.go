@@ -56,6 +56,55 @@ func (r *Ring) WriteFrames(block []int32) {
 	r.mu.Unlock()
 }
 
+// WriteNarrow appends a block of width channels, the first width of the
+// ring's, and writes zeros in the rest: the main interface's block on a bus
+// with extra inputs, whose channels the joiner fills in later
+// (WriteChannels). Silence until then, never the audio a ring's length ago.
+func (r *Ring) WriteNarrow(block []int32, width int) {
+	if width >= r.channels {
+		r.WriteFrames(block)
+		return
+	}
+	frames := len(block) / width
+	r.mu.Lock()
+	n := len(r.buf)
+	for f := 0; f < frames; f++ {
+		row := r.buf[r.writePos : r.writePos+r.channels]
+		copy(row, block[f*width:(f+1)*width])
+		clear(row[width:])
+		r.writePos = (r.writePos + r.channels) % n
+	}
+	r.totalFrames += uint64(frames)
+	r.mu.Unlock()
+}
+
+// WriteChannels writes data, interleaved width channels, into the ring's
+// channels first..first+width-1 of the frames from at on: frames the ring
+// already holds. It is how an extra input's frames land behind the head. A
+// span the ring has overwritten, or not reached, is ErrRangeGone.
+func (r *Ring) WriteChannels(at uint64, first, width int, data []int32) error {
+	frames := uint64(len(data) / width)
+	if first < 0 || first+width > r.channels {
+		return errors.New("channel out of range")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	oldest := r.totalFrames - uint64(r.bufferedLocked())
+	if at < oldest || at+frames > r.totalFrames {
+		return ErrRangeGone
+	}
+	n := len(r.buf)
+	pos := ((r.writePos-int(r.totalFrames-at)*r.channels)%n + n) % n
+	for f := uint64(0); f < frames; f++ {
+		copy(r.buf[pos+first:pos+first+width], data[int(f)*width:(int(f)+1)*width])
+		pos += r.channels
+		if pos >= n {
+			pos -= n
+		}
+	}
+	return nil
+}
+
 // BufferedFrames reports how many frames are currently retrievable.
 func (r *Ring) BufferedFrames() int {
 	r.mu.Lock()

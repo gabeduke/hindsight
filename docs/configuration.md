@@ -33,10 +33,12 @@ the settings on this page and the tape's own (`docs/api.md`, `GET /api/rig`).
 | Variable | Default | What it does |
 |---|---|---|
 | `RING_SECONDS` | `900` | Length of the memory ring, and therefore the longest possible capture |
-| `DEVICE_MATCH` | `auto` | Substring matched against PortAudio device names to pick the input; `auto` picks the interface itself (below) |
+| `DEVICE_MATCH` | `auto` | The main interface: substring matched against PortAudio device names to pick the input; `auto` picks the interface itself (below). The tape plays out of the card the capture opened, and its clock is the ring's |
+| `EXTRA_INPUTS` | `none` | Cards that only record, beside the main interface: part of a card's ALSA name or id, or its USB id (`AMS-24`, `1686:067f`). Each adds two channels after the main interface's, resampled onto its clock; nothing plays out of it (`docs/architecture/capture.md`, *Extra inputs*). Linux only. Never `DEVICE_MATCH`'s card |
+| `EXTRA_INPUT_OFFSET_MS` | `0` | Moves the extra inputs' channels this much later (-500 to 500), for the difference between the two interfaces' own delays |
 | `CHANNELS` | `auto` | How many channels to open on that device; `auto` opens every input it has (below) |
 | `SAMPLE_RATE` | `48000` | Capture sample rate, in Hz |
-| `SAVE_CHANNELS` | `1,2` | 1-indexed channel pair written to a take |
+| `SAVE_CHANNELS` | `1,2` | 1-indexed channel pair written to a take, numbered on the whole bus: the EP-136's 1-8, then an extra input's 9-10 |
 | `SAVE_MIX` | `stereo` | `mono` averages the `SAVE_CHANNELS` inputs onto both sides of the take |
 | `SAVE_ALL_CHANNELS` | `false` | Write every channel instead of the pair above; ignores `SAVE_MIX` |
 | `MIN_FREE_GB` | `1.0` | Refuse to save below this much free disk, after emptying the trash |

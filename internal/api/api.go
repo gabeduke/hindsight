@@ -261,27 +261,30 @@ func writeErr(w http.ResponseWriter, code int, msg string) {
 }
 
 type statusResponse struct {
-	Version         string    `json:"version"`
-	IsRecording     bool      `json:"is_recording"`
-	CaptureHealthy  bool      `json:"capture_healthy"`
-	CaptureWaiting  bool      `json:"capture_waiting"`
-	LastError       string    `json:"last_error"`
-	Device          string    `json:"device"`
-	XRuns           uint64    `json:"xruns"`
-	RingSeconds     int       `json:"ring_seconds"`
-	BufferedSeconds float64   `json:"buffered_seconds"`
-	SampleRate      int       `json:"sample_rate"`
-	Channels        int       `json:"channels"`
-	SaveChannels    []int     `json:"save_channels"`
-	ChannelRMS      []float32 `json:"channel_rms"`
-	FloorDB         float64   `json:"floor_db"`
-	LastSaved       string    `json:"last_saved"`
-	Saving          bool      `json:"saving"`
-	DiskFreeGB      float64   `json:"disk_free_gb"`
-	DiskPercent     float64   `json:"disk_percent"`
-	MinFreeGB       float64   `json:"min_free_gb"`
-	MIDIConnected   bool      `json:"midi_connected"`
-	MIDIBPM         *float64  `json:"midi_bpm"`
+	Version        string `json:"version"`
+	IsRecording    bool   `json:"is_recording"`
+	CaptureHealthy bool   `json:"capture_healthy"`
+	CaptureWaiting bool   `json:"capture_waiting"`
+	LastError      string `json:"last_error"`
+	Device         string `json:"device"`
+	// ExtraInputs are the extra inputs (EXTRA_INPUTS): what each opened,
+	// its channels, and whether its clock is locked to the main one's.
+	ExtraInputs     []audio.ExtraInputStatus `json:"extra_inputs"`
+	XRuns           uint64                   `json:"xruns"`
+	RingSeconds     int                      `json:"ring_seconds"`
+	BufferedSeconds float64                  `json:"buffered_seconds"`
+	SampleRate      int                      `json:"sample_rate"`
+	Channels        int                      `json:"channels"`
+	SaveChannels    []int                    `json:"save_channels"`
+	ChannelRMS      []float32                `json:"channel_rms"`
+	FloorDB         float64                  `json:"floor_db"`
+	LastSaved       string                   `json:"last_saved"`
+	Saving          bool                     `json:"saving"`
+	DiskFreeGB      float64                  `json:"disk_free_gb"`
+	DiskPercent     float64                  `json:"disk_percent"`
+	MinFreeGB       float64                  `json:"min_free_gb"`
+	MIDIConnected   bool                     `json:"midi_connected"`
+	MIDIBPM         *float64                 `json:"midi_bpm"`
 	// MIDIDevices is every MIDI device currently open, so a phone can confirm
 	// the Orchid actually came up as a MIDI device rather than a power sink.
 	// Always an array, never null, so the UI can iterate it blindly.
@@ -331,11 +334,12 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		CaptureWaiting:  a.cap.Waiting(),
 		LastError:       a.cap.LastError(),
 		Device:          a.cap.DeviceName(),
+		ExtraInputs:     a.cap.ExtraInputs(),
 		XRuns:           a.cap.XRuns(),
 		RingSeconds:     a.cfg.RingSeconds,
 		BufferedSeconds: a.cap.BufferedSeconds(),
 		SampleRate:      a.cfg.SampleRate,
-		Channels:        a.cfg.Channels,
+		Channels:        a.cfg.BusChannels(),
 		SaveChannels:    sc,
 		ChannelRMS:      a.cap.Levels().Snapshot(),
 		FloorDB:         audio.FloorDB,

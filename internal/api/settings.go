@@ -62,7 +62,7 @@ func (a *API) settingsFile() string {
 
 func (a *API) handleSettingsGet(w http.ResponseWriter, r *http.Request) {
 	vals, _, err := config.ReadSettings(a.settingsFile())
-	resp := settingsResponse{File: a.settingsFile(), Channels: a.cfg.Channels, MemoryBytes: totalMemory(), Started: started}
+	resp := settingsResponse{File: a.settingsFile(), Channels: a.cfg.BusChannels(), MemoryBytes: totalMemory(), Started: started}
 	if err != nil {
 		resp.Error = err.Error()
 		vals = nil
