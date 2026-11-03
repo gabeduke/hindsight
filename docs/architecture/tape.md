@@ -192,8 +192,14 @@ needs `delta`:
 **The output** (`internal/audio/sink_portaudio.go`) is an output-only
 PortAudio stream, four channels of 32-bit at 48 kHz, on the capture's own
 card: the capture's device if it can play four channels, else the most
-direct device matching `DEVICE_MATCH`, and never anything else -- the tape
-out of HDMI, on another clock, would be worse than none. It is a separate
+direct device on the card the capture opened, and never anything else -- the
+tape out of HDMI, on another clock, would be worse than none.
+`DEVICE_MATCH` names the card only until the capture has opened an ALSA
+direct device. A capture that fell back to another card than the one chosen
+takes the output with it, and an output left on another card is reopened
+(`outputOffTheCapturesCard`). Without that, an interface whose output never
+calls back stalls the tape for good: the AMS-24, chosen on 2026-11-02 while
+the capture fell back to the EP-136, left ▶ doing nothing. It is a separate
 stream rather than a duplex one, so the dashcam's health never depends on
 playback's. It keeps itself open with its own supervisor, as the capture
 does -- backing off while it can't open, or while it fails soon after
