@@ -7,8 +7,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fakeDoc } from '../play/fake-dom.js';
-import { createView, classesOf } from './view.js';
+import { createView, classesOf, shellScope } from './view.js';
 import { createLayers } from '../ui/layers.js';
+import { mountComponent } from '../components/mount.js';
 
 // A window or a document as addEventListener sees it: a listener is one
 // (type, fn, capture), removal needs the same capture, and `once` is the
@@ -819,4 +820,93 @@ test('ctx.media is the view’s window’s matchMedia, and one that never matche
   const none = t.box.ctx.media('(pointer: coarse)');
   assert.equal(none.matches, false);
   assert.doesNotThrow(() => { none.addEventListener('change', () => {}); none.removeEventListener('change', () => {}); });
+});
+
+// ---- the shell scope: the ctx the chrome mounts components in -----------------------
+
+function aScope(shared = {}) {
+  const doc = fakeDoc();
+  doc.visibilityState = 'visible';
+  doc.title = 'Hindsight';
+  const timers = fakeTimers();
+  const clock = fakeClock();
+  const errors = [];
+  const s = shellScope({ shared, doc, timers, clock, onError: (e) => errors.push(e) });
+  return { ...s, doc, timers, clock, errors };
+}
+
+test('the shell scope is a ctx at once, always shown: on, every and loop run, with no room, slot or title of its own', async () => {
+  const win = new Target();
+  const s = aScope({ engine: 'the engine', toast: () => 'said' });
+  const { ctx } = s;
+  assert.ok(Object.isFrozen(ctx));
+  assert.equal(ctx.id, 'shell');
+  assert.equal(ctx.engine, 'the engine', 'what the shell shares is spread in');
+  for (const k of ['root', 'headerSlot', 'dockSlot', 'barSlot', 'setTitle']) assert.equal(ctx[k], undefined, `no ${k}`);
+  let keys = 0, polls = 0, frames = 0;
+  ctx.on(win, 'keydown', () => { keys++; });
+  ctx.every(() => { polls++; }, 1000);
+  const loop = ctx.loop(() => { frames++; return true; });
+  loop.start();
+  await s.ready;
+  assert.equal(polls, 1, 'a poll registered before it was ready runs once it is');
+  win.fire('keydown');
+  assert.equal(keys, 1);
+  s.timers.advance(2000);
+  assert.equal(polls, 3);
+  s.clock.frame();
+  assert.equal(frames, 1, 'a loop started before it was ready runs once it is');
+  assert.equal(s.doc.title, 'Hindsight', 'the title is a room’s');
+  assert.equal(ctx.active(), true);
+  assert.deepEqual(s.errors, []);
+});
+
+test('the shell scope is not active while the document is hidden: its polls skip, and run again when it is back', async () => {
+  const s = aScope();
+  let polls = 0;
+  s.ctx.every(() => { polls++; }, 1000);
+  await s.ready;
+  s.doc.visibilityState = 'hidden';
+  s.doc.dispatchEvent({ type: 'visibilitychange' });
+  assert.equal(s.ctx.active(), false);
+  s.timers.advance(3000);
+  assert.equal(polls, 1);
+  s.doc.visibilityState = 'visible';
+  s.doc.dispatchEvent({ type: 'visibilitychange' });
+  assert.equal(s.ctx.active(), true);
+  assert.equal(polls, 2);
+});
+
+test('a component mounted in the shell scope is visible while the document is', async () => {
+  const s = aScope({ layers: createLayers({ doc: fakeDoc(), win: new Target(), history: null }) });
+  await s.ready;
+  const root = s.doc.createElement('div');
+  root.id = 'np';
+  let cx = null;
+  const c = mountComponent({ id: 'bar', root: 'np', needs: [], css: 'css/bar.css', mount(_r, _m, x) { cx = x; return {}; } }, root, {}, s.ctx);
+  assert.equal(cx.visible(), true);
+  s.doc.visibilityState = 'hidden';
+  assert.equal(cx.visible(), false);
+  s.doc.visibilityState = 'visible';
+  assert.ok(cx.layers, 'a scope of the shell’s stack');
+  c.unmount();
+});
+
+test('the shell scope’s layers are a scope of the shell’s stack; destroy undoes what went through it', async () => {
+  const win = new Target();
+  const doc = fakeDoc();
+  const stack = createLayers({ doc, win: new Target(), history: null });
+  const s = aScope({ layers: stack });
+  await s.ready;
+  assert.notEqual(s.ctx.layers, stack, 'a scope, not the whole stack');
+  s.ctx.on(win, 'keydown', () => {});
+  s.ctx.every(() => {}, 1000);
+  const loop = s.ctx.loop(() => true);
+  loop.start();
+  const { signal } = s.ctx;
+  s.destroy();
+  assert.equal(win.count('keydown'), 0);
+  assert.equal(s.timers.armed, 0);
+  assert.equal(loop.running, false);
+  assert.equal(signal.aborted, true);
 });

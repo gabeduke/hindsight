@@ -638,3 +638,44 @@ export function createView(def, {
     destroy,
   };
 }
+
+/**
+ * shellScope is the ctx the shell's own chrome mounts its components in
+ * (the bar, once it is one: docs/plan/transport-extraction.md, step 5),
+ * which belong to no room. It is a view that is always shown, with no root
+ * in the page and no slots, so everything that goes through it is kept as a
+ * room's is, by the one createView: its on, every, loop, socket, media and
+ * layers, and active(), which is false while the document is hidden (no
+ * frames and no polls then), as a room's is.
+ *
+ * Takes createView's `shared`, `doc`, `timers`, `clock` and `onError`, and
+ * answers { ctx, ready, destroy() }. ctx is there at once, frozen: the
+ * shared things spread in, then id ('shell'), active, on, every, loop,
+ * socket, media, signal and layers (when `shared` has a stack). No root,
+ * no slot and no setTitle: the chrome's place is its own markup's, and the
+ * title a room's. A loop started or a poll registered before `ready`
+ * settles starts with it, as one in a view's mount does. destroy() undoes
+ * everything that went through it.
+ */
+export function shellScope({ shared = {}, doc, timers, clock, onError } = {}) {
+  let made = null;
+  // No element: nothing of the scope's is in the page, so the stand-in only
+  // takes what createView writes on a root (hidden, its tabindex).
+  const root = { hidden: true, hasAttribute: () => true, setAttribute() {} };
+  const view = createView({ id: 'shell', mount(c) { made = c; } }, { root, shared, doc, timers, clock, onError });
+  const ready = view.show();
+  const { id, active, on, every, loop, socket, media, signal, layers } = made;
+  const ctx = Object.freeze({
+    ...shared,
+    id,
+    active,
+    on,
+    every,
+    loop,
+    socket,
+    media,
+    signal,
+    ...(layers ? { layers } : {}),
+  });
+  return { ctx, ready, destroy: () => view.destroy() };
+}

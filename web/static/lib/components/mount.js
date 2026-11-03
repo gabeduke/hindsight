@@ -71,6 +71,10 @@ const mounted = new WeakSet();
  *                     where it is needed (.matches); fn, if given, hears its
  *                     change as cx.on does: quiet while hidden, off on
  *                     unmount
+ *   visible()         true while it is shown and its view is active (shown,
+ *                     and the document visible: ctx.active()); what it
+ *                     reads in place of document.hidden, before it starts
+ *                     something that runs every frame
  *   floor             where its menus stop above the bar: menu()'s floor,
  *                     the bar's top (barTop)
  *   toast, go         ctx's: words for a person; a move to another room
@@ -168,6 +172,7 @@ export function mountComponent(def, root, models = {}, ctx = {}, props = {}) {
     on,
     loop,
     media,
+    visible: () => shown && !gone && (typeof ctx.active === 'function' ? !!ctx.active() : true),
     layers,
     floor: barTop(),
     toast: ctx.toast,

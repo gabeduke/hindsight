@@ -293,3 +293,29 @@ test('cx.media is the view’s media query, and its change is heard only while s
   c.unmount();
   assert.equal(mql.l.length, 0, 'off on unmount');
 });
+
+// A component may not read document.hidden (Guardrail 15): cx says whether
+// it is seen, from its own show and hide and its view's active().
+test('cx.visible is true while it is shown and its view active, and false once unmounted', () => {
+  const doc = fakeDoc();
+  const ctx = viewCtx(doc);
+  let active = true;
+  ctx.active = () => active;
+  let cx = null;
+  const def = { id: 'v', root: 'v', needs: [], css: 'css/v.css', mount(_root, _models, c) { cx = c; return {}; } };
+  const c = mountComponent(def, rootIn(doc), {}, ctx);
+  assert.equal(cx.visible(), true);
+  active = false;
+  assert.equal(cx.visible(), false, 'the document hidden: its view is not active');
+  active = true;
+  c.hide();
+  assert.equal(cx.visible(), false, 'hidden by its surface');
+  c.show();
+  assert.equal(cx.visible(), true);
+  c.unmount();
+  assert.equal(cx.visible(), false, 'unmounted');
+  // A ctx with no active() (a stand-in) is active.
+  const d = mountComponent(def, rootIn(doc, 'np2'), {}, viewCtx(doc));
+  assert.equal(cx.visible(), true);
+  d.unmount();
+});
