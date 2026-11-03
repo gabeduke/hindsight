@@ -24,10 +24,17 @@ func TestTheDefaultSourcesGainTheExtraInputs(t *testing.T) {
 	if got := WithExtraSources("main=1,2", 2, []string{"1686:067f"}, 2); got != "main=1,2 in1=3,3 in2=4,4" {
 		t.Fatalf("by USB id: %q", got)
 	}
+	if got := WithExtraSources("main=1,2", 2, []string{"AMS-24", "AMS-22"}, 2); got != "main=1,2 ams1=3,3 ams2=4,4 in5=5,5 in6=6,6" {
+		t.Fatalf("two cards of one prefix: %q", got)
+	}
 	if got := WithExtraSources(DefaultSourcesSpec, 8, nil, 2); got != DefaultSourcesSpec {
 		t.Fatalf("with no extra input: %q", got)
 	}
 }
+
+// The real capture is ExtraAware: if a signature drifted, the lag would
+// quietly stop being kept.
+var _ ExtraAware = (*audio.Capture)(nil)
 
 // extraCapture is a capture whose channel 2 is an extra input's, lagging the
 // head by lag, with a gap at frame gap.

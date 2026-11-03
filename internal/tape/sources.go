@@ -51,15 +51,27 @@ const DefaultSourcesSpec = "main=1,2:AB ch1=3,4:A ch2=5,6:B aux=7,8"
 // (EXTRA_INPUTS) to s, numbered on after the main interface's main channels:
 // "ams1=9,9 ams2=10,10" for the AMS-24 beside the EP-136. They hear no bus:
 // the tape never reaches an extra input. Named after the card ("AMS-24" is
-// ams), or in for a card named only by its USB id.
+// ams), or in for a card named only by its USB id. A name already taken (a
+// second card with the same prefix, or a ch1 beside the Sidekick's) is
+// numbered by the bus channel instead: in9, in10.
 func WithExtraSources(s string, main int, extras []string, perInput int) string {
 	fields := strings.Fields(s)
+	taken := map[string]bool{}
+	for _, f := range fields {
+		name, _, _ := strings.Cut(f, "=")
+		taken[name] = true
+	}
 	ch := main
 	for _, x := range extras {
-		name := cardPrefix(x)
+		prefix := cardPrefix(x)
 		for i := 1; i <= perInput; i++ {
 			ch++
-			fields = append(fields, fmt.Sprintf("%s%d=%d,%d", name, i, ch, ch))
+			name := fmt.Sprintf("%s%d", prefix, i)
+			if taken[name] {
+				name = fmt.Sprintf("in%d", ch)
+			}
+			taken[name] = true
+			fields = append(fields, fmt.Sprintf("%s=%d,%d", name, ch, ch))
 		}
 	}
 	return strings.Join(fields, " ")
