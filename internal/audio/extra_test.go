@@ -202,6 +202,14 @@ func TestTheExtraInputMarksAGapAndComesBack(t *testing.T) {
 	if p := peaks(t, ring, simMainCh, 101*8000, 103*8000); len(p) != 0 {
 		t.Errorf("%d pulses in the gap, want silence", len(p))
 	}
+	// A span wholly inside the silence is in the gap too, and one after it
+	// isn't.
+	if len(x.Gaps(101*8000, 102*8000)) == 0 {
+		t.Error("a span inside the gap isn't reported")
+	}
+	if g := x.Gaps(150*8000, 160*8000); len(g) != 0 {
+		t.Errorf("a span after the gap reports %v", g)
+	}
 }
 
 type fakeExtra struct{ lat time.Duration }

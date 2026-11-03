@@ -114,4 +114,10 @@ func TestAnExtraInputsMetersHoldAcrossABurstOfBins(t *testing.T) {
 			t.Fatalf("bin %d: %v, want the extra channels at -12 dB and the main ones silent", i, b.RMS)
 		}
 	}
+	// It stops (unplugged): after a held burst, the meter falls silent.
+	l.Accumulate(make([]int32, 20*480*2))
+	f = l.Drain()
+	if last := f.Bins[len(f.Bins)-1]; last.RMS[2] != FloorDB || last.Max[2] != 0 {
+		t.Fatalf("an extra input that stopped still reads %v", last.RMS)
+	}
 }

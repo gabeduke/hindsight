@@ -35,6 +35,7 @@ type Levels struct {
 	// their own samples per bin, and a bin they put nothing in shows what
 	// the last one did: the main interface's blocks close bins in bursts.
 	extraN     []int
+	held       []int // bins in a row each extra channel has been held
 	lastBin    Bin
 	binFrames  int // frames per bin
 	sampleRate int
@@ -59,6 +60,11 @@ type Levels struct {
 	subs   map[chan Frame]struct{}
 }
 
+// maxHeldBins is how many bins in a row an extra channel shows the last
+// one's level when its stream put nothing in them: a main block of 2048
+// frames closes four 10 ms bins at once.
+const maxHeldBins = 8
+
 // SetWidth says Accumulate's blocks carry only the first width channels:
 // the main interface's, on a bus with extra inputs. Call it before any
 // audio arrives.
@@ -66,6 +72,7 @@ func (l *Levels) SetWidth(width int) {
 	if width < l.channels {
 		l.width = width
 		l.extraN = make([]int, l.channels)
+		l.held = make([]int, l.channels)
 	}
 }
 
@@ -189,12 +196,15 @@ func (l *Levels) flushBinLocked() {
 	for c := 0; c < l.channels; c++ {
 		n := float64(l.curCount)
 		if l.width > 0 && c >= l.width {
-			if l.extraN[c] == 0 && l.lastBin.RMS != nil {
+			// Held across one main block's burst at most: an extra input
+			// that has stopped reads silent, not its last level.
+			if l.extraN[c] == 0 && l.lastBin.RMS != nil && l.held[c] < maxHeldBins {
 				b.Min[c], b.Max[c], b.RMS[c] = l.lastBin.Min[c], l.lastBin.Max[c], l.lastBin.RMS[c]
+				l.held[c]++
 				continue
 			}
 			n = float64(l.extraN[c])
-			l.extraN[c] = 0
+			l.extraN[c], l.held[c] = 0, 0
 		}
 		b.Min[c] = l.curMin[c]
 		b.Max[c] = l.curMax[c]

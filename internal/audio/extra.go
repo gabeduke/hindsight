@@ -98,8 +98,13 @@ type extraInput struct {
 	locked atomic.Bool
 	ppm    atomic.Int64 // the ratio's distance from 1, in thousandths of a ppm
 
-	gaps [extraMaxGaps]atomic.Uint64 // ring frames (+1) where its audio stops holding
-	gapN atomic.Uint64
+	// gaps are the spans of the ring its audio doesn't hold, newest last:
+	// from where it stopped (restart) to where it was placed again (seed),
+	// each +1 so 0 is empty; a To of 0 is a gap still open.
+	gapFrom [extraMaxGaps]atomic.Uint64
+	gapTo   [extraMaxGaps]atomic.Uint64
+	gapN    atomic.Uint64
+	gapOpen bool // the ring writer's: the newest gap has no end yet
 }
 
 func newExtraInput(match string, first, width, rate int, src ExtraSource, levels *Levels, offsetMS float64, lag uint64) *extraInput {
@@ -241,6 +246,7 @@ func (x *extraInput) join(ring *Ring, main *ClockBridge) {
 			x.conv[i] = toInt32(v)
 		}
 		if err := ring.WriteChannels(x.next, x.first, x.width, x.conv); err != nil {
+			log.Printf("[!] extra input %q: writing ring frame %d: %v; placing it again", x.match, x.next, err)
 			x.restart()
 			return
 		}
@@ -259,27 +265,45 @@ func (x *extraInput) join(ring *Ring, main *ClockBridge) {
 // bridges. Where it was writing, the extra input's audio stops holding: a
 // gap.
 func (x *extraInput) restart() {
-	if x.seeded {
-		x.markGap(x.next)
+	if x.seeded && !x.gapOpen {
+		i := x.gapN.Load() % extraMaxGaps
+		x.gapTo[i].Store(0)
+		x.gapFrom[i].Store(x.next + 1)
+		x.gapN.Add(1)
+		x.gapOpen = true
 	}
 	x.rs.Reset()
 	x.inFrames, x.seeded = 0, false
 	x.locked.Store(false)
 }
 
-func (x *extraInput) markGap(frame uint64) {
-	i := x.gapN.Add(1) - 1
-	x.gaps[i%extraMaxGaps].Store(frame + 1)
+// closeGap ends the open gap where the audio holds again.
+func (x *extraInput) closeGap(frame uint64) {
+	if x.gapOpen {
+		x.gapTo[(x.gapN.Load()-1)%extraMaxGaps].Store(frame + 1)
+		x.gapOpen = false
+	}
 }
 
-// Gaps answers where the extra input's audio stops holding strictly inside
-// the ring frames [start, end), in frames from start: as Capture.Dropouts.
+// Gaps answers where the extra input's audio doesn't hold in the ring frames
+// [start, end), in frames from start: the start of each gap that overlaps
+// the span, or 0 for one the span starts inside.
 func (x *extraInput) Gaps(start, end uint64) []int64 {
 	n := x.gapN.Load()
 	var out []int64
 	for i := n - min(n, extraMaxGaps); i < n; i++ {
-		if v := x.gaps[i%extraMaxGaps].Load(); v > 0 && v-1 > start && v-1 < end {
-			out = append(out, int64(v-1-start))
+		from, to := x.gapFrom[i%extraMaxGaps].Load(), x.gapTo[i%extraMaxGaps].Load()
+		if from == 0 {
+			continue
+		}
+		from--
+		if to == 0 {
+			to = math.MaxUint64 // still open
+		} else {
+			to--
+		}
+		if from < end && to > start {
+			out = append(out, int64(max(from, start)-start))
 		}
 	}
 	slices.Sort(out)
@@ -366,6 +390,7 @@ func (x *extraInput) seed(ring *Ring, main *ClockBridge, target uint64) bool {
 		at = int64(oldest)
 	}
 	x.next = uint64(at)
+	x.closeGap(x.next)
 	x.integ = 0
 	x.rs.SetRatio(1)
 	x.seeded = true

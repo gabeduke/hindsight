@@ -81,16 +81,18 @@ wobble). In the tests it lands within a frame and a half of the main
 interface's pulses at 8 kHz, and within a frame at 48 kHz with 3 ms of USB
 jitter. *Locked* is the error, smoothed over a second, within 1 ms for 2 s.
 
-The lag (`Capture.ExtraLag`) is one main block, the extra stream's latency
-and 50 ms of slack, about 200 ms: the newest that long of an extra channel is
+The lag (`Capture.ExtraLag`) is one main block, the extra stream's latency,
+50 ms of slack and any negative `EXTRA_INPUT_OFFSET_MS`, about 200 ms: the newest that long of an extra channel is
 not written yet. Its meters don't wait: they are fed from the extra stream's
 own blocks (`Levels.AccumulateAt`), counting their own samples per bin.
 
 **When one side fails.** A block lost on the way, an overflow the device
 reports, a reopen, a stretch with nothing for over a second, or an error past
 20 ms (a clock that jumped) all re-seed: the resampler is emptied and placed
-again from the bridges, and where it was writing is an extra-input gap
-(`Capture.ExtraGaps`), the span between silence. Each open, and each
+again from the bridges, and the span from where it was writing to where it
+is placed again is an extra-input gap (`Capture.ExtraGaps`), silence. Its
+meters hold their last level across one burst of bins at most, then read
+silent. Each open, and each
 overflow, starts a fresh bridge, so a stretch of the extra stream's frames
 never has a hole in it. The EP-136 stalling stops the ring, so nothing is
 written to 9-10 either; the joiner re-places itself when it moves again.

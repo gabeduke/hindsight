@@ -34,7 +34,7 @@ the settings on this page and the tape's own (`docs/api.md`, `GET /api/rig`).
 |---|---|---|
 | `RING_SECONDS` | `900` | Length of the memory ring, and therefore the longest possible capture |
 | `DEVICE_MATCH` | `auto` | The main interface: substring matched against PortAudio device names to pick the input; `auto` picks the interface itself (below). The tape plays out of the card the capture opened, and its clock is the ring's |
-| `EXTRA_INPUTS` | `none` | Cards that only record, beside the main interface: part of a card's ALSA name or id, or its USB id (`AMS-24`, `1686:067f`). Each adds two channels after the main interface's, resampled onto its clock; nothing plays out of it (`docs/architecture/capture.md`, *Extra inputs*). Linux only. Never `DEVICE_MATCH`'s card |
+| `EXTRA_INPUTS` | `none` | Cards that only record, beside the main interface: part of a card's ALSA name or id, or its USB id (`AMS-24`, `1686:067f`). Each adds two channels after the main interface's, resampled onto its clock; nothing plays out of it (`docs/architecture/capture.md`, *Extra inputs*). Linux only. Never `DEVICE_MATCH`'s card. Give it by name if `DEVICE_MATCH` is `auto`: only a name keeps auto from picking the card as the main interface |
 | `EXTRA_INPUT_OFFSET_MS` | `0` | Moves the extra inputs' channels this much later (-500 to 500), for the difference between the two interfaces' own delays |
 | `CHANNELS` | `auto` | How many channels to open on that device; `auto` opens every input it has (below) |
 | `SAMPLE_RATE` | `48000` | Capture sample rate, in Hz |

@@ -269,9 +269,11 @@ func (c *Capture) AddExtraInputs(srcs []ExtraSource) {
 // written, in frames: one of the main interface's blocks, the extra stream's
 // latency, and slack. A reader that wants the newest audio of an extra
 // channel stops this far short of the head.
+// A negative EXTRA_INPUT_OFFSET_MS reads the extra input that much later
+// again, so it adds to the lag.
 func (c *Capture) ExtraLag() uint64 {
-	ms := c.cfg.InputLatencyMS + extraSlackMS
-	return uint64(c.cfg.FramesPerBuf + ms*c.cfg.SampleRate/1000)
+	ms := float64(c.cfg.InputLatencyMS+extraSlackMS) + max(0, -c.cfg.ExtraInputOffsetMS)
+	return uint64(c.cfg.FramesPerBuf + int(ms*float64(c.cfg.SampleRate)/1000))
 }
 
 // ExtraInputStatus is how one extra input is doing, for the status line and
