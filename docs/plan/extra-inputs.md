@@ -1,9 +1,14 @@
 # Extra inputs: a second interface that only records
 
-**Status: decided, not built (2026-11-02).** Gabe handed the implementation
-calls to the agents; decisions 1 and 3–7 are settled as written below.
-Decision 2 is his wiring, so it is the recommendation, his to change.
-The build waits for its place in the queue (`STATE.md`).
+**Status: built but for steps 5, 7 and 8 (2026-11-03).** Gabe handed the
+implementation calls to the agents; decisions 1 and 3–7 are settled as
+written below. Decision 2 is his wiring, so it is the recommendation, his
+to change. Built: the bug (#265), steps 1 (#266), 2 (#267), 3 (#268), 4
+(#269), 6 (#270) and the Settings choice (#271); what lasts is in
+`docs/architecture/capture.md` (*Extra inputs*) and `tape.md` (*Sources*).
+Left: step 5's correlation lock (the offset is set by hand), a take or KEEP
+of 9–10 waiting the lag and recording the extra gaps, a flow, step 7 at the
+rig, and step 8.
 
 On 2026-11-02 Gabe chose the Zoom AMS-24 as the Interface in Settings to get
 his guitar in. The capture fell back to the EP-136 (it wants 8 channels), the
