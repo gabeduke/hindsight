@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.3 — 2026-11-03
+
+- The Output sheet shows where the tape plays and how late as it first opens, as it did before the shell made it (10f58ac2)
+- Spec and STATE: step 5c-1 of the Transport's extraction built (#262) (e320c66b)
+- Docs: the bar's layout on its root, the phone's player as the surface's sheet, the Output sheet and the recorder made at boot (step 5c-1) (f08a1d90)
+- The bar's root says its fold, the player up and what is docked over it; the shell makes the phone's player, the Output sheet and the recorder (12dfd2a9)
+- The router tells the shell the moment a room has its classes, and a room's docked parts say when they show (a5acb1ea)
+- A sheet can be dragged from a handle that hands it its press, and asks for its owner as it opens (5b7a222b)
+
+
 ## v2026.11.03.2 — 2026-11-03
 
 - The phone strip says where the stream was lost as the Studio always has, and follows this phone's sound whatever the bar holds (ea011db4)
