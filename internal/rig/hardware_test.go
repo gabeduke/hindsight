@@ -156,3 +156,25 @@ func TestNewProfilesMatchByNameOnly(t *testing.T) {
 		}
 	}
 }
+
+// The AMS-24 is found by its USB id and records two mono inputs that hear
+// nothing of the tape; it has no returns, since nothing plays out of it
+// (docs/plan/extra-inputs.md, decision 6).
+func TestTheAMS24RecordsTwoMonoInputsAndPlaysNothing(t *testing.T) {
+	p, ok := ForUSB("1686:067f")
+	if !ok || p.ID != "zoom-ams-24" {
+		t.Fatalf("ForUSB(1686:067f) = %q, %v", p.ID, ok)
+	}
+	if len(p.Taps) != 2 || p.Taps[0].USB != [2]int{1, 1} || p.Taps[1].USB != [2]int{2, 2} ||
+		p.Taps[0].From != "in1" || p.Taps[1].From != "in2" {
+		t.Fatalf("taps %+v", p.Taps)
+	}
+	for _, tap := range p.Taps {
+		if len(tap.Hears) != 0 {
+			t.Fatalf("tap %s hears %v: the tape never reaches the AMS-24", tap.ID, tap.Hears)
+		}
+	}
+	if len(p.Returns) != 0 {
+		t.Fatalf("returns %+v: nothing plays out of the AMS-24", p.Returns)
+	}
+}
