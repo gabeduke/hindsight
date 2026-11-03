@@ -98,8 +98,8 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *                and hidden by dockSlot.show(node, on), so the bar's root
  *                can say something is docked over it
  *   barSlot      a Slot inside #np, the only way a view adds to the bar
- *                (the doorway's seat and grease pencil, doorway.js:437,442;
- *                the Studio's overview, in its place 'strip')
+ *                (the doorway's grease pencil, at the end of its place
+ *                'strip'; the Studio's overview, at the start of it)
  *   active()     true while the view is shown and the document is visible
  *   on(target, type, fn, opts) -> off
  *                addEventListener on a window, document or any target,
@@ -176,6 +176,9 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *                          slot (its spec's `places`): the bar's 'strip',
  *                          where the Studio's overview goes. A name the slot
  *                          has not got is an error at add()
+ *            { place: name, at: 'end' }
+ *                          the end of that place: the doorway's grease, after
+ *                          the strip's own canvas
  *            'first'        the start of the slot's parent (Play's strip in #np)
  *     An `el`, or a place, that is no longer in the page when the view is
  *     shown means the slot's own place. remove() takes the node out for good.
@@ -224,7 +227,11 @@ function makeSlot(spec, isShown, name, parked = () => null) {
       return;
     }
     const zone = where?.place ? resolve(spec.places[where.place]) : null;
-    if (zone && zone.isConnected) { zone.prepend(node); return; }
+    if (zone && zone.isConnected) {
+      if (where.at === 'end') zone.append(node);
+      else zone.prepend(node);
+      return;
+    }
     const parent = resolve(spec?.parent);
     if (!parent) return;
     if (where === 'first') { parent.prepend(node); return; }
