@@ -430,6 +430,36 @@ test('each room keeps its own body classes through a switch; the shell’s own s
   assert.deepEqual([...KEEP_CLASSES].sort(), ['help-mode', 'player-open']);
 });
 
+test('chrome.classesGiven is told the moment a room has its classes, before it is revealed, at boot and on each switch', async () => {
+  // Step 5c: the bar's root says the room's fold (data-fold) from the body
+  // in the same frame as the body, not in setPath, which comes after the
+  // room's reveal has been awaited.
+  const seen = [];
+  let s = null;
+  const rooms = {};
+  for (const id of ['studio', 'room']) {
+    rooms[id] = { mount: () => { seen.push(['mount', id]); return { show: () => { seen.push(['show', id]); } }; } };
+  }
+  s = aShell({
+    rooms,
+    chrome: {
+      classesGiven: (id) => seen.push(['given', id, s.doc.body.classList.contains('np-fold')]),
+      setPath: (p) => seen.push(['path', p]),
+    },
+  });
+  await s.router.start();
+  assert.deepEqual(seen.slice(0, 2), [['given', 'room', false], ['mount', 'room']], 'at boot, before the room is shown');
+  s.doc.body.classList.add('np-fold'); // folded in the Listening Room
+  await s.router.go('/tape.html');
+  await s.router.go('/takes.html');
+  const given = seen.filter((x) => x[0] === 'given');
+  assert.deepEqual(given, [['given', 'room', false], ['given', 'studio', false], ['given', 'room', true]], 'the classes are the room arriving’s when it is told');
+  // Told before the room is shown, and setPath after.
+  const back = seen.slice(seen.findLastIndex((x) => x[0] === 'given'));
+  assert.equal(back[0][0], 'given');
+  assert.deepEqual(back.slice(1).map((x) => x[0]), ['path', 'show']);
+});
+
 test('a class the room’s own hide takes off stays off when the room comes back', async () => {
   const s = aShell({ rooms: { room: { mount: () => ({ hide: () => { s.doc.body.classList.remove('cassette-open'); } }) } } });
   await s.router.start();

@@ -200,10 +200,14 @@ function drawn(t) {
  *              drawn (viewTransition): a transition ({updateCallbackDone,
  *              ready, finished, skipTransition}), or a promise of `update`
  *              having run
- *   chrome     { setPath(path), setHelp(page), say(text), beforeSwitch() },
- *              all optional: the tabs' aria-current and lamp (nav), the help
- *              page (help), the polite live region, and what is closed
- *              before a room is left (the stack, lib/ui/layers.js leave()).
+ *   chrome     { setPath(path), setHelp(page), say(text), beforeSwitch(),
+ *              classesGiven(id) }, all optional: the tabs' aria-current and
+ *              lamp (nav), the help page (help), the polite live region,
+ *              what is closed before a room is left (the stack,
+ *              lib/ui/layers.js leave()), and what follows the body's
+ *              classes, told the moment the room arriving (id) has been
+ *              given them, before it is revealed: the bar's root says the
+ *              room's fold in the same frame (lib/bar/layout.js sync).
  *              beforeSwitch may answer a promise -- the stack's own Back
  *              still on its way -- which a go() waits for before it writes
  *              the history, or 'replace': the entry the history is on is
@@ -335,6 +339,7 @@ export function createRouter({
         }
         shown = to.id;
         giveClasses(to);
+        tell('classesGiven', to.id);
         await to.reveal({ url: loc.href, from: came });
         win.scrollTo(0, y);
         // Taken out of the page with the room's header part, say: lost too.
@@ -517,6 +522,7 @@ export function createRouter({
     try {
       shown = to.id;
       giveClasses(to);
+      tell('classesGiven', to.id);
       await to.show({ url: loc.href, from: null });
     } catch (e) {
       // Never a reload: a room that fails as the page loads would fail again.

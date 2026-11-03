@@ -94,7 +94,9 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *   root         its <section>, filled from its template
  *   headerSlot   a Slot in the header: the view's .appbar-page part goes here
  *   dockSlot     a Slot in #np-dock, above the bar: the Studio's clip editor
- *                and action bar, Play's strip
+ *                and action bar, Capture's drawer. A node there is shown
+ *                and hidden by dockSlot.show(node, on), so the bar's root
+ *                can say something is docked over it
  *   barSlot      a Slot inside #np, the only way a view adds to the bar
  *                (the doorway's seat and grease pencil, doorway.js:437,442;
  *                the Studio's overview, in its place 'strip')
@@ -177,6 +179,13 @@ import { Loop, ticker, report } from '../objects/motion.js';
  *            'first'        the start of the slot's parent (Play's strip in #np)
  *     An `el`, or a place, that is no longer in the page when the view is
  *     shown means the slot's own place. remove() takes the node out for good.
+ *   show(node, on)
+ *     shows or hides a node the view added (its `hidden`), and says so: the
+ *     slot's spec hears, through onShown(slot, any), whether anything it
+ *     holds shows -- false while the view is hidden, whatever its nodes say
+ *     -- each time that may have changed (the dock's: what is docked above
+ *     the bar, which the bar's root says, data-docked; lib/bar/layout.js).
+ *     A node shown or hidden by its own `hidden` is not heard.
  */
 
 /** classesOf is a view's bodyClass as a list: a string, space-separated, or an array. */
@@ -188,15 +197,26 @@ const resolve = (v) => (typeof v === 'function' ? v() : v) || null;
 
 /**
  * makeSlot is one view's handle on one slot. `spec` is {parent, before,
- * places}: nodes or functions that answer them (a header tool made after the
- * slots were, say); `places` names the zones of the shell's markup a view
- * may fill, {name: node or function}. `isShown` is the view's state; put() and take() are the
- * host's, for show and hide. `parked` answers where a node added while the
+ * places, onShown}: nodes or functions that answer them (a header tool made
+ * after the slots were, say); `places` names the zones of the shell's
+ * markup a view may fill, {name: node or function}; onShown(slot, any)
+ * hears whether anything this view holds in it shows (show(), above), with
+ * this slot's own handle, so the shell can hear every view's. `isShown` is
+ * the view's state; put() and take() are the host's, for show and hide. `parked` answers where a node added while the
  * view warms up waits (its own hidden root), or null: in the document, so
  * the mount finds it by its id, and out of sight.
  */
 function makeSlot(spec, isShown, name, parked = () => null) {
   const placed = [];
+  const me = {};
+  let was = false;
+  // Whether anything this view holds here shows, said when it moves.
+  const said = () => {
+    const now = isShown() && placed.some((e) => e.node.isConnected && !e.node.hidden);
+    if (now === was) return;
+    was = now;
+    spec?.onShown?.(me, now);
+  };
   const place = ({ node, where }) => {
     const ref = where && typeof where === 'object' ? where.before || where.after : null;
     if (ref && ref.isConnected) {
@@ -222,15 +242,22 @@ function makeSlot(spec, isShown, name, parked = () => null) {
       placed.push(entry);
       if (isShown()) place(entry);
       else parked()?.append(node);
+      said();
       return () => {
         const i = placed.indexOf(entry);
         if (i >= 0) placed.splice(i, 1);
         node.remove();
+        said();
       };
     },
-    put() { for (const e of placed) place(e); },
-    take() { for (const e of placed) e.node.remove(); },
-    clear() { this.take(); placed.length = 0; },
+    show(node, on) {
+      if (!placed.some((e) => e.node === node)) throw new Error(`${name}.show: a node this view did not add`);
+      node.hidden = !on;
+      said();
+    },
+    put() { for (const e of placed) place(e); said(); },
+    take() { for (const e of placed) e.node.remove(); said(); },
+    clear() { this.take(); placed.length = 0; said(); },
   };
 }
 
@@ -246,7 +273,8 @@ function makeSlot(spec, isShown, name, parked = () => null) {
  *   template   a <template> cloned into root once, before mount; or none,
  *              when root already holds the markup
  *   slots      { header, dock, bar }: each {parent, before}, where that
- *              slot's nodes go. #np-dock's is {parent: #np-dock, before:
+ *              slot's nodes go (and onShown, which hears what shows in it:
+ *              makeSlot). #np-dock's is {parent: #np-dock, before:
  *              #np}: a place, not a wrapper element (spike D: a wrapper
  *              breaks the .np-dock > .clip-editor selectors).
  *   shared     what every view's ctx carries: engine, go, tapes, takes, tape, toast …
@@ -453,7 +481,7 @@ export function createView(def, {
       id: def.id,
       root,
       headerSlot: { add: slot.header.add },
-      dockSlot: { add: slot.dock.add },
+      dockSlot: { add: slot.dock.add, show: slot.dock.show },
       barSlot: { add: slot.bar.add },
       active,
       on,
