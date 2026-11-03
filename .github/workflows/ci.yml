@@ -5,8 +5,15 @@ on:
   # a second, identical run: 33 of 72 runs in the week to 2026-10-22 were
   # repeats of another.
   pull_request:
-  # main is covered by release.yml, which calls this workflow.
+  # main is covered by release.yml, which calls this workflow without the
+  # flows: a pull request runs them, and main only takes pull requests that
+  # are up to date with it (branch protection), so the tree a release builds
+  # is one the flows have already passed.
   workflow_call:
+    inputs:
+      flows:
+        type: boolean
+        default: true
   # Any other branch, by hand.
   workflow_dispatch:
 
@@ -114,6 +121,9 @@ jobs:
   # green through a Studio that threw on every load; this is what notices.
   # A todo flow (a story not built yet) reports and never fails the job.
   flows:
+    # Skipped when release.yml calls this (flows: false); a pull request, or a
+    # run by hand, has no inputs and runs them.
+    if: ${{ inputs.flows != false }}
     runs-on: ubuntu-latest
     env:
       PLAYWRIGHT: 1.49.0

@@ -63,6 +63,10 @@ jobs:
     # Reused rather than duplicated, so a red main cannot publish.
     if: ${{ github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
     uses: ./.github/workflows/ci.yml
+    # The unit tests, not the flows: those ran on the pull request, which had
+    # to be up to date with main to merge.
+    with:
+      flows: false
 
   release:
     needs: test
