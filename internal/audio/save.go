@@ -257,6 +257,11 @@ func (s *Saver) Save(seconds float64) (string, error) {
 	if gotFrames == 0 {
 		return "", ErrNoAudio
 	}
+	// An extra input's channels are written a lag behind the head: wait for
+	// them to reach the press, and read them again over the same window.
+	if err := s.settleExtra(data, endFrame-uint64(gotFrames), endFrame); err != nil {
+		log.Printf("[!] save: %v; the take's end may be silent on those channels", err)
+	}
 	if lowDisk {
 		if freeGB = EnsureFree(cfg.OutputDir, cfg.MinFreeGB); freeGB < cfg.MinFreeGB {
 			return "", fmt.Errorf("%w: %.2f GB free, need %.2f GB", ErrLowDisk, freeGB, cfg.MinFreeGB)
@@ -271,7 +276,7 @@ func (s *Saver) Save(seconds float64) (string, error) {
 		s.cap.Flags().Active(endFrame, uint64(s.cap.cfg.RingFrames())),
 		winStart, endFrame,
 	)
-	drops := s.cap.Dropouts(winStart, endFrame)
+	drops := s.dropoutsIn(winStart, endFrame)
 
 	s.beginSave()
 	defer s.endSave()
@@ -584,6 +589,55 @@ func stampFlagsAt(metaWav, cueWav string, flags []Flag) {
 
 // stampDropouts writes where a take lost audio into its sidecar, saying so in
 // the log: a take with a gap in it is worth knowing about.
+// takeChannels are the ring channels a take is made from (OutMix's), once
+// each, 0-indexed.
+func takeChannels(cfg *config.Config) []int {
+	var out []int
+	for _, in := range cfg.OutMix() {
+		out = append(out, in...)
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+// dropoutsIn are where a take of the ring frames [start, end) lost audio:
+// the capture's dropouts, and the extra inputs' gaps on its channels.
+func (s *Saver) dropoutsIn(start, end uint64) []int64 {
+	out := append(s.cap.Dropouts(start, end), s.cap.ExtraGapsIn(takeChannels(s.cap.cfg), start, end)...)
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+// settleExtra waits for the extra inputs' channels in the take to be written
+// up to ring frame end, then copies them for [from, end) into data, which is
+// SnapshotAt's copy of those frames, bus-wide. A take of the main interface
+// alone returns at once.
+func (s *Saver) settleExtra(data []int32, from, end uint64) error {
+	var chs []int
+	for _, ch := range takeChannels(s.cap.cfg) {
+		if s.cap.extraOf(ch) != nil {
+			chs = append(chs, ch)
+		}
+	}
+	if len(chs) == 0 {
+		return nil
+	}
+	if !s.cap.AwaitExtra(chs, end, s.cap.ExtraWait()) {
+		return fmt.Errorf("the extra input didn't reach the press in time")
+	}
+	bus := s.cap.cfg.BusChannels()
+	f := 0
+	return s.cap.Ring().Range(from, end, chs, func(b []int32) error {
+		for i := 0; i+len(chs) <= len(b); i += len(chs) {
+			for k, ch := range chs {
+				data[f*bus+ch] = b[i+k]
+			}
+			f++
+		}
+		return nil
+	})
+}
+
 func stampDropouts(wav string, drops []int64) {
 	if len(drops) == 0 {
 		return

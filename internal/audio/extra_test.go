@@ -165,6 +165,11 @@ func TestTheExtraInputLandsOnTheMainInterfacesFrames(t *testing.T) {
 		if !x.locked.Load() {
 			t.Errorf("%+g ppm: not locked", ppm)
 		}
+		// written follows the joiner: up to the head less the lag, give or
+		// take where the resampler's input ran out.
+		if w := x.written.Load(); w > end || w+512 < end {
+			t.Errorf("%+g ppm: written %d, want about %d", ppm, w, end)
+		}
 		// The ratio steps over the extra's frames: a fast extra clock is
 		// read faster.
 		if got := float64(x.ppm.Load()) / 1000; math.Abs(got-ppm) > 10 {
@@ -237,10 +242,11 @@ func TestTheExtraInputFollowsAJumpOfTheMainClock(t *testing.T) {
 	}
 }
 
-// A reader of an extra input's channel sees the ring end ExtraLag short of
-// the head; a reader of the main ones, and any reader with no extra inputs,
-// sees all of it.
-func TestNewestForStopsAnExtraChannelShortOfTheHead(t *testing.T) {
+// A reader of an extra input's channel sees the ring end where the joiner
+// has got to, not at the head less the lag: the head moves a moment before
+// the joiner writes behind it. A reader of the main channels, and any reader
+// with no extra inputs, sees all of it.
+func TestNewestForStopsAnExtraChannelWhereTheJoinerIs(t *testing.T) {
 	cfg, err := config.LoadFrom(func(k string) string {
 		return map[string]string{"CHANNELS": "2", "EXTRA_INPUTS": "AMS-24", "RING_SECONDS": "10"}[k]
 	})
@@ -250,12 +256,15 @@ func TestNewestForStopsAnExtraChannelShortOfTheHead(t *testing.T) {
 	c := NewCapture(cfg, nil)
 	c.AddExtraInputs([]ExtraSource{&fakeExtra{}})
 	c.ring.WriteNarrow(make([]int32, 2*48000), 2)
-	lag := c.ExtraLag()
 	if _, n := c.NewestFor([]int{0, 1}); n != 48000 {
 		t.Fatalf("main channels: %d", n)
 	}
-	if _, n := c.NewestFor([]int{0, 2}); n != 48000-lag {
-		t.Fatalf("an extra channel: %d, want %d", n, 48000-lag)
+	if _, n := c.NewestFor([]int{0, 2}); n != 0 {
+		t.Fatalf("an extra channel the joiner hasn't written: %d, want 0", n)
+	}
+	c.extras[0].written.Store(48000 - c.ExtraLag())
+	if _, n := c.NewestFor([]int{0, 2}); n != 48000-c.ExtraLag() {
+		t.Fatalf("an extra channel: %d, want %d", n, 48000-c.ExtraLag())
 	}
 	plain := NewCapture(&config.Config{Channels: 2, SampleRate: 48000, RingSeconds: 10, FramesPerBuf: 2048}, nil)
 	plain.ring.WriteFrames(make([]int32, 2*1000))

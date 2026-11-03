@@ -268,9 +268,9 @@ reaches it: `ams1=9,9 ams2=10,10` for the AMS-24 beside the EP-136
 (`WithExtraSources`). An extra input's channels are written a lag (about
 200 ms) behind the head, so whatever reads a source from the ring -- a catch,
 a tap, a grab, a copy from the ribbon, and their handles -- takes its newest
-frame from `Engine.window`, which stops that lag short for a source on an
-extra input (`Capture.NewestFor`, through the optional `ExtraAware`) and
-nowhere else. A span across an extra input's gap is refused for its sources
+frame from `Engine.window`, which stops short at the joiner's frontier for a
+source on an extra input (`Capture.NewestFor`, through the optional
+`ExtraAware`) and nowhere else. A span across an extra input's gap is refused for its sources
 (`ErrExtraGap`, *INPUT DROPPED OUT*), as one with a slip is; a gap only in
 its handles is silence there, not a refusal. A second card whose names would
 clash takes the bus channel's (`in11`).
