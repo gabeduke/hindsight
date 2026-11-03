@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.03.4 — 2026-11-03
+
+- Guardrail 22 reads every module of the rooms and the Studio, not a list; the spec no longer counts readBar (68669369)
+- In help mode, Space and L on a track's level slider explain nothing and do nothing, as everywhere else; only a field that takes text keeps its keys (f0011c51)
+- Spec and STATE: step 5c-2 of the Transport's extraction built (#263) (dbc3c1fd)
+- Docs: the Studio's and the rooms' reaches into the bar as verbs and callbacks, SYNC the bar's, and Guardrail 22 (step 5c-2) (6200eab9)
+- The Studio and the Listening Room reach the bar through its verbs and callbacks, never by its ids; SYNC is drawn by the bar (fdfb6ac1)
+- ▶ and Loop do nothing while unlit, whoever presses them; the Studio can focus ▶ and wire its tempo menu through the bar's keys (15ef8e96)
+
+
 ## v2026.11.03.3 — 2026-11-03
 
 - The Output sheet shows where the tape plays and how late as it first opens, as it did before the shell made it (10f58ac2)
