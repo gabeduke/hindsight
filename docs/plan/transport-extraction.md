@@ -93,8 +93,9 @@ about who owns what:
 4. **●, Catch and the click are the Transport's keys, on the tape's
    verbs** (`record`, `punchOut`, `cancelRecord`, `catch`, `setClick`,
    which the tape model has had since 1b), drawn from the tape's
-   `snapshot()`, as row 1 says. **The overview, the clock-out lamp and
-   the output strip stay the Studio's**, in a slot of the bar's the Studio
+   `snapshot()`, as row 1 says. **The overview stays the Studio's**
+   (the clock-out lamp and the output strip are the bar's, drawn from the
+   models: step 3, *decided* (b)), in a slot of the bar's the Studio
    fills (`ctx.barSlot`, which the Listening Room's grease marks already
    use): the Transport's template keeps the grid area they sit in (`out`,
    `css/bar.css`) as an empty slot, so it carries no Studio drawing. Catch's
