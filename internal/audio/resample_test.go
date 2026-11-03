@@ -73,8 +73,9 @@ func TestResamplerHoldsDCAndStartsOnTime(t *testing.T) {
 }
 
 // An hour of frames at ±100 ppm, the most two USB crystals drift apart,
-// lands within a sample of where it should: the position is kept as whole
-// frames and a fraction, so it doesn't wander as a float sum would.
+// lands within a thousandth of a sample of where it should: the position is
+// kept as whole frames and a fraction. A single float64 sum is off by about
+// 0.3 of a sample by then, which this fails.
 func TestTheSteeredResamplerHoldsADriftForAnHour(t *testing.T) {
 	const hour = 3600 * 48000
 	for _, ppm := range []float64{100, -100} {
@@ -85,7 +86,7 @@ func TestTheSteeredResamplerHoldsADriftForAnHour(t *testing.T) {
 		}
 		want := float64(hour) * (1 + ppm*1e-6)
 		got := float64(r.at) + r.frac
-		if math.Abs(got-want) > 1 {
+		if math.Abs(got-want) > 1e-3 {
 			t.Errorf("%+g ppm: an hour in, at input frame %.3f, want %.3f", ppm, got, want)
 		}
 	}
@@ -151,5 +152,53 @@ func TestTheSteeredResamplerSaysWhatItHolds(t *testing.T) {
 	r.Reset()
 	if r.Buffered() != 0 || r.Read(make([]float32, 10)) != 0 {
 		t.Fatal("Reset should forget every frame")
+	}
+}
+
+// Reading in pieces, with the history trimmed after each, gives the same
+// frames as one read of everything: the trim never drops a frame a later
+// output still needs.
+func TestTheSteeredResamplerTrimsOnlyWhatItHasUsed(t *testing.T) {
+	in := tone(9600, 48000, 3001, 0)
+	whole := newSteeredResampler(2)
+	whole.SetRatio(1 + 150e-6)
+	whole.Write(in)
+	want := make([]float32, len(in))
+	nw := whole.Read(want)
+
+	r := newSteeredResampler(2)
+	r.SetRatio(1 + 150e-6)
+	var got []float32
+	dst := make([]float32, 2*37)
+	for i := 0; i < len(in); i += 2 * 101 {
+		r.Write(in[i:min(i+2*101, len(in))])
+		for m := r.Read(dst); m > 0; m = r.Read(dst) {
+			got = append(got, dst[:2*m]...)
+		}
+	}
+	if len(got)/2 != nw {
+		t.Fatalf("%d frames in pieces, %d in one read", len(got)/2, nw)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("sample %d: %v in pieces, %v in one read", i, got[i], want[i])
+		}
+	}
+}
+
+// A ratio past a thousandth of 1 is held there, and a NaN changes nothing.
+func TestTheSteeredResamplerHoldsItsRatioNearOne(t *testing.T) {
+	r := newSteeredResampler(1)
+	r.SetRatio(1.5)
+	if r.Ratio() != 1+maxSteer {
+		t.Fatalf("ratio %v, want %v", r.Ratio(), 1+maxSteer)
+	}
+	r.SetRatio(math.NaN())
+	if r.Ratio() != 1+maxSteer {
+		t.Fatalf("a NaN moved the ratio to %v", r.Ratio())
+	}
+	r.SetRatio(0)
+	if r.Ratio() != 1-maxSteer {
+		t.Fatalf("ratio %v, want %v", r.Ratio(), 1-maxSteer)
 	}
 }

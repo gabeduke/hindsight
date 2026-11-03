@@ -188,8 +188,12 @@ func (r *resampler) drain(final bool) []float32 {
 // from the two clock bridges and from how full the hand-over is.
 //
 // The input position is kept as a whole frame and a fraction, so an hour of
-// frames at a held ratio lands within a sample of where it should, and a
-// change of ratio only changes the step, never the position: no click.
+// frames at a held ratio lands within a thousandth of a sample of where it
+// should (a single float sum would be off by a third of one), and a change
+// of ratio only changes the step, never the position: no click.
+//
+// It is not safe for concurrent use: one goroutine (the ring writer) both
+// writes and reads it.
 type steeredResampler struct {
 	channels int
 	half     int
@@ -210,14 +214,25 @@ func newSteeredResampler(channels int) *steeredResampler {
 		table: resampleKernel(cutoff, half)}
 }
 
+// maxSteer bounds how far SetRatio moves from 1: a thousandth, five times
+// the ±200 ppm the steering asks for, so a wild ratio from a bridge that has
+// just re-seeded can't stall or race the position.
+const maxSteer = 1e-3
+
 // SetRatio sets how many input frames each output frame steps over, from the
-// next output frame on.
-func (r *steeredResampler) SetRatio(ratio float64) { r.ratio = ratio }
+// next output frame on, held within maxSteer of 1. A NaN is ignored.
+func (r *steeredResampler) SetRatio(ratio float64) {
+	if math.IsNaN(ratio) {
+		return
+	}
+	r.ratio = min(max(ratio, 1-maxSteer), 1+maxSteer)
+}
 
 // Ratio is the step SetRatio last set.
 func (r *steeredResampler) Ratio() float64 { return r.ratio }
 
-// Write appends interleaved input frames.
+// Write appends interleaved input frames: whole frames only, as a source
+// delivers them.
 func (r *steeredResampler) Write(in []float32) {
 	for _, v := range in {
 		r.buf = append(r.buf, float64(v))
@@ -226,7 +241,9 @@ func (r *steeredResampler) Write(in []float32) {
 }
 
 // Buffered is how many input frames lie ahead of the next output frame's
-// position: what the hand-over holds, which the caller steers on.
+// position: what the hand-over holds, which the caller steers on. It counts
+// the kernel's half width that Read can't use yet, so steer it to a level
+// above resampleHalfWidth.
 func (r *steeredResampler) Buffered() float64 {
 	return float64(r.inCount-r.at) - r.frac
 }
@@ -275,7 +292,8 @@ func (r *steeredResampler) step() {
 }
 
 // Reset forgets every frame and starts again at the next one written: after
-// a gap, when the input comes back on a new clock.
+// a gap, when the input comes back on a new clock. The first frames after it
+// are filtered against silence before them, a fade-in of a millisecond.
 func (r *steeredResampler) Reset() {
 	r.buf = r.buf[:0]
 	r.bufBase, r.inCount, r.at, r.frac = 0, 0, 0, 0
