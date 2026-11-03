@@ -491,6 +491,35 @@ test('Guardrail 20: every id inside the shell’s #np is np-<name>, as cx.id nam
   assert.deepEqual(ids.filter((id) => !id.startsWith('np-')), [], 'an id inside #np that is not np-<name>');
 });
 
+test('Guardrail 22: the Studio and the rooms reach the bar through its verbs and callbacks, never by the ids inside #np', () => {
+  // docs/plan/transport-extraction.md, step 5c; bar.md, *The Studio's
+  // keys*: ▶ is the engine's verb (ctx.engine.bar.playPause()), and so is
+  // L (setLoop); focusing ▶ and wiring the tempo's menu on its key are
+  // calls on ctx.tapeKeys (focusPlay(), tempo(fn), which hands fn the key);
+  // OUT is ctx.openOutput(); SYNC is drawn by the bar; the doorway's grease
+  // goes in the bar's strip through ctx.barSlot. A look-up by an id inside
+  // the bar's root (its template's, once it is a component) reaches inside
+  // it, and breaks the day those ids are cx.id's.
+  const ids = [...npMarkup().matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(ids.includes('np-play') && ids.includes('np-sync'), 'read the ids inside #np');
+  const IDS = ids.map((id) => id.replace(/[-]/g, '\\-')).join('|');
+  const lookups = [
+    new RegExp(`(?<![\\w$])(\\$|getElementById)\\(\\s*['"\`](${IDS})['"\`]`),
+    new RegExp(`['"\`][^'"\`]*#(${IDS})(?![\\w-])`),
+    new RegExp(`(?<![.\\w$])press\\(\\s*['"\`](${IDS})['"\`]`),
+  ];
+  const files = ['lib/tape/page.js', 'lib/rooms/studio.js', 'lib/shell/views/studio.js', 'lib/room/deck.js', 'lib/room/doorway.js', 'lib/buffer/keys.js'];
+  const found = [];
+  for (const f of files) {
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+    for (const line of src.split('\n')) if (lookups.some((re) => re.test(line))) found.push(`${f}: ${line.trim()}`);
+  }
+  assert.deepEqual(found, [], 'reaches inside the bar by an id: press its verb (ctx.engine.bar), call ctx.tapeKeys or ctx.openOutput, or go through ctx.barSlot');
+  // ▶ never keeps ↵ from the Studio's buffer (lib/buffer/keys.js): the bar
+  // says so on the key, which the buffer reads instead of its id.
+  assert.match(npMarkup(), /<button\b[^>]*\bid="np-play"[^>]*\bdata-gives-enter\b/, '▶ is marked data-gives-enter');
+});
+
 test('Guardrail 21: the overview is the Studio’s, put into the bar’s strip through its slot; the bar’s markup does not carry it, and the Studio holds it', () => {
   // docs/plan/transport-extraction.md, decision 4; bar.md, *The Studio's
   // part of the bar*: the overview (#np-tape-overview) is the Studio's

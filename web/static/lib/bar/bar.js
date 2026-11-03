@@ -38,6 +38,7 @@ import { layersOf } from '../ui/layers.js';
 import { barTop } from '../ui/menu.js';
 import { sizeCanvas } from '../ui/canvas.js';
 import { outStrip, clockLamp } from './tape-status.js';
+import { syncState } from './display.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -254,14 +255,29 @@ export class NowPlaying {
   }
 
   /**
-   * paintTape draws the clock-out lamp and the output strip from the
+   * paintTape draws the clock-out lamp, SYNC and the output strip from the
    * models, the same in every room: the tape's snapshot() (who follows its
-   * clock, where it plays, whether it plays), the engine's stream (this
-   * phone's sound), and a locate the Studio sent and this phone has not
-   * heard yet (its hands, through tapeKeys).
+   * clock, how it lines up, where it plays, whether it plays), the engine's
+   * stream (this phone's sound), and a locate the Studio sent and this
+   * phone has not heard yet (its hands, through tapeKeys).
    */
   paintTape() {
     const { tape: t = null, live = null } = this.tape?.snapshot?.() || {};
+    // SYNC: how playback and recording line up, while the tape plays in
+    // the jam room (a key for the Studio: data-for). Playing on a phone
+    // there is nothing to line up, nor while the tape is stopped: it goes
+    // out, rather than show an alarm in a quiet room.
+    const sync = $('np-sync');
+    if (sync) {
+      const lock = live ? live.aligned : 'none';
+      const idle = lock === 'none' && !(live && (live.playing || live.count_in > 0));
+      const said = syncState(lock, { phoneOut: !!(live && live.output_mode === 'phone'), idle });
+      const off = said.state === 'off';
+      if (sync.hidden !== off) sync.hidden = off;
+      setAttr(sync, 'data-state', said.state);
+      setAttr(sync, 'title', said.words);
+      setAttr(sync, 'aria-label', `Sync: ${said.words}`);
+    }
     const lamp = $('np-clock-out');
     if (lamp) {
       const c = clockLamp(live && live.clock, t);

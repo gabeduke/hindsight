@@ -59,8 +59,9 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
     .replace(/<main id="view-studio"[\s\S]*?<\/main>/, '')
     .replace(/<template\b[\s\S]*?<\/template>/g, '');
   doc.body.append(...parseHTML(doc, roomOnly).children);
-  // The bar the page has: the engine's `bar`'s face, and its answer.
-  const np = { takeName: barTake, loads: [] };
+  // The bar the page has: the engine's `bar`, its snapshot() and its answer.
+  const np = { takeName: barTake, loads: [], playing: false };
+  np.snapshot = () => ({ playing: np.playing, frac: 0, pos: '' });
   np.loadTake = (t, p) => { np.takeName = t.name; np.loads.push(t.name); np.player = p; };
   const players = new Map();
   const log = [];
@@ -72,7 +73,7 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
     async player(name) {
       if (!players.has(name)) {
         const audio = { paused: true };
-        players.set(name, { audio, toggle: async () => { audio.paused = !audio.paused; log.push(`${audio.paused ? 'pause' : 'play'} ${name}`); doc.getElementById('np-play').classList.toggle('playing', !audio.paused); } });
+        players.set(name, { audio, toggle: async () => { audio.paused = !audio.paused; log.push(`${audio.paused ? 'pause' : 'play'} ${name}`); np.playing = !audio.paused; } });
       }
       return players.get(name);
     },
