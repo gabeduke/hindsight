@@ -3508,9 +3508,13 @@ input, select, textarea { color-scheme: inherit; }
    allow-discrete shows it and takes it away at once. */
 .menu[data-state="closed"], .key-pop[data-state="closed"] {
   opacity: 0; pointer-events: none;
-  transition: opacity var(--t-exit) var(--ease-in), display var(--t-exit);
+  transition: opacity var(--t-exit) var(--ease-in), display var(--t-exit), overlay var(--t-exit);
   transition-behavior: allow-discrete;
 }
+/* One menu.js opens in the top layer (its popover option: the bar's three,
+   inside #np) stays there while it fades (overlay, above), and is drawn as
+   any other: none of a popover's own margin or colour. */
+.menu[popover] { margin: 0; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   @starting-style {
     .menu[data-state="open"], .key-pop[data-state="open"] { scale: none; }
