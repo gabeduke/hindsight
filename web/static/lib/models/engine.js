@@ -5,9 +5,10 @@
 // (take-source.js) and its Audio -- which of them is in the bar, ⏏, where the
 // tape plays, and the take carried across pages (lib/bar/carry.js,
 // handoff.js). It owns the bar's audio: no view constructs it. Made once per
-// document, by the shell, which hands it to every room; the bar
-// (lib/bar/bar.js NowPlaying) draws it, and nothing else of the page's is in
-// it (docs/architecture/bar.md, *The engine*).
+// document, by the shell, which hands it to every room; the bar, the
+// Transport (lib/components/transport/, NowPlaying its mount), draws it, and
+// nothing else of the page's is in it (docs/architecture/bar.md, *The
+// engine*).
 
 import { tapeSource } from './tape-source.js';
 import { takeSource, playheadOf, takeHref } from './take-source.js';
@@ -39,7 +40,9 @@ import { adoptAudio, releaseAudio, ownsAudio } from '../wave/rowwave.js';
  *
  * It answers `bar`, what a page drives the bar with: its verbs, `snapshot()`
  * (what NowPlaying draws, frozen), `paintStrip(…)` (the strip's picture),
- * `src` (the source in the bar itself) and `onChange(fn)` (fn() as what the
+ * `src` (the source in the bar itself), `tapeSource` and `stream` (the
+ * engine's tape and this device's stream of it, for the Transport, which is
+ * handed the bar and not the engine) and `onChange(fn)` (fn() as what the
  * bar holds changes, and every frame while it plays, on the shared ticker);
  * `audio`, the take's Audio; `output`, where the tape plays;
  * `transport`, the page's (lib/models/transport.js), loaded once the Pi has a
@@ -348,6 +351,15 @@ export function createEngine({ tapes, takes: pageTakes = null, tape: pageTape = 
     ready,
     /** src: the source in the bar (the tape's, the feed's or a take's), or null; NowPlaying draws it. */
     get src() { return current; },
+    /**
+     * tapeSource: the tape's source once the engine has made one (a tape to
+     * send: the bar's OUT is a key then, and its source menu names it), or
+     * null. stream: the tape on this device (StreamPlayer), or null: the
+     * bar's output strip. The engine's own tape and stream, for the
+     * Transport, which is handed the bar and not the engine.
+     */
+    get tapeSource() { return tape; },
+    get stream() { return stream; },
     /** frameNow: the take in the bar and its frame at this moment ({take, frame, sr, playing, at}), or null. ✎ takes it before the page changes. */
     frameNow,
     /** stashFrame keeps a frame -- frameNow's, else the take's now -- for the next page (carry.takeStashedFrame reads it there), and answers it. */

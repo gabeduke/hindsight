@@ -38,7 +38,7 @@ test('a token cache reads each property once, until it is cleared', () => {
 });
 
 // A listener that can't be taken off leaks across a component's unmount and
-// mount (docs/plan/transport-extraction.md, step 5a): it answers its off.
+// mount (docs/architecture/bar.md, *The Transport's extraction*, step 5a): it answers its off.
 test('onSchemeChange hears the scheme flip, and its off takes the listener away', () => {
   const saved = globalThis.matchMedia;
   const fns = new Set();

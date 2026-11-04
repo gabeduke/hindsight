@@ -162,7 +162,7 @@ test('a frame of the bar playing measures nothing and reads no style: the strip 
   // Every frame something plays, the bar writes its counter and then draws
   // its strip; a measure or a style read after that write is a forced
   // layout, a frame. The strip's size comes from its ResizeObserver, its
-  // colours from a cache cleared when the scheme flips (lib/bar/bar.js).
+  // colours from a cache cleared when the scheme flips (lib/components/transport/bar.js).
   const p = await withTake();
   await p.player.toggle();
   p.frames(3);

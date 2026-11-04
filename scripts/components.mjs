@@ -16,7 +16,11 @@
 //
 // A component's check is scripts/components/<id>.check.mjs: its root's id,
 // its cases (the fixtures by noun, the props it is handed, the verbs
-// refused), and what else it should do (expect). A layout fail, a page
+// refused, and `surface`, what a surface module is told), and what else it
+// should do (expect). A component whose props are more than keys to press
+// (the Transport's layout, its player, the room) has a surface module,
+// scripts/components/<id>.surface.js, run in the page: it makes them, as
+// the shell's boot does, from what the case tells it (page.js). A layout fail, a page
 // error, or an expect that fails fails the run (exit 1). Nothing a
 // component shows goes into layout-known.json, and an allowance in
 // layout-allow.mjs doesn't excuse it: a component starts with no findings.
@@ -107,6 +111,7 @@ function answer(req, res) {
     return;
   }
   if (url.pathname === '/__components/page.js') file = join(here, 'components', 'page.js');
+  else if (/^\/__components\/[\w-]+\.surface\.js$/.test(url.pathname)) file = join(here, 'components', url.pathname.slice('/__components/'.length));
   else if (url.pathname.startsWith('/__fixtures/')) file = inside(FIXTURES, url.pathname.slice('/__fixtures/'.length));
   else file = inside(STATIC, url.pathname.slice(1) || 'index.html');
   const body = file && statSync(file, { throwIfNoEntry: false })?.isFile() ? readFileSync(file) : null;
@@ -136,7 +141,7 @@ async function run(browser, base, check, c, size, scheme) {
   const errors = [];
   p.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   p.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text().slice(0, 300)}`); });
-  const spec = { id: check.id, rootId: check.rootId ?? check.id, css: check.css, fixtures: c.fixtures, props: c.props, refuse: c.refuse };
+  const spec = { id: check.id, rootId: check.rootId ?? check.id, css: check.css, fixtures: c.fixtures, props: c.props, refuse: c.refuse, surface: check.surface ? (c.surface ?? {}) : undefined };
   const started = Date.now();
   const result = { component: check.id, case: c.name, profile: size, scheme, findings: [], expects: [], errors, shot: '' };
   try {

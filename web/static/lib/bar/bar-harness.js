@@ -1,7 +1,8 @@
 // web/static/lib/bar/bar-harness.js
-// For tests only (nothing in the app imports it): the real NowPlaying
-// (lib/bar/bar.js) and the engine it draws (lib/models/engine.js), built
-// on takes.html's own markup, on a stand-in document, with the clock, the
+// For tests only (nothing in the app imports it): the real Transport
+// (lib/components/transport/, NowPlaying its mount) and the engine it draws
+// (lib/models/engine.js), mounted as the shell mounts it, in shell.html's
+// own page, on a stand-in document, with the clock, the
 // storage, the location, the audio and the Pi the test's. The bar's page
 // wiring -- what a click on ✎ does, what the strip hears -- is run, not read.
 import { readFileSync } from 'node:fs';
@@ -81,7 +82,7 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
     // The ticker's frames are the test's to run (frames()).
     requestAnimationFrame: (fn) => { w.raf.push(fn); return w.raf.length; },
     cancelAnimationFrame: () => {},
-    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
     ResizeObserver: class { observe() {} disconnect() {} },
     MutationObserver: class { observe() {} disconnect() {} },
     history: { state: null, replaceState() {}, pushState() {} },
@@ -99,29 +100,43 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   Object.defineProperty(globalThis, 'devicePixelRatio', { value: 1, configurable: true });
   doc.body.append(...parseHTML(doc, takesHtml).children);
   const { createEngine } = await import('../models/engine.js');
-  const { NowPlaying } = await import('./bar.js');
+  const { mountComponent } = await import('../components/mount.js');
+  const { default: transport, TAPE_KEYS } = await import('../components/transport/index.js');
   const onToast = (m) => w.toasts.push(m);
   // The page's tape model, as the shell makes it and hands it to the engine
   // and the bar (the Studio's keys, the lamp, the output strip): with `tape`.
-  const pageTape = withTape ? (await import('../models/tape.js')).createTape({}) : null;
+  const { createTape } = await import('../models/tape.js');
+  const pageTape = withTape ? createTape({}) : null;
   const made = createEngine({ tapes: Promise.resolve(tapes), onToast, find: null, tape: pageTape });
   // The room shown, as the shell's router says it (w.room).
   w.room = null;
-  // What the shell hands the bar (lib/shell/boot.js): a component's cx,
-  // stood in for here, on the stand-in window and document.
+  // What the shell mounts the Transport in (lib/shell/boot.js): its shell
+  // scope's ctx, stood in for here, on the stand-in window and document,
+  // and the surface's props. The bar is handed a tape model and a phone
+  // recorder, as the shell's always is: without `tape` one nothing loads,
+  // and a recorder that stays closed.
   const { layersOf } = await import('../ui/layers.js');
-  const { barTop } = await import('../ui/menu.js');
   const { barLayout } = await import('./layout.js');
-  const cx = {
+  const { relay } = await import('../components/relay.js');
+  const ctx = {
     on: (target, type, fn, opts) => { target.addEventListener(type, fn, opts); return () => target.removeEventListener(type, fn, opts); },
     media: (q) => globalThis.matchMedia(q),
     layers: layersOf(doc),
-    visible: () => true,
-    floor: barTop(doc),
+    active: () => true,
     toast: onToast,
-    props: { layout: barLayout(doc), room: () => w.room },
   };
-  const np = drawn ? new NowPlaying(doc.getElementById('np'), { engine: made, tape: pageTape }, cx) : null;
+  const closed = Object.freeze({ mode: 'closed', seconds: 0 });
+  const recorder = { snapshot: () => closed, state: () => ({ ...closed }), onChange: () => () => {}, open() {}, quick() {}, stop() {}, input: () => '', inputs: async () => [] };
+  const rooms = new Set();
+  const tapeKeys = relay(TAPE_KEYS);
+  const models = { bar: made.bar, transport: made.transport, tape: pageTape || createTape({}), takes: made.takes, recorder };
+  // Help's titles, as the shell hands them (lib/help/help.js applyTitles).
+  const { applyTitles } = await import('../help/help.js');
+  const props = { layout: barLayout(doc), room: () => w.room, onRoom: (fn) => { rooms.add(fn); return () => rooms.delete(fn); }, tapeKeys, titles: applyTitles };
+  const mounted = drawn ? mountComponent(transport, doc.getElementById('np'), models, ctx, props) : null;
+  // The bar as a test drives it: its keys' relay (the Studio's ctx.tapeKeys),
+  // and the shell's kick as the room switches (onRoom).
+  const np = mounted ? { tapeKeys: tapeKeys.api, kick: () => { for (const fn of rooms) fn(); }, unmount: () => mounted.unmount() } : null;
   // What the shell does around the bar it makes (lib/shell/boot.js): its
   // height into --np-h, measured on its root.
   if (np) (await import('./slots.js')).measureBar(doc.getElementById('np'));
@@ -134,6 +149,8 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   const click = (el, extra = {}) => el.dispatchEvent({ type: 'click', target: el, detail: 1, preventDefault() {}, ...extra });
   const pointer = (type, el, x, extra = {}) => el.dispatchEvent({ type, target: el, button: 0, pointerId: 1, pointerType: 'touch', clientX: x, clientY: 5, preventDefault() {}, ...extra });
   // The strip is 300 px wide on this page, starting at 10: a tap at x is x-10 of 300.
-  $('np-scrub').getBoundingClientRect = () => ({ left: 10, top: 0, right: 310, bottom: 40, width: 300, height: 40 });
+  // (With no bar drawn, there is no strip.)
+  const scrub = $('np-scrub');
+  if (scrub) scrub.getBoundingClientRect = () => ({ left: 10, top: 0, right: 310, bottom: 40, width: 300, height: 40 });
   return { w, doc, bar, engine, np, tape: pageTape, frames, $, click, pointer, SR, windowKey: (e) => { for (const f of w.windowListeners.keydown || []) f(e); } };
 }

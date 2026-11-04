@@ -5,7 +5,7 @@
 // the Pi itself, so there is nothing useful to serve when it is unreachable.
 
 // Bump whenever SHELL changes, so installed phones fetch the new shell.
-const CACHE = 'hindsight-shell-v211';
+const CACHE = 'hindsight-shell-v213';
 const SHELL = [
   '/',
   '/index.html',
@@ -40,6 +40,16 @@ const SHELL = [
   '/lib/models/feed-source.js',
   '/lib/components/mount.js',
   '/lib/components/display/index.js',
+  '/lib/components/relay.js',
+  '/lib/components/transport/index.js',
+  '/lib/components/transport/bar.js',
+  '/lib/components/transport/fold.js',
+  '/lib/components/transport/phone-key.js',
+  '/lib/components/transport/press-note.js',
+  '/lib/components/transport/source-menu.js',
+  '/lib/components/transport/take-keys.js',
+  '/lib/components/transport/tape-keys.js',
+  '/lib/components/transport/tape-status.js',
   '/lib/toast.js',
   '/lib/client.js',
   '/lib/trash.js',
@@ -188,20 +198,13 @@ const SHELL = [
   '/lib/objects/lcd.js',
   '/lib/objects/reel-window.js',
   '/lib/objects/spin.js',
-  '/lib/bar/bar.js',
-  '/lib/bar/press-note.js',
-  '/lib/bar/take-keys.js',
+  '/lib/bar/press-light.js',
   '/lib/bar/carry.js',
   '/lib/bar/handoff.js',
   '/lib/bar/player.js',
   '/lib/bar/slots.js',
   '/lib/bar/display.js',
-  '/lib/bar/fold.js',
   '/lib/bar/layout.js',
-  '/lib/bar/source-menu.js',
-  '/lib/bar/phone-key.js',
-  '/lib/bar/tape-keys.js',
-  '/lib/bar/tape-status.js',
   '/lib/shell/view.js',
   '/lib/shell/router.js',
   '/lib/shell/boot.js',

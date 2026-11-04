@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { cssOf, decls, fileCss, linksOf, rules, stripComments } from '../stylesheets.js';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
+import { fill } from '../components/transport/index.js';
 import { SLOTS, SOURCES, slotOf, putIn, barSize, hereWord, measureBar, deviceOf, partOf, PHONE, COARSE } from './slots.js';
 
 const bar = fileCss('css/bar.css');
@@ -16,6 +17,9 @@ const barRules = rules(bar);
 const page = (name) => {
   const doc = fakeDoc();
   doc.body.append(...parseHTML(doc, readFileSync(new URL(`../../${name}`, import.meta.url), 'utf8')).nodes);
+  // The shell's bar is the Transport's template, filled as its mount fills it;
+  // Open's is its own markup.
+  if (name === 'shell.html') fill(doc.getElementById('np'));
   return doc;
 };
 const shell = page('shell.html');

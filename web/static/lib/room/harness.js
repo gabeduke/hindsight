@@ -6,6 +6,7 @@
 // and routes.test.js both stand on it.
 import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
+import { fill } from '../components/transport/index.js';
 import { Ticker } from '../objects/motion.js';
 
 const takesHtml = readFileSync(new URL('../../shell.html', import.meta.url), 'utf8');
@@ -59,6 +60,8 @@ export async function room({ takes = [take('a'), take('b'), take('c')], tapes = 
     .replace(/<main id="view-studio"[\s\S]*?<\/main>/, '')
     .replace(/<template\b[\s\S]*?<\/template>/g, '');
   doc.body.append(...parseHTML(doc, roomOnly).children);
+  // The bar's markup is the Transport's template, filled as its mount fills it.
+  fill(doc.getElementById('np'));
   // The bar the page has: the engine's `bar`, its snapshot() and its answer.
   const np = { takeName: barTake, loads: [], playing: false };
   np.snapshot = () => ({ playing: np.playing, frac: 0, pos: '' });

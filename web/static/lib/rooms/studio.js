@@ -365,7 +365,7 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     if (e.defaultPrevented) return;
     const v = e.detail?.verb;
     if (v === 'catch') {
-      // The bar's Catch (lib/bar/tape-keys.js): pressed while it waits
+      // The bar's Catch (lib/components/transport/tape-keys.js): pressed while it waits
       // for a pass, it says why.
       ctx?.tapeKeys?.press('catch');
     } else if (v === 'keep' && !el.keep.disabled) {

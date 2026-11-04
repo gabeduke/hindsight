@@ -1,4 +1,4 @@
-// web/static/lib/bar/take-keys.js
+// web/static/lib/components/transport/take-keys.js
 // The keys the bar has for what it holds besides the transport
 // (docs/architecture/rooms.md, Vocabulary; listening-back.md, "The
 // way in"): with a take, ✎ at its end, which takes the frame being heard
@@ -9,7 +9,7 @@
 // slots.js); this wires them and says what each does now. It makes none:
 // a key a script appends lands wherever the last one did.
 
-import { partOf } from './slots.js';
+import { partOf } from '../../bar/slots.js';
 
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };

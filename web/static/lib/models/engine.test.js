@@ -39,6 +39,10 @@ test('the engine holds the tape with no bar drawn, and its snapshot says so', as
   assert.equal(s.kind, 'tape');
   assert.equal(s.playing, false);
   assert.equal(engine.bar.canEject, false, 'nothing to give back the tape in place of');
+  // The Transport is handed the bar, not the engine: the bar says the
+  // engine's tape and this device's stream of it.
+  assert.ok(engine.tape && engine.bar.tapeSource === engine.tape, 'the bar’s tapeSource is the engine’s tape');
+  assert.ok(engine.stream && engine.bar.stream === engine.stream, 'the bar’s stream is the engine’s');
 });
 
 test('loadTake puts the take in it, and onChange hears it at once', async () => {

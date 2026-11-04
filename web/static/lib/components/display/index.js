@@ -6,9 +6,10 @@
 // component's own width's to say (css/display.css), never the page's.
 //
 // The first component on the contract (lib/components/mount.js), built for
-// the harness (scripts/components.mjs). The bar still draws its own three
-// keys (#np-tempo, #np-source, #np-output in shell.html, lib/bar/bar.js)
-// until the Transport's extraction mounts this in their place.
+// the harness (scripts/components.mjs). The bar, the Transport, still draws
+// its own three keys (#np-tempo, #np-source, #np-output: its template,
+// lib/components/transport/index.js, and bar.js) until it mounts this in
+// their place (decision 6, step 5h: docs/plan/STATE.md).
 //
 // A key opens what the surface says it does (props.tempo, props.source,
 // props.output, each handed the key it was pressed on); a key the surface

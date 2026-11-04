@@ -406,7 +406,7 @@ export function mount(h) {
   const offBar = h.np?.onChange?.(renderPlaces);
 
   // The dock is the bar (its Open › opens a take, or the tape in the
-  // Studio: lib/bar/bar.js), with grease marks at a take's In and Out, at
+  // Studio: lib/components/transport/bar.js), with grease marks at a take's In and Out, at
   // the end of the bar's strip (ctx.barSlot), over its canvas: the strip
   // holds that alone in this room, so the grease takes the strip's box.
   const grease = el('span', 'room-grease', { 'aria-hidden': 'true' }, el('i', 'room-grease-in'), el('i', 'room-grease-out'));

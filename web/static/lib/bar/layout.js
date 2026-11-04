@@ -7,7 +7,7 @@
 // and the player are kept, and the page's own rules (styles.css) read the
 // player off it: this is the surface's one place that writes them, and
 // what the Studio hears them change by (ctx.barLayout), in place of a
-// page-wide event (docs/plan/transport-extraction.md, decisions 2 and 3).
+// page-wide event (docs/architecture/bar.md, *The Transport's extraction*, decisions 2 and 3).
 //
 // The bar's root says the same on itself (data-fold, data-open,
 // data-docked), and the bar's own stylesheet (css/bar.css) reads only the

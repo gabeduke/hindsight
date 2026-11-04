@@ -687,7 +687,7 @@ export function createView(def, {
 
 /**
  * shellScope is the ctx the shell's own chrome mounts its components in
- * (the bar, once it is one: docs/plan/transport-extraction.md, step 5),
+ * (the bar, once it is one: docs/architecture/bar.md, *The Transport's extraction*, step 5),
  * which belong to no room. It is a view that is always shown, with no root
  * in the page and no slots, so everything that goes through it is kept as a
  * room's is, by the one createView: its on, every, loop, socket, media and

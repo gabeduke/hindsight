@@ -13,7 +13,7 @@
 // (lib/ui/layers.js), the shell's: Back and Escape close what was opened
 // over it first, then it, and a switch of rooms leaves it up.
 //
-// Two halves (docs/plan/transport-extraction.md, D5): the sheet is the
+// Two halves (docs/architecture/bar.md, *The Transport's extraction*, D5): the sheet is the
 // surface's (playerSheet: the shell's boot makes it over #np-dock, the bar
 // and its drawers; Open over its own bar), which moves what is outside the
 // bar and stills the page under it; the keys are the bar's (playerKeys: ▣,
@@ -147,7 +147,7 @@ export function playerKeys(root, { player, layout, phone, on, btn, grabber = nul
     else player.open();
   });
   // The grabber at the top of the player puts it away (wider, it folds the
-  // bar: lib/bar/fold.js, which leaves a phone's to this).
+  // bar: lib/components/transport/fold.js, which leaves a phone's to this).
   grabber?.addEventListener('click', () => { if (phone.matches && layout.open) player.close(); });
   // A drag starts on the window (the mini player's, whose handle #np-expand
   // is inside it: up opens it; or the player's art) or the grabber.
@@ -170,6 +170,6 @@ export function initPlayer({ btn, grabber = null, layers, layout, phone, on }) {
   const np = btn.closest('.np');
   // The sheet: the tape page's dock (the bar and its drawers), or the bar.
   const player = playerSheet(np.closest('.np-dock') || np, { root: np, layers, layout, phone });
-  playerKeys(np, { player, layout, phone, on, btn, grabber, handles: [grabber, np.querySelector('.np-window')] });
+  playerKeys(np, { player, layout, phone, on, btn, grabber, handles: [grabber, np.querySelector('.np-deck')] });
   return player;
 }

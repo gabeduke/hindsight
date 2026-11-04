@@ -53,7 +53,8 @@ node --test 'web/static/lib/*.test.js' 'web/static/lib/wave/*.test.js' \
   'web/static/lib/rooms/*.test.js' 'web/static/lib/buffer/*.test.js' \
   'web/static/lib/room/*.test.js' 'web/static/lib/rig/*.test.js' \
   'web/static/lib/shell/*.test.js' 'web/static/lib/ui/*.test.js' \
-  'web/static/lib/models/*.test.js' 'web/static/lib/components/*.test.js'
+  'web/static/lib/models/*.test.js' 'web/static/lib/components/*.test.js' \
+  'web/static/lib/components/transport/*.test.js'
 ./scripts/test-release-scripts.sh
 gofmt -l . && go vet ./... && go test -race ./...
 ```
@@ -237,15 +238,19 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   down. Tests and flows read a key's state
   (`.playing`, `aria-pressed`), never its picture.
   ([0046](docs/decisions/0046-icons-not-glyphs.md))
-- **The bar's keys live in its zones** (`css/bar.css`, `#np` in
-  `shell.html` and `wave.html`; `docs/architecture/bar.md`): the deck, the
-  transport, the verb, the modes, the end, the strip. A new key goes in the
-  markup, in its slot, saying in `data-for` (and `data-mini`) which sources
-  it shows for; never appended by a script, never shown or hidden by a
-  `:not()` list. ▶ must not move: J1.13 fails if it does, or if the bar
-  runs off a tablet. What plays, its tempo and where it plays are keys on
-  the bar's display (the source's menu, the tempo's, the output sheet); ▾
-  only opens a menu; the bar folds by its grabber.
+- **The bar's keys live in its zones** (`css/bar.css`; in the rooms the
+  Transport's template, `lib/components/transport/index.js`, which the
+  shell's empty `#np` is filled from; on Open, `wave.html`'s own `#np`
+  until Open's pass; `docs/architecture/bar.md`): the deck, the transport,
+  the verb, the modes, the end, the strip. A new key goes in the Transport's
+  template (and in `wave.html` if Open shows it), in its slot, named by
+  `data-part` (its id is `cx.id`'s), saying in `data-for` (and
+  `data-mini`) which sources it shows for; never appended by a script,
+  never shown or hidden by a `:not()` list. ▶ must not move: J1.13 fails
+  if it does, or if the bar runs off a tablet. What plays, its tempo and
+  where it plays are keys on the bar's display (the source's menu, the
+  tempo's, the output sheet); ▾ only opens a menu; the bar folds by its
+  grabber.
   ([0047](docs/decisions/0047-the-bars-keys-live-in-its-zones.md))
 - **A sheet or a drawer that follows the finger** is `createSheet`
   (`lib/ui/sheet.js`; `docs/architecture/shell.md`, *Sheets*): detents, a

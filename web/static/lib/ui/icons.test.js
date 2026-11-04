@@ -14,6 +14,7 @@ import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { fileCss, rules } from '../stylesheets.js';
 import { ICONS, SPRITE, icon, setIcon, iconOf, outIcon, OUT_MODES } from './icons.js';
 import { tipFor } from '../help/tips.js';
+import { fill } from '../components/transport/index.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url)); // web/static
 const sprite = readFileSync(join(ROOT, 'icons', 'ui.svg'), 'utf8');
@@ -149,6 +150,8 @@ test('the header’s, the bar’s and the ruler’s keys are drawn from the spri
   for (const [page, ids] of Object.entries(DRAWN)) {
     const doc = fakeDoc();
     doc.body.append(...parseHTML(doc, readFileSync(join(ROOT, page), 'utf8')).nodes);
+    // The shell's bar is the Transport's template, filled as its mount fills it.
+    if (page === 'shell.html') fill(doc.getElementById('np'));
     // The buffer's keys are a template's: they count too.
     const all = [...doc.body.descendants(), ...doc.body.descendants().filter((e) => e.content).flatMap((t) => t.content.descendants())];
     for (const id of ids) {

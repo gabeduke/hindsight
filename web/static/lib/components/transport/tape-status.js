@@ -1,4 +1,4 @@
-// web/static/lib/bar/tape-status.js
+// web/static/lib/components/transport/tape-status.js
 // What the bar says of the tape besides its display, in every room
 // (docs/architecture/bar.md, *The lamp and the output strip*): the output
 // strip across its top while the tape plays on this phone, and the
@@ -6,8 +6,8 @@
 // words from the models (the tape's snapshot(), the engine's stream), which
 // NowPlaying (bar.js) writes on its own elements.
 
-import { barBeat } from '../tape/geometry.js';
-import { outDelay } from '../tape/out-switch.js';
+import { barBeat } from '../../tape/geometry.js';
+import { outDelay } from '../../tape/out-switch.js';
 
 /**
  * outStrip is the output strip for the tape `tape` and its `live` state (the

@@ -1,6 +1,6 @@
-// web/static/lib/bar/tape-keys.js
+// web/static/lib/components/transport/tape-keys.js
 // The bar's keys for the tape in the Studio (docs/architecture/bar.md, *The
-// Studio's keys*; docs/plan/transport-extraction.md, decision 4): ● (#np-rec),
+// Studio's keys*; docs/architecture/bar.md, *The Transport's extraction*, decision 4): ● (#np-rec),
 // Catch and its ▾ (#np-catch-pass, #np-catch-more, #np-catch-menu) and the click
 // (#np-click). They are the bar's: drawn from the page's tape
 // (lib/models/tape.js snapshot()) and the page's phone recorder
@@ -12,14 +12,14 @@
 // the tape plays on this phone -- the Studio lends the bar as its hands
 // (lend), the one way it reaches these keys. It never looks them up.
 
-import { bindPress, ARM_PRESS } from '../ui/press.js';
-import { splitKey, menuItem } from '../ui/menu.js';
-import { catchState, catchSub, catchMini, CATCH_BARS } from '../tape/catch.js';
-import { onWords, tracksWords, recTracksOf, recSources } from '../rig/arm.js';
-import { editTape } from '../tape/refusal.js';
-import { fmtClock } from '../phone/recorder.js';
-import { tipFor } from '../help/tips.js';
-import { partOf } from './slots.js';
+import { bindPress, ARM_PRESS } from '../../ui/press.js';
+import { splitKey, menuItem } from '../../ui/menu.js';
+import { catchState, catchSub, catchMini, CATCH_BARS } from '../../tape/catch.js';
+import { onWords, tracksWords, recTracksOf, recSources } from '../../rig/arm.js';
+import { editTape } from '../../tape/refusal.js';
+import { fmtClock } from '../../phone/recorder.js';
+import { tipFor } from '../../help/tips.js';
+import { partOf } from '../../bar/slots.js';
 
 const busy = (phone) => phone.mode === 'recording' || phone.mode === 'saving';
 
@@ -115,7 +115,7 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
  *   tempo(fn)            fn(key) with the display's tempo key, which the
  *                        Studio wires its tempo menu on; answers what fn
  *                        does, or null on a bar without one (the bar says
- *                        when the key opens it: lib/bar/bar.js)
+ *                        when the key opens it: lib/components/transport/bar.js)
  *
  * With no hands lent the keys are not drawn and do nothing: they show in
  * the Studio alone (data-for="studio").

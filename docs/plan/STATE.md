@@ -19,8 +19,9 @@ All of it is in `docs/architecture/`: the shell and its two rooms
 (`tape.md`, *The cue lane*; `push.md`), the SMK-37 on Hindsight's
 firmware (`keyboard.md`), and the components' foundations (`components.md`:
 the contract and Guardrail 15, the protocol client and fixtures, the
-harness, `node scripts/components.mjs`, and `display`, mounted by the
-harness only until the Transport's extraction). What is not built yet,
+harness, `node scripts/components.mjs`, the Transport, which is the bar in
+the rooms (`bar.md`, *The Transport*), and `display`, mounted by the
+harness only until 5h). What is not built yet,
 and still looks it:
 
 - Open (`wave.html`), the rig (`rig.html`) and the guide are still pages of
@@ -72,10 +73,10 @@ and still looks it:
   handlers in `lib/tape/page.js` before blaming the flow); J1.3's second
   hold-drag on the feed ribbon once didn't open the selection at
   `FLOWS_CPU=4`.
-- **Two copies of the display's keys** until the Transport's extraction:
-  the bar's (`shell.html`, `css/bar.css` `.np-lcd-*`) and the `display`
+- **Two copies of the display's keys** until 5h: the Transport's
+  (its template, `css/bar.css` `.np-lcd-*`) and the `display`
   component's (`lib/components/display`, `css/display.css`), which only
-  the harness mounts. The extraction keeps one and deletes the other.
+  the harness mounts. 5h keeps one and deletes the other.
 
 ## Open, needs Gabe at the rig
 
@@ -166,7 +167,8 @@ and still looks it:
         `lib/bar/`; Guardrail 18 matches the source makers by name (an
         aliased import gets past it).
      d. **The extraction** into `lib/components/transport/`: a spec
-        first, `transport-extraction.md` (2026-11-02), because the move
+        first (2026-11-02; deleted with 5g, its decisions in `bar.md`,
+        *The Transport's extraction*), because the move
         breaks Guardrail 15 in six places that each need an interface
         (the ids, the bar's state on `<body>`, the fold event and the
         `tape-page` observer, the Studio's keys in the bar, the window,
@@ -231,8 +233,33 @@ and still looks it:
         inside the root (`partOf`) and reach past it only through the
         cx the boot builds from its shell scope; `player.js` and
         `slots.js` take their elements, media and layers (no copies,
-        D3); *Step 5f* runs Guardrail 15's rules over them. **Next**:
-        5g, the move.
+        D3); *Step 5f* runs Guardrail 15's rules over them. 5g is
+        built: the move (`bar.md`, *The Transport*, and *The
+        Transport's extraction*, which holds what lasts of the spec,
+        deleted). `lib/components/transport/` is the component, its
+        template the bar's markup (`shell.html`'s `#np` an empty root),
+        mounted by the boot in its shell scope; the Studio presses its
+        keys through a relay (`lib/components/relay.js`, D4); its
+        harness check (`node scripts/components.mjs transport`); AGENTS.md's
+        bar rule and 0047 amended. **Next**: 5h, `display` inside the
+        bar (decision 6), its own PR, opened for Gabe to look at on the
+        tablet and not merged without him. What it needs (the audit,
+        2026-11-02):
+        - `display` learns a take's and the feed's words (it draws the
+          tape's only), `here` (THIS PHONE, THIS TABLET, THIS COMPUTER),
+          and the tempo key's per-room state (a menu in the Studio alone),
+          through a room model or a props function read as it draws, and
+          the `aria-haspopup` the bar's OUT has (`dialogKey`);
+        - its look and widths reconciled with the bar's (its box, and its
+          long forms from 420 px of its own width against the bar's
+          1180 px), or a change Gabe accepts;
+        - its root inside the bar is `#np-lcd`, so its keys become
+          `#np-lcd-tempo`, `-source`, `-output` and their parts, with
+          the flows' selectors (J1.12, J1.13 and J2.3 select `#np-source`;
+          J1.12, J2.3 and J2.7 `#np-source-short`; J1.4 and J1.20
+          `#np-tempo`) and `tapeKeys.tempo(fn)`'s key;
+        - the bar's own three keys, `paintDisplay` and `.np-lcd-*` go.
+        Then Gabe tries the bar on the tablet, before the List.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.
@@ -261,7 +288,7 @@ and still looks it:
   - Export always offers Download (0065);
   - Open's selection bar as #220 recommends (0066).
 - **Calls taken for Gabe on 2026-11-02, his to overrule**: the
-  Transport's extraction (`transport-extraction.md`), built on its
+  Transport's extraction (`bar.md`, *The Transport's extraction*), built on its
   recommendations overnight. Decision 1, the ids, was already agreed
   (`components.md` 1.3). The rest:
   - 2: the bar's fold and player-up go on `#np`; the shell, not the bar,
@@ -274,7 +301,7 @@ and still looks it:
     (taken as (b) on 2026-11-02, after Gabe handed the call over);
   - 5: `cx.media` and the stack's `covered()` (built, #249);
   - 6: one display: the bar mounts `display` (`#np-lcd-…`), which learns
-    a take's and the feed's words;
+    a take's and the feed's words (5h, open: *Next*, item 1d);
   - 7: Open keeps its markup and modules until its pass, sharing
     `css/bar.css`;
   - 8: the shell makes the phone's recorder at boot and hands it to the

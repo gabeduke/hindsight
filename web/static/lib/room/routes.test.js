@@ -14,10 +14,13 @@ import { room, take, click } from './harness.js';
 import { tagKey } from './tagpick.js';
 import { tagStore } from '../tags.js';
 import './abs-hook.js';
+import { fill } from '../components/transport/index.js';
 
 const page = (file) => {
   const doc = fakeDoc();
   doc.body.append(...parseHTML(doc, readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8')).children);
+  // The shell's bar is the Transport's template, filled as its mount fills it.
+  if (file === 'shell.html') fill(doc.getElementById('np'));
   return doc;
 };
 const tapesPage = page('shell.html');
@@ -60,7 +63,7 @@ const ROUTES = {
     },
   },
   'detail-open': {
-    where: 'a row’s › in the List, the bar’s Open › (lib/bar/bar.js), and a double tap on its spine',
+    where: 'a row’s › in the List, the bar’s Open › (lib/components/transport/bar.js), and a double tap on its spine',
     check: async () => {
       const row = await listRow({ openKey: true });
       const key = row.el.querySelector('.spine-open');

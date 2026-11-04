@@ -1,4 +1,4 @@
-// web/static/lib/bar/bar.js
+// web/static/lib/components/transport/bar.js
 // The bar, in every room (the take page drives its own): the engine's
 // (lib/models/engine.js) source -- the tape, the feed or a take
 // (lib/models/tape-source.js, feed-source.js, take-source.js) -- drawn in the
@@ -21,21 +21,21 @@
 // in every room (tape-status.js). It draws from the engine's snapshot() and
 // presses its verbs: it never holds the source itself.
 
-import { ReelWindow } from '../objects/reel-window.js';
-import { tokenCache, SCHEME } from '../theme.js';
-import { setText } from '../text.js';
+import { ReelWindow } from '../../objects/reel-window.js';
+import { tokenCache, SCHEME } from '../../theme.js';
+import { setText } from '../../text.js';
 import { takeKeys } from './take-keys.js';
-import { setIcon } from '../ui/icons.js';
-import { playerKeys } from './player.js';
+import { setIcon } from '../../ui/icons.js';
+import { playerKeys } from '../../bar/player.js';
 import { initFold, REDUCED } from './fold.js';
-import { hereWord, deviceOf, partOf, slotOf, PHONE, COARSE } from './slots.js';
+import { hereWord, deviceOf, partOf, slotOf, PHONE, COARSE } from '../../bar/slots.js';
 import { sourceMenu } from './source-menu.js';
 import { phoneKey } from './phone-key.js';
 import { tapeKeys } from './tape-keys.js';
 import { barPressNote } from './press-note.js';
-import { sizeCanvas } from '../ui/canvas.js';
+import { sizeCanvas } from '../../ui/canvas.js';
 import { outStrip, clockLamp } from './tape-status.js';
-import { syncState } from './display.js';
+import { syncState } from '../../bar/display.js';
 
 /**
  * NowPlaying draws the engine (createEngine's, lib/models/engine.js) on the
@@ -44,9 +44,13 @@ import { syncState } from './display.js';
  * every frame while it plays. It makes no source and no audio, and holds
  * none: a press is one of the engine's verbs (▶, ⟲, |◂, ↺ 5 s, a seek, ⏏).
  *
- * `models`: `engine`; `tape`, the page's tape model (the Studio's keys,
- * the clock-out lamp and the output strip are drawn from it); `recorder`,
- * the page's phone recorder, made at boot.
+ * `models` are the Transport's (index.js): `bar`, the engine's (its
+ * snapshot(), its verbs, and the tape it has made and this device's stream
+ * of it, tapeSource and stream); `transport`, the engine's (a press on the
+ * keyboard); `tape`, the page's tape model (the Studio's keys, the
+ * clock-out lamp and the output strip are drawn from it); `takes`, the
+ * page's (the source menu's last few); `recorder`, the page's phone
+ * recorder, made at boot.
  *
  * `cx` is a component's (lib/components/mount.js), handed in by its caller
  * (the shell's boot, from its shell scope), and the one way it reaches past
@@ -64,13 +68,13 @@ import { syncState } from './display.js';
  * the window or globalThis.
  */
 export class NowPlaying {
-  constructor(root, { engine, tape = null, recorder = null } = {}, cx) {
+  constructor(root, { bar, transport, tape = null, takes, recorder = null } = {}, cx) {
     const { layout, room = () => null, player = null, output = null } = cx.props || {};
     const onToast = cx.toast;
     const $ = partOf(root);
     this.$ = $;
-    this.engine = engine;
-    const bar = engine.bar;
+    this.bar = bar;
+    this.transport = transport;
     this.root = root;
     // The source drawn: the snapshot's id, which moves as the bar holds another.
     this.held = null;
@@ -94,7 +98,7 @@ export class NowPlaying {
     // a finger (THIS TABLET).
     const phoneScreen = cx.media(PHONE);
     // The phone's player, the surface's sheet (player.js): ▣, the grabber
-    // and the window (the deck's slot, .np-window) are its keys. Null
+    // and the window (the deck's slot, .np-deck) are its keys. Null
     // where the page has none.
     this.player = player;
     if (player && $('expand')) {
@@ -179,11 +183,12 @@ export class NowPlaying {
       bar.step(e.key === 'ArrowRight' ? 1 : -1);
       this.kick();
     });
-    new ResizeObserver(([e]) => {
+    this.sized = new ResizeObserver(([e]) => {
       const b = e.borderBoxSize && e.borderBoxSize[0];
       this.scrubSize = b ? { width: b.inlineSize, height: b.blockSize } : { width: e.contentRect.width, height: e.contentRect.height };
       this.render();
-    }).observe(sc);
+    });
+    this.sized.observe(sc);
     // A hidden page is drawn again as it comes back.
     cx.on(document, 'visibilitychange', () => this.kick());
 
@@ -193,8 +198,8 @@ export class NowPlaying {
     if (sourceKey && $('source-menu')) {
       sourceMenu({
         button: sourceKey, panel: $('source-menu'), layers: cx.layers,
-        now: () => ({ kind: bar.sourceKind, takeName: bar.takeName, tape: engine.tape && engine.tape.ready ? engine.tape.title : (engine.tape ? 'the tape' : null) }),
-        list: () => engine.takes.get(),
+        now: () => ({ kind: bar.sourceKind, takeName: bar.takeName, tape: bar.tapeSource && bar.tapeSource.ready ? bar.tapeSource.title : (bar.tapeSource ? 'the tape' : null) }),
+        list: () => takes.get(),
         pick: (id) => bar.pickSource(id),
       });
     }
@@ -212,27 +217,27 @@ export class NowPlaying {
     // surface's Output sheet.
     for (const k of [$('output'), $('out-foot')]) k?.addEventListener('click', () => this.output?.());
     // The output strip's tap, for this phone's sound held back.
-    $('out-strip-resume')?.addEventListener('click', () => engine.stream?.resume());
+    $('out-strip-resume')?.addEventListener('click', () => bar.stream?.resume());
     // The lamp and the strip, from the tape's answers and the transport's
     // changes, in every room and whatever the bar holds. The engine makes
     // its transport with itself, before any tape is loaded, so this always
     // subscribes; the stream's state reaches it as the engine's tape source
     // says it changed (tapeStream's onState: tape.changed()).
-    tape?.onChange(() => this.paintTape());
-    engine.transport.onChange(() => this.paintTape());
+    // Each subscription to a model is kept, and taken off by destroy().
+    this.offs = [tape?.onChange(() => this.paintTape()), transport.onChange(() => this.paintTape())];
 
     // What the engine holds, drawn as it changes and every frame it plays;
     // a hidden page is drawn again as it comes back (visibilitychange).
-    engine.bar.onChange(() => {
+    this.offs.push(bar.onChange(() => {
       const s = bar.snapshot(this.here);
       if (s.id !== this.held) this.load(s);
-      if (engine.tape && !this.tapeMounted) this.mountTape();
+      if (bar.tapeSource && !this.tapeMounted) this.mountTape();
       const ej = $('eject');
       if (ej.hidden !== !s.canEject) ej.hidden = !s.canEject;
       if (cx.visible()) { this.render(); this.paintTape(); }
-    });
+    }));
     this.load(bar.snapshot(this.here));
-    if (engine.tape) this.mountTape();
+    if (bar.tapeSource) this.mountTape();
     $('eject').hidden = !bar.snapshot(this.here).canEject;
     this.paintTape();
   }
@@ -244,9 +249,20 @@ export class NowPlaying {
    */
   mountTape() {
     this.tapeMounted = true;
-    let note = null;
-    this.engine.transport.onPress((p) => { note ??= barPressNote(this.root); note.show(p); });
+    this.offs.push(this.transport.onPress((p) => { this.note ??= barPressNote(this.root); this.note.show(p); }));
     this.kick();
+  }
+
+  /**
+   * destroy takes off what the bar hears of its models, its strip's size
+   * and the keyboard's note's timer: the Transport unmounted (lib/components/transport/index.js). What
+   * it hears through cx is cx's to take off; its keys go with its root.
+   */
+  destroy() {
+    for (const off of this.offs.splice(0)) off?.();
+    this.sized.disconnect();
+    // A press still showing: its hide timer goes too.
+    this.note?.clear();
   }
 
   /**
@@ -306,7 +322,7 @@ export class NowPlaying {
     }
     const strip = $('out-strip');
     if (!strip) return;
-    const o = outStrip({ stream: this.engine.stream, live, tape: t, ghost: this.tapeKeys?.ghost?.() || null, now: performance.now() });
+    const o = outStrip({ stream: this.bar.stream, live, tape: t, ghost: this.tapeKeys?.ghost?.() || null, now: performance.now() });
     if (strip.hidden !== o.hidden) strip.hidden = o.hidden;
     const resume = $('out-strip-resume');
     const noResume = o.hidden || !o.resume;
@@ -322,7 +338,7 @@ export class NowPlaying {
   // it gives the room its body classes, and the keys switch with them.
   kick() {
     this.paintRoom();
-    this.engine.bar.kick();
+    this.bar.kick();
   }
 
   // paintRoom says on the root which room the bar is in (data-room), for
@@ -335,7 +351,7 @@ export class NowPlaying {
 
   render() {
     const $ = this.$;
-    const bar = this.engine.bar;
+    const { bar } = this;
     const s = bar.snapshot(this.here);
     if (!s.kind) return;
     this.paintRoom();
@@ -405,7 +421,7 @@ export class NowPlaying {
     const out = $('output');
     // Once the engine has a tape to send: the same test the shell's
     // openOutput makes (lib/tape/out-switch.js outputSheet).
-    const sends = !!this.engine.tape && !!this.output;
+    const sends = !!this.bar.tapeSource && !!this.output;
     if (out.disabled !== !sends) out.disabled = !sends;
     setAttr(out, 'aria-label', d.said.out);
     if (foot) {

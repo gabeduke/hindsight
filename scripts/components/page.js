@@ -7,7 +7,9 @@
 // What to mount is in the page's address: ?spec=<JSON> with the
 // component's id, its root's id, the fixtures by noun (paths under
 // testdata/protocol/), the props it is handed (keys whose press is
-// recorded), and the verbs the fixture refuses. When it is up,
+// recorded), the verbs the fixture refuses, and, for a component with a
+// surface module (scripts/components/<id>.surface.js), what it is told
+// (surface): the module makes the rest of the props, as the shell does. When it is up,
 // window.__harness is {mounted, pressed, said}; a mount that throws leaves
 // {failed} instead.
 
@@ -33,6 +35,11 @@ try {
   const made = fixtureModels(fx, def.needs);
   await made.ready;
   const props = Object.fromEntries((spec.props || []).map((k) => [k, () => { harness.pressed.push(k); }]));
+  const layers = createLayers();
+  if (spec.surface) {
+    const surface = (await import(`/__components/${spec.id}.surface.js`)).default;
+    Object.assign(props, surface({ root: document.getElementById(spec.rootId), layers, models: made.models, told: spec.surface, harness }));
+  }
   const view = createView({
     id: 'harness',
     mount(ctx) {
@@ -43,7 +50,7 @@ try {
     },
   }, {
     root: document.getElementById('stage'),
-    shared: { layers: createLayers(), toast, go: () => {} },
+    shared: { layers, toast, go: () => {} },
   });
   await view.show();
   harness.fixture = fx;

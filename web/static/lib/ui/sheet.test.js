@@ -222,7 +222,7 @@ test('put away, a drag up from a handle opens it under the finger; a drag down t
 });
 
 test('a handle that hands it its pointerdown (grab) drags it as a listed one does, and its lift’s click is swallowed', () => {
-  // D5 (docs/plan/transport-extraction.md): the phone's player is the
+  // D5 (docs/architecture/bar.md, *The Transport's extraction*): the phone's player is the
   // surface's sheet, and its handles are the bar's, inside the bar's root.
   const { sheet, ck, ev, log, handle } = setup({ grabbed: true });
   assert.equal((handle.listeners.get('pointerdown') || []).length, 0, 'the sheet listens on no handle until one is grabbed');

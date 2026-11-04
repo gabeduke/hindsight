@@ -1,12 +1,13 @@
-// web/static/lib/bar/tape-keys.test.js
+// web/static/lib/components/transport/tape-keys.test.js
 // The bar's ●, Catch and the click in the Studio (tape-keys.js): what they
 // say, drawn from the tape's snapshot, the recorder's and the Studio's
 // hands, and what a press sends, on the tape's verbs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fakeDoc, parseHTML } from '../play/fake-dom.js';
-import { createLayers } from '../ui/layers.js';
+import { fakeDoc, parseHTML } from '../../play/fake-dom.js';
+import { createLayers } from '../../ui/layers.js';
+import { fill } from './index.js';
 import { faces, tapeKeys } from './tape-keys.js';
 import { phoneKey } from './phone-key.js';
 
@@ -97,7 +98,9 @@ function aRecorder() {
 
 function shell() {
   const doc = fakeDoc();
-  doc.body.append(...parseHTML(doc, readFileSync(new URL('../../shell.html', import.meta.url), 'utf8')).nodes);
+  doc.body.append(...parseHTML(doc, readFileSync(new URL('../../../shell.html', import.meta.url), 'utf8')).nodes);
+  // The bar's markup is the Transport's template, filled as its mount fills it.
+  fill(doc.getElementById('np'));
   const win = { addEventListener() {}, removeEventListener() {} };
   return { doc, layers: createLayers({ doc, win, CloseWatcher: undefined, history: undefined }) };
 }

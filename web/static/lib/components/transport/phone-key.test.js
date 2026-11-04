@@ -1,12 +1,13 @@
-// web/static/lib/bar/phone-key.test.js
+// web/static/lib/components/transport/phone-key.test.js
 // Recording from a phone, from its mini player (phone-key.js): what the ▾
 // offers for each state of the recorder, what ● says, and the keys wired to
 // the page's one recorder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fakeDoc, parseHTML } from '../play/fake-dom.js';
-import { createLayers } from '../ui/layers.js';
+import { fakeDoc, parseHTML } from '../../play/fake-dom.js';
+import { createLayers } from '../../ui/layers.js';
+import { fill } from './index.js';
 import { phoneRows, said, phoneKey } from './phone-key.js';
 
 test('phoneRows: put away, ● records; recording, it stops, with the time; saving, it says so', () => {
@@ -52,7 +53,9 @@ function aRecorder() {
 
 function shell() {
   const doc = fakeDoc();
-  doc.body.append(...parseHTML(doc, readFileSync(new URL('../../shell.html', import.meta.url), 'utf8')).nodes);
+  doc.body.append(...parseHTML(doc, readFileSync(new URL('../../../shell.html', import.meta.url), 'utf8')).nodes);
+  // The bar's markup is the Transport's template, filled as its mount fills it.
+  fill(doc.getElementById('np'));
   const win = { addEventListener() {}, removeEventListener() {} };
   return { doc, layers: createLayers({ doc, win, CloseWatcher: undefined, history: undefined }) };
 }

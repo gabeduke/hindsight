@@ -20,11 +20,11 @@ import assert from 'node:assert/strict';
 import { cssOf, decls, rules, stripComments } from './stylesheets.js';
 
 const BUDGET = {
-  hex: 2,
-  rgba: 92,
+  hex: 1,
+  rgba: 91,
   zIndex: 21,
   important: 3,
-  media: 45,
+  media: 44,
   durations: 41,
   weights: 3,
 };

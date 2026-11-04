@@ -2,7 +2,7 @@
 // What the bar's display says beside where it is (docs/architecture/
 // bar.md, "The display says what plays"): the tempo, the source and where
 // it plays, each a value on the LCD over its legend, and each a key that
-// opens its menu (lib/bar/bar.js). A value has a short form, for the display
+// opens its menu (lib/components/transport/bar.js). A value has a short form, for the display
 // as wide as a tablet leaves it, and a long one for the widest. Pure.
 
 import { bpm as bpmOf } from '../tape/geometry.js';
