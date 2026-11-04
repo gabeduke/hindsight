@@ -532,6 +532,22 @@ test('menuItem: a row in the one style: its word, a line under it, a check’s c
   assert.deepEqual(c.children.map((x) => x.className), ['menu-check', 'menu-word', 'menu-sub']);
 });
 
+test('menuItem: its end is an element, or an icon’s markup it puts in a span of its own, hidden from a reader', () => {
+  const doc = fakeDoc();
+  const lamp = doc.createElement('span');
+  const a = menuItem(doc, { word: 'Settings', end: lamp });
+  assert.equal(a.children.at(-1), lamp);
+  assert.ok(lamp.classList.contains('menu-end'));
+  // A component names no document, so it can't make the span: it hands the markup.
+  const panel = doc.createElement('div');
+  const b = menuItem(panel, { word: 'Go to the shelf', href: '/takes.html', end: '<svg class="i"></svg>' });
+  const end = b.children.at(-1);
+  assert.equal(end.tagName, 'SPAN');
+  assert.equal(end.className, 'menu-end');
+  assert.equal(end.getAttribute('aria-hidden'), 'true');
+  assert.equal(end.children[0].tagName, 'SVG');
+});
+
 test('menuRows: dividers between the groups, a group’s name, and what destroys last, after its own divider', () => {
   const doc = fakeDoc();
   const row = (word, danger) => menuItem(doc, { word, danger });
