@@ -1,6 +1,6 @@
 # The bar
 
-The bar (`#np`, `css/bar.css`, `lib/bar/`) is the one transport, the same
+The bar (`#np`, `css/bar.css`) is the one transport, the same
 object in both rooms and the same shape on Open (`wave.html`), so **▶ never
 moves**: not between rooms, nor between the tape, a take and the feed
 (J1.13 measures it at 800, 1024 and 1280 and fails past 2 px, or on a
@@ -13,9 +13,10 @@ sideways scroll).
   **verb** (Catch and its ▾ for the tape in the Studio; GRAB for the feed),
   the **modes** (⟲ Loop or Repeat, the metronome) and the **end** (⏏,
   Open ›, ✎ for a take), laid out first so nothing pushes it off. Every key
-  is in the markup, in its slot; a script that adds to the bar puts it in
-  a slot by name (`putIn(root, name, node)`, inside the bar's root),
-  never after whatever was appended last.
+  is in the markup, in its slot (in the rooms, the Transport's template:
+  *The Transport*, below); a script that adds to the bar puts it in a slot
+  by name (`putIn(root, name, node)`, inside the bar's root), never after
+  whatever was appended last.
 - **What shows is said positively.** Each key lists in `data-for` the
   sources it is for (`tape`, `studio` = the tape in the Studio, `away` = the
   tape anywhere else, `take`, `feed`) and in `data-mini` those it stays for
@@ -25,13 +26,14 @@ sideways scroll).
   router's `shown()`, set as the shell switches rooms, in the same step as the body classes), never the page's body class. No `:not()` lists and no
   `!important` (`shape.test.js`). A key a script hides by `hidden` (⏏ with
   no tape) stays hidden.
-- **Every id inside the shell's `#np` is `np-<name>`**, as `cx.id(name)`
-  will name the Transport's (`components.md` 1.3): `#np-position` (the
-  display's big line, `bar.js`'s), `#np-rec`, `#np-catch-pass`, `#np-catch-more` and `#np-click`
-  (`lib/bar/tape-keys.js`), `#np-clock-out` and `#np-out-strip` with its
-  `-led`, `-text`, `-right` and `-resume` (`bar.js`, from
-  `lib/bar/tape-status.js`). Guardrail 20
-  fails on one that isn't. Open's own `#np` (`wave.html`) keeps its ids
+- **Every id inside the shell's `#np` is `np-<name>`**, `cx.id(name)`'s
+  (`components.md`, *The contract*): the Transport's template writes no
+  id, but names each part by `data-part`, and `fill()` gives it its id
+  (`#np-position`, the display's big line; `#np-rec`, `#np-catch-pass`,
+  `#np-catch-more` and `#np-click`, `tape-keys.js`'s; `#np-clock-out`
+  and `#np-out-strip` with its `-led`, `-text`, `-right` and `-resume`,
+  from `tape-status.js`). Guardrail 20 fails on an id in the template,
+  and on the shell's `#np` holding anything but the empty root. Open's own `#np` (`wave.html`) keeps its ids
   until Open's pass: its `#position` is `lib/wave/page.js`'s. The
   overview, `#np-tape-overview`, is not in `#np`'s markup at all: it is
   the Studio's (*The Studio's part of the bar*, below).
@@ -54,7 +56,7 @@ sideways scroll).
   on this phone a tap records here (the recorder's `quick()`). While this
   phone records, wherever it was started, that ● is pressed, says so, and
   a tap stops it (*The Studio's keys*, below). The ▾'s menu
-  (`lib/bar/phone-key.js`, `#np-phone-menu`, over the mini player) says what
+  (`lib/components/transport/phone-key.js`, `#np-phone-menu`, over the mini player) says what
   ● does now, lists the phone's inputs and opens the recorder's sheet with
   its meter. Both are the page's one recorder's (`shell.md`, *Recording
   from this phone*).
@@ -102,7 +104,7 @@ sideways scroll).
   behalf on 2026-10-30, while he was away; his to overrule** (the other
   way: a take stays in the Studio's bar until ⏏, as before, with ▶
   playing it).
-- **It folds by its grabber** (`lib/bar/fold.js`), a pill on a lip above its
+- **It folds by its grabber** (`lib/components/transport/fold.js`), a pill on a lip above its
   top edge: a tap toggles, a drag down folds, a drag up unfolds, and it
   slides by a FLIP on the lid spring (a transform, never a height a frame).
   Folded it is one row of 44 px keys, `body.np-fold`, kept for the visit. On
@@ -139,22 +141,25 @@ sideways scroll).
   over the page: `#np-dock` in the rooms, Open's `#np` itself, which has
   no dock), select mode hiding the bar, the Studio's `#np-dock` and its
   tempo menu (`.tempo-menu`), and a pressed key's colour (`.kb-lit`, which
-  lights a track's head too). `css/bar.css` draws the bar, and keeps
-  Guardrail 15's stylesheet half in place (step 5d): every selector starts
-  at `.np` and goes into it (`architecture.test.js`, *css/bar.css starts
-  every selector at .np*), its menus' panels' too. Its five viewport
+  lights a track's head too). `css/bar.css` draws the bar: the
+  Transport's stylesheet, so it keeps Guardrail 15's stylesheet half
+  (`components.md`): every selector starts at `.np` and goes into it, its
+  menus' panels' too, and no other stylesheet names a class only it styles
+  (the output strip's look, `.np .out-strip`, is the bar's, beside the
+  Output sheet's `.out-banner` in `styles.css`, on one token,
+  `--well-sh`). Its five viewport
   `@media` blocks stay (D1): a container query can't ask a height, an
   orientation or a preference, nor style the root itself.
 - **Its menus are inside it** (step 5e): Catch's ▾ (`#np-catch-menu`,
-  `lib/bar/tape-keys.js`), the source's (`#np-source-menu`,
-  `lib/bar/source-menu.js`) and the phone's (`#np-phone-menu`,
-  `lib/bar/phone-key.js`) are the last children of `#np`, and open in the
+  `lib/components/transport/tape-keys.js`), the source's (`#np-source-menu`,
+  `lib/components/transport/source-menu.js`) and the phone's (`#np-phone-menu`,
+  `lib/components/transport/phone-key.js`) are the last children of `#np`, and open in the
   top layer (`menu()`'s `popover`, `shell.md`, *Menus*): over the page and
   the phone's player pulled up with no z-index of their own, where `.np`'s
   z-index 18 would cover them and its transform, as it folds, would move
   their fixed place. `architecture.test.js`, *the bar's menus are inside
   #np, and open in the top layer*.
-- **✎ is the page's** (`lib/bar/take-keys.js`, `engine.setOnNote`): the
+- **✎ is the page's** (`lib/components/transport/take-keys.js`, `engine.setOnNote`): the
   shell's notes drawer (`rooms.md`, *The notes drawer*) takes the frame
   being heard (`frameNow`); a page without one opens the take on its own
   page (`noteHere`, `lib/models/engine.js`). The drawer sends the bar to a note's time with the
@@ -197,11 +202,87 @@ sideways scroll).
   window a finger wide, ▶ at one x for every source; the player pulled up
   with every key on the screen and |◀ ▶ ● on one row.
 
+## The Transport
+
+The bar in the rooms is a component on the contract (`components.md`):
+`lib/components/transport/index.js`, `{ id: 'transport', root: 'np',
+needs, css: 'css/bar.css', mount }`, mounted once by the shell's boot on
+`#np` in its shell scope (`mountComponent(transport, npRoot, models,
+shell.ctx, props)`; `shell.md`, *The shell scope*). `shell.html`'s `#np`
+is its root and nothing else, `<section id="np" class="np"
+aria-label="Now playing" data-size="full" hidden></section>`, so
+`body:has(.np)` lays the page out around it from the first frame.
+
+| `index.js` exports | |
+|---|---|
+| `TEMPLATE` | the bar's markup: its zones, keys and menus, each part named by `data-part`, its icons `icon()`'s; no id, and no `aria-haspopup` (Guardrails 15, 20 and 13) |
+| `fill(root, id)` | the template drawn into `root`, each part's id `id(part)` (the mount's `cx.id`; by default the root's id and the part), the grabber's `aria-controls` the root, and OUT and the foot's OUT `dialogKey`s. The tests fill a bar the same way |
+| `TAPE_KEYS` | what the Studio presses of ●, Catch and the click: `lend`, `draw`, `press`, `catch`, `closeMenu`, `focusPlay`, `tempo` |
+| default | the component. Its mount fills the root, makes `NowPlaying(root, models, cx)`, provides its `tapeKeys` to `props.tapeKeys` and hears `props.onRoom`; its `unmount` takes those back and `NowPlaying.destroy()`s (its models' subscriptions, its strip's observer) |
+
+Its models (`needs`) are `bar` (the engine's: what plays, its
+`snapshot()` and verbs, and `tapeSource` and `stream`, the engine's tape
+and this device's stream of it, since it is handed the bar and not the
+engine), `transport` (the engine's: a press on the keyboard), `tape` (the
+page's: the Studio's keys, the lamp, SYNC and the strip), `takes` (the
+page's: the source menu's last few) and `recorder` (the page's phone
+recorder, made at boot). Its props, the surface's: `layout` (the shell's
+`barLayout`), `player` (the phone's player sheet), `output()` (the
+Output sheet), `room()` (the room the router shows: the tempo opens its
+menu in the Studio) and `onRoom(fn)` (fn as the router shows another
+room, from its `chrome.setPath`), and `tapeKeys`, a relay
+(`lib/components/relay.js` `relay(names)`, `{api, provide(impl)}`) the
+Transport provides its keys to and the shell hands the views as
+`ctx.tapeKeys` (its `api`): the contract's own *a callback the surface
+passed in*, so `mountComponent` answers nothing new (decision D4).
+
+`NowPlaying` finds every part inside its root by name (`lib/bar/slots.js`
+`partOf(root)('play')` is `#np-play`) and reaches past it only through
+`cx`: `on` (the window's J, the document's visibility, a screen query's
+change), `media(query)` (the phone, the finger, less motion, the scheme:
+`slots.js` `PHONE`, `COARSE`, `fold.js` `REDUCED`, `theme.js` `SCHEME`),
+`layers` (its menus, and `covered()` for J), `floor`, `visible()` (in
+place of `document.hidden`) and `toast`. It hands its modules the same:
+`initFold(root, {layout, phone, reduced})`, `takeKeys({root, …})`,
+`phoneKey({root, layers, floor, …})`, `tapeKeys({root, phoneScreen, …})`,
+`sourceMenu({button, panel, layers, …})`, `barPressNote(root)`,
+`playerKeys(root, {phone, on, …})` and `deviceOf(cx.media)`.
+
+Its modules are its directory's: `bar.js` (`NowPlaying`), `fold.js`,
+`phone-key.js`, `source-menu.js`, `tape-keys.js`, `take-keys.js`,
+`press-note.js` (the keyboard's note over the display) and
+`tape-status.js`, with their tests (`lib/components/transport/*.test.js`,
+in CI's list). What it shares with Open stays in `lib/bar/`, imported by
+both and never copied (decision D3): `slots.js`, `player.js`,
+`display.js`, `carry.js` and `press-light.js` (`lightFor`, which lights
+▶ or ● for a press, and `lightTrackHead`, the Studio's); `handoff.js` is
+the engine's and `layout.js` the surface's. Guardrail 15 runs over the
+directory with no exceptions, and *Step 5f* (`architecture.test.js`) over
+it and the shared modules with what its regexes don't see besides: a
+`doc`, a `getElementById`, a `matchMedia`, the page's storage,
+`innerHeight`, `devicePixelRatio`.
+
+The harness checks it alone (`node scripts/components.mjs transport`;
+`scripts/components/transport.check.mjs`), at every size and in both
+schemes, on the fixtures' bar, transport, tape, takes and recorder, with
+the shell's props made in the page by its surface module
+(`transport.surface.js`): the tape held, the mini player on a phone and
+the full bar wider, the room on its root, ● and Catch in the Studio
+alone, the source's menu in the top layer, OUT to the surface. It never
+presses ▶.
+
+**Open keeps its own bar** until Open's pass: `wave.html`'s `#np`, its
+own markup and ids (`#position`, `#play`), drawn by `lib/wave/page.js`
+on the shared modules and styled by the same `css/bar.css` (the same
+root class). A key Open shows goes in both.
+
 ## The Studio's keys
 
 ●, Catch and its ▾, and the click are the bar's keys for the tape in the
-Studio (`lib/bar/tape-keys.js` `tapeKeys`, made by `NowPlaying` with the
-page's tape model, `tape`, and shared with every view as `ctx.tapeKeys`).
+Studio (`lib/components/transport/tape-keys.js` `tapeKeys`, made by
+`NowPlaying` with the page's tape model, `tape`). The shell hands every
+view a relay of them as `ctx.tapeKeys` (`TAPE_KEYS`, below), which the
+Transport provides them to as it mounts (*The Transport*).
 They are drawn from the tape's `snapshot()` (`{tape, live}`: what records,
 the count-in, the alignment, a mixdown, the click, where it plays, the
 passes) and the phone recorder's (`{mode, seconds}`), as either changes and
@@ -289,7 +370,7 @@ and the output strip across the bar's top
 every room, not the Studio's: `NowPlaying.paintTape()` draws them from the
 models as the tape answers (`tape.onChange`), as the transport changes (the
 stream's state among it) and as the engine's bar does. Their words are
-`lib/bar/tape-status.js`'s, pure:
+`lib/components/transport/tape-status.js`'s, pure:
 
 | `tape-status.js` | |
 |---|---|
@@ -302,8 +383,7 @@ engine's, and `ghost` the Studio's, through the hands it lends the bar
 is shown says *Moving to bar …*. The strip's *Tap to play here* is
 `engine.stream.resume()`. The Studio keeps its own banner (another device
 has the tape) and the output sheet's state (`lib/tape/output-ui.js`
-`initOutput`). They move into the Transport with the rest of the bar
-(`docs/plan/transport-extraction.md`, step 5).
+`initOutput`).
 
 ## The engine
 
@@ -348,39 +428,16 @@ false, whoever presses them), and the strip's
 | `startLabel` | what \|◂ goes back to |
 | `levels` | the reels' levels (`{colors, at(frame)}`), or null |
 
-`NowPlaying` (`lib/bar/bar.js`) is the bar drawn: made by the shell beside
-the engine as a component is mounted, `new NowPlaying(root, models, cx)`
-(step 5f). `root` is `#np`, inside which it finds every part by its name
-(`lib/bar/slots.js` `partOf(root)('play')` is `#np-play`, the id
-`cx.id('play')` gives it), and nothing outside. `models` are `engine`,
-`tape` (the page's tape model, for the Studio's keys, `np.tapeKeys`, the
-lamp, SYNC and the output strip) and `recorder` (the page's phone
-recorder, made at boot). `cx` is a component's, built by the boot from its
-shell scope (`lib/shell/view.js` `shellScope`): `on` (the window's J, the
-document's visibility, a screen query's change), `media(query)` (the phone,
-the finger, less motion, the scheme: `slots.js` `PHONE`, `COARSE`,
-`fold.js` `REDUCED`, `theme.js` `SCHEME`), `layers` (its menus, and
-`covered()` for J), `floor`, `visible()` (in place of `document.hidden`),
-`toast`, and `props`, the surface's: `layout` (the shell's `barLayout`),
-`room()` (the room the router shows, so the tempo opens its menu in the
-Studio; the shell kicks the bar as it switches), `player` (the phone's
-player sheet) and `output()` (which opens the Output sheet). It hands its
-modules the same: `initFold(root, {layout, phone, reduced})`,
-`takeKeys({root, …})`, `phoneKey({root, layers, floor, …})`,
-`tapeKeys({root, phoneScreen, …})`, `sourceMenu({button, panel, layers,
-…})`, `barPressNote(root)`, `playerKeys(root, {phone, on, …})` and
-`deviceOf(cx.media)`; none names the document, the window or
-`globalThis`, nor takes a `doc` (architecture.test.js, *Step 5f*, runs
-Guardrail 15's rules over them with no exceptions). It draws the engine's `snapshot()` on `#np` from its
-`onChange` (and the strip through `paintStrip`, on a canvas sized by
-`lib/ui/canvas.js` `sizeCanvas`), sets `#np[data-source]`,
-`#np[data-room]` and ⏏'s `hidden` (`canEject`), and hands each press to
-the engine's verbs. It holds no source. The source menu, ● on the phone's mini
-player and the Studio's keys are wired there too; the extraction moves them,
-with `NowPlaying`, into the Transport component. Guardrail 18 fails on a
-module other than the engine that makes a source, on audio made for the bar
-under `lib/bar/`, `lib/room/`, `lib/shell/` or `lib/components/`, and on a
-`NowPlaying` made anywhere but the shell's boot.
+The engine is drawn by the Transport (*The Transport*, below), whose
+mount is `NowPlaying` (`lib/components/transport/bar.js`). It draws the
+engine's `snapshot()` on `#np` from its `onChange` (and the strip through
+`paintStrip`, on a canvas sized by `lib/ui/canvas.js` `sizeCanvas`), sets
+`#np[data-source]`, `#np[data-room]` and ⏏'s `hidden` (`canEject`), and
+hands each press to the engine's verbs. It holds no source. Guardrail 18
+fails on a module other than the engine that makes a source, on audio
+made for the bar under `lib/bar/`, `lib/room/`, `lib/shell/` or
+`lib/components/`, on a `NowPlaying` made anywhere but the Transport's
+`index.js`, and on the Transport mounted anywhere but the shell's boot.
 
 ## The transport
 
@@ -420,3 +477,49 @@ display, the overview and the levels, and this phone's stream (where it is
 is what this phone hears, and ▶ is the tap its sound waits for). A new
 reader of the tape's ▶, place, loop or tempo reads the transport, never the
 bar's source or the DOM.
+
+## The Transport's extraction
+
+How the bar became the Transport (item 1d of the component migration;
+`components.md`, *The components*), in steps 1 to 5g, each its own PR with
+nothing on screen changing. What was decided, and still holds (Gabe's calls
+D1 to D6 taken as recommended, 2026-11-02):
+
+- **1. The ids are the component's**: `np-<name>`, `cx.id`'s; the flows'
+  selectors moved with them (`#np-position`, `#np-rec`, `#np-catch-pass`,
+  `#np-catch-more`, `#np-catch-menu`, `#np-tape-overview`), never what a
+  flow expects. Open's own `#np` keeps its ids until its pass.
+- **2. The bar's state is on its root, the page's layout the surface's**:
+  `data-fold`, `data-open`, `data-docked` (`layout.js`, synced by the
+  router's `chrome.classesGiven`) and `data-room`; `body.np-fold` and
+  `body.player-open` are written by `barLayout` alone, and what lays the
+  page out around the bar is `styles.css`'s. **D1**: the five viewport
+  `@media` blocks stay in `css/bar.css` (a container query can't ask a
+  height, an orientation or a preference, nor style the root itself).
+- **3. The surface says the room** (`props.room()`, `props.onRoom`), and
+  the Studio hears the fold through `ctx.barLayout`: no page-wide event,
+  no `MutationObserver` on `<body>`.
+- **4. ●, Catch and the click are the bar's keys on the tape's verbs**
+  (*The Studio's keys*); the overview is the Studio's, in the strip's slot
+  (*The Studio's part of the bar*); the clock-out lamp and the output strip
+  are the bar's, from the models, in every room ((b), 2026-11-02).
+- **5. The window through `cx`**: `cx.media(query)` for every screen query
+  and the stack's `covered()` for J.
+- **6. One display** (the `display` component inside the bar) is **not
+  built**: it changes what the screen shows (**D2**), so it is its own PR,
+  5h, for Gabe to look at (`docs/plan/STATE.md`).
+- **7. Open keeps its markup and its modules** until its pass, on the
+  shared modules (**D3**: no copies; what both use stays in `lib/bar/`).
+- **8. The models** are the engine's bar and transport, the page's tape and
+  takes, and the phone recorder, made at boot.
+- **D4**: the Studio reaches the Transport's keys through a relay in its
+  props (`ctx.tapeKeys`), not an API `mountComponent` answers.
+- **D5**: the phone's player sheet is the surface's (`playerSheet`, made by
+  the boot over `#np-dock`); the bar's keys hand it their drag
+  (`sheet.grab`).
+- **D6**: the bar's three menus are inside its root and open in the top
+  layer (`menu()`'s `popover`).
+
+The spec it was built from (`docs/plan/transport-extraction.md`, deleted
+when 5g landed) is in git: `git log --diff-filter=D --
+docs/plan/transport-extraction.md`.

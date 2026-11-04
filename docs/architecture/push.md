@@ -143,7 +143,7 @@ whether or not Hindsight has its screen. In the page, `watchChanges({onNudge,
 onPress})` reads it with `pressOf` (`lib/tape/changes.js`), and a message
 whose rev moved is a nudge as well. The page's transport hands each press
 to its `onPress` listeners; the engine's is the bar's note
-(`lib/bar/press-note.js`, `#np-press`), which puts the words over the
+(`lib/components/transport/press-note.js`, `#np-press`), which puts the words over the
 display, after the keyboard's icon, for what is left of the second, and
 lights ▶ or ● (`.kb-lit`, `data-kb` the role). The Studio, while it is shown, lights the
 track's head itself (`lightTrackHead`, its own `onPress`). The note is out of the layout,

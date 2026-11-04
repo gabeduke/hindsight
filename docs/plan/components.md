@@ -178,7 +178,7 @@ make it the component's alone:
   what a page would. `bar.css` has six viewport `@media` blocks today, and
   sets the dock's `--dock-b` on `body`: the first become container queries,
   the second goes to the surface's stylesheet. *Amended* (D1,
-  `transport-extraction.md`, 2026-11-02): a viewport `@media` stays where
+  `architecture/bar.md`, *The Transport's extraction*, 2026-11-02): a viewport `@media` stays where
   a container query can't say it: a height, an orientation or a
   preference, or a rule on the root itself, which a container query never
   styles. The Transport keeps its five in `css/bar.css` (5d); Guardrail 15

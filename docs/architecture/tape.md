@@ -393,7 +393,7 @@ overtakes is dropped, and the tape its answer carries is shown at once;
 the transport's verbs and the Studio's edits go through it. Its own verbs
 are `record(body)`, `punchOut()`, `cancelRecord()` (●), `catch(body)`
 (Catch) and `setClick(on)`, each answering the Pi's answer or throwing a
-`Refusal`. The bar's ●, Catch and click press them (`lib/bar/tape-keys.js`,
+`Refusal`. The bar's ●, Catch and click press them (`lib/components/transport/tape-keys.js`,
 `bar.md`, *The Studio's keys*), with the body and the words the Studio
 lends them as its hands (`studioHands`). The Studio asks it every 200 ms from its `ctx.socket`, which
 opens on every visit (a first one after a prewarm included, which skips

@@ -42,10 +42,22 @@ that already has one mounted.
 | `id(name)` | its root's id and the name: root `np` and `play` make `np-play` |
 | `props` | the surface's, frozen |
 
-What belongs to no room (the shell's chrome: the bar, once it is a
-component) mounts in the shell scope, `shellScope()` (`lib/shell/view.js`;
+What belongs to no room (the shell's chrome: the bar, the Transport) mounts
+in the shell scope, `shellScope()` (`lib/shell/view.js`;
 `shell.md`, *The shell scope*): a view that is always shown, so its
 components are quiet only while the document is hidden.
+
+**Reaching a component.** `mountComponent` answers `{show, hide, unmount,
+shown}` and nothing of the component's own. When the rest of the page has
+to press what a component draws (the Studio pressing the Transport's ●,
+Catch and click), the surface makes a relay and hands it in `props`:
+`relay(names)` (`lib/components/relay.js`) answers `{api, provide(impl)}`;
+the component provides its own to it as it mounts (and takes it back on
+unmount, with `provide`'s off), and the surface hands `api`, each name a
+method that calls the provided one's (`undefined` while nothing is), to
+whoever presses (`ctx.tapeKeys`). A surface that tells a component
+something as it happens hands it a subscription in `props` the same way
+(the Transport's `onRoom(fn)`).
 
 What a component can't reach for itself has a helper outside
 `lib/components/` that takes no window or document:
@@ -90,23 +102,21 @@ list of exceptions:
 It reads a module as code: its comments out, `cx.on(window` and
 `cx.on(document` let be, and the file a static import names read as an
 empty string (`'../objects/reel-window.js'` is a file's name, not the
-window). A test beside it lists what these catch and what they let be.
+window). A hyphenated name that ends in one is a name too, wherever it is
+(a template's class, `np-window`). A test beside it lists what these catch
+and what they let be.
 
-The bar's modules keep the same rules where they are, before they move in
-(`architecture.test.js`, *Step 5f*; `bar.md`, *The engine*): `lib/bar/`'s
-`bar.js`, `fold.js`, `phone-key.js`, `press-note.js`, `take-keys.js`,
-`tape-keys.js`, `source-menu.js` and `slots.js`, and `player.js`'s
-`playerKeys`, with no list of exceptions, and with what the regexes don't
-see besides: a `doc`, a `getElementById`, a `matchMedia`, the page's
-storage, `innerHeight` and `devicePixelRatio`. Each
-component directory has an `index.js` exporting the five and a harness
+The Transport's modules, and what it shares with Open (`lib/bar/`'s
+`slots.js` and `press-light.js`, and `player.js`'s `playerKeys`), keep
+more (`architecture.test.js`, *Step 5f*; `bar.md`, *The Transport*),
+with no list of exceptions: what the regexes don't see besides, a `doc`,
+a `getElementById`, a `matchMedia`, the page's storage, `innerHeight`
+and `devicePixelRatio`. Each component directory has an `index.js` exporting the five and a harness
 check. Its stylesheet starts every selector at `.root` and goes into it,
-never beside it (`.root + .x`). The bar's `css/bar.css` keeps the same
-rule already, rooted at `.np`, before the bar moves in
-(`architecture.test.js`, *css/bar.css starts every selector at .np*,
-with no exceptions: its menu panels are inside `#np`, and open in the
-top layer by `menu()`'s `popover`, so a z-index or a transform on the
-root can't cover or move them). It reads the page's state off its
+never beside it (`.root + .x`). The Transport's, `css/bar.css`, rooted
+at `.np`, has its menu panels inside `#np` too, open in the top layer by
+`menu()`'s `popover`, so a z-index or a transform on the root can't
+cover or move them. It reads the page's state off its
 root (`data-fold`, `data-open`, `data-docked`) and keeps its five viewport
 `@media` blocks, which a container query can't say (`docs/plan/components.md`
 1.4, amended by D1). No other stylesheet may reach inside it:
@@ -227,6 +237,13 @@ and desktop (1440×900), in light and dark, and checked by:
   `checkLayout`'s offscreen does not see a root that runs off a phone;
 - the check's `expect(page, {tap})`, what else it should do.
 
+A component whose props are more than keys to press (the Transport's
+layout, its player, the room it is in) has a surface module beside its
+check, `scripts/components/<id>.surface.js` (the check says
+`surface: true`), which the page imports and runs as the shell's boot
+would: handed the root, the view's layers, the models and what the case
+tells it (a case's `surface`), it answers the rest of the props.
+
 A layout fail (an allowance in `layout-allow.mjs` doesn't excuse a
 component), a page error or a failed expect fails it. `--storyboard=dir`
 keeps a picture of each and `dir/index.html`; CI's flows job runs it
@@ -236,4 +253,5 @@ before the flows, into `storyboard/components/`.
 
 | Component | What it is | Models | Mounted by |
 |---|---|---|---|
-| `display` | the display's three keys, the tempo, what plays and where, for the tape; the long forms from 420 px of its own width (`css/display.css`); a key the surface hands nothing to (`props.tempo`, `source`, `output`) is disabled | transport | the harness only. The bar still draws its own (`#np-tempo`, `#np-source`, `#np-output`) until the Transport's extraction puts this in their place |
+| `display` | the display's three keys, the tempo, what plays and where, for the tape; the long forms from 420 px of its own width (`css/display.css`); a key the surface hands nothing to (`props.tempo`, `source`, `output`) is disabled | transport | the harness only. The Transport still draws its own (`#np-tempo`, `#np-source`, `#np-output`) until it mounts this in their place (5h, `STATE.md`) |
+| `transport` | the bar in the rooms (`bar.md`, *The Transport*): its template the bar's markup, `NowPlaying` its mount, its keys the modules beside it; `css/bar.css`, rooted at `.np`; props `layout`, `player`, `output`, `room`, `onRoom` and the `tapeKeys` relay | bar, transport, tape, takes, recorder | the shell's boot, on `#np`, in the shell scope |
