@@ -41,6 +41,8 @@ function makeDoc({ grabber = true } = {}) {
   const body = el('body');
   const g = grabber ? el('np-grabber') : null;
   const np = el('np');
+  // The bar's parts are found inside its root, never in the document.
+  np.querySelector = (sel) => (sel === '#np-grabber' ? g : null);
   const events = [];
   const doc = {
     body,
@@ -62,7 +64,7 @@ function press(g, dy = 0) {
 }
 
 test('a page with no grabber has no fold', () => {
-  assert.equal(initFold(makeDoc({ grabber: false }).doc, { phone: desk, slide }), null);
+  assert.equal(initFold(makeDoc({ grabber: false }).np, { layout: barLayout(makeDoc().doc), phone: desk, slide }), null);
 });
 
 test('a tap on the grabber folds the bar, and another unfolds it; the fold is kept for the visit, and said', () => {
@@ -71,7 +73,7 @@ test('a tap on the grabber folds the bar, and another unfolds it; the fold is ke
   const layout = barLayout(d.doc, { storage: store });
   const heard = [];
   layout.onChange((l) => heard.push(l.folded));
-  initFold(d.doc, { layout, phone: desk, slide });
+  initFold(d.np, { layout, phone: desk, slide });
   assert.equal(folded(d), false);
   assert.equal(d.g.getAttribute('aria-expanded'), 'true');
   press(d.g);
@@ -89,7 +91,7 @@ test('a tap on the grabber folds the bar, and another unfolds it; the fold is ke
 
 test('a drag down folds it and a drag up unfolds it, and the lift’s click is no tap', () => {
   const d = makeDoc();
-  initFold(d.doc, { phone: desk, slide });
+  initFold(d.np, { layout: barLayout(d.doc), phone: desk, slide });
   press(d.g, 40);
   assert.equal(folded(d), true, 'down folds');
   press(d.g, 40);
@@ -107,12 +109,12 @@ test('it moves the bar by its slide, not by jumping; restored on a reload, it is
   slides.length = 0;
   const d = makeDoc();
   const store = new MockStorage();
-  initFold(d.doc, { layout: barLayout(d.doc, { storage: store }), phone: desk, slide });
+  initFold(d.np, { layout: barLayout(d.doc, { storage: store }), phone: desk, slide });
   press(d.g);
   assert.deepEqual(slides, ['np']);
   slides.length = 0;
   const again = makeDoc();
-  initFold(again.doc, { layout: barLayout(again.doc, { storage: store }), phone: desk, slide });
+  initFold(again.np, { layout: barLayout(again.doc, { storage: store }), phone: desk, slide });
   assert.equal(folded(again), true);
   assert.equal(again.g.getAttribute('aria-expanded'), 'false');
   assert.deepEqual(slides, [], 'a page that opens folded does not slide into it');
@@ -120,7 +122,7 @@ test('it moves the bar by its slide, not by jumping; restored on a reload, it is
 
 test('on a phone the grabber is the player’s: it folds nothing', () => {
   const d = makeDoc();
-  initFold(d.doc, { phone: { matches: true }, slide });
+  initFold(d.np, { layout: barLayout(d.doc), phone: { matches: true }, slide });
   press(d.g);
   press(d.g, 40);
   assert.equal(folded(d), false);
@@ -130,7 +132,7 @@ test('a storage that throws (private mode) neither throws nor stops the fold', (
   const d = makeDoc();
   const throwing = { getItem() { throw new Error('no'); }, setItem() { throw new Error('no'); }, removeItem() { throw new Error('no'); } };
   assert.doesNotThrow(() => {
-    initFold(d.doc, { layout: barLayout(d.doc, { storage: throwing }), phone: desk, slide });
+    initFold(d.np, { layout: barLayout(d.doc, { storage: throwing }), phone: desk, slide });
     press(d.g);
   });
   assert.equal(folded(d), true);
@@ -144,7 +146,6 @@ test('slideFrom moves the bar back to where it stood, then lets it go on the lid
   const seen = [];
   const strip = { style: { opacity: '' } };
   const np = {
-    ownerDocument: { defaultView: { matchMedia: () => ({ matches: false }) } },
     style: new Proxy(style, { set: (o, k, v) => { o[k] = v; seen.push(`${k}=${v}|${[...classes].join(',')}`); return true; } }),
     classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c) },
     getBoundingClientRect: () => ({ top }),
@@ -158,9 +159,30 @@ test('slideFrom moves the bar back to where it stood, then lets it go on the lid
   assert.equal(seen.at(-1), 'transform=|np-sliding');
   assert.ok(classes.has('np-sliding'));
   // Less motion: the change alone.
-  const still = { ...np, ownerDocument: { defaultView: { matchMedia: () => ({ matches: true }) } } };
   seen.length = 0;
   top = 643;
-  slideFrom(still, () => { top = 571; });
+  slideFrom(np, () => { top = 571; }, { still: true });
   assert.ok(!seen.some((x) => /translateY/.test(x)), seen.join(' '));
+});
+
+test('less motion is asked of the screen the caller hands it, not of the window: the fold is then a change', () => {
+  const d = makeDoc();
+  let top = 643;
+  const seen = [];
+  Object.assign(d.np, {
+    style: new Proxy({}, { set: (o, k, v) => { o[k] = v; seen.push(`${k}=${v}`); return true; } }),
+    getBoundingClientRect: () => ({ top }),
+  });
+  d.np.querySelector = (sel) => (sel === '#np-grabber' ? d.g : null);
+  const layout = barLayout(d.doc);
+  layout.onChange(() => { top = 571; });
+  const reduced = { matches: true };
+  initFold(d.np, { layout, phone: desk, reduced });
+  press(d.g);
+  assert.equal(folded(d), true);
+  assert.ok(!seen.some((x) => /translateY/.test(x)), seen.join(' '));
+  reduced.matches = false;
+  top = 643;
+  press(d.g);
+  assert.ok(seen.includes('transform=translateY(72px)'), seen.join(' '));
 });

@@ -14,7 +14,8 @@ sideways scroll).
   the **modes** (⟲ Loop or Repeat, the metronome) and the **end** (⏏,
   Open ›, ✎ for a take), laid out first so nothing pushes it off. Every key
   is in the markup, in its slot; a script that adds to the bar puts it in
-  a slot by name (`putIn`), never after whatever was appended last.
+  a slot by name (`putIn(root, name, node)`, inside the bar's root),
+  never after whatever was appended last.
 - **What shows is said positively.** Each key lists in `data-for` the
   sources it is for (`tape`, `studio` = the tape in the Studio, `away` = the
   tape anywhere else, `take`, `feed`) and in `data-mini` those it stays for
@@ -167,13 +168,18 @@ sideways scroll).
   its bar, stills the page under it (`inert` on the body's other children),
   says the player up through the layout and closes as the bar empties or
   the screen grows past a phone; it answers `{open(), close(), grab(e),
-  isOpen, lend(keys)}`. The keys are the bar's: `playerKeys(root, {player,
-  layout, phone, btn, grabber, handles})` opens and puts it away from ▣
-  and the grabber, hands the grabber's and the window's pointerdown to
+  isOpen, lend(keys)}`, and gives the lent key the focus back as it is
+  put away (unless the bar emptied or the focus went on to a menu or a
+  dialog). The keys are the bar's: `playerKeys(root, {player, layout,
+  phone, on, btn, grabber, handles})` opens and puts it away from ▣ and
+  the grabber, hands the grabber's and the window's pointerdown to
   `grab(e)` (the sheet hears the rest of that drag on the handle), keeps
-  `data-size` (`mini` or `full`), and lends `{owner, shown(), hidden()}`:
-  ▣, the key Back gives the focus back to, and what the bar does as the
-  player is laid out and put away. `initPlayer` is both, for Open. A tap on the mini player's
+  `data-size` (`mini` or `full`), hearing `phone` change through `on`
+  (`cx.on`), and lends `{owner, shown(), hidden()}`: ▣, the key the focus
+  goes back to, and what the bar does as the player is laid out and put
+  away; it never reads the document. `initPlayer({btn, grabber, layers,
+  layout, phone, on})` is both, for Open, which hands it its parts and what
+  is the page's. A tap on the mini player's
   window, or a drag up from it, pulls it up from where the mini player
   stood, so the mini player grows into the full one; a swipe down on its
   grabber or its art (the reels and the display), a tap on the grabber,
@@ -343,14 +349,29 @@ false, whoever presses them), and the strip's
 | `levels` | the reels' levels (`{colors, at(frame)}`), or null |
 
 `NowPlaying` (`lib/bar/bar.js`) is the bar drawn: made by the shell beside
-the engine (`new NowPlaying({engine, onToast, layout, room, tape, player,
-recorder, output})`: `layout` the shell's `barLayout`, `room()` the room
-the router shows, so the tempo opens its menu in the Studio; the shell
-kicks the bar as it switches; `tape` the page's tape model, for the
-Studio's keys, `np.tapeKeys`, the lamp, SYNC and the output strip; and
-what is the page's, the surface's, handed in (step 5c): `player`, the
-phone's player sheet, `recorder`, the page's phone recorder, made at boot,
-and `output()`, which opens the Output sheet), it draws the engine's `snapshot()` on `#np` from its
+the engine as a component is mounted, `new NowPlaying(root, models, cx)`
+(step 5f). `root` is `#np`, inside which it finds every part by its name
+(`lib/bar/slots.js` `partOf(root)('play')` is `#np-play`, the id
+`cx.id('play')` gives it), and nothing outside. `models` are `engine`,
+`tape` (the page's tape model, for the Studio's keys, `np.tapeKeys`, the
+lamp, SYNC and the output strip) and `recorder` (the page's phone
+recorder, made at boot). `cx` is a component's, built by the boot from its
+shell scope (`lib/shell/view.js` `shellScope`): `on` (the window's J, the
+document's visibility, a screen query's change), `media(query)` (the phone,
+the finger, less motion, the scheme: `slots.js` `PHONE`, `COARSE`,
+`fold.js` `REDUCED`, `theme.js` `SCHEME`), `layers` (its menus, and
+`covered()` for J), `floor`, `visible()` (in place of `document.hidden`),
+`toast`, and `props`, the surface's: `layout` (the shell's `barLayout`),
+`room()` (the room the router shows, so the tempo opens its menu in the
+Studio; the shell kicks the bar as it switches), `player` (the phone's
+player sheet) and `output()` (which opens the Output sheet). It hands its
+modules the same: `initFold(root, {layout, phone, reduced})`,
+`takeKeys({root, …})`, `phoneKey({root, layers, floor, …})`,
+`tapeKeys({root, phoneScreen, …})`, `sourceMenu({button, panel, layers,
+…})`, `barPressNote(root)`, `playerKeys(root, {phone, on, …})` and
+`deviceOf(cx.media)`; none names the document, the window or
+`globalThis`, nor takes a `doc` (architecture.test.js, *Step 5f*, runs
+Guardrail 15's rules over them with no exceptions). It draws the engine's `snapshot()` on `#np` from its
 `onChange` (and the strip through `paintStrip`, on a canvas sized by
 `lib/ui/canvas.js` `sizeCanvas`), sets `#np[data-source]`,
 `#np[data-room]` and ⏏'s `hidden` (`canEject`), and hands each press to

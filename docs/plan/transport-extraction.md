@@ -305,8 +305,11 @@ unmoved:
    a menu panel the shell holds outside `#np`, proved by before and after
    storyboards of both pages at every size and in both schemes; 5e, *built*, the three menu panels into the bar,
    `#catch-menu` as `#np-catch-menu`, opened in the top layer by `menu()`'s
-   new `popover` option (D6), the bar's three only; 5f, the modules keep Guardrail 15
-   in place, with no copies (maybe two PRs); 5g, the move itself; 5h,
+   new `popover` option (D6), the bar's three only; 5f, *built* (one PR), the modules keep Guardrail 15
+   in place, with no copies: `NowPlaying(root, models, cx)`, each part
+   found by name in its root (`slots.js` `partOf`), the boot's cx from its
+   shell scope, `player.js` and `slots.js` taking their elements, media and
+   layers, and Guardrail 15 reading an import's file name as no code; 5g, the move itself; 5h,
    `display` inside the bar, opened for Gabe to look at, not merged
    without him. 5d and 5e follow D1 and D6, 5f D3, 5c D4 and D5.
 

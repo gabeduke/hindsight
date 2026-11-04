@@ -381,8 +381,11 @@ const docOf = (x) => (typeof x?.createElement === 'function' ? x : x?.ownerDocum
  *   role             'menuitem', or 'menuitemcheckbox' with `checked`
  *   href             a link
  *   danger           it destroys something: red, and last (menuRows)
- *   end              an element for its end
- *   el               an element already in the page to make the row of
+ *   end              an element for its end, or an icon's markup (icons.js
+ *                    icon()), put in a span of its own hidden from a
+ *                    reader: so a module that may not name the document
+ *                    (a component) gives a row its ›
+ *   el              an element already in the page to make the row of
  *                    (its children are replaced, its id kept)
  *   className, attrs more of its own
  */
@@ -414,7 +417,12 @@ export function menuItem(...args) {
   }
   parts.push(span('menu-word', word));
   if (sub !== undefined) parts.push(span(['menu-sub', subClass].filter(Boolean).join(' '), sub));
-  if (end) { end.classList?.add('menu-end'); parts.push(end); }
+  if (typeof end === 'string') {
+    const e = span('menu-end');
+    e.setAttribute('aria-hidden', 'true');
+    e.innerHTML = end;
+    parts.push(e);
+  } else if (end) { end.classList?.add('menu-end'); parts.push(end); }
   row.replaceChildren(...parts);
   return row;
 }

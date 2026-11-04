@@ -148,6 +148,8 @@ export class FakeEl {
     return this.descendants().filter((e) => parts.some((p) => this._hit(e, p.split(/\s+/))));
   }
   querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }
+  /** matches is whether this is one of "a, b", as closest reads them. */
+  matches(sel) { return sel.split(',').map((p) => p.trim()).some((p) => this._hit(this, p.split(/\s+/))); }
   closest(sel) {
     // "a, b" is either, as in a page; "a b" is a b inside an a.
     const parts = sel.split(',').map((p) => p.trim());

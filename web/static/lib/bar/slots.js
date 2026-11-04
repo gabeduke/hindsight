@@ -25,21 +25,21 @@ export const SLOTS = Object.freeze(['deck', 'transport', 'verb', 'modes', 'end',
 export const SOURCES = Object.freeze(['tape', 'take', 'feed']);
 
 /**
- * slotOf is the bar's slot `name` in `doc`: the element a script puts into.
- * It throws on a name the bar hasn't got, which would otherwise put a key
- * nowhere, silently.
+ * slotOf is the slot `name` of the bar whose root is `root` (#np): the
+ * element a script puts into. It throws on a name the bar hasn't got, which
+ * would otherwise put a key nowhere, silently.
  */
-export function slotOf(doc, name) {
+export function slotOf(root, name) {
   if (!SLOTS.includes(name)) throw new TypeError(`the bar has no slot "${name}" (it has ${SLOTS.join(', ')})`);
-  return doc.querySelector(`#np [data-slot="${name}"]`);
+  return root.querySelector(`[data-slot="${name}"]`);
 }
 
 /**
- * putIn puts `node` in slot `name`: at its end, or with `first` at its start.
- * Answers the slot, or null on a page whose bar hasn't got it.
+ * putIn puts `node` in slot `name` of the bar at `root`: at its end, or
+ * with `first` at its start. Answers the slot, or null on a bar without it.
  */
-export function putIn(doc, name, node, { first = false } = {}) {
-  const slot = slotOf(doc, name);
+export function putIn(root, name, node, { first = false } = {}) {
+  const slot = slotOf(root, name);
   if (!slot) return null;
   if (first) slot.prepend(node);
   else slot.append(node);
@@ -62,12 +62,42 @@ export function hereWord({ phone = false, coarse = false } = {}) {
   return coarse ? 'THIS TABLET' : 'THIS COMPUTER';
 }
 
-/** deviceOf reads `win`'s screen for hereWord: a phone, and a finger for a pointer. */
-export function deviceOf(win = globalThis) {
-  const mq = (q) => !!win.matchMedia?.(q)?.matches;
-  return {
-    phone: mq('(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)'),
-    coarse: mq('(pointer: coarse)'),
+/**
+ * PHONE is a phone's screen: upright, or on its side and short. The mini
+ * player is a phone's (player.js), and so is THIS PHONE.
+ */
+export const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)';
+
+/** COARSE is a finger for a pointer: THIS TABLET, wider than a phone. */
+export const COARSE = '(pointer: coarse)';
+
+/**
+ * deviceOf reads the screen for hereWord: a phone, and a finger for a
+ * pointer. `media(query)` answers a MediaQueryList (a component's
+ * cx.media, or the page's matchMedia): the screen is asked through it,
+ * never through the window.
+ */
+export function deviceOf(media) {
+  const mq = (q) => !!media?.(q)?.matches;
+  return { phone: mq(PHONE), coarse: mq(COARSE) };
+}
+
+/**
+ * partOf answers a look-up of the bar's parts inside its `root`, by name:
+ * partOf(np)('play') is #np-play, the id a component's cx.id('play') gives
+ * a part of root #np. Never the document's: a part is found in the root a
+ * module is handed, or not at all (null). A part found is kept, so the
+ * bar's frame, which writes some twenty of them, looks each up once.
+ */
+export function partOf(root) {
+  const kept = new Map();
+  return (name) => {
+    let el = kept.get(name);
+    if (!el) {
+      el = root.querySelector(`#${root.id}-${name}`);
+      if (el) kept.set(name, el);
+    }
+    return el;
   };
 }
 

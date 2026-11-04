@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { cssOf, decls, fileCss, linksOf, rules, stripComments } from '../stylesheets.js';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
-import { SLOTS, SOURCES, slotOf, putIn, barSize, hereWord, measureBar } from './slots.js';
+import { SLOTS, SOURCES, slotOf, putIn, barSize, hereWord, measureBar, deviceOf, partOf, PHONE, COARSE } from './slots.js';
 
 const bar = fileCss('css/bar.css');
 const barRules = rules(bar);
@@ -40,14 +40,14 @@ test('the bar is its zones, in the one order, on both pages that have it', () =>
 });
 
 test('|◀ ▶ then ●, Record beside Play, and the phone’s ● ▾; ↺ 5 s in ●’s place; Catch the verb; ⟲ then the metronome; ⏏ Open › ✎ at the end', () => {
-  const ids = (slot) => slotOf(shell, slot).children.map((e) => e.id || e.className.split(' ')[1]);
+  const ids = (slot) => slotOf(shell.getElementById('np'), slot).children.map((e) => e.id || e.className.split(' ')[1]);
   assert.deepEqual(ids('transport'), ['np-start', 'np-play', 'np-rec', 'np-phone-rec', 'np-phone-more', 'np-back5']);
   assert.deepEqual(ids('foot'), ['np-out-foot']);
   assert.deepEqual(ids('verb'), ['np-catch-split', 'np-feed-grab']);
   assert.deepEqual(ids('modes'), ['np-loop', 'np-click']);
   assert.deepEqual(ids('end'), ['np-eject', 'np-open', 'np-note']);
   // On Open, the same transport: ▶ second, where it is in the rooms.
-  assert.deepEqual(slotOf(wave, 'transport').children.map((e) => e.id), ['to-start', 'play', 'back5']);
+  assert.deepEqual(slotOf(wave.getElementById('np'), 'transport').children.map((e) => e.id), ['to-start', 'play', 'back5']);
   // ● and the metronome are pictures, not typed.
   assert.ok(shell.getElementById('np-rec').querySelector('svg.i-rec'));
   assert.ok(shell.getElementById('np-click').querySelector('svg.i-metro'));
@@ -56,7 +56,7 @@ test('|◀ ▶ then ●, Record beside Play, and the phone’s ● ▾; ↺ 5 s 
 test('each key says which sources it shows for, in the full bar and the mini player, by names the stylesheet knows', () => {
   for (const [name, doc] of [['shell.html', shell], ['wave.html', wave]]) {
     for (const slot of ['transport', 'verb', 'modes', 'end', 'strip', 'foot']) {
-      for (const key of slotOf(doc, slot)?.children || []) {
+      for (const key of slotOf(doc.getElementById('np'), slot)?.children || []) {
         // A key of the mini player alone (the phone's ● ▾) says data-mini only.
         const f = key.getAttribute('data-for') || key.getAttribute('data-mini');
         assert.ok(f, `${name}: #${key.id || key.className} in ${slot} says nothing of where it shows`);
@@ -156,12 +156,13 @@ test('measureBar writes the bar’s height to the root as it changes, once per c
 test('a script puts into a slot by its name, and a name the bar hasn’t got throws', () => {
   const doc = page('shell.html');
   const mark = doc.createElement('span');
-  putIn(doc, 'strip', mark);
-  assert.equal(slotOf(doc, 'strip').children.at(-1), mark);
+  const np = doc.getElementById('np');
+  putIn(np, 'strip', mark);
+  assert.equal(slotOf(np, 'strip').children.at(-1), mark);
   const first = doc.createElement('i');
-  putIn(doc, 'end', first, { first: true });
-  assert.equal(slotOf(doc, 'end').children[0], first);
-  assert.throws(() => slotOf(doc, 'own'), /no slot "own"/);
+  putIn(np, 'end', first, { first: true });
+  assert.equal(slotOf(np, 'end').children[0], first);
+  assert.throws(() => slotOf(np, 'own'), /no slot "own"/);
 });
 
 test('the size is the mini player only on a phone with the player down; the display says where a take plays by the device', () => {
@@ -171,4 +172,25 @@ test('the size is the mini player only on a phone with the player down; the disp
   assert.equal(hereWord({ phone: true }), 'THIS PHONE');
   assert.equal(hereWord({ coarse: true }), 'THIS TABLET');
   assert.equal(hereWord({}), 'THIS COMPUTER');
+});
+
+test('deviceOf asks the screen it is handed (a component’s cx.media), never the window', () => {
+  const asked = [];
+  const media = (q) => { asked.push(q); return { matches: q === PHONE }; };
+  assert.deepEqual(deviceOf(media), { phone: true, coarse: false });
+  assert.deepEqual(asked, [PHONE, COARSE]);
+  assert.equal(hereWord(deviceOf((q) => ({ matches: q === COARSE }))), 'THIS TABLET');
+  assert.deepEqual(deviceOf(() => null), { phone: false, coarse: false }, 'a screen that answers nothing is a computer’s');
+});
+
+test('partOf finds a part inside the root it is given, by its name, and nowhere else', () => {
+  const doc = page('shell.html');
+  const part = partOf(doc.getElementById('np'));
+  assert.equal(part('play'), doc.getElementById('np-play'));
+  assert.equal(part('catch-menu'), doc.getElementById('np-catch-menu'));
+  // A part outside the root, though the document has it, is not the bar's.
+  const elsewhere = doc.createElement('button');
+  elsewhere.id = 'np-elsewhere';
+  doc.body.append(elsewhere);
+  assert.equal(part('elsewhere'), null);
 });

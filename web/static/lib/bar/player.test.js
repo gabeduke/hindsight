@@ -21,7 +21,9 @@ function aPlayer(layout) {
     log,
     get keys() { return keys; },
     open() { log.push('open'); layout.set({ open: true }); keys?.shown(); },
-    close() { log.push('close'); layout.set({ open: false }); keys?.hidden(); },
+    // As playerSheet does: the keys put away, then the focus given back to
+    // the key they lent (the bar's keys never read the document for it).
+    close() { log.push('close'); layout.set({ open: false }); keys?.hidden(); keys?.owner.focus(); },
     grab(e) { log.push(['grab', e.currentTarget.id]); },
     get isOpen() { return layout.open; },
     lend(k) { keys = k; return () => { if (keys === k) keys = null; }; },
@@ -42,7 +44,8 @@ function setup({ phone = aPhone() } = {}) {
   doc.body.append(root);
   const layout = barLayout(doc, { root });
   const player = aPlayer(layout);
-  playerKeys(root, { player, layout, phone, btn, grabber, handles: [grabber, win] });
+  const on = (target, type, fn) => target.addEventListener(type, fn);
+  playerKeys(root, { player, layout, phone, on, btn, grabber, handles: [grabber, win] });
   const fire = (el, type, e = {}) => { for (const fn of el.listeners.get(type) || []) fn({ type, currentTarget: el, target: el, ...e }); };
   return { doc, root, btn, grabber, win, layout, player, phone, fire };
 }
@@ -78,4 +81,81 @@ test('wider than a phone the bar is full, and its grabber is the fold’s, not t
   assert.deepEqual(t.player.log, [], 'no player to put away');
   t.phone.set(true);
   assert.equal(t.root.dataset.size, 'mini', 'it follows the screen');
+});
+
+// The real sheet (playerSheet, on createSheet and the page's stack), with
+// less motion asked for, so it comes and goes at once.
+async function realPlayer() {
+  const { createLayers } = await import('../ui/layers.js');
+  const { playerSheet } = await import('./player.js');
+  const doc = fakeDoc();
+  const dock = doc.createElement('div');
+  dock.id = 'np-dock';
+  const root = doc.createElement('section');
+  root.id = 'np';
+  const btn = doc.createElement('button');
+  btn.id = 'np-expand';
+  const grabber = doc.createElement('button');
+  grabber.id = 'np-grabber';
+  const menuRow = doc.createElement('button');
+  const menuPanel = doc.createElement('div');
+  menuPanel.className = 'menu';
+  menuPanel.append(menuRow);
+  root.append(grabber, btn);
+  dock.append(root);
+  // Less motion: it fades, and the fade ends when the test says (settle).
+  const fades = [];
+  dock.animate = () => { const a = { cancel() {} }; fades.push(a); return a; };
+  const settle = () => { while (fades.length) fades.shift().onfinish?.(); };
+  const page = doc.createElement('main');
+  doc.body.append(page, dock, menuPanel);
+  const win = { addEventListener() {}, removeEventListener() {} };
+  const layers = createLayers({ doc, win, CloseWatcher: undefined, history: undefined });
+  const layout = barLayout(doc, { root });
+  const phone = aPhone(true);
+  const player = playerSheet(dock, { root, layers, layout, phone });
+  const on = (target, type, fn) => target.addEventListener(type, fn);
+  playerKeys(root, { player, layout, phone, on, btn, grabber, handles: [grabber] });
+  let focused = 0;
+  const focus = btn.focus.bind(btn);
+  btn.focus = (o) => { focused++; focus(o); };
+  const fire = (el, type) => { for (const fn of el.listeners.get(type) || []) fn({ type, currentTarget: el, target: el }); };
+  const fireNow = (el, type) => { fire(el, type); settle(); };
+  return { doc, btn, grabber, menuRow, page, layers, player, fire: fireNow, settle, focused: () => focused };
+}
+
+test('the surface’s sheet gives ▣ the focus back as the player is put away, once, and not from a menu', async () => {
+  const had = { matchMedia: globalThis.matchMedia, MutationObserver: globalThis.MutationObserver };
+  globalThis.matchMedia = () => ({ matches: true, addEventListener() {} });
+  globalThis.MutationObserver = class { observe() {} disconnect() {} };
+  try {
+    const t = await realPlayer();
+    t.fire(t.btn, 'click');
+    assert.equal(t.player.isOpen, true);
+    assert.equal(t.doc.activeElement, t.grabber, 'up, the focus is on its grabber');
+    assert.equal(t.page.inert, true, 'the page under it is still');
+    // Put away by the grabber: the sheet gives ▣ the focus back.
+    t.fire(t.grabber, 'click');
+    assert.equal(t.player.isOpen, false);
+    assert.equal(t.page.inert, false);
+    assert.equal(t.doc.activeElement, t.btn, 'the focus is back on ▣');
+    // Put away by Escape: the stack gives it back as the sheet leaves it,
+    // and the sheet doesn't give it again.
+    t.fire(t.btn, 'click');
+    const before = t.focused();
+    t.layers.top().close('escape');
+    assert.equal(t.doc.activeElement, t.btn, 'the stack gives it back at once');
+    t.settle();
+    assert.equal(t.doc.activeElement, t.btn);
+    assert.equal(t.focused() - before, 1, 'one focus, not two');
+    // Put away while the focus has gone on to a menu: it stays there.
+    t.fire(t.btn, 'click');
+    t.menuRow.focus();
+    t.player.close();
+    t.settle();
+    assert.equal(t.doc.activeElement, t.menuRow, 'a menu keeps the focus');
+  } finally {
+    globalThis.matchMedia = had.matchMedia;
+    globalThis.MutationObserver = had.MutationObserver;
+  }
 });

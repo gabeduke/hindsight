@@ -45,7 +45,8 @@ import { cutLabel } from './cut-label.js';
 import { initNav } from '../nav.js';
 import { ReelWindow, peakDbAt } from '../objects/reel-window.js';
 import { takeCounter } from '../objects/lcd.js';
-import { initPlayer } from '../bar/player.js';
+import { initPlayer, PHONE } from '../bar/player.js';
+import { barLayout } from '../bar/layout.js';
 import { measureBar, hereWord, deviceOf } from '../bar/slots.js';
 import { takeDisplay } from '../bar/display.js';
 import { layersOf } from '../ui/layers.js';
@@ -248,7 +249,13 @@ async function main() {
   // The bar's reel window: the take's reels turn with the playhead, and the
   // LCD's two level bars read the take's peaks under it (left and right).
   const reels = new ReelWindow({ left: $('np-reel-l'), right: $('np-reel-r'), levels: $('np-levels') });
-  initPlayer();
+  // The phone's player, on Open's own bar: the page hands it its keys,
+  // its stack, its layout and the screen (lib/bar/player.js).
+  initPlayer({
+    btn: $('np-expand'), grabber: $('np-grabber'), layers: layersOf(document),
+    layout: barLayout(document, { root: $('np') }), phone: matchMedia(PHONE),
+    on: (target, type, fn) => target.addEventListener(type, fn),
+  });
   measureBar($('np'));
   const gain = takeGain(filePeaks);
   const lcdInk = 'var(--lcd-ink)';
@@ -1629,7 +1636,7 @@ async function main() {
     const dk = `${take.label}|${state.grid.bpm}`;
     if (dk !== displayKey) {
       displayKey = dk;
-      const d = takeDisplay({ title: takeTitle({ ...take, name: take.name || file }), bpm: state.grid.bpm }, hereWord(deviceOf(window)));
+      const d = takeDisplay({ title: takeTitle({ ...take, name: take.name || file }), bpm: state.grid.bpm }, hereWord(deviceOf((q) => matchMedia(q))));
       setText($('np-tempo-short'), d.tempo.short);
       setText($('np-tempo-long'), d.tempo.long);
       setText($('np-source-short'), d.source.short);

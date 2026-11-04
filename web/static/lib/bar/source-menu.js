@@ -49,27 +49,28 @@ function lengthOf(t) {
  *   now()       what plays: { kind, takeName, tape } (tape: the loaded tape's name, or null)
  *   list()      a promise of the takes (the page's, lib/models/takes.js get())
  *   pick(id)    'tape', 'feed' or 'take:<name>'
- *   layers      the page's stack
- * Answers its menu.
+ *   layers      the stack it opens on (a component's cx.layers)
+ * Its rows are made in the panel's document: it names none. Answers its
+ * menu.
  */
-export function sourceMenu({ doc = document, button, panel, now, list, pick, layers, floor }) {
+export function sourceMenu({ button, panel, now, list, pick, layers, floor }) {
   let recent = [];
   let asked = 0;
   const render = (p) => {
     const { rows, takes, shelf } = sourceRows({ ...now(), recent });
     const item = (r) => {
-      const el = menuItem(doc, { word: r.word, sub: r.sub, role: 'menuitemradio', checked: r.checked, attrs: { 'data-source': r.id } });
+      const el = menuItem(p, { word: r.word, sub: r.sub, role: 'menuitemradio', checked: r.checked, attrs: { 'data-source': r.id } });
       if (r.disabled) el.setAttribute('aria-disabled', 'true');
       else el.addEventListener('click', () => pick(r.id));
       return el;
     };
     const parts = [...rows.map(item)];
-    if (takes.length) parts.push(menuDivider(doc), menuGroup(doc, 'Recent takes'), ...takes.map(item));
-    const go = menuItem(doc, { word: shelf.word, href: shelf.href, end: chevron(doc), attrs: { 'data-source': 'shelf' } });
-    parts.push(menuDivider(doc), go);
+    if (takes.length) parts.push(menuDivider(p), menuGroup(p, 'Recent takes'), ...takes.map(item));
+    const go = menuItem(p, { word: shelf.word, href: shelf.href, end: icon('right', { size: 16 }), attrs: { 'data-source': 'shelf' } });
+    parts.push(menuDivider(p), go);
     p.replaceChildren(...parts);
   };
-  const m = menu(button, panel, { layers, doc, align: 'start', floor, render, focus: 'checked', popover: true });
+  const m = menu(button, panel, { layers, align: 'start', floor, render, focus: 'checked', popover: true });
   // The takes are asked for as it opens; it shows the last answer until
   // the new one comes, then again with it.
   button.addEventListener('click', () => {
@@ -82,11 +83,4 @@ export function sourceMenu({ doc = document, button, panel, now, list, pick, lay
     }, () => {});
   });
   return m;
-}
-
-function chevron(doc) {
-  const s = doc.createElement('span');
-  s.setAttribute('aria-hidden', 'true');
-  s.innerHTML = icon('right', { size: 16 });
-  return s;
 }

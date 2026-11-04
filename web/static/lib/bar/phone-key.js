@@ -13,7 +13,8 @@
 // these all show the same one.
 
 import { menu, menuItem, menuRows } from '../ui/menu.js';
-import { fmtClock, onPhoneRecorder } from '../phone/recorder.js';
+import { fmtClock } from '../phone/recorder.js';
+import { partOf } from './slots.js';
 
 const setAttr = (el, k, v) => { if (el && el.getAttribute(k) !== v) el.setAttribute(k, v); };
 
@@ -47,20 +48,22 @@ export function said(state) {
 
 /**
  * phoneKey wires the mini player's ● (#np-phone-rec) and its ▾
- * (#np-phone-more, opening #np-phone-menu). `recorder()` is the page's
- * recorder, asked for when a key is pressed (the shell makes it at boot;
- * a page without one may make it as a room mounts); `whenRecorder(fn)`
- * hands it over as soon as there is one, so the
- * keys show a recording started anywhere. `playerUp()` is whether the
- * phone's player is pulled up (its sheet's isOpen), where the ▾ isn't.
- * Answers { menu, paint(state), offer() }, or null on a page without the
- * keys: offer() opens the ▾ (or, with the player up, the sheet), which the
- * Studio's ● asks for on a hold (tape-keys.js).
+ * (#np-phone-more, opening #np-phone-menu), inside the bar's `root`.
+ * `recorder()` is the page's recorder, asked for when a key is pressed (the
+ * shell makes it at boot); `whenRecorder(fn)` hands it over (the bar
+ * passes the boot's, once; by default, `recorder()`'s, if there is one
+ * now), so the keys show a recording started anywhere. `layers` and `floor` are the stack the ▾ opens on
+ * and where it stops above the bar (a component's cx.layers and cx.floor).
+ * `playerUp()` is whether the phone's player is pulled up (its sheet's
+ * isOpen), where the ▾ isn't. Answers { menu, paint(state), offer() }, or
+ * null on a bar without the keys: offer() opens the ▾ (or, with the player
+ * up, the sheet), which the Studio's ● asks for on a hold (tape-keys.js).
  */
-export function phoneKey({ doc = document, recorder, layers, floor, whenRecorder = (fn) => onPhoneRecorder(doc, fn), playerUp = () => false }) {
-  const rec = doc.getElementById('np-phone-rec');
-  const more = doc.getElementById('np-phone-more');
-  const panel = doc.getElementById('np-phone-menu');
+export function phoneKey({ root, recorder, layers, floor, whenRecorder = (fn) => { const r = recorder(); if (r) fn(r); }, playerUp = () => false }) {
+  const part = partOf(root);
+  const rec = part('phone-rec');
+  const more = part('phone-more');
+  const panel = part('phone-menu');
   if (!rec || !more || !panel) return null;
   let inputs = [];
   let listening = null;
@@ -86,19 +89,19 @@ export function phoneKey({ doc = document, recorder, layers, floor, whenRecorder
     const r = hear();
     const rows = phoneRows({ state: r ? r.state() : undefined, inputs, input: r ? r.input() : '' });
     const item = (row, role = 'menuitem') => {
-      const el = menuItem(doc, { word: row.word, sub: row.sub, role, checked: row.checked, attrs: { 'data-phone': row.id } });
+      const el = menuItem(p, { word: row.word, sub: row.sub, role, checked: row.checked, attrs: { 'data-phone': row.id } });
       if (row.disabled) el.setAttribute('aria-disabled', 'true');
       else el.addEventListener('click', () => pick(row.id));
       return el;
     };
-    p.replaceChildren(...menuRows(doc, [
+    p.replaceChildren(...menuRows(p, [
       [item(rows.now)],
       { label: 'Input', rows: rows.inputs.map((r) => item(r, 'menuitemradio')) },
       [item(rows.sheet)],
     ]));
   };
   // Over the mini player, clear of its top edge (the ▾ is 7 px in from it).
-  const m = menu(more, panel, { layers, doc, side: 'above', gap: 10, floor, render, focus: 'first', popover: true });
+  const m = menu(more, panel, { layers, side: 'above', gap: 10, floor, render, focus: 'first', popover: true });
 
   function pick(id) {
     const r = hear();

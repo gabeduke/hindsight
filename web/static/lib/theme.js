@@ -56,6 +56,13 @@ export function tokenCache(el = () => document.documentElement) {
 }
 
 /**
+ * SCHEME is the query that flips with the device's scheme: a component
+ * hears it change through its cx (cx.on(cx.media(SCHEME), 'change', fn)),
+ * as onSchemeChange does on the page's window.
+ */
+export const SCHEME = '(prefers-color-scheme: dark)';
+
+/**
  * onSchemeChange calls `cb` whenever the device flips light <-> dark, and
  * answers its off, so a component mounted and unmounted again takes its
  * listener away rather than leaving one behind per mount. Without a
@@ -63,7 +70,7 @@ export function tokenCache(el = () => document.documentElement) {
  */
 export function onSchemeChange(cb) {
   if (typeof matchMedia !== 'function') return () => {};
-  const mql = matchMedia('(prefers-color-scheme: dark)');
+  const mql = matchMedia(SCHEME);
   const heard = () => cb();
   mql.addEventListener('change', heard);
   return () => mql.removeEventListener('change', heard);

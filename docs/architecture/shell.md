@@ -117,7 +117,10 @@ carries what the shell shares, `id` (`'shell'`), `active`, `on`, `every`,
 and no root, slot or `setTitle`. `active()` is false while the document is
 hidden, so its polls skip then and its components' `cx.visible()` is
 false. A loop or poll started before `ready` starts with it. Nothing
-mounts in it yet (step 5g).
+mounts in it yet (step 5g); the boot makes one, `shared: {layers}`, and
+hands the bar (`NowPlaying`, step 5f) a component's cx from it: its `on`,
+`media`, `layers`, `active` as `visible`, and `barTop(document)` as
+`floor` (`bar.md`, *The engine*).
 
 All views share one id namespace, since hidden ones stay in the DOM
 (`pages.test.js` checks the union). The CSS is global and keyed on the body
@@ -345,8 +348,8 @@ sheet, which says why), `stop()`, `inputs()`, `input()`, `setInput(id)`,
 seconds, and the same object until it moves, so a component watches it as
 a model: `components.md`), `onChange(fn)`, `onSaved(fn)`. A key that
 shows a recording without starting one (the mini player's ●, the Studio's)
-takes it by `onPhoneRecorder(doc, fn)`: now, or as soon as it is made
-(the shell's is made at boot, and the bar's keys are handed it).
+is handed it: the shell makes it at boot and hands it to the bar
+(`NowPlaying`'s `recorder`), whose keys take it by their `whenRecorder(fn)`.
 
 **The engine** (`lib/models/engine.js`; *The engine*, `bar.md`), made once by the shell, and the bar that draws it (`lib/bar/bar.js` `NowPlaying`), made beside it:
 
