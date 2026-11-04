@@ -50,9 +50,9 @@ export function said(state) {
  * phoneKey wires the mini player's ● (#np-phone-rec) and its ▾
  * (#np-phone-more, opening #np-phone-menu), inside the bar's `root`.
  * `recorder()` is the page's recorder, asked for when a key is pressed (the
- * shell makes it at boot); `whenRecorder(fn)` hands it over as soon as
- * there is one, so the keys show a recording started anywhere (by default,
- * the one there is now). `layers` and `floor` are the stack the ▾ opens on
+ * shell makes it at boot); `whenRecorder(fn)` hands it over (the bar
+ * passes the boot's, once; by default, `recorder()`'s, if there is one
+ * now), so the keys show a recording started anywhere. `layers` and `floor` are the stack the ▾ opens on
  * and where it stops above the bar (a component's cx.layers and cx.floor).
  * `playerUp()` is whether the phone's player is pulled up (its sheet's
  * isOpen), where the ▾ isn't. Answers { menu, paint(state), offer() }, or

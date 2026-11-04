@@ -59,7 +59,6 @@ export function canRecordHere(win = globalThis, secure = '') {
 }
 
 const recorders = new WeakMap();
-const waiting = new WeakMap(); // doc → what onPhoneRecorder is waiting to hand it to
 
 /**
  * phoneRecorder is the page's one recorder, on `sheet` (the page's
@@ -73,25 +72,9 @@ export function phoneRecorder(doc = globalThis.document, { sheet = doc?.getEleme
   if (!r) {
     r = makeRecorder(doc, sheet, toast);
     recorders.set(sheet, r);
-    const fns = waiting.get(doc) || [];
-    waiting.delete(doc);
-    for (const fn of fns) fn(r);
   }
   if (secureURL) r.secureFrom(secureURL);
   return r;
-}
-
-/**
- * onPhoneRecorder hands `fn` the page's recorder: now, if a room has made
- * it, or as soon as one does. For the keys that show a recording started
- * from anywhere (the mini player's ●, the Studio's), without making it.
- */
-export function onPhoneRecorder(doc, fn) {
-  const sheet = doc?.getElementById?.('phone-sheet');
-  const r = sheet && recorders.get(sheet);
-  if (r) { fn(r); return; }
-  if (!waiting.has(doc)) waiting.set(doc, []);
-  waiting.get(doc).push(fn);
 }
 
 /**

@@ -83,9 +83,13 @@ export function playerSheet(el, { root, layers, layout, phone, doc = el.ownerDoc
       keys?.hidden?.();
       // The focus goes back to the key that opened it, unless the bar
       // emptied or the focus has gone on to a menu or a dialog. The
-      // surface's to say: the bar's keys never read the document.
+      // surface's to say: the bar's keys never read the document. The
+      // stack gives the owner the focus back on Escape or Back as the
+      // sheet leaves it (createSheet's owner, layers.js focusBack): then
+      // it has it already, and it is given once, not again.
       const owner = keys?.owner;
-      if (owner && !root.hidden && !doc?.activeElement?.closest?.('.menu, dialog')) owner.focus({ preventScroll: true });
+      const at = doc?.activeElement;
+      if (owner && at !== owner && !root.hidden && !at?.closest?.('.menu, dialog')) owner.focus({ preventScroll: true });
     },
   });
 

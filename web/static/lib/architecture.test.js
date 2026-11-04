@@ -682,8 +682,10 @@ test('Guardrail 15 reads what a component must not do, and lets be what it may',
   // The file an import names is let be, and nothing after it on its line.
   for (const bad of [
     "import { a } from './theme.js'; document.body.append(x)", "import './theme.js'; window.x = 1",
-    "const m = await import('./objects/reel-window.js'); m.go(window)",
   ]) assert.ok(caught(bad), `caught, after an import: ${bad}`);
+  // Only a static import's file is let be: a dynamic import's is read as
+  // code, so this one, with nothing else on its line, is still caught.
+  assert.ok(caught("const m = await import('./objects/reel-window.js'); m.go(x)"), 'a dynamic import’s file is read');
 });
 
 // compounds is a selector as its compound selectors, each with the
