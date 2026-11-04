@@ -69,7 +69,7 @@ export function sourceMenu({ doc = document, button, panel, now, list, pick, lay
     parts.push(menuDivider(doc), go);
     p.replaceChildren(...parts);
   };
-  const m = menu(button, panel, { layers, doc, align: 'start', floor, render, focus: 'checked' });
+  const m = menu(button, panel, { layers, doc, align: 'start', floor, render, focus: 'checked', popover: true });
   // The takes are asked for as it opens; it shows the last answer until
   // the new one comes, then again with it.
   button.addEventListener('click', () => {

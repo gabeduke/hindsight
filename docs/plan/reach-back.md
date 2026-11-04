@@ -37,7 +37,7 @@ surface's KEEP, CATCH, GRAB and DROP through `Verbs`
 | Where | Today | Becomes |
 |---|---|---|
 | The bar: Catch (`#np-catch-pass`) | The last pass onto every armed track; until a pass is done it waits (*after one pass*) | A tap takes the default span (D2): the last pass while the loop plays, as now; otherwise *since you started*, where today it waits. While SYNC is red it still waits (D6) |
-| The bar: Catch's ▾ (`#np-catch-more`, its menu `#catch-menu`) | The last pass, or the last 1, 2 or 4 bars | Still a menu ([0047](../decisions/0047-the-bars-keys-live-in-its-zones.md)): the passes, then *Choose IN and OUT…*, which opens the reach-back. The bars go |
+| The bar: Catch's ▾ (`#np-catch-more`, its menu `#np-catch-menu`) | The last pass, or the last 1, 2 or 4 bars | Still a menu ([0047](../decisions/0047-the-bars-keys-live-in-its-zones.md)): the passes, then *Choose IN and OUT…*, which opens the reach-back. The bars go |
 | The feed: KEEP (`#studio-keep`) and its ▾ (`#studio-keep-more`, the lengths `#dur-seg`) | The last 30 s, 2 m, 7 m or all; the pick kept in `localStorage` | A tap keeps the default span. The ▾'s lengths and the kept pick give way to *Choose IN and OUT…* |
 | The feed: GRAB (`buffer-grab-tpl`) and its ▾ | The last 1, 2, 4 or 8 bars, and the input | A tap grabs the default span. The ▾'s bars give way to *Choose IN and OUT…*; its inputs stay |
 | The ribbon: hold and drag (`#rb-sel`) | A span on the log axis: GRAB or Keep, *"select generously and trim on the take page"* | The hold opens the reach-back with IN where you held; the selection bar goes |

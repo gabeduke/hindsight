@@ -446,12 +446,12 @@ test('Guardrail 18: the engine (lib/models/engine.js) makes the bar’s sources 
 
 test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only through the hands it lends them, never by their ids', () => {
   // docs/architecture/bar.md, *The Studio's keys*: ● (#np-rec), Catch and its
-  // ▾ (#np-catch-pass, #np-catch-more, #catch-menu) and the click (#np-click) are the
+  // ▾ (#np-catch-pass, #np-catch-more, #np-catch-menu) and the click (#np-click) are the
   // bar's keys (lib/bar/tape-keys.js), drawn from the tape's snapshot and
   // pressed on its verbs. The Studio lends them its hands
   // (ctx.tapeKeys.lend) and presses them with ctx.tapeKeys.press; a look-up
   // by id, or a press of a helper that looks one up, wires them a second way.
-  const IDS = 'np-rec|np-catch-pass|np-catch-more|catch-menu|np-click';
+  const IDS = 'np-rec|np-catch-pass|np-catch-more|np-catch-menu|np-click';
   const lookups = [
     new RegExp(`(?<![\\w$])(\\$|getElementById)\\(\\s*['"\`](${IDS})['"\`]`),
     new RegExp(`querySelector(All)?\\(\\s*['"\`][^'"\`]*#(${IDS})(?![\\w-])`),
@@ -658,17 +658,14 @@ const word = (c) => new RegExp(`(?<![\\w-])${c.replace(/[.*+?^${}()|[\]\\]/g, '\
  * rootedProblems is Guardrail 15's stylesheet half, for the stylesheet
  * `file` (a path under web/static) and the class `root`: every selector
  * starts at .root and goes into it, never beside it (.root + .x styles
- * something else). `out(first)`, given a selector's first compound, says
- * it is not this stylesheet's root's to keep (yet). `css` is the file's,
- * unless given.
+ * something else). `css` is the file's, unless given.
  */
-function rootedProblems(file, root, out = () => null, css = read(file)) {
+function rootedProblems(file, root, css = read(file)) {
   const re = word(`.${root}`);
   const problems = [];
   for (const r of rules(css, { file })) {
     for (const sel of r.sel) {
       const c = compounds(sel);
-      if (c.length && out(c[0].text)) continue;
       if (!c.length || !re.test(c[0].text) || !c[0].text.startsWith(`.${root}`)) problems.push(`${file}:${r.line}: ${sel} doesn’t start at its root, .${root}`);
       else if (c[1] && /[+~]/.test(c[1].comb)) problems.push(`${file}:${r.line}: ${sel} styles beside its root, not inside it`);
     }
@@ -730,47 +727,31 @@ test('Guardrail 15 reads a selector’s compounds: what is inside brackets whole
 // the bar moves into lib/components/ (docs/plan/transport-extraction.md, 5d):
 // every selector in css/bar.css starts at .np, its root, and reads the page
 // only off the root (data-fold, data-open, data-docked), never off <body>.
-// The one thing not counted yet is a menu panel of the bar's that the shell
-// still holds outside #np (5e brings them in): a .menu outside #np in
-// shell.html that a module of the bar's opens, by its id (lib/bar/). A
-// selector is the panel's when its first compound is exactly that panel's
-// class; what follows it is inside the panel. Derived, not listed: the day a
-// panel moves inside #np it stops being one, and its rules are counted.
-
-/** barPanels is the classes of the bar's menu panels the shell holds outside #np. */
-function barPanels() {
-  const outside = read('shell.html').replace(npMarkup(), '');
-  const dir = path.join(STATIC, 'lib/bar');
-  const bar = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && !f.endsWith('.test.js'))
-    .map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
-  const opened = (id) => new RegExp(`(?:\\$|getElementById)\\(\\s*['"]${id}['"]`).test(bar);
-  return [...outside.matchAll(/<[a-z]+\b[^>]*>/g)].map((m) => m[0])
-    .map((tag) => ({ id: /\bid="([^"]+)"/.exec(tag)?.[1], cls: (/\bclass="([^"]*)"/.exec(tag)?.[1] ?? '').split(/\s+/) }))
-    .filter((t) => t.id && t.cls.includes('menu') && opened(t.id))
-    .flatMap((t) => t.cls.filter((c) => c && c !== 'menu'));
-}
-/** panelOf answers the panel a selector's first compound is exactly, or null. */
-const panelOf = (panels) => (first) => panels.find((c) => first === `.${c}`) ?? null;
+// Its menus' panels too, which are inside #np (5e) and open in the top
+// layer (lib/ui/menu.js, popover).
 
 test('Guardrail 15: css/bar.css starts every selector at .np, the bar’s root', () => {
-  const panels = barPanels();
-  // What the derivation finds: panels of the bar's, held outside #np, and
-  // not a menu of the page's (the Studio's tempo menu is the Studio's).
-  assert.ok(panels.length > 0, 'the bar opens a panel the shell holds outside #np (until 5e)');
-  assert.ok(!panels.includes('tempo-menu'), 'the tempo menu is the Studio’s, not the bar’s');
-  for (const c of panels) assert.doesNotMatch(npMarkup(), new RegExp(`class="[^"]*\\b${c}\\b`), `${c} is outside #np`);
   assert.ok(rules(read('css/bar.css'), { file: 'css/bar.css' }).length > 100, 'reads css/bar.css');
-  assert.deepEqual(rootedProblems('css/bar.css', 'np', panelOf(panels)), []);
+  assert.deepEqual(rootedProblems('css/bar.css', 'np'), []);
 });
 
-test('the bar’s guardrail reads a selector that starts outside .np, beside it, on <body>, or on a menu not the bar’s', () => {
-  const panels = barPanels();
-  const sheet = (css) => rootedProblems('css/bar.css', 'np', panelOf(panels), css).length;
+test('the bar’s guardrail reads a selector that starts outside .np, beside it, on <body>, or on a menu panel of its own', () => {
+  const sheet = (css) => rootedProblems('css/bar.css', 'np', css).length;
   for (const bad of ['.np-reel { x: 1 }', 'body.np-fold .np .x { x: 1 }', '#np [hidden] { x: 1 }', '.np + .x { x: 1 }', '.np-dock > .np .x { x: 1 }',
-    ':is(.np-press, .kb-lit) { x: 1 }', '.tempo-menu { z-index: 60 }', ':is(.catch-menu, .tempo-menu) { z-index: 60 }',
-    '.catch-menu.tempo-menu { x: 1 }', '.app-menu .catch-menu { x: 1 }'])
+    ':is(.np-press, .kb-lit) { x: 1 }', '.tempo-menu { z-index: 60 }', '.np-catch-menu > .menu-item { x: 1 }',
+    ':is(.np-catch-menu, .np-source-menu) { z-index: 60 }', '.app-menu .np-catch-menu { x: 1 }'])
     assert.equal(sheet(bad), 1, `caught: ${bad}`);
   for (const fine of ['.np .np-reel { x: 1 }', '.np[data-fold][data-size="full"] .x { x: 1 }', '.np [hidden] { x: 1 }', '.np:is([data-room="room"]) .x { x: 1 }',
-    '.catch-menu > .menu-item { x: 1 }', '.catch-menu, .np-source-menu { z-index: 60 }'])
+    '.np .np-catch-menu > .menu-item { x: 1 }', '.np :is(.np-catch-menu, .np-source-menu) { x: 1 }'])
     assert.equal(sheet(fine), 0, `let be: ${fine}`);
+});
+
+test('the bar’s menus are inside #np, and open in the top layer', () => {
+  const np = npMarkup();
+  for (const id of ['np-catch-menu', 'np-source-menu', 'np-phone-menu']) {
+    assert.match(np, new RegExp(`<div id="${id}" class="menu ${id}"`), `#${id} is inside #np`);
+    assert.doesNotMatch(read('shell.html').replace(np, ''), new RegExp(`id="${id}"`), `and only there`);
+  }
+  for (const f of ['lib/bar/tape-keys.js', 'lib/bar/source-menu.js', 'lib/bar/phone-key.js'])
+    assert.match(read(f), /\b(menu|splitKey)\([^)]*\bpopover: true\b/, `${f} opens its panel as a popover`);
 });

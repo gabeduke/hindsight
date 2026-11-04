@@ -137,6 +137,58 @@ test('menu: the button says what it opens, and opens and shuts it', () => {
   assert.equal(p.layers.size, 0);
 });
 
+// The bar's panels are held inside #np, under its z-index 18 and moved by
+// its transform as it folds: they open in the top layer, as popovers.
+/** popoverOf gives the fake panel a browser's popover: shown or not, and the calls. */
+function popoverOf(panel) {
+  const calls = [];
+  let open = false;
+  const matches = panel.matches?.bind(panel);
+  panel.matches = (sel) => (sel === ':popover-open' ? open : matches(sel));
+  panel.showPopover = () => { if (open) throw new Error('already open'); open = true; calls.push('show'); };
+  panel.hidePopover = () => { if (!open) throw new Error('not open'); open = false; calls.push('hide'); };
+  return calls;
+}
+
+test('menu: popover opens it in the top layer, and takes it out as it closes; the rest is as any menu', () => {
+  const p = aPage();
+  const panel = p.$('m');
+  const calls = popoverOf(panel);
+  const m = menu(p.$('b'), panel, { layers: p.layers, win: p.win, popover: true });
+  assert.equal(panel.getAttribute('popover'), 'manual', 'the stack closes it, not the browser');
+  assert.deepEqual(calls, [], 'not lifted while it is shut');
+  p.$('b').dispatchEvent({ type: 'click' });
+  assert.ok(m.isOpen());
+  assert.ok(panel.matches(':popover-open'), 'in the top layer');
+  assert.equal(panel.dataset.state, 'open', 'growing in as any menu');
+  assert.equal(p.layers.top()?.el, panel, 'on the page’s stack');
+  m.refresh();
+  m.open();
+  assert.deepEqual(calls, ['show'], 'once');
+  p.request();
+  assert.ok(!m.isOpen(), 'Escape or Back shuts it, through its layer');
+  assert.ok(!panel.matches(':popover-open'), 'out of the top layer');
+  assert.equal(panel.dataset.state, 'closed', 'fading out as any menu');
+  m.open();
+  p.press(p.$('elsewhere'));
+  assert.deepEqual(calls, ['show', 'hide', 'show', 'hide'], 'a press outside too');
+});
+
+test('menu: without popover, or in a browser with none, it stays where it is held', () => {
+  const p = aPage();
+  const calls = popoverOf(p.$('m'));
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win });
+  m.open();
+  m.close();
+  assert.equal(p.$('m').getAttribute('popover'), null);
+  assert.deepEqual(calls, []);
+  const q = aPage();
+  const n = menu(q.$('b'), q.$('m'), { layers: q.layers, win: q.win, popover: true });
+  n.open();
+  assert.ok(n.isOpen(), 'it opens all the same');
+  assert.equal(q.$('m').getAttribute('popover'), null);
+});
+
 test('menu: a panel with no id gets one, for its button to name', () => {
   const p = aPage('<button id="b">▾</button><div class="pop" hidden><button>1</button></div>');
   const panel = p.doc.querySelector('.pop');

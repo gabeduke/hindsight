@@ -29,8 +29,8 @@
    (the player's sheet, --dock-b) is styles.css's. The viewport @media
    blocks stay (decision D1): a container query can't ask a height, an
    orientation or a preference, nor style the root itself. The menus'
-   panels (Catch's ▾, the source's, the phone's) are held outside the root
-   until they come inside it (docs/plan/transport-extraction.md, 5e). */
+   panels (Catch's ▾, the source's, the phone's) are inside the root too,
+   and open in the top layer (lib/ui/menu.js, popover). */
 
 /* ---------- the bar ---------- */
 .np {
@@ -339,14 +339,14 @@
 }
 /* The tape on a phone: Catch needs the jam room. */
 .np :is(#np-catch-pass, #np-catch-more).jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
-/* Its menu (lib/bar/tape-keys.js renderMenu): menu.js's rows; why one can't go yet wraps under it. */
-.catch-menu { min-width: 230px; max-width: calc(100vw - 16px); }
-/* The bar's menus open over the phone's player pulled up (z 50), where its
-   Catch and its display are: under it, the source's couldn't be tapped. */
-.catch-menu, .np-source-menu { z-index: 60; }
-.catch-menu > .catch-menu-head { padding: 6px 12px 8px; }
-.catch-menu > .menu-item > .menu-sub { white-space: normal; }
-.catch-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
+/* Its menu (lib/bar/tape-keys.js renderMenu): menu.js's rows; why one can't go yet wraps under it.
+   The bar's three menus open in the top layer (menu.js's popover), so they
+   are over the phone's player pulled up, where Catch and the display are,
+   with no z-index of their own. */
+.np .np-catch-menu { min-width: 230px; max-width: calc(100vw - 16px); }
+.np .np-catch-menu > .catch-menu-head { padding: 6px 12px 8px; }
+.np .np-catch-menu > .menu-item > .menu-sub { white-space: normal; }
+.np .np-catch-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
 /* The feed's GRAB: the feed into the Studio's buffer, a paper key with GRAB's ring. */
 .np .np-feed-grab {
   width: auto; min-width: 104px; padding: 0 10px; gap: 0;
@@ -356,9 +356,9 @@
 .np .np-grab-sub { font: 400 11px var(--font); color: var(--ink-dim); white-space: nowrap; }
 
 /* ---------- the source's menu (lib/bar/source-menu.js) ---------- */
-.np-source-menu { min-width: 240px; max-width: calc(100vw - 16px); }
+.np .np-source-menu { min-width: 240px; max-width: calc(100vw - 16px); }
 /* ---------- the phone's ▾: record from this phone (lib/bar/phone-key.js) ---------- */
-.np-phone-menu { min-width: 250px; max-width: calc(100vw - 16px); }
+.np .np-phone-menu { min-width: 250px; max-width: calc(100vw - 16px); }
 /* While the phone records, its ▾ is red too (● is pressed: .tb-rec's). */
 .np .np-phone-more.recording { color: var(--rec); }
 

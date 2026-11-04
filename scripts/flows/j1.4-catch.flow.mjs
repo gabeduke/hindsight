@@ -9,7 +9,7 @@ const BARS = 2; // a 4 s pass, so the flow waits two of them, not twenty
 export default {
   id: 'J1.4',
   title: 'Set a tempo, play, CATCH the last pass onto the armed track',
-  checksMenus: ['#tempo-menu', '#catch-menu'], // the layout checks see them open
+  checksMenus: ['#tempo-menu', '#np-catch-menu'], // the layout checks see them open
   async run(t) {
     const { page, api } = t;
     // An empty tape, with no tempo: the Studio asks for one.
@@ -100,7 +100,7 @@ export default {
     t.expect('Catch’s ▾ is down in the first frame after the touch, 1 px and darker',
       /matrix\(1, 0, 0, 1, 0, 1\)/.test(pressed?.transform ?? '') && /brightness\(0\.9\d*\)/.test(pressed?.filter ?? ''), pressed);
     const cm = await t.poll(() => {
-      const m = document.getElementById('catch-menu');
+      const m = document.getElementById('np-catch-menu');
       if (!m || m.hidden) return null;
       const key = document.getElementById('np-catch-pass').getBoundingClientRect();
       const more = document.getElementById('np-catch-more').getBoundingClientRect();
@@ -114,10 +114,10 @@ export default {
     t.expect('Catch’s ▾ is a key of its own beside Catch, a finger wide and as tall', cm?.apart, cm);
     t.expect('its menu opens over the pair: the last pass, the last 1, 2 or 4 bars', cm?.over
       && JSON.stringify(cm.rows) === JSON.stringify(['The last pass', 'The last 1 bar', 'The last 2 bars', 'The last 4 bars']), cm);
-    await t.step('tap The last 1 bar', () => t.tap(page.locator('#catch-menu .menu-item', { hasText: 'The last 1 bar' })));
+    await t.step('tap The last 1 bar', () => t.tap(page.locator('#np-catch-menu .menu-item', { hasText: 'The last 1 bar' })));
     const bar1 = page.locator('#toasts .toast').filter({ hasText: /Caught last 1 bar/ }).first();
     t.expect('a "Caught last 1 bar → 2" toast', await bar1.waitFor({ timeout: 10_000 }).then(() => true, () => false));
-    t.expect('and the menu shuts', await page.locator('#catch-menu').waitFor({ state: 'hidden', timeout: 2000 }).then(() => true, () => false));
+    t.expect('and the menu shuts', await page.locator('#np-catch-menu').waitFor({ state: 'hidden', timeout: 2000 }).then(() => true, () => false));
     const more = await api.until(async () => (await api.tapeState()).tracks[1].clips.length > 1, 'the bar on track 2', 8000).catch(() => false);
     t.expect('track 2 holds the bar as well', more);
 

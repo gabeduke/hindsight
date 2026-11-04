@@ -90,9 +90,10 @@ component directory has an `index.js` exporting the five and a harness
 check. Its stylesheet starts every selector at `.root` and goes into it,
 never beside it (`.root + .x`). The bar's `css/bar.css` keeps the same
 rule already, rooted at `.np`, before the bar moves in
-(`architecture.test.js`, *css/bar.css starts every selector at .np*; the
-menu panels the bar opens from outside `#np` are not counted until they
-come inside it, transport-extraction 5e). It reads the page's state off its
+(`architecture.test.js`, *css/bar.css starts every selector at .np*,
+with no exceptions: its menu panels are inside `#np`, and open in the
+top layer by `menu()`'s `popover`, so a z-index or a transform on the
+root can't cover or move them). It reads the page's state off its
 root (`data-fold`, `data-open`, `data-docked`) and keeps its five viewport
 `@media` blocks, which a container query can't say (`docs/plan/components.md`
 1.4, amended by D1). No other stylesheet may reach inside it:

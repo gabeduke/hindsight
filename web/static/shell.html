@@ -318,15 +318,6 @@
 <!-- The tempo's, from the bar's display: the tempo to type, nudge or tap,
      and the bars the loop could be (page.js, renderTempo). -->
 <div id="tempo-menu" class="menu tempo-menu" role="dialog" aria-label="Tempo" hidden></div>
-<!-- Catch's: what to catch, the last pass or the last bars, over its ▾
-     (lib/bar/tape-keys.js, renderMenu). -->
-<div id="catch-menu" class="menu catch-menu" role="menu" aria-label="What to catch" hidden></div>
-<!-- The display's source: the tape, the live feed, the last few takes, the
-     shelf (lib/bar/source-menu.js). -->
-<div id="np-source-menu" class="menu np-source-menu" role="menu" aria-label="What plays" hidden></div>
-<!-- The mini player's ▾ beside ●: record from this phone, its input, its
-     level (lib/bar/phone-key.js). -->
-<div id="np-phone-menu" class="menu np-phone-menu" role="menu" aria-label="Record from this phone" hidden></div>
 
 <!-- The dock at the foot of the page: the clip editor while a clip is
      aligned, the action bar while something is selected, then the
@@ -490,6 +481,16 @@
     <div class="np-row np-foot" data-slot="foot">
       <button id="np-out-foot" class="icon-btn np-out-foot" type="button" aria-haspopup="dialog" aria-label="Where it plays" data-tip="np-output" data-for="tape take feed"><span class="np-out-leg">OUT</span><span id="np-out-foot-val" class="np-out-val">JAM ROOM</span><svg class="i i-down" width="16" height="16" aria-hidden="true"><use href="/icons/ui.svg?v=c634899d#down"/></svg></button>
     </div>
+    <!-- The bar's menus, opened in the top layer (lib/ui/menu.js, popover),
+         over the page and the phone's player pulled up, wherever the bar
+         stands: Catch's, what to catch, the last pass or the last bars,
+         over its ▾ (lib/bar/tape-keys.js, renderMenu); the display's
+         source, the tape, the live feed, the last few takes, the shelf
+         (lib/bar/source-menu.js); and the mini player's ▾ beside ●, record
+         from this phone, its input, its level (lib/bar/phone-key.js). -->
+    <div id="np-catch-menu" class="menu np-catch-menu" role="menu" aria-label="What to catch" hidden></div>
+    <div id="np-source-menu" class="menu np-source-menu" role="menu" aria-label="What plays" hidden></div>
+    <div id="np-phone-menu" class="menu np-phone-menu" role="menu" aria-label="Record from this phone" hidden></div>
   </section>
 </div>
 

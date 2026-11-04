@@ -303,8 +303,9 @@ unmoved:
    sheet, `.tempo-menu` and `.kb-lit`'s colours to `styles.css`; the five
    `@media` kept, D1), with a test that every selector starts at `.np` but
    a menu panel the shell holds outside `#np`, proved by before and after
-   storyboards of both pages at every size and in both schemes; 5e, the three menu panels into the bar,
-   `#catch-menu` as `#np-catch-menu`; 5f, the modules keep Guardrail 15
+   storyboards of both pages at every size and in both schemes; 5e, *built*, the three menu panels into the bar,
+   `#catch-menu` as `#np-catch-menu`, opened in the top layer by `menu()`'s
+   new `popover` option (D6), the bar's three only; 5f, the modules keep Guardrail 15
    in place, with no copies (maybe two PRs); 5g, the move itself; 5h,
    `display` inside the bar, opened for Gabe to look at, not merged
    without him. 5d and 5e follow D1 and D6, 5f D3, 5c D4 and D5.

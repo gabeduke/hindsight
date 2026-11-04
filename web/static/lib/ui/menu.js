@@ -22,6 +22,12 @@
 // It grows from its key: styles.css animates the panel by its data-state
 // (open, closed), from the corner nearest the key (transform-origin, which
 // place answers), and lets it fade on the way out.
+//
+// A panel held inside something with a z-index, a transform or an overflow
+// of its own (the bar's, inside #np: z 18, slid as it folds) opens in the
+// top layer, as a popover, by menu's `popover` option: over everything, and
+// placed against the screen whatever its parents do. The rest is the same:
+// place, the stack, the keys, growing in and fading out.
 
 import { layersOf } from './layers.js';
 
@@ -97,6 +103,11 @@ const showing = new WeakMap();
  *            fills it, each time it opens and on refresh()
  *   focus    where the keyboard lands when it is opened by a key: the
  *            'first' item, or the 'checked' (or pressed) one
+ *   popover  true opens it in the top layer (a manual popover: the stack,
+ *            not the browser, closes it), for a panel held inside a parent
+ *            whose z-index would cover it or whose transform would move
+ *            its fixed place (the bar's three, inside #np). A browser with
+ *            no popover shows it where it is held.
  *
  * The button says what it opens (aria-haspopup, aria-expanded,
  * aria-controls). A press on it opens or closes the panel; ↓ or ↑ on it
@@ -122,6 +133,7 @@ export function menu(button, panel, {
   floor,
   render,
   focus = 'first',
+  popover = false,
   doc = button.ownerDocument || globalThis.document,
   win = doc?.defaultView || globalThis,
 } = {}) {
@@ -132,15 +144,26 @@ export function menu(button, panel, {
   button.setAttribute('aria-expanded', 'false');
   button.setAttribute('aria-controls', panel.id);
   if (!panel.getAttribute('role')) panel.setAttribute('role', role);
+  // In the top layer: a popover the page opens and shuts itself.
+  const lifts = popover && typeof panel.showPopover === 'function';
+  if (lifts) panel.setAttribute('popover', 'manual');
   let layer = null;
   let self = null;
 
+  // Into the top layer or out of it, once: a popover already where it
+  // should be is left be. styles.css keeps it there while it fades out.
+  const lift = (on) => {
+    if (!lifts || !!panel.matches(':popover-open') === on) return;
+    if (on) panel.showPopover();
+    else panel.hidePopover();
+  };
   // Shown or not. While it closes it takes no press and no focus (inert),
   // and styles.css fades it out by data-state.
   const show = (on) => {
     panel.hidden = !on;
     panel.dataset.state = on ? 'open' : 'closed';
     panel.inert = !on;
+    lift(on);
     button.setAttribute('aria-expanded', String(on));
   };
   // Another button's menu of the same panel may be showing it.
