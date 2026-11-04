@@ -49,7 +49,7 @@ export default {
   id: 'J4.4',
   title: 'The Studio’s bar on a phone',
   profiles: ['phone'],
-  checksMenus: ['#ruler-menu', '#catch-menu'], // the layout checks see them open
+  checksMenus: ['#ruler-menu', '#np-catch-menu'], // the layout checks see them open
   async run(t) {
     const { page, api } = t;
     // A 4-bar tape with the first 4 bars of a take on track 1.
@@ -124,7 +124,7 @@ export default {
     // opens over it, and Back closes it before it puts the player away.
     await t.step('tap Catch’s ▾ in the player', () => t.tap(page.locator('#np-catch-more')));
     const under = await t.poll(() => {
-      const m = document.getElementById('catch-menu');
+      const m = document.getElementById('np-catch-menu');
       if (!m || m.hidden) return null;
       const more = document.getElementById('np-catch-more').getBoundingClientRect();
       const r = m.getBoundingClientRect();
@@ -133,7 +133,7 @@ export default {
     });
     t.expect('its menu opens over the pair, on the screen', under?.over && under.on, under);
     await t.step('Back, with the menu over the player', () => page.keyboard.press('Escape'));
-    t.expect('Back closes the menu and leaves the player up', await t.poll(() => document.getElementById('catch-menu').hidden
+    t.expect('Back closes the menu and leaves the player up', await t.poll(() => document.getElementById('np-catch-menu').hidden
       && document.body.classList.contains('player-open')));
 
     await t.step('Back (a close request: Escape, in Chromium)', () => page.keyboard.press('Escape'));

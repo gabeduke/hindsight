@@ -263,8 +263,8 @@ In Chromium the browser's own Back button is a move in the history, not a
 close request: it switches rooms, with the menus closed on the way.
 
 **Menus** (`lib/ui/menu.js`). A menu, or a ▾'s panel beside its key, is
-`menu(button, panel, {layers, role, side, align, floor, render, focus})`
-on that stack: the button says what it opens (`aria-haspopup`,
+`menu(button, panel, {layers, role, side, align, floor, render, focus,
+popover})` on that stack: the button says what it opens (`aria-haspopup`,
 `aria-expanded`, `aria-controls`), ↑ ↓ Home End move along it, Tab closes it
 and goes on from the button, and it closes only through its layer. `place`
 is where it goes (pure: below its key or above it, its right or left edge
@@ -272,7 +272,14 @@ on the key's, moved in from the screen's sides and kept off the bar at the
 foot by `floor`), fixed, so no panel's overflow clips it. It grows from its
 key: `data-state` (`open`, `closed`) and `@starting-style` scale it from .96
 as it fades in over `--t-touch`, and fade it out over `--t-exit` (eased
-in, as anything leaving is), taking no press while it goes. `splitKey(verb, more, panel)` is a key with a ▾ of
+in, as anything leaving is), taking no press while it goes. A panel held
+inside a parent with a z-index or a transform of its own opens in the top
+layer with `popover: true` (a manual popover, shown and hidden by `menu()`
+as it opens and closes, so the stack still closes it; `styles.css` keeps
+it there while it fades, `overlay`, and `.menu[popover]` drops a popover's
+own margin and colour): the bar's three, Catch's ▾, the source's and the
+phone's, inside `#np` (`bar.md`, *Its menus are inside it*), and no other
+yet. `splitKey(verb, more, panel)` is a key with a ▾ of
 its own (KEEP ▾, GRAB ▾). Its rows are `menuItem`s, the one style (☰'s, 48
 px, a line under the word), with `menuRows` putting a divider between
 groups and anything that destroys last; they, `menuDivider` and

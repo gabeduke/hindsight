@@ -141,11 +141,18 @@ sideways scroll).
   lights a track's head too). `css/bar.css` draws the bar, and keeps
   Guardrail 15's stylesheet half in place (step 5d): every selector starts
   at `.np` and goes into it (`architecture.test.js`, *css/bar.css starts
-  every selector at .np*), but for the menus' panels the shell holds
-  outside `#np` (Catch's ▾, the source's, the phone's), which come inside
-  in 5e. Its five viewport `@media` blocks stay (D1): a container query
-  can't ask a height, an orientation or a preference, nor style the root
-  itself.
+  every selector at .np*), its menus' panels' too. Its five viewport
+  `@media` blocks stay (D1): a container query can't ask a height, an
+  orientation or a preference, nor style the root itself.
+- **Its menus are inside it** (step 5e): Catch's ▾ (`#np-catch-menu`,
+  `lib/bar/tape-keys.js`), the source's (`#np-source-menu`,
+  `lib/bar/source-menu.js`) and the phone's (`#np-phone-menu`,
+  `lib/bar/phone-key.js`) are the last children of `#np`, and open in the
+  top layer (`menu()`'s `popover`, `shell.md`, *Menus*): over the page and
+  the phone's player pulled up with no z-index of their own, where `.np`'s
+  z-index 18 would cover them and its transform, as it folds, would move
+  their fixed place. `architecture.test.js`, *the bar's menus are inside
+  #np, and open in the top layer*.
 - **✎ is the page's** (`lib/bar/take-keys.js`, `engine.setOnNote`): the
   shell's notes drawer (`rooms.md`, *The notes drawer*) takes the frame
   being heard (`frameNow`); a page without one opens the take on its own
@@ -226,7 +233,7 @@ up, taken back on destroy):
 The bar says the rest itself: why Catch waits (with *Last 4 bars*), why an
 item of its ▾ can't go, and *Could not record* or *Could not catch*.
 Guardrail 19 fails on `lib/tape/page.js` or `lib/rooms/studio.js` looking
-up `#np-rec`, `#np-catch-pass`, `#np-catch-more`, `#catch-menu` or
+up `#np-rec`, `#np-catch-pass`, `#np-catch-more`, `#np-catch-menu` or
 `#np-click` by the usual spellings (`$('np-rec')`, `getElementById`, a
 `querySelector` on `#np-rec`): a guard against the old wiring coming back,
 not a proof; an id held in a variable, or another module of the Studio's,

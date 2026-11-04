@@ -269,7 +269,7 @@ test('tapeKeys: a page without the keys, or without a tape, has none', () => {
 test('tapeKeys: C with Catch’s ▾ open catches and shuts it, as a tap on Catch does', async () => {
   const { k, doc } = keys({ tape: aTape(), live: playing() });
   k.lend(hands());
-  const panel = doc.getElementById('catch-menu');
+  const panel = doc.getElementById('np-catch-menu');
   click(doc.getElementById('np-catch-more'));
   assert.equal(panel.hidden, false, 'the ▾ opens its menu');
   k.press('catch');

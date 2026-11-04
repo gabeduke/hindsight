@@ -98,7 +98,7 @@ export function phoneKey({ doc = document, recorder, layers, floor, whenRecorder
     ]));
   };
   // Over the mini player, clear of its top edge (the ▾ is 7 px in from it).
-  const m = menu(more, panel, { layers, doc, side: 'above', gap: 10, floor, render, focus: 'first' });
+  const m = menu(more, panel, { layers, doc, side: 'above', gap: 10, floor, render, focus: 'first', popover: true });
 
   function pick(id) {
     const r = hear();

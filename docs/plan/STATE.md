@@ -223,9 +223,11 @@ and still looks it:
         starts every selector at `.np` and reads the fold, the player and
         the dock off the root (`data-fold`, `data-open`, `data-docked`),
         the player's sheet, the tempo menu and `.kb-lit`'s colours in
-        `styles.css`, its five `@media` kept (D1); a test holds it, but
-        for the three menu panels outside `#np`. **Next**: 5e, those
-        panels into the bar.
+        `styles.css`, its five `@media` kept (D1); a test holds it. 5e
+        is built: the three menu panels are inside `#np` (`#catch-menu`
+        is `#np-catch-menu`) and open in the top layer (`menu()`'s
+        `popover`, D6), so the test has no exception left. **Next**: 5f,
+        the movers keep Guardrail 15 in place.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.

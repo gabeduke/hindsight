@@ -1,7 +1,7 @@
 // web/static/lib/bar/tape-keys.js
 // The bar's keys for the tape in the Studio (docs/architecture/bar.md, *The
 // Studio's keys*; docs/plan/transport-extraction.md, decision 4): ● (#np-rec),
-// Catch and its ▾ (#np-catch-pass, #np-catch-more, #catch-menu) and the click
+// Catch and its ▾ (#np-catch-pass, #np-catch-more, #np-catch-menu) and the click
 // (#np-click). They are the bar's: drawn from the page's tape
 // (lib/models/tape.js snapshot()) and the page's phone recorder
 // (lib/phone/recorder.js snapshot()), and pressed on the tape's verbs
@@ -121,7 +121,7 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
  */
 export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneRecorder(doc, fn), toast = () => {}, offer = () => {}, matchMedia = (q) => doc.defaultView?.matchMedia?.(q) } = {}) {
   const $ = (id) => doc.getElementById(id);
-  const rec = $('np-rec'), click = $('np-click'), pass = $('np-catch-pass'), more = $('np-catch-more'), panel = $('catch-menu');
+  const rec = $('np-rec'), click = $('np-click'), pass = $('np-catch-pass'), more = $('np-catch-more'), panel = $('np-catch-menu');
   const play = $('np-play'), tempoKey = $('np-tempo');
   if (!tape || !rec || !click || !pass || !more || !panel) return null;
   let hands = null;
@@ -271,7 +271,7 @@ export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneR
       // KEEP's: the menu opens over the pair in the bar (under it in the
       // phone's pulled-up player), its right edge on the pair's, and Catch,
       // a pick, a press elsewhere, Escape or Back shuts it.
-      menu ??= splitKey(pass, more, panel, { layers: h.layers || undefined, doc, role: 'menu', render: renderMenu });
+      menu ??= splitKey(pass, more, panel, { layers: h.layers || undefined, doc, role: 'menu', render: renderMenu, popover: true });
       draw();
       return () => { if (hands === h) { menu?.close(); hands = null; } };
     },
