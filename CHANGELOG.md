@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.04.1 — 2026-11-04
+
+- The bar's menus (Catch's ▾, what plays, record from this phone) live inside the bar and open over everything (6b7bd369)
+- Menus can open in the top layer, over everything, for a panel held inside the bar (4a242ead)
+
+
 ## v2026.11.03.9 — 2026-11-03
 
 - A KEEP of a full ring keeps the guitar's end too: only the tail past the joiner is read again (3c4e36bd)
