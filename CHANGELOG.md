@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.04.3 — 2026-11-04
+
+- The bar's deck is .np-deck, and Guardrail 15 reads the window as it did; the Transport's unmount stops the keyboard note's timer (c610089e)
+- ⟲'s hover title on a computer is the tape's Loop again, as it was before the bar became a component (7fe5897f)
+- Docs: the bar is the Transport; what lasts of its extraction's spec is in bar.md, and the spec is gone (7bcfaf71)
+- The bar is now a component, the Transport, mounted by the shell: nothing on screen or in what it does changes (b955affa)
+
+
 ## v2026.11.04.2 — 2026-11-04
 
 - The phone's player gives ▣ the focus back once as it is put away, and the recorder's unused waiting list is gone (97b635f2)
