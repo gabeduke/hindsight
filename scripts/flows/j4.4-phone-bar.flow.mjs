@@ -115,7 +115,7 @@ export default {
     const order = await page.evaluate(() => {
       const top = (s) => Math.round(document.querySelector(s).getBoundingClientRect().top);
       const foot = document.getElementById('np-out-foot').getBoundingClientRect();
-      return { deck: top('.np-window'), strip: top('.np-row-2'), play: top('#np-play'), catch: top('#np-catch-pass'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), out: getComputedStyle(document.getElementById('np-output')).display };
+      return { deck: top('.np-deck'), strip: top('.np-row-2'), play: top('#np-play'), catch: top('#np-catch-pass'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), out: getComputedStyle(document.getElementById('np-output')).display };
     });
     t.expect('the reels and display on top, the strip under them, the transport and Catch in the lower half, where it plays at the foot',
       order.deck < order.strip && order.strip < order.play && order.play > 844 / 2 && order.play < order.catch && order.catch < order.foot && order.bottom <= 48 && order.out === 'none', order);
@@ -147,14 +147,14 @@ export default {
     const dragged = await t.poll(() => document.body.classList.contains('player-open')
       && getComputedStyle(document.getElementById('np-dock')).transform === 'none');
     t.expect('the player comes up under the finger and settles', dragged, await page.evaluate(look));
-    await t.step('swipe the player down by its reels', () => t.swipe(page.locator('#np .np-window'), 420, { steps: 5 }));
+    await t.step('swipe the player down by its reels', () => t.swipe(page.locator('#np .np-deck'), 420, { steps: 5 }));
     const swiped = await t.poll(() => !document.body.classList.contains('player-open'));
     const after = await page.evaluate(look);
     t.expect('a swipe down puts it away, back to the mini player in the Studio', swiped && after.window && after.path === '/tape.html', after);
     // A short drag lets it settle back up, and a tap on its keys still works.
     await t.step('tap the window again', () => t.tap(page.locator('#np-expand')));
     await t.poll(() => getComputedStyle(document.getElementById('np-dock')).transform === 'none' && document.body.classList.contains('player-open'));
-    await t.step('drag its reels down a little, slowly, and let go', () => t.swipe(page.locator('#np .np-window'), 60, { steps: 20 }));
+    await t.step('drag its reels down a little, slowly, and let go', () => t.swipe(page.locator('#np .np-deck'), 60, { steps: 20 }));
     const back2 = await t.poll(() => document.body.classList.contains('player-open')
       && getComputedStyle(document.getElementById('np-dock')).transform === 'none');
     t.expect('a short drag settles back up', back2);

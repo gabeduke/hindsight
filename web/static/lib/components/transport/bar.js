@@ -98,7 +98,7 @@ export class NowPlaying {
     // a finger (THIS TABLET).
     const phoneScreen = cx.media(PHONE);
     // The phone's player, the surface's sheet (player.js): ▣, the grabber
-    // and the window (the deck's slot, .np-window) are its keys. Null
+    // and the window (the deck's slot, .np-deck) are its keys. Null
     // where the page has none.
     this.player = player;
     if (player && $('expand')) {
@@ -249,19 +249,20 @@ export class NowPlaying {
    */
   mountTape() {
     this.tapeMounted = true;
-    let note = null;
-    this.offs.push(this.transport.onPress((p) => { note ??= barPressNote(this.root); note.show(p); }));
+    this.offs.push(this.transport.onPress((p) => { this.note ??= barPressNote(this.root); this.note.show(p); }));
     this.kick();
   }
 
   /**
-   * destroy takes off what the bar hears of its models and its strip's
-   * size: the Transport unmounted (lib/components/transport/index.js). What
+   * destroy takes off what the bar hears of its models, its strip's size
+   * and the keyboard's note's timer: the Transport unmounted (lib/components/transport/index.js). What
    * it hears through cx is cx's to take off; its keys go with its root.
    */
   destroy() {
     for (const off of this.offs.splice(0)) off?.();
     this.sized.disconnect();
+    // A press still showing: its hide timer goes too.
+    this.note?.clear();
   }
 
   /**

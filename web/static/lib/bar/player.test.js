@@ -39,7 +39,7 @@ function setup({ phone = aPhone() } = {}) {
   const grabber = doc.createElement('button');
   grabber.id = 'np-grabber';
   const win = doc.createElement('div');
-  win.id = 'np-window';
+  win.id = 'np-deck';
   root.append(grabber, win, btn);
   doc.body.append(root);
   const layout = barLayout(doc, { root });
@@ -71,7 +71,7 @@ test('a press on the grabber or the window hands the surface’s sheet its drag'
   const t = setup();
   t.fire(t.grabber, 'pointerdown');
   t.fire(t.win, 'pointerdown');
-  assert.deepEqual(t.player.log, [['grab', 'np-grabber'], ['grab', 'np-window']]);
+  assert.deepEqual(t.player.log, [['grab', 'np-grabber'], ['grab', 'np-deck']]);
 });
 
 test('wider than a phone the bar is full, and its grabber is the fold’s, not the player’s', () => {

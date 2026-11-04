@@ -567,10 +567,8 @@ const COMPONENT_RULES = [
   [/['"`]\/api(?![\w-])/, 'names a route: that is lib/models/protocol.js’s'],
   // The window and the document only as cx.on's target (taken out first,
   // below): a look-up, a listener of its own, document.onkeydown, the
-  // root's ownerDocument or its defaultView all reach outside its root. A
-  // hyphenated name that ends in one (a template's class, np-window) is a
-  // name, not the window.
-  [/(?<![\w$-])(window|document|globalThis|ownerDocument|defaultView)\b/, 'reaches outside its root: the window and the document are cx.on’s targets and nothing else (a sheet or a drag’s ghost is a lib/ui interface)'],
+  // root's ownerDocument or its defaultView all reach outside its root.
+  [/\b(window|document|globalThis|ownerDocument|defaultView)\b/, 'reaches outside its root: the window and the document are cx.on’s targets and nothing else (a sheet or a drag’s ghost is a lib/ui interface)'],
   [/(^|[^.\w$])addEventListener\s*\(/m, 'listens on the window: cx.on'],
   [/\bsetInterval\s*\(/, 'polls: a model asks, and cx.loop steps what is drawn'],
   [/hindsight:/, 'says or hears a page-wide event: a model’s onChange, a verb, or a callback the surface passes'],
@@ -684,23 +682,22 @@ test('Guardrail 15 reads what a component must not do, and lets be what it may',
     'addEventListener("keydown", f)', 'setInterval(f, 100)', 'dispatchEvent(new CustomEvent("hindsight:verb"))',
     'new Audio(src)', 'location.href = "/"', 'history.back()', 'root.innerHTML = `<b id="x"></b>`', "root.innerHTML = '<b class=\"a\" id=\\'x\\'></b>'",
     'el.id = "np-play"', 'el.setAttribute("id", "x")', "const s = 'a//b'; document.body.append(x)",
+    // A window read after a minus (or two) is still the window.
+    'const y = -window.scrollY', 'n-window.innerWidth', '--document.x', '-window.x',
   ]) assert.ok(caught(bad), `caught: ${bad}`);
   for (const fine of [
     'cx.on(window, "keydown", f)', 'cx.on(document, "keydown", f)', 'key.addEventListener("click", f)',
     'el.id = cx.id("play")', 'root.innerHTML = `<b data-id="x"></b>`', 'model.history.length', 'take.location',
     'const top = 1; // document.body, in a comment', "const href = 'http://x'",
     "import { ReelWindow } from './objects/reel-window.js';", "export { PHONE } from './bar/slots.js';",
-    'root.innerHTML = `<div class="np-window" data-slot="deck"></div>`',
   ]) assert.ok(!caught(fine), `let be: ${fine}`);
   // The file an import names is let be, and nothing after it on its line.
   for (const bad of [
     "import { a } from './theme.js'; document.body.append(x)", "import './theme.js'; window.x = 1",
   ]) assert.ok(caught(bad), `caught, after an import: ${bad}`);
   // Only a static import's file is let be: a dynamic import's is read as
-  // code, so this one, with nothing else on its line, is still caught. (A
-  // hyphenated name, reel-window.js, is a name either way.)
-  assert.ok(caught("const m = await import('./room/art/window.js'); m.go(x)"), 'a dynamic import’s file is read');
-  assert.ok(!caught("const m = await import('./objects/reel-window.js'); m.go(x)"), 'a hyphenated name is not the window');
+  // code, so this one, with nothing else on its line, is still caught.
+  assert.ok(caught("const m = await import('./objects/reel-window.js'); m.go(x)"), 'a dynamic import’s file is read');
 });
 
 // compounds is a selector as its compound selectors, each with the

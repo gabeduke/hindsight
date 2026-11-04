@@ -218,7 +218,7 @@ aria-label="Now playing" data-size="full" hidden></section>`, so
 | `TEMPLATE` | the bar's markup: its zones, keys and menus, each part named by `data-part`, its icons `icon()`'s; no id, and no `aria-haspopup` (Guardrails 15, 20 and 13) |
 | `fill(root, id)` | the template drawn into `root`, each part's id `id(part)` (the mount's `cx.id`; by default the root's id and the part), the grabber's `aria-controls` the root, and OUT and the foot's OUT `dialogKey`s. The tests fill a bar the same way |
 | `TAPE_KEYS` | what the Studio presses of ●, Catch and the click: `lend`, `draw`, `press`, `catch`, `closeMenu`, `focusPlay`, `tempo` |
-| default | the component. Its mount fills the root, makes `NowPlaying(root, models, cx)`, provides its `tapeKeys` to `props.tapeKeys` and hears `props.onRoom`; its `unmount` takes those back and `NowPlaying.destroy()`s (its models' subscriptions, its strip's observer) |
+| default | the component. Its mount fills the root, puts help's titles on it (`props.titles`), makes `NowPlaying(root, models, cx)`, provides its `tapeKeys` to `props.tapeKeys` and hears `props.onRoom`; its `unmount` takes those back and `NowPlaying.destroy()`s (its models' subscriptions, its strip's observer, the keyboard note's timer) |
 
 Its models (`needs`) are `bar` (the engine's: what plays, its
 `snapshot()` and verbs, and `tapeSource` and `stream`, the engine's tape
@@ -229,8 +229,11 @@ page's: the source menu's last few) and `recorder` (the page's phone
 recorder, made at boot). Its props, the surface's: `layout` (the shell's
 `barLayout`), `player` (the phone's player sheet), `output()` (the
 Output sheet), `room()` (the room the router shows: the tempo opens its
-menu in the Studio) and `onRoom(fn)` (fn as the router shows another
-room, from its `chrome.setPath`), and `tapeKeys`, a relay
+menu in the Studio), `onRoom(fn)` (fn as the router shows another
+room, from its `chrome.setPath`), `titles(root)` (help's `applyTitles`,
+which the mount runs on the filled template before `NowPlaying` moves any
+key's tip, so a key's hover title is its template's, as it was from
+`shell.html`'s markup: ⟲ says the tape's *Loop the bracket…*), and `tapeKeys`, a relay
 (`lib/components/relay.js` `relay(names)`, `{api, provide(impl)}`) the
 Transport provides its keys to and the shell hands the views as
 `ctx.tapeKeys` (its `api`): the contract's own *a callback the surface

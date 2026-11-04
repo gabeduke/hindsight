@@ -199,7 +199,7 @@ function geometry({ touch, MENU, PIN, root = null }) {
         if (w > 1 && h > 1) out.push({ rule: 'bar-overlap', severity: 'fail', el: name(keys[i].el), by: name(keys[j].el), msg: `the mini player draws it and ${name(keys[j].el)} over each other (${Math.round(w)}×${Math.round(h)} px)` });
       }
     }
-    const win = np.querySelector('.np-window');
+    const win = np.querySelector('.np-deck');
     const ww = win?.getBoundingClientRect().width ?? 0;
     if (ww < 44) out.push({ rule: 'bar-window', severity: 'fail', el: name(win), msg: `the mini player's window is ${Math.round(ww)} px wide, under a finger's 44` });
   }

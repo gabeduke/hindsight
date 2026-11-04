@@ -55,7 +55,14 @@ Catch and click), the surface makes a relay and hands it in `props`:
 the component provides its own to it as it mounts (and takes it back on
 unmount, with `provide`'s off), and the surface hands `api`, each name a
 method that calls the provided one's (`undefined` while nothing is), to
-whoever presses (`ctx.tapeKeys`). A surface that tells a component
+whoever presses (`ctx.tapeKeys`). A call made before a provider is
+attached does nothing and answers `undefined`, with no warning: a press
+from a view mounted before the component, or after it is unmounted, is
+lost quietly (a lent hand never reaches the keys, `tempo(fn)` wires no
+menu). It can't happen today because the shell's boot mounts the
+Transport, synchronously, before it makes the views (`lib/shell/boot.js`),
+and never unmounts it; a surface that mounts in another order has to keep
+that one. A surface that tells a component
 something as it happens hands it a subscription in `props` the same way
 (the Transport's `onRoom(fn)`).
 
@@ -102,9 +109,7 @@ list of exceptions:
 It reads a module as code: its comments out, `cx.on(window` and
 `cx.on(document` let be, and the file a static import names read as an
 empty string (`'../objects/reel-window.js'` is a file's name, not the
-window). A hyphenated name that ends in one is a name too, wherever it is
-(a template's class, `np-window`). A test beside it lists what these catch
-and what they let be.
+window). A test beside it lists what these catch and what they let be.
 
 The Transport's modules, and what it shares with Open (`lib/bar/`'s
 `slots.js` and `press-light.js`, and `player.js`'s `playerKeys`), keep
@@ -254,4 +259,4 @@ before the flows, into `storyboard/components/`.
 | Component | What it is | Models | Mounted by |
 |---|---|---|---|
 | `display` | the display's three keys, the tempo, what plays and where, for the tape; the long forms from 420 px of its own width (`css/display.css`); a key the surface hands nothing to (`props.tempo`, `source`, `output`) is disabled | transport | the harness only. The Transport still draws its own (`#np-tempo`, `#np-source`, `#np-output`) until it mounts this in their place (5h, `STATE.md`) |
-| `transport` | the bar in the rooms (`bar.md`, *The Transport*): its template the bar's markup, `NowPlaying` its mount, its keys the modules beside it; `css/bar.css`, rooted at `.np`; props `layout`, `player`, `output`, `room`, `onRoom` and the `tapeKeys` relay | bar, transport, tape, takes, recorder | the shell's boot, on `#np`, in the shell scope |
+| `transport` | the bar in the rooms (`bar.md`, *The Transport*): its template the bar's markup, `NowPlaying` its mount, its keys the modules beside it; `css/bar.css`, rooted at `.np`; props `layout`, `player`, `output`, `room`, `onRoom`, `titles` and the `tapeKeys` relay | bar, transport, tape, takes, recorder | the shell's boot, on `#np`, in the shell scope |

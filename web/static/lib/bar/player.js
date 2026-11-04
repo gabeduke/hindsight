@@ -170,6 +170,6 @@ export function initPlayer({ btn, grabber = null, layers, layout, phone, on }) {
   const np = btn.closest('.np');
   // The sheet: the tape page's dock (the bar and its drawers), or the bar.
   const player = playerSheet(np.closest('.np-dock') || np, { root: np, layers, layout, phone });
-  playerKeys(np, { player, layout, phone, on, btn, grabber, handles: [grabber, np.querySelector('.np-window')] });
+  playerKeys(np, { player, layout, phone, on, btn, grabber, handles: [grabber, np.querySelector('.np-deck')] });
   return player;
 }
