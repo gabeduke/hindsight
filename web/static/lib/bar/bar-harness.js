@@ -82,7 +82,7 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
     // The ticker's frames are the test's to run (frames()).
     requestAnimationFrame: (fn) => { w.raf.push(fn); return w.raf.length; },
     cancelAnimationFrame: () => {},
-    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
     ResizeObserver: class { observe() {} disconnect() {} },
     MutationObserver: class { observe() {} disconnect() {} },
     history: { state: null, replaceState() {}, pushState() {} },
@@ -130,7 +130,9 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   const rooms = new Set();
   const tapeKeys = relay(TAPE_KEYS);
   const models = { bar: made.bar, transport: made.transport, tape: pageTape || createTape({}), takes: made.takes, recorder };
-  const props = { layout: barLayout(doc), room: () => w.room, onRoom: (fn) => { rooms.add(fn); return () => rooms.delete(fn); }, tapeKeys };
+  // Help's titles, as the shell hands them (lib/help/help.js applyTitles).
+  const { applyTitles } = await import('../help/help.js');
+  const props = { layout: barLayout(doc), room: () => w.room, onRoom: (fn) => { rooms.add(fn); return () => rooms.delete(fn); }, tapeKeys, titles: applyTitles };
   const mounted = drawn ? mountComponent(transport, doc.getElementById('np'), models, ctx, props) : null;
   // The bar as a test drives it: its keys' relay (the Studio's ctx.tapeKeys),
   // and the shell's kick as the room switches (onRoom).

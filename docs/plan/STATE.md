@@ -77,11 +77,6 @@ and still looks it:
   (its template, `css/bar.css` `.np-lcd-*`) and the `display`
   component's (`lib/components/display`, `css/display.css`), which only
   the harness mounts. 5h keeps one and deletes the other.
-- **⟲'s hover title on a computer** (help's `applyTitles`) reads the
-  bar's own tip (`np-loop`) since 5g, not the tape page's
-  (`tape-loop`): the titles now land after the Transport has set ⟲'s
-  `data-tip`. A title is set once and never follows `data-tip`, so a
-  take's Repeat still shows Loop's.
 
 ## Open, needs Gabe at the rig
 

@@ -3,7 +3,7 @@
 // creates the audio engine and the bar that draws it, the header's nav and help, the link monitor, and
 // mounts the shell's views through createView and createRouter.
 
-import { initHelp } from '/lib/help/help.js';
+import { initHelp, applyTitles } from '/lib/help/help.js';
 import { showPresses } from '/lib/ui/keys.js';
 import { initNav, navTabs } from '/lib/nav.js';
 import { toast } from '/lib/toast.js';
@@ -95,6 +95,9 @@ mountComponent(transportComponent, npRoot, { bar: engine.bar, transport: engine.
   output: openOutput,
   room: () => router?.shown() ?? null,
   onRoom(fn) { roomHooks.add(fn); return () => roomHooks.delete(fn); },
+  // Help's titles on the bar's keys as its template is filled, as they were
+  // on shell.html's markup at initHelp, before the bar moves any key's tip.
+  titles: applyTitles,
   tapeKeys,
 });
 

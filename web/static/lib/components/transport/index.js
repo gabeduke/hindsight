@@ -78,7 +78,7 @@ export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="bu
 </div>
 <div class="np-row np-row-1">
   <div class="np-zones">
-    <div class="np-window" data-slot="deck">
+    <div class="np-deck" data-slot="deck">
       <button data-part="expand" class="np-expand" type="button" aria-expanded="false" aria-label="Open the player" data-tip="np-expand" data-tip-pass></button>
       <svg data-part="reel-l" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
       <div class="np-lcd" role="group" aria-label="The display">
@@ -164,7 +164,8 @@ export function fill(root, id = (part) => `${root.id}-${part}`) {
  * recorder. Its props, the surface's: `layout` (barLayout,
  * lib/bar/layout.js), `player` (the phone's player, playerSheet),
  * `output()` (the Output sheet), `room()` (the room shown) and
- * `onRoom(fn)` (fn as the room shown changes), and `tapeKeys`, a relay
+ * `onRoom(fn)` (fn as the room shown changes), `titles(root)` (help's
+ * titles, put on the filled template before the bar draws), and `tapeKeys`, a relay
  * (lib/components/relay.js) the Transport provides its ●, Catch and click
  * to, which the surface hands the Studio (ctx.tapeKeys; decision D4).
  */
@@ -175,6 +176,10 @@ export default {
   css: 'css/bar.css',
   mount(root, models, cx) {
     fill(root, cx.id);
+    // Help's titles (props.titles, the shell's applyTitles) go on the
+    // template's keys as they are, before NowPlaying moves any key's tip
+    // to what it holds: a title is the key's as the page drew it.
+    cx.props.titles?.(root);
     const np = new NowPlaying(root, models, cx);
     const offs = [cx.props.tapeKeys?.provide(np.tapeKeys), cx.props.onRoom?.(() => np.kick())];
     return {
