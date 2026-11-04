@@ -60,7 +60,7 @@ function shell() {
 test('phoneKey: ● asks the page’s recorder; it shows the recording, wherever it was started', () => {
   const { doc, layers } = shell();
   const r = aRecorder();
-  const k = phoneKey({ doc, layers, recorder: () => r });
+  const k = phoneKey({ root: doc.getElementById('np'), layers, recorder: () => r });
   assert.ok(k, 'the shell has the keys');
   const rec = doc.getElementById('np-phone-rec');
   rec.dispatchEvent({ type: 'click' });
@@ -77,12 +77,14 @@ test('phoneKey: a recording started before ● was pressed (Capture’s ● Phon
   const { doc, layers } = shell();
   const r = aRecorder();
   let hand = null;
-  phoneKey({ doc, layers, recorder: () => null, whenRecorder: (fn) => { hand = fn; } });
+  phoneKey({ root: doc.getElementById('np'), layers, recorder: () => null, whenRecorder: (fn) => { hand = fn; } });
   hand(r); // a room makes the page's recorder
   r.set({ mode: 'recording', seconds: 3 });
   assert.equal(doc.getElementById('np-phone-rec').getAttribute('aria-pressed'), 'true');
 });
 
 test('phoneKey: a page without the keys (Open) has none', () => {
-  assert.equal(phoneKey({ doc: fakeDoc(), layers: {}, recorder: () => null }), null);
+  const np = fakeDoc().createElement('section');
+  np.id = 'np';
+  assert.equal(phoneKey({ root: np, layers: {}, recorder: () => null }), null);
 });

@@ -9,6 +9,8 @@
 // slots.js); this wires them and says what each does now. It makes none:
 // a key a script appends lands wherever the last one did.
 
+import { partOf } from './slots.js';
+
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
 
@@ -19,19 +21,20 @@ export function clock(frames, sampleRate) {
 }
 
 /**
- * takeKeys wires the bar's ✎ (`onNote`, the page's) and the feed's GRAB
- * (`onGrabFeed`), and answers paint(snap), which says what ✎ and ⟲ say for
- * what the bar holds: the engine's bar snapshot() ({kind, frame,
- * sampleRate}), null for nothing.
+ * takeKeys wires the ✎ (`onNote`, the page's) and the feed's GRAB
+ * (`onGrabFeed`) of the bar at `root`, found inside it, and answers
+ * paint(snap), which says what ✎ and ⟲ say for what the bar holds: the
+ * engine's bar snapshot() ({kind, frame, sampleRate}), null for nothing.
  */
-export function takeKeys({ doc, onNote, onGrabFeed }) {
-  const loop = doc.getElementById('np-loop');
+export function takeKeys({ root, onNote, onGrabFeed }) {
+  const part = partOf(root);
+  const loop = part('loop');
   // ⟲'s word is a span of its own beside its icon: Repeat replaces Loop
   // there and leaves the icon, which writing the key's text would wipe.
   const loopWord = loop?.querySelector('.loop-word');
-  const note = doc.getElementById('np-note');
+  const note = part('note');
   note?.addEventListener('click', () => onNote?.());
-  doc.getElementById('np-feed-grab')?.addEventListener('click', () => onGrabFeed?.());
+  part('feed-grab')?.addEventListener('click', () => onGrabFeed?.());
   return {
     paint(snap) {
       const take = snap?.kind === 'take';

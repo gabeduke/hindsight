@@ -52,7 +52,9 @@ What a component can't reach for itself has a helper outside
 - **its menus' rows**: `menuItem(opts)`, `menuRows(groups)`,
   `menuDivider()`, `menuGroup(label)` (`lib/ui/menu.js`), made with no
   document handed in, or with the panel in its place
-  (`menuRows(panel, groups)`), in that panel's document;
+  (`menuRows(panel, groups)`), in that panel's document; a row's `end` may
+  be an icon's markup (`icon()`), which `menuItem` puts in a span of its
+  own, hidden from a reader (the source menu's ›);
 - **a key that opens a dialog**: `dialogKey(button, dialog)`
   (`lib/ui/menu.js`), which says so (`aria-haspopup="dialog"`,
   `aria-controls`), so neither its template nor its script writes
@@ -85,7 +87,18 @@ list of exceptions:
 - no id written in (an `id=` in markup, `.id = '…'`, `setAttribute('id')`);
 - no `setTimeout` beside a `pointerdown`.
 
-A test beside it lists what these catch and what they let be. Each
+It reads a module as code: its comments out, `cx.on(window` and
+`cx.on(document` let be, and the file a static import names read as an
+empty string (`'../objects/reel-window.js'` is a file's name, not the
+window). A test beside it lists what these catch and what they let be.
+
+The bar's modules keep the same rules where they are, before they move in
+(`architecture.test.js`, *Step 5f*; `bar.md`, *The engine*): `lib/bar/`'s
+`bar.js`, `fold.js`, `phone-key.js`, `press-note.js`, `take-keys.js`,
+`tape-keys.js`, `source-menu.js` and `slots.js`, and `player.js`'s
+`playerKeys`, with no list of exceptions, and with what the regexes don't
+see besides: a `doc`, a `getElementById`, a `matchMedia`, the page's
+storage, `innerHeight` and `devicePixelRatio`. Each
 component directory has an `index.js` exporting the five and a harness
 check. Its stylesheet starts every selector at `.root` and goes into it,
 never beside it (`.root + .x`). The bar's `css/bar.css` keeps the same

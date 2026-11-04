@@ -21,12 +21,12 @@
 // drag, and lend it the key the focus goes back to. initPlayer is both, for
 // a page whose bar is its own (Open).
 
-import { layersOf } from '../ui/layers.js';
 import { createSheet } from '../ui/sheet.js';
 import { barSize } from './slots.js';
-import { barLayout } from './layout.js';
 
-export const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)';
+// A phone's screen, where alone there is a player: slots.js's, said here
+// too for the modules that ask it of the player.
+export { PHONE } from './slots.js';
 
 /**
  * playerSheet makes `el` the phone's player, the surface's: `el` is what
@@ -36,8 +36,8 @@ export const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-h
  * alone there is a player. Answers { open(), close(), grab(e), isOpen,
  * lend(keys) }: the bar's keys call open, close and grab (a handle's
  * pointerdown), and lend { owner, shown(), hidden() } -- the key the focus
- * goes back to, and what the bar does as it is laid out and put away --
- * answering a way to take them back.
+ * goes back to as it is put away, and what the bar does as it is laid out
+ * and put away -- answering a way to take them back.
  */
 export function playerSheet(el, { root, layers, layout, phone, doc = el.ownerDocument }) {
   let keys = null;
@@ -81,6 +81,11 @@ export function playerSheet(el, { root, layers, layout, phone, doc = el.ownerDoc
       layout.set({ open: false });
       still(false);
       keys?.hidden?.();
+      // The focus goes back to the key that opened it, unless the bar
+      // emptied or the focus has gone on to a menu or a dialog. The
+      // surface's to say: the bar's keys never read the document.
+      const owner = keys?.owner;
+      if (owner && !root.hidden && !doc?.activeElement?.closest?.('.menu, dialog')) owner.focus({ preventScroll: true });
     },
   });
 
@@ -106,10 +111,12 @@ export function playerSheet(el, { root, layers, layout, phone, doc = el.ownerDoc
  * `btn` (▣, #np-expand) opens it and puts it away, the grabber puts it away
  * on a phone, and a drag on the grabber or the window (`handles`) moves it.
  * It keeps the bar's data-size ('mini' or 'full') and says the player's
- * state on its keys. Answers a way off.
+ * state on its keys. `phone` is a MediaQueryList for a phone, whose change
+ * it hears through `on(target, type, fn)` (a component's cx.on); the
+ * player gives ▣ the focus back as it is put away (playerSheet). It never
+ * reads the document. Answers a way off.
  */
-export function playerKeys(root, { player, layout, phone, btn, grabber = null, handles = [] }) {
-  const doc = root.ownerDocument;
+export function playerKeys(root, { player, layout, phone, on, btn, grabber = null, handles = [] }) {
   const size = () => { root.dataset.size = barSize({ phone: phone.matches, open: layout.open }); };
   size();
   const say = (on) => {
@@ -129,7 +136,6 @@ export function playerKeys(root, { player, layout, phone, btn, grabber = null, h
     hidden: () => {
       size();
       say(false);
-      if (!root.hidden && !doc?.activeElement?.closest?.('.menu, dialog')) btn.focus({ preventScroll: true });
     },
   });
   btn.addEventListener('click', () => {
@@ -142,26 +148,24 @@ export function playerKeys(root, { player, layout, phone, btn, grabber = null, h
   // A drag starts on the window (the mini player's, whose handle #np-expand
   // is inside it: up opens it; or the player's art) or the grabber.
   for (const h of handles.filter(Boolean)) h.addEventListener('pointerdown', (e) => player.grab(e));
-  phone.addEventListener('change', size);
+  on(phone, 'change', size);
   return off;
 }
 
 /**
  * initPlayer is the phone's player on a page whose bar is its own (Open):
  * the sheet over the bar, or the dock it is in, and the bar's keys on it.
- * Wires the page's #np-expand, if it has one, and answers the player.
- * `layout` is the page's (barLayout, layout.js), which says the player up
- * to the page and on the bar's root.
+ * The page hands it its parts and what is the page's: `btn` (its
+ * #np-expand; none, and there is no player: null), `grabber`, `layers`
+ * (its stack), `layout` (barLayout, layout.js, which says the player up to
+ * the page and on the bar's root), `phone` (a MediaQueryList for a phone)
+ * and `on(target, type, fn)`. Answers the player.
  */
-export function initPlayer({ layers = layersOf(document), layout = null } = {}) {
-  const btn = document.getElementById('np-expand');
+export function initPlayer({ btn, grabber = null, layers, layout, phone, on }) {
   if (!btn) return null;
   const np = btn.closest('.np');
-  const grabber = document.getElementById('np-grabber');
-  const l = layout || barLayout(document, { root: np });
-  const phone = matchMedia(PHONE);
   // The sheet: the tape page's dock (the bar and its drawers), or the bar.
-  const player = playerSheet(np.closest('.np-dock') || np, { root: np, layers, layout: l, phone });
-  playerKeys(np, { player, layout: l, phone, btn, grabber, handles: [grabber, np.querySelector('.np-window')] });
+  const player = playerSheet(np.closest('.np-dock') || np, { root: np, layers, layout, phone });
+  playerKeys(np, { player, layout, phone, on, btn, grabber, handles: [grabber, np.querySelector('.np-window')] });
   return player;
 }

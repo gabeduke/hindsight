@@ -107,7 +107,21 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   const made = createEngine({ tapes: Promise.resolve(tapes), onToast, find: null, tape: pageTape });
   // The room shown, as the shell's router says it (w.room).
   w.room = null;
-  const np = drawn ? new NowPlaying({ engine: made, onToast, room: () => w.room, tape: pageTape }) : null;
+  // What the shell hands the bar (lib/shell/boot.js): a component's cx,
+  // stood in for here, on the stand-in window and document.
+  const { layersOf } = await import('../ui/layers.js');
+  const { barTop } = await import('../ui/menu.js');
+  const { barLayout } = await import('./layout.js');
+  const cx = {
+    on: (target, type, fn, opts) => { target.addEventListener(type, fn, opts); return () => target.removeEventListener(type, fn, opts); },
+    media: (q) => globalThis.matchMedia(q),
+    layers: layersOf(doc),
+    visible: () => true,
+    floor: barTop(doc),
+    toast: onToast,
+    props: { layout: barLayout(doc), room: () => w.room },
+  };
+  const np = drawn ? new NowPlaying(doc.getElementById('np'), { engine: made, tape: pageTape }, cx) : null;
   // What the shell does around the bar it makes (lib/shell/boot.js): its
   // height into --np-h, measured on its root.
   if (np) (await import('./slots.js')).measureBar(doc.getElementById('np'));

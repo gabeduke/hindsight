@@ -12,26 +12,30 @@
 // grabber belongs to the player pulled up, which it puts away (player.js).
 
 import { GESTURE } from '../ui/press.js';
-import { PHONE } from './player.js';
-import { barLayout } from './layout.js';
+import { partOf } from './slots.js';
+
+/** REDUCED is the screen asking for less motion: the fold is a change, not a slide. */
+export const REDUCED = '(prefers-reduced-motion: reduce)';
 
 /**
- * initFold wires the page's #np-grabber, if it has one: answers
- * { apply(folded), toggle(), destroy() }, or null. `layout` is the page's
- * (barLayout, layout.js), which says the fold to the page and keeps it for
- * the visit, so a page reloaded folded is folded before this is wired;
- * `phone` is a MediaQueryList for a phone, whose grabber is the player's;
- * `slide` moves the bar from where it was (slideFrom, below), handed in for
- * the tests.
+ * initFold wires the grabber of the bar at `root` (#np-grabber, inside it),
+ * if it has one: answers { apply(folded), toggle(), destroy() }, or null.
+ * `layout` is the page's (barLayout, layout.js), which says the fold to the
+ * page and keeps it for the visit, so a page reloaded folded is folded
+ * before this is wired; `phone` is a MediaQueryList for a phone, whose
+ * grabber is the player's, and `reduced` one for less motion (REDUCED),
+ * each a component's cx.media; `slide` moves the bar from where it was
+ * (slideFrom, below), handed in for the tests.
  */
-export function initFold(doc = document, {
-  layout = barLayout(doc),
-  phone = (doc.defaultView || globalThis).matchMedia?.(PHONE) ?? { matches: false },
-  slide = slideFrom,
+export function initFold(root, {
+  layout,
+  phone = { matches: false },
+  reduced = { matches: false },
+  slide = (np, change) => slideFrom(np, change, { still: !!reduced.matches }),
 } = {}) {
-  const grabber = doc.getElementById('np-grabber');
+  const grabber = partOf(root)('grabber');
   if (!grabber) return null;
-  const np = doc.getElementById('np');
+  const np = root;
   const folded = () => layout.folded;
 
   const say = (on) => {
@@ -97,11 +101,10 @@ export function initFold(doc = document, {
  * slideFrom makes `change` (a new layout for the bar) and moves the bar from
  * where it stood before it to where it stands after, by a transform on the
  * lid spring (css/bar.css, .np-sliding): read, change, read, invert, play.
- * With less motion, or nothing moved, it is only the change.
+ * With less motion (`still`, which the caller asks of the screen: REDUCED),
+ * or nothing moved, it is only the change.
  */
-export function slideFrom(np, change) {
-  const win = np.ownerDocument?.defaultView || globalThis;
-  const still = !!win.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+export function slideFrom(np, change, { still = false } = {}) {
   const before = np.getBoundingClientRect().top;
   np.classList.remove('np-sliding');
   np.style.transform = '';

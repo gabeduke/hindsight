@@ -17,7 +17,7 @@ function bar() {
   </section>`).children);
   const root = doc.getElementById('np');
   const said = [];
-  const keys = takeKeys({ doc, onNote: () => said.push('✎'), onGrabFeed: () => said.push('GRAB') });
+  const keys = takeKeys({ root, onNote: () => said.push('✎'), onGrabFeed: () => said.push('GRAB') });
   const $ = (id) => doc.getElementById(id);
   return { doc, root, keys, said, $ };
 }

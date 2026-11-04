@@ -226,8 +226,13 @@ and still looks it:
         `styles.css`, its five `@media` kept (D1); a test holds it. 5e
         is built: the three menu panels are inside `#np` (`#catch-menu`
         is `#np-catch-menu`) and open in the top layer (`menu()`'s
-        `popover`, D6), so the test has no exception left. **Next**: 5f,
-        the movers keep Guardrail 15 in place.
+        `popover`, D6), so the test has no exception left. 5f is built:
+        `NowPlaying(root, models, cx)` and its modules find their parts
+        inside the root (`partOf`) and reach past it only through the
+        cx the boot builds from its shell scope; `player.js` and
+        `slots.js` take their elements, media and layers (no copies,
+        D3); *Step 5f* runs Guardrail 15's rules over them. **Next**:
+        5g, the move.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state
      (call 2), and AGENTS.md's `#shelf-q` line changes with it.

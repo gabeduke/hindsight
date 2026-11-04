@@ -117,7 +117,10 @@ carries what the shell shares, `id` (`'shell'`), `active`, `on`, `every`,
 and no root, slot or `setTitle`. `active()` is false while the document is
 hidden, so its polls skip then and its components' `cx.visible()` is
 false. A loop or poll started before `ready` starts with it. Nothing
-mounts in it yet (step 5g).
+mounts in it yet (step 5g); the boot makes one, `shared: {layers}`, and
+hands the bar (`NowPlaying`, step 5f) a component's cx from it: its `on`,
+`media`, `layers`, `active` as `visible`, and `barTop(document)` as
+`floor` (`bar.md`, *The engine*).
 
 All views share one id namespace, since hidden ones stay in the DOM
 (`pages.test.js` checks the union). The CSS is global and keyed on the body

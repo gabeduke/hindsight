@@ -17,9 +17,9 @@ import { splitKey, menuItem } from '../ui/menu.js';
 import { catchState, catchSub, catchMini, CATCH_BARS } from '../tape/catch.js';
 import { onWords, tracksWords, recTracksOf, recSources } from '../rig/arm.js';
 import { editTape } from '../tape/refusal.js';
-import { fmtClock, onPhoneRecorder } from '../phone/recorder.js';
+import { fmtClock } from '../phone/recorder.js';
 import { tipFor } from '../help/tips.js';
-import { PHONE } from './player.js';
+import { partOf } from './slots.js';
 
 const busy = (phone) => phone.mode === 'recording' || phone.mode === 'saving';
 
@@ -78,12 +78,13 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
 const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v; };
 
 /**
- * tapeKeys wires ●, Catch and its ▾, and the click in `doc` on the page's
- * `tape` (the tape model) and its phone recorder (`whenRecorder(fn)`, which
- * hands it over once there is one: the shell makes it at boot). `toast` is
- * the page's; `offer()` opens the mini player's ▾ of this phone's inputs
- * (phone-key.js), which a hold on ● asks for on a phone. Null on a page
- * without the keys or a tape.
+ * tapeKeys wires ●, Catch and its ▾, and the click of the bar at `root`
+ * (found inside it) on the page's `tape` (the tape model) and its phone
+ * recorder (`whenRecorder(fn)`, which hands it over once there is one: the
+ * shell makes it at boot). `toast` is the page's; `offer()` opens the mini
+ * player's ▾ of this phone's inputs (phone-key.js), which a hold on ● asks
+ * for on a phone; `phoneScreen` is a MediaQueryList for one (a component's
+ * cx.media(PHONE)). Null on a bar without the keys or a page without a tape.
  *
  * Answers:
  *   lend(hands) -> off   the Studio's hands, until off():
@@ -119,10 +120,10 @@ const setText = (el, v) => { if (el && el.textContent !== v) el.textContent = v;
  * With no hands lent the keys are not drawn and do nothing: they show in
  * the Studio alone (data-for="studio").
  */
-export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneRecorder(doc, fn), toast = () => {}, offer = () => {}, matchMedia = (q) => doc.defaultView?.matchMedia?.(q) } = {}) {
-  const $ = (id) => doc.getElementById(id);
-  const rec = $('np-rec'), click = $('np-click'), pass = $('np-catch-pass'), more = $('np-catch-more'), panel = $('np-catch-menu');
-  const play = $('np-play'), tempoKey = $('np-tempo');
+export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}, offer = () => {}, phoneScreen = { matches: false } } = {}) {
+  const $ = partOf(root);
+  const rec = $('rec'), click = $('click'), pass = $('catch-pass'), more = $('catch-more'), panel = $('catch-menu');
+  const play = $('play'), tempoKey = $('tempo');
   if (!tape || !rec || !click || !pass || !more || !panel) return null;
   let hands = null;
   let recorder = null;
@@ -221,18 +222,18 @@ export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneR
     const s = snap();
     const cs = says || catchState({ live: s.live, tape: s.tape });
     const armed = hands ? hands.armed() : [];
-    const head = doc.createElement('div');
-    head.className = 'menu-sub catch-menu-head';
-    head.textContent = armed.length ? `Catch onto ${onWords(armed)}` : 'Catch: no track is armed';
+    // Its head is drawn in the panel, from markup: the bar names no document.
+    m.innerHTML = '<div class="menu-sub catch-menu-head"></div>';
+    m.children[0].textContent = armed.length ? `Catch onto ${onWords(armed)}` : 'Catch: no track is armed';
     const item = (word, ok, why, run) => {
-      const b = menuItem(doc, { word, sub: !ok && why ? why : undefined, attrs: { 'aria-disabled': String(!ok) } });
+      const b = menuItem(m, { word, sub: !ok && why ? why : undefined, attrs: { 'aria-disabled': String(!ok) } });
       b.addEventListener('click', () => {
         if (!ok) { toast(why, 'warn', 6000); return; }
         run();
       });
       return b;
     };
-    m.replaceChildren(head,
+    m.append(
       item('The last pass', cs.ready, cs.why, () => doCatch({ pass: 1 })),
       ...CATCH_BARS.map((n) => item(`The last ${n} bar${n === 1 ? '' : 's'}`, cs.bars, cs.barsWhy, () => doCatch({ bars: n }))));
   }
@@ -243,7 +244,7 @@ export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneR
     ...ARM_PRESS,
     onTap: record,
     onHold: () => {
-      if (matchMedia(PHONE)?.matches) offer();
+      if (phoneScreen.matches) offer();
       else record();
     },
   });
@@ -271,7 +272,7 @@ export function tapeKeys({ doc = document, tape, whenRecorder = (fn) => onPhoneR
       // KEEP's: the menu opens over the pair in the bar (under it in the
       // phone's pulled-up player), its right edge on the pair's, and Catch,
       // a pick, a press elsewhere, Escape or Back shuts it.
-      menu ??= splitKey(pass, more, panel, { layers: h.layers || undefined, doc, role: 'menu', render: renderMenu, popover: true });
+      menu ??= splitKey(pass, more, panel, { layers: h.layers || undefined, role: 'menu', render: renderMenu, popover: true });
       draw();
       return () => { if (hands === h) { menu?.close(); hands = null; } };
     },

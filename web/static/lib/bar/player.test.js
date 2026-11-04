@@ -21,7 +21,9 @@ function aPlayer(layout) {
     log,
     get keys() { return keys; },
     open() { log.push('open'); layout.set({ open: true }); keys?.shown(); },
-    close() { log.push('close'); layout.set({ open: false }); keys?.hidden(); },
+    // As playerSheet does: the keys put away, then the focus given back to
+    // the key they lent (the bar's keys never read the document for it).
+    close() { log.push('close'); layout.set({ open: false }); keys?.hidden(); keys?.owner.focus(); },
     grab(e) { log.push(['grab', e.currentTarget.id]); },
     get isOpen() { return layout.open; },
     lend(k) { keys = k; return () => { if (keys === k) keys = null; }; },
@@ -42,7 +44,8 @@ function setup({ phone = aPhone() } = {}) {
   doc.body.append(root);
   const layout = barLayout(doc, { root });
   const player = aPlayer(layout);
-  playerKeys(root, { player, layout, phone, btn, grabber, handles: [grabber, win] });
+  const on = (target, type, fn) => target.addEventListener(type, fn);
+  playerKeys(root, { player, layout, phone, on, btn, grabber, handles: [grabber, win] });
   const fire = (el, type, e = {}) => { for (const fn of el.listeners.get(type) || []) fn({ type, currentTarget: el, target: el, ...e }); };
   return { doc, root, btn, grabber, win, layout, player, phone, fire };
 }

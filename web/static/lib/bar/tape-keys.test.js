@@ -125,7 +125,7 @@ function keys(snap, extra = {}) {
   const tape = aTapeModel(snap);
   const toasts = [];
   const r = aRecorder();
-  const k = tapeKeys({ doc, tape, whenRecorder: (fn) => fn(r), toast: (m, kind) => { toasts.push([m, kind]); return { classList: { add() {} } }; }, matchMedia: () => ({ matches: false }), ...extra });
+  const k = tapeKeys({ root: doc.getElementById('np'), tape, whenRecorder: (fn) => fn(r), toast: (m, kind) => { toasts.push([m, kind]); return { classList: { add() {} } }; }, phoneScreen: { matches: false }, ...extra });
   return { doc, layers, tape, toasts, r, k };
 }
 
@@ -188,9 +188,9 @@ test('tapeKeys: ● with the tape on this phone, or while it records, is this ph
 test('tapeKeys: a hold on ● on a phone offers this phone’s ▾', () => {
   const { doc, layers } = shell();
   const tape = aTapeModel({ tape: aTape(), live: playing() });
-  const phone = phoneKey({ doc, layers, recorder: () => aRecorder() });
+  const phone = phoneKey({ root: doc.getElementById('np'), layers, recorder: () => aRecorder() });
   let offered = 0;
-  const k = tapeKeys({ doc, tape, whenRecorder: () => {}, offer: () => { offered++; phone.offer(); }, matchMedia: () => ({ matches: true }) });
+  const k = tapeKeys({ root: doc.getElementById('np'), tape, whenRecorder: () => {}, offer: () => { offered++; phone.offer(); }, phoneScreen: { matches: true } });
   k.lend(hands());
   const rec = doc.getElementById('np-rec');
   // ARM_PRESS's hold: a pointer held past it.
@@ -262,8 +262,10 @@ test('tapeKeys: the Studio focuses ▶ and wires its tempo menu on the bar’s k
 });
 
 test('tapeKeys: a page without the keys, or without a tape, has none', () => {
-  assert.equal(tapeKeys({ doc: fakeDoc(), tape: aTapeModel({}) }), null);
-  assert.equal(tapeKeys({ doc: shell().doc, tape: null }), null);
+  const bare = fakeDoc().createElement('section');
+  bare.id = 'np';
+  assert.equal(tapeKeys({ root: bare, tape: aTapeModel({}) }), null);
+  assert.equal(tapeKeys({ root: shell().doc.getElementById('np'), tape: null }), null);
 });
 
 test('tapeKeys: C with Catch’s ▾ open catches and shuts it, as a tap on Catch does', async () => {

@@ -587,11 +587,15 @@ function componentFiles() {
 
 // componentCode is a module as Guardrail 15 reads it: its comments out (a
 // // is one only after a space, a bracket or a line's start, so a string
-// such as 'a//b' keeps the rest of its line), and cx.on's window or
-// document, the one place either may be named, taken out.
+// such as 'a//b' keeps the rest of its line), cx.on's window or document,
+// the one place either may be named, taken out, and the file an import
+// names (a static import's specifier: '../objects/reel-window.js' is a
+// file's name, not the window), which is read as an empty string.
 function componentCode(src) {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[\s;{}(),])\/\/.*$/gm, '$1')
-    .replace(/\bcx\.on\(\s*(window|document)\b/g, 'cx.on(');
+    .replace(/\bcx\.on\(\s*(window|document)\b/g, 'cx.on(')
+    .replace(/^(\s*(?:import|export)\b[^'"`;]*?\bfrom\s*)(['"])[^'"\n]*\2/gm, '$1$2$2')
+    .replace(/^(\s*import\s*)(['"])[^'"\n]*\2/gm, '$1$2$2');
 }
 
 test('Guardrail 15: a component draws inside its root, from its models, and reaches the page only through cx', () => {
@@ -605,6 +609,58 @@ test('Guardrail 15: a component draws inside its root, from its models, and reac
     if (/\bsetTimeout\s*\(/.test(src) && /pointerdown/.test(src)) found.push(`${f}: a hold of its own: pressMachine or bindPress (lib/ui/press.js)`);
   }
   assert.deepEqual(found, []);
+});
+
+// The bar's modules keep Guardrail 15 where they are, before they move into
+// lib/components/transport/ (docs/plan/transport-extraction.md, step 5f):
+// each finds its parts inside the root it is handed and reaches past it only
+// through its caller's cx-shaped dependencies (on, media, layers, floor,
+// visible), never the document, the window or globalThis, and takes no doc.
+// The movers whole, slots.js whole (shared with Open: deviceOf, partOf),
+// and player.js's playerKeys, the bar's half of the shared player (its
+// playerSheet and initPlayer are the surfaces'). No list of exceptions.
+const BAR_MOVERS = ['bar', 'fold', 'phone-key', 'press-note', 'take-keys', 'tape-keys', 'source-menu', 'slots']
+  .map((m) => `lib/bar/${m}.js`);
+// What COMPONENT_RULES' regexes don't see, and the bar did: a look-up by id
+// in a document, a document handed in, the screen or the page's storage
+// asked of the window.
+const BAR_REACHES = [
+  [/\bdoc\b/, 'takes a document: it is handed its root'],
+  [/\bgetElementById\b/, 'looks a part up in the document: partOf(root), inside its root'],
+  [/\bmatchMedia\b/, 'asks the window for the screen: cx.media'],
+  [/\b(sessionStorage|localStorage)\b/, 'keeps something in the page’s storage: the surface’s (layout.js)'],
+  [/\b(innerHeight|innerWidth|devicePixelRatio)\b/, 'reads the window: the surface’s, or lib/ui’s (sizeCanvas)'],
+];
+
+/** barReaches is what Guardrail 15, and BAR_REACHES, find in the code `src` of `name`. */
+function barReaches(name, src) {
+  const code = componentCode(src);
+  const found = [];
+  for (const [re, why] of [...COMPONENT_RULES, ...BAR_REACHES]) if (re.test(code)) found.push(`${name}: ${why}`);
+  if (/\bsetTimeout\s*\(/.test(code) && /pointerdown/.test(code)) found.push(`${name}: a hold of its own: pressMachine or bindPress (lib/ui/press.js)`);
+  return found;
+}
+
+test('Step 5f: the bar’s modules keep Guardrail 15 in place, through their callers’ cx', async () => {
+  const { playerKeys } = await import('./bar/player.js');
+  const found = [];
+  for (const f of BAR_MOVERS) found.push(...barReaches(f, read(f)));
+  found.push(...barReaches('lib/bar/player.js playerKeys', playerKeys.toString()));
+  assert.deepEqual(found, []);
+  // The bar is handed its root and its cx; it finds nothing by itself.
+  const bar = componentCode(read('lib/bar/bar.js'));
+  assert.match(bar, /constructor\(root, \{[^}]*\} = \{\}, cx\)/, 'NowPlaying(root, models, cx)');
+  assert.doesNotMatch(bar, /\$\(['"]np-/, 'a part by its name inside the root, as cx.id names it');
+});
+
+test('Step 5f reads what the bar must not do', () => {
+  for (const bad of [
+    'const $ = (id) => document.getElementById(id);', 'initFold(doc, { layout })', 'win.matchMedia?.(q)',
+    'matchMedia(PHONE)', 'sessionStorage.getItem(k)', 'return mini ?? innerHeight;', 'addEventListener("keydown", f)',
+  ]) assert.ok(barReaches('x', bad).length > 0, `caught: ${bad}`);
+  for (const fine of [
+    'cx.on(window, "keydown", f)', 'cx.on(cx.media(PHONE), "change", f)', 'const part = partOf(root);', 'deviceOf(cx.media)',
+  ]) assert.deepEqual(barReaches('x', fine), [], `let be: ${fine}`);
 });
 
 test('Guardrail 15 reads what a component must not do, and lets be what it may', () => {
@@ -621,7 +677,13 @@ test('Guardrail 15 reads what a component must not do, and lets be what it may',
     'cx.on(window, "keydown", f)', 'cx.on(document, "keydown", f)', 'key.addEventListener("click", f)',
     'el.id = cx.id("play")', 'root.innerHTML = `<b data-id="x"></b>`', 'model.history.length', 'take.location',
     'const top = 1; // document.body, in a comment', "const href = 'http://x'",
+    "import { ReelWindow } from './objects/reel-window.js';", "export { PHONE } from './bar/slots.js';",
   ]) assert.ok(!caught(fine), `let be: ${fine}`);
+  // The file an import names is let be, and nothing after it on its line.
+  for (const bad of [
+    "import { a } from './theme.js'; document.body.append(x)", "import './theme.js'; window.x = 1",
+    "const m = await import('./objects/reel-window.js'); m.go(window)",
+  ]) assert.ok(caught(bad), `caught, after an import: ${bad}`);
 });
 
 // compounds is a selector as its compound selectors, each with the

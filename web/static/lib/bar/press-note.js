@@ -16,6 +16,8 @@
 // are emptied when it goes. It is never `hidden`, which would take it out
 // of the tree and leave nothing to announce.
 
+import { partOf } from './slots.js';
+
 const LIT_CLASS = 'kb-lit';
 
 // What is lit, and the timer that puts it out, per element: a second press
@@ -96,8 +98,11 @@ export function lightTrackHead(lanes, p, env = {}) {
   return head;
 }
 
-/** barPressNote is the bar's note in this document: shell.html's #np-press. */
-export function barPressNote(doc = document) {
-  const $ = (id) => doc.getElementById(id);
-  return pressNote({ el: $('np-press'), words: $('np-press-words'), keys: { play: $('np-play'), rec: $('np-rec') } });
+/**
+ * barPressNote is the note of the bar at `root` (#np): its #np-press, found
+ * inside it, and the ▶ and ● it lights.
+ */
+export function barPressNote(root) {
+  const part = partOf(root);
+  return pressNote({ el: part('press'), words: part('press-words'), keys: { play: part('play'), rec: part('rec') } });
 }

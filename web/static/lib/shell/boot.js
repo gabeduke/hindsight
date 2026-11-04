@@ -15,7 +15,8 @@ import { playerSheet, PHONE } from '/lib/bar/player.js';
 import { measureBar } from '/lib/bar/slots.js';
 import { phoneRecorder } from '/lib/phone/recorder.js';
 import { outputSheet } from '/lib/tape/out-switch.js';
-import { createView } from '/lib/shell/view.js';
+import { createView, shellScope } from '/lib/shell/view.js';
+import { barTop } from '/lib/ui/menu.js';
 import { createRouter } from '/lib/shell/router.js';
 import { roomView } from '/lib/shell/views/room.js';
 import { studioView } from '/lib/shell/views/studio.js';
@@ -79,8 +80,20 @@ const recorder = phoneRecorder(document, { toast });
 // so it's never a few seconds behind.
 const openOutput = outputSheet(engine);
 // The bar (lib/bar/bar.js) draws the engine on #np, the same in every room;
-// the room shown is the router's, and the bar is kicked as it switches.
-const np = new NowPlaying({ engine, onToast: toast, layout, player, recorder, output: openOutput, room: () => router?.shown() ?? null, tape });
+// the room shown is the router's, and the bar is kicked as it switches. It
+// belongs to no room: it reaches past its root through the shell's scope
+// (shellScope, lib/shell/view.js), handed in as a component's cx is
+// (lib/components/mount.js), with what is the page's in its props.
+const shell = shellScope({ shared: { layers } });
+const np = new NowPlaying(npRoot, { engine, tape, recorder }, {
+  on: shell.ctx.on,
+  media: shell.ctx.media,
+  layers: shell.ctx.layers,
+  visible: shell.ctx.active,
+  floor: barTop(document),
+  toast,
+  props: { layout, player, output: openOutput, room: () => router?.shown() ?? null },
+});
 
 // The notes drawer (lib/room/drawer.js), the shell's one, the same in every
 // room: ✎ on the bar opens it on the take in the bar at the frame being
