@@ -78,7 +78,7 @@ test('the transport, made over a fixture, holds the tape, and its presses are re
   assert.throws(() => fixtureModels(fx, ['rig']), /no fixture model for rig/);
 });
 
-// The Transport's models (docs/plan/transport-extraction.md, decision 8):
+// The Transport's models (docs/architecture/bar.md, *The Transport's extraction*, decision 8):
 // the engine's bar, the phone's recorder and the page's layout, so its
 // check mounts it on fixtures as the display's is.
 test('the engine’s bar, made over a fixture, holds the loaded tape, and its presses go to the fixture', async () => {

@@ -4,9 +4,9 @@
 // shape.test.js reads which of them shows for which source.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fakeDoc, parseHTML } from '../play/fake-dom.js';
+import { fakeDoc, parseHTML } from '../../play/fake-dom.js';
 import { takeKeys, clock } from './take-keys.js';
-import { icon, iconOf } from '../ui/icons.js';
+import { icon, iconOf } from '../../ui/icons.js';
 
 function bar() {
   const doc = fakeDoc();

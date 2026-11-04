@@ -6,8 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { initFold, slideFrom } from './fold.js';
-import { barLayout, NP_FOLD_KEY } from './layout.js';
-import { GESTURE } from '../ui/press.js';
+import { barLayout, NP_FOLD_KEY } from '../../bar/layout.js';
+import { GESTURE } from '../../ui/press.js';
 
 class MockStorage {
   constructor() { this.m = new Map(); }

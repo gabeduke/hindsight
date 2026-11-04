@@ -39,7 +39,7 @@ import { Loop } from '../objects/motion.js';
 import { heardAt, layer, blit, bandFor, still, paintMarks, paintHead, paintLaneGhost, paintRulerGhost, compositeLane } from './playhead.js';
 import { timedFetch } from '../link.js';
 import { setText } from '../text.js';
-import { lightTrackHead } from '../bar/press-note.js';
+import { lightTrackHead } from '../bar/press-light.js';
 import * as sel from './selection.js';
 import { editBody, raiseUndo, replacedLine, replacedWords, undoWords } from '../buffer/replaced.js';
 import { restoreReplaced } from '../buffer/api.js';
@@ -171,7 +171,7 @@ let viewCtx = null;
 let overviewCv = null;
 let cueLane = null;
 // The bar's keys for the tape here, ●, Catch and its ▾ and the click
-// (lib/bar/tape-keys.js, ctx.tapeKeys): the Studio lends them its hands
+// (lib/components/transport/tape-keys.js, ctx.tapeKeys): the Studio lends them its hands
 // (studioHands, below) and never looks them up.
 let tapeKeys = null;
 const viewActive = () => !viewCtx || viewCtx.active();
@@ -337,7 +337,7 @@ const barHands = {
   around: (name, args, run) => sentHere(name, args, run),
 };
 // What the Studio lends the bar's ●, Catch and click (ctx.tapeKeys.lend,
-// lib/bar/tape-keys.js), for as long as it is mounted: what is armed here
+// lib/components/transport/tape-keys.js), for as long as it is mounted: what is armed here
 // and what it records from, the body a verb sends (replace or overdub; the
 // jam-only sheet and "arm a track" refuse it), the words for its answer
 // with the Studio's Undo, Catch's outline on the lanes, and a locate this
@@ -694,13 +694,13 @@ function render() {
   const onAir = !!(live && live.playing && live.record && live.record.state === 'on' && live.record.tape === t.id);
   $('rec-sign').classList.toggle('on', onAir);
   // SYNC on the bar's display is the bar's, drawn from the tape's snapshot
-  // (lib/bar/bar.js paintTape).
+  // (lib/components/transport/bar.js paintTape).
 
   if (engine?.tape) engine.transport.ingest({ tape: t, live });
   setIf(overviewCv, 'aria-valuemax', String(t.length));
   setIf(overviewCv, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
   setIf(overviewCv, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
-  // ●, Catch and the click are the bar's (lib/bar/tape-keys.js), drawn
+  // ●, Catch and the click are the bar's (lib/components/transport/tape-keys.js), drawn
   // from the tape and the Studio's hands (studioHands): the armed tracks.
   tapeKeys?.draw();
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
@@ -4473,7 +4473,7 @@ function mountMenus() {
   const opts = { layers: stack || undefined, doc: document, floor: barTop(document) };
   menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, floor: undefined, side: 'below', align: 'start', render: renderTapeMenu, focus: 'checked' });
   // The tempo's, from the bar's display (the bar's own keys say when it
-  // opens: css/bar.css, lib/bar/bar.js): a panel, since −1, +1 and TAP
+  // opens: css/bar.css, lib/components/transport/bar.js): a panel, since −1, +1 and TAP
   // keep it open. The bar hands its key to it (ctx.tapeKeys.tempo).
   const tempoBar = tapeKeys?.tempo((key) => menu(key, $('tempo-menu'), { ...opts, role: 'dialog', floor: undefined, align: 'start', render: renderTempo }));
   if (tempoBar) menus.tempoBar = tempoBar;
@@ -4830,7 +4830,7 @@ function wire() {
     // By physical key, so they work on any keyboard layout.
     if (!state.tape || menusOpen()) return;
     const press = (id) => { if (!e.repeat && !$(id).disabled) $(id).click(); };
-    // ● and the click are the bar's keys (lib/bar/tape-keys.js).
+    // ● and the click are the bar's keys (lib/components/transport/tape-keys.js).
     const pressKey = (name) => { if (!e.repeat) tapeKeys?.press(name); };
     // 1–4 and ↑ ↓: the record track, and the selected one with it.
     const pick = (n) => {

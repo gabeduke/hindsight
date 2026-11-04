@@ -1,4 +1,4 @@
-// web/static/lib/bar/source-menu.js
+// web/static/lib/components/transport/source-menu.js
 // The display's source key opens what the bar can play (the agreed design,
 // "The display says what plays", docs/plan): the tape, the live feed,
 // the last few takes, and the shelf. It replaced a Feed | Tape | Shelf switch
@@ -8,9 +8,9 @@
 // One menu (lib/ui/menu.js), placed by its key; the rows are menuItems, the
 // one playing checked. A pick is the engine's to make (lib/models/engine.js).
 
-import { menu, menuItem, menuDivider, menuGroup } from '../ui/menu.js';
-import { takeTitle } from '../rooms/takename.js';
-import { icon } from '../ui/icons.js';
+import { menu, menuItem, menuDivider, menuGroup } from '../../ui/menu.js';
+import { takeTitle } from '../../rooms/takename.js';
+import { icon } from '../../ui/icons.js';
 
 /** RECENT is how many of the newest takes the menu offers. */
 export const RECENT = 3;

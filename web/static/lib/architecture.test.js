@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fileCss, rules } from './stylesheets.js';
+import { TEMPLATE, fill } from './components/transport/index.js';
+import { fakeDoc } from './play/fake-dom.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STATIC = path.resolve(HERE, '..');
@@ -82,10 +84,10 @@ test('Guardrail 5: Unified Media Player provides FeedSource and 3-way source sel
     'lib/models/feed-source.js must exist for the live studio feed source',
   );
   // The bar draws it (bar.js, take-keys.js); its engine switches (engine.js).
-  const barJs = read('lib/bar/bar.js') + read('lib/models/engine.js');
+  const barJs = read('lib/components/transport/bar.js') + read('lib/models/engine.js');
   assert.ok(
     barJs.includes('np-source-switch') || barJs.includes('setSource'),
-    'lib/bar/bar.js and lib/models/engine.js must expose the 3-way source switcher (feed, tape, take)',
+    'lib/components/transport/bar.js and lib/models/engine.js must expose the 3-way source switcher (feed, tape, take)',
   );
 });
 
@@ -179,7 +181,7 @@ test('Guardrail 10: Studio swimlane collapse state persists in sessionStorage an
   );
 });
 
-test('Step 5a: only lib/bar writes the LCD ids (#np-position, #np-time, #np-unit, #np-status, #np-marquee, #np-mini) in the rooms', () => {
+test('Step 5a: only the Transport writes the LCD ids (#np-position, #np-time, #np-unit, #np-status, #np-marquee, #np-mini) in the rooms', () => {
   const lcdIds = ['np-position', 'np-time', 'np-unit', 'np-status', 'np-marquee', 'np-mini'];
   const writeRe = new RegExp(`\\$\\(['"](${lcdIds.join('|')})['"]\\)`);
   const roomFiles = [
@@ -192,7 +194,7 @@ test('Step 5a: only lib/bar writes the LCD ids (#np-position, #np-time, #np-unit
     assert.doesNotMatch(
       src,
       writeRe,
-      `${rel} must not write LCD ids directly; NowPlaying (lib/bar/bar.js) owns the LCD`,
+      `${rel} must not write LCD ids directly; the Transport (lib/components/transport/bar.js) owns the LCD`,
     );
   }
 });
@@ -426,10 +428,12 @@ test('Guardrail 17: only the protocol client (lib/models/protocol.js) names the 
 test('Guardrail 18: the engine (lib/models/engine.js) makes the bar’s sources and their audio; the bar draws it, and the shell makes the bar', () => {
   // docs/architecture/bar.md, *The engine*: one engine a page holds what
   // the bar plays (the tape, the feed, a take and its Audio) and says which,
-  // with its verbs (setSource, loadTake, eject) and snapshot(); NowPlaying
-  // (lib/bar/bar.js) draws it and hands each press to it. A module that
-  // makes a source, or the bar's audio, itself plays beside the engine; a
-  // second NowPlaying draws a second bar over the one #np. A test harness
+  // with its verbs (setSource, loadTake, eject) and snapshot(); the
+  // Transport (lib/components/transport/, NowPlaying its mount) draws it and
+  // hands each press to it. A module that makes a source, or the bar's
+  // audio, itself plays beside the engine; a second NowPlaying draws a
+  // second bar over the one #np, and so does a second mount of the
+  // Transport: the shell's boot mounts it, once. A test harness
   // (*-harness.js) builds the page as the shell does, for tests only.
   const found = [];
   for (const [f, raw] of gestureLiterals()) {
@@ -439,15 +443,17 @@ test('Guardrail 18: the engine (lib/models/engine.js) makes the bar’s sources 
     const own = f.match(/^lib\/models\/(tape|take|feed)-source\.js$/);
     if (f !== 'lib/models/engine.js' && made.some((m) => !own || !m.startsWith(`${own[1]}Source`))) found.push(`${f}: makes a source of the bar’s`);
     if (/^lib\/(bar|room|shell|components)\//.test(f) && /\bnew\s+Audio\b|\bAudioContext\b/.test(src)) found.push(`${f}: makes audio for the bar`);
-    if (f !== 'lib/shell/boot.js' && /\bnew\s+NowPlaying\b/.test(src)) found.push(`${f}: makes a NowPlaying`);
+    if (f !== 'lib/components/transport/index.js' && /\bnew\s+NowPlaying\b/.test(src)) found.push(`${f}: makes a NowPlaying`);
+    if (f !== 'lib/shell/boot.js' && /\bmountComponent\(\s*transport/.test(src)) found.push(`${f}: mounts the Transport`);
   }
   assert.deepEqual(found, [], 'goes around the engine: take the page’s (ctx.engine.bar’s verbs, or createEngine on a page of its own) instead');
+  assert.match(read('lib/shell/boot.js'), /mountComponent\(transportComponent, npRoot,/, 'the shell mounts the Transport on #np');
 });
 
 test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only through the hands it lends them, never by their ids', () => {
   // docs/architecture/bar.md, *The Studio's keys*: ● (#np-rec), Catch and its
   // ▾ (#np-catch-pass, #np-catch-more, #np-catch-menu) and the click (#np-click) are the
-  // bar's keys (lib/bar/tape-keys.js), drawn from the tape's snapshot and
+  // bar's keys (lib/components/transport/tape-keys.js), drawn from the tape's snapshot and
   // pressed on its verbs. The Studio lends them its hands
   // (ctx.tapeKeys.lend) and presses them with ctx.tapeKeys.press; a look-up
   // by id, or a press of a helper that looks one up, wires them a second way.
@@ -465,41 +471,41 @@ test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only
   assert.deepEqual(found, [], 'looks up the bar’s ●, Catch or the click: lend them the Studio’s hands (ctx.tapeKeys.lend), or press them (ctx.tapeKeys.press)');
 });
 
-/** npMarkup is the shell's #np as shell.html writes it, its own tags left out. */
-function npMarkup() {
-  const html = read('shell.html');
-  const open = html.search(/<section\b[^>]*\bid="np"/);
-  assert.ok(open >= 0, 'shell.html has no <section id="np">');
-  const tags = /<(\/?)section\b[^>]*>/g;
-  tags.lastIndex = open;
-  let depth = 0, start = -1, end = -1;
-  for (let m; (m = tags.exec(html));) {
-    if (start < 0) { start = tags.lastIndex; depth = 1; continue; }
-    depth += m[1] ? -1 : 1;
-    if (!depth) { end = m.index; break; }
-  }
-  assert.ok(end > start, 'shell.html’s #np is not closed');
-  return html.slice(start, end);
-}
+/**
+ * npMarkup is the bar's markup: the Transport's template
+ * (lib/components/transport/index.js), which the shell's #np is filled
+ * from as it mounts. npIds are the ids its parts take there, each
+ * np-<part> (cx.id on the root #np).
+ */
+const npMarkup = () => TEMPLATE;
+const npIds = () => [...TEMPLATE.matchAll(/\bdata-part="([^"]+)"/g)].map((m) => `np-${m[1]}`);
 
-test('Guardrail 20: every id inside the shell’s #np is np-<name>, as cx.id names a component’s', () => {
-  // docs/plan/transport-extraction.md, decision 1; components.md 1.3: a
+test('Guardrail 20: the bar’s template writes no id; each part is named by data-part, and takes np-<name> from cx.id', () => {
+  // docs/architecture/components.md, 1.3; bar.md, *The template*: a
   // component writes an id only through cx.id(name), its root's id and the
-  // name, so the bar's are np-<name> before it moves into its template.
-  const ids = [...npMarkup().matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(ids.length > 20, 'read the ids inside #np');
-  assert.deepEqual(ids.filter((id) => !id.startsWith('np-')), [], 'an id inside #np that is not np-<name>');
+  // name, so the bar's parts are np-<name> on the shell's #np, and the
+  // shell's #np holds nothing until the Transport fills it.
+  assert.doesNotMatch(TEMPLATE, /\sid\s*=/, 'the template writes an id of its own: name the part (data-part)');
+  assert.ok(npIds().length > 20, 'read the parts of the template');
+  const html = read('shell.html');
+  assert.match(html, /<section id="np" class="np" aria-label="Now playing" data-size="full" hidden><\/section>/, 'the shell’s #np is the Transport’s root, empty, with its class from the first frame');
+  // fill() gives each its id from the one it is handed (cx.id's), in order.
+  const doc = fakeDoc();
+  const root = doc.createElement('section');
+  root.id = 'np';
+  fill(root, (p) => `np-${p}`);
+  assert.deepEqual([...root.querySelectorAll('[data-part]')].map((el) => el.id), npIds());
 });
 
 test('Guardrail 21: the overview is the Studio’s, put into the bar’s strip through its slot; the bar’s markup does not carry it, and the Studio holds it', () => {
-  // docs/plan/transport-extraction.md, decision 4; bar.md, *The Studio's
+  // docs/architecture/bar.md, *The Transport's extraction*, decision 4; bar.md, *The Studio's
   // part of the bar*: the overview (#np-tape-overview) is the Studio's
   // markup, which the Studio puts at the start of the bar's strip
   // (ctx.barSlot.add(el, { place: 'strip' })), so it is in the page only
   // while the Studio is shown. The Studio's page is handed it
   // (mountTapePage(ctx, { overview })) and holds it: a look-up by id
   // answers null while another room is shown.
-  assert.doesNotMatch(npMarkup(), /\bid="np-tape-overview"/, 'the shell’s #np carries the Studio’s overview: it is the Studio’s markup, in the bar through ctx.barSlot');
+  assert.doesNotMatch(npMarkup(), /\bdata-part="tape-overview"/, 'the Transport’s template carries the Studio’s overview: it is the Studio’s markup, in the bar through ctx.barSlot');
   const lookups = [
     /(?<![\w$])(\$|getElementById)\(\s*['"`]np-tape-overview['"`]/,
     /querySelector(All)?\(\s*['"`][^'"`]*#np-tape-overview(?![\w-])/,
@@ -511,7 +517,7 @@ test('Guardrail 21: the overview is the Studio’s, put into the bar’s strip t
 });
 
 test('Guardrail 22: the Studio and the rooms reach the bar through its verbs and callbacks, never by the ids inside #np', () => {
-  // docs/plan/transport-extraction.md, step 5c; bar.md, *The Studio's
+  // docs/architecture/bar.md, *The Transport's extraction*, step 5c; bar.md, *The Studio's
   // keys*: ▶ is the engine's verb (ctx.engine.bar.playPause()), and so is
   // L (setLoop); focusing ▶ and wiring the tempo's menu on its key are
   // calls on ctx.tapeKeys (focusPlay(), tempo(fn), which hands fn the key);
@@ -519,7 +525,7 @@ test('Guardrail 22: the Studio and the rooms reach the bar through its verbs and
   // goes in the bar's strip through ctx.barSlot. A look-up by an id inside
   // the bar's root (its template's, once it is a component) reaches inside
   // it, and breaks the day those ids are cx.id's.
-  const ids = [...npMarkup().matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  const ids = npIds();
   assert.ok(ids.includes('np-play') && ids.includes('np-sync'), 'read the ids inside #np');
   const IDS = ids.map((id) => id.replace(/[-]/g, '\\-')).join('|');
   const lookups = [
@@ -544,7 +550,7 @@ test('Guardrail 22: the Studio and the rooms reach the bar through its verbs and
   assert.deepEqual(found, [], 'reaches inside the bar by an id: press its verb (ctx.engine.bar), call ctx.tapeKeys or ctx.openOutput, or go through ctx.barSlot');
   // ▶ never keeps ↵ from the Studio's buffer (lib/buffer/keys.js): the bar
   // says so on the key, which the buffer reads instead of its id.
-  assert.match(npMarkup(), /<button\b[^>]*\bid="np-play"[^>]*\bdata-gives-enter\b/, '▶ is marked data-gives-enter');
+  assert.match(npMarkup(), /<button\b[^>]*\bdata-part="play"[^>]*\bdata-gives-enter\b/, '▶ is marked data-gives-enter');
 });
 
 // ---- the components: lib/components/ ---------------------------------------
@@ -561,8 +567,10 @@ const COMPONENT_RULES = [
   [/['"`]\/api(?![\w-])/, 'names a route: that is lib/models/protocol.js’s'],
   // The window and the document only as cx.on's target (taken out first,
   // below): a look-up, a listener of its own, document.onkeydown, the
-  // root's ownerDocument or its defaultView all reach outside its root.
-  [/\b(window|document|globalThis|ownerDocument|defaultView)\b/, 'reaches outside its root: the window and the document are cx.on’s targets and nothing else (a sheet or a drag’s ghost is a lib/ui interface)'],
+  // root's ownerDocument or its defaultView all reach outside its root. A
+  // hyphenated name that ends in one (a template's class, np-window) is a
+  // name, not the window.
+  [/(?<![\w$-])(window|document|globalThis|ownerDocument|defaultView)\b/, 'reaches outside its root: the window and the document are cx.on’s targets and nothing else (a sheet or a drag’s ghost is a lib/ui interface)'],
   [/(^|[^.\w$])addEventListener\s*\(/m, 'listens on the window: cx.on'],
   [/\bsetInterval\s*\(/, 'polls: a model asks, and cx.loop steps what is drawn'],
   [/hindsight:/, 'says or hears a page-wide event: a model’s onChange, a verb, or a callback the surface passes'],
@@ -611,16 +619,18 @@ test('Guardrail 15: a component draws inside its root, from its models, and reac
   assert.deepEqual(found, []);
 });
 
-// The bar's modules keep Guardrail 15 where they are, before they move into
-// lib/components/transport/ (docs/plan/transport-extraction.md, step 5f):
+// The Transport's modules (lib/components/transport/, the bar; bar.md),
+// and what it shares with Open from lib/bar/, keep more than Guardrail 15:
 // each finds its parts inside the root it is handed and reaches past it only
-// through its caller's cx-shaped dependencies (on, media, layers, floor,
-// visible), never the document, the window or globalThis, and takes no doc.
-// The movers whole, slots.js whole (shared with Open: deviceOf, partOf),
-// and player.js's playerKeys, the bar's half of the shared player (its
-// playerSheet and initPlayer are the surfaces'). No list of exceptions.
-const BAR_MOVERS = ['bar', 'fold', 'phone-key', 'press-note', 'take-keys', 'tape-keys', 'source-menu', 'slots']
-  .map((m) => `lib/bar/${m}.js`);
+// through its cx (on, media, layers, floor, visible), never the document,
+// the window or globalThis, and takes no doc. Its own modules, slots.js
+// (deviceOf, partOf) and press-light.js whole, and player.js's playerKeys,
+// the bar's half of the shared player (its playerSheet and initPlayer are
+// the surfaces'). No list of exceptions.
+const BAR_MODULES = () => [
+  ...componentFiles().filter((f) => f.startsWith('lib/components/transport/')),
+  'lib/bar/slots.js', 'lib/bar/press-light.js',
+];
 // What COMPONENT_RULES' regexes don't see, and the bar did: a look-up by id
 // in a document, a document handed in, the screen or the page's storage
 // asked of the window.
@@ -641,14 +651,16 @@ function barReaches(name, src) {
   return found;
 }
 
-test('Step 5f: the bar’s modules keep Guardrail 15 in place, through their callers’ cx', async () => {
+test('Step 5f: the Transport’s modules, and what it shares with Open, reach the page only through its cx', async () => {
   const { playerKeys } = await import('./bar/player.js');
+  const files = BAR_MODULES();
+  assert.ok(files.includes('lib/components/transport/bar.js') && files.includes('lib/components/transport/index.js'), 'read the Transport’s modules');
   const found = [];
-  for (const f of BAR_MOVERS) found.push(...barReaches(f, read(f)));
+  for (const f of files) found.push(...barReaches(f, read(f)));
   found.push(...barReaches('lib/bar/player.js playerKeys', playerKeys.toString()));
   assert.deepEqual(found, []);
   // The bar is handed its root and its cx; it finds nothing by itself.
-  const bar = componentCode(read('lib/bar/bar.js'));
+  const bar = componentCode(read('lib/components/transport/bar.js'));
   assert.match(bar, /constructor\(root, \{[^}]*\} = \{\}, cx\)/, 'NowPlaying(root, models, cx)');
   assert.doesNotMatch(bar, /\$\(['"]np-/, 'a part by its name inside the root, as cx.id names it');
 });
@@ -678,14 +690,17 @@ test('Guardrail 15 reads what a component must not do, and lets be what it may',
     'el.id = cx.id("play")', 'root.innerHTML = `<b data-id="x"></b>`', 'model.history.length', 'take.location',
     'const top = 1; // document.body, in a comment', "const href = 'http://x'",
     "import { ReelWindow } from './objects/reel-window.js';", "export { PHONE } from './bar/slots.js';",
+    'root.innerHTML = `<div class="np-window" data-slot="deck"></div>`',
   ]) assert.ok(!caught(fine), `let be: ${fine}`);
   // The file an import names is let be, and nothing after it on its line.
   for (const bad of [
     "import { a } from './theme.js'; document.body.append(x)", "import './theme.js'; window.x = 1",
   ]) assert.ok(caught(bad), `caught, after an import: ${bad}`);
   // Only a static import's file is let be: a dynamic import's is read as
-  // code, so this one, with nothing else on its line, is still caught.
-  assert.ok(caught("const m = await import('./objects/reel-window.js'); m.go(x)"), 'a dynamic import’s file is read');
+  // code, so this one, with nothing else on its line, is still caught. (A
+  // hyphenated name, reel-window.js, is a name either way.)
+  assert.ok(caught("const m = await import('./room/art/window.js'); m.go(x)"), 'a dynamic import’s file is read');
+  assert.ok(!caught("const m = await import('./objects/reel-window.js'); m.go(x)"), 'a hyphenated name is not the window');
 });
 
 // compounds is a selector as its compound selectors, each with the
@@ -788,7 +803,7 @@ test('Guardrail 15 reads a selector’s compounds: what is inside brackets whole
 });
 
 // The bar's stylesheet keeps Guardrail 15's stylesheet half in place, before
-// the bar moves into lib/components/ (docs/plan/transport-extraction.md, 5d):
+// the bar moves into lib/components/ (docs/architecture/bar.md, *The Transport's extraction*, 5d):
 // every selector in css/bar.css starts at .np, its root, and reads the page
 // only off the root (data-fold, data-open, data-docked), never off <body>.
 // Its menus' panels too, which are inside #np (5e) and open in the top
@@ -812,10 +827,10 @@ test('the bar’s guardrail reads a selector that starts outside .np, beside it,
 
 test('the bar’s menus are inside #np, and open in the top layer', () => {
   const np = npMarkup();
-  for (const id of ['np-catch-menu', 'np-source-menu', 'np-phone-menu']) {
-    assert.match(np, new RegExp(`<div id="${id}" class="menu ${id}"`), `#${id} is inside #np`);
-    assert.doesNotMatch(read('shell.html').replace(np, ''), new RegExp(`id="${id}"`), `and only there`);
+  for (const part of ['catch-menu', 'source-menu', 'phone-menu']) {
+    assert.match(np, new RegExp(`<div data-part="${part}" class="menu np-${part}"`), `#np-${part} is inside #np`);
+    assert.doesNotMatch(read('shell.html'), new RegExp(`id="np-${part}"`), `and only there`);
   }
-  for (const f of ['lib/bar/tape-keys.js', 'lib/bar/source-menu.js', 'lib/bar/phone-key.js'])
+  for (const f of ['tape-keys', 'source-menu', 'phone-key'].map((m) => `lib/components/transport/${m}.js`))
     assert.match(read(f), /\b(menu|splitKey)\([^)]*\bpopover: true\b/, `${f} opens its panel as a popover`);
 });

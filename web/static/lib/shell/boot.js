@@ -9,14 +9,15 @@ import { initNav, navTabs } from '/lib/nav.js';
 import { toast } from '/lib/toast.js';
 import { watchLink } from '/lib/link.js';
 import { createEngine } from '/lib/models/engine.js';
-import { NowPlaying } from '/lib/bar/bar.js';
+import transportComponent, { TAPE_KEYS } from '/lib/components/transport/index.js';
+import { mountComponent } from '/lib/components/mount.js';
+import { relay } from '/lib/components/relay.js';
 import { barLayout } from '/lib/bar/layout.js';
 import { playerSheet, PHONE } from '/lib/bar/player.js';
 import { measureBar } from '/lib/bar/slots.js';
 import { phoneRecorder } from '/lib/phone/recorder.js';
 import { outputSheet } from '/lib/tape/out-switch.js';
 import { createView, shellScope } from '/lib/shell/view.js';
-import { barTop } from '/lib/ui/menu.js';
 import { createRouter } from '/lib/shell/router.js';
 import { roomView } from '/lib/shell/views/room.js';
 import { studioView } from '/lib/shell/views/studio.js';
@@ -79,20 +80,22 @@ const recorder = phoneRecorder(document, { toast });
 // Studio, once the engine has a tape to send; it asks the Pi as it opens,
 // so it's never a few seconds behind.
 const openOutput = outputSheet(engine);
-// The bar (lib/bar/bar.js) draws the engine on #np, the same in every room;
-// the room shown is the router's, and the bar is kicked as it switches. It
-// belongs to no room: it reaches past its root through the shell's scope
-// (shellScope, lib/shell/view.js), handed in as a component's cx is
-// (lib/components/mount.js), with what is the page's in its props.
-const shell = shellScope({ shared: { layers } });
-const np = new NowPlaying(npRoot, { engine, tape, recorder }, {
-  on: shell.ctx.on,
-  media: shell.ctx.media,
-  layers: shell.ctx.layers,
-  visible: shell.ctx.active,
-  floor: barTop(document),
-  toast,
-  props: { layout, player, output: openOutput, room: () => router?.shown() ?? null },
+// The bar, the Transport (lib/components/transport/), draws the engine on
+// #np, the same in every room: a component, mounted in the shell's scope
+// (shellScope, lib/shell/view.js), which belongs to no room, with what is
+// the page's in its props. The room shown is the router's, and the bar
+// hears it switch (onRoom). The Studio presses its ●, Catch and click
+// through a relay the Transport provides them to (ctx.tapeKeys).
+const shell = shellScope({ shared: { layers, toast } });
+const roomHooks = new Set();
+const tapeKeys = relay(TAPE_KEYS);
+mountComponent(transportComponent, npRoot, { bar: engine.bar, transport: engine.transport, tape, takes, recorder }, shell.ctx, {
+  layout,
+  player,
+  output: openOutput,
+  room: () => router?.shown() ?? null,
+  onRoom(fn) { roomHooks.add(fn); return () => roomHooks.delete(fn); },
+  tapeKeys,
 });
 
 // The notes drawer (lib/room/drawer.js), the shell's one, the same in every
@@ -150,7 +153,7 @@ const slots = {
   bar: { parent: () => $('np'), places: { strip: () => $('np')?.querySelector('[data-slot="strip"]') } },
 };
 
-const shared = { engine, barLayout: layout, tapeKeys: np.tapeKeys, openOutput, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
+const shared = { engine, barLayout: layout, tapeKeys: tapeKeys.api, openOutput, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };
 
 const views = [];
 const studioRoot = $('view-studio');
@@ -184,7 +187,7 @@ router = createRouter({
   chrome: {
     setPath(path) {
       // The room shown changed: the bar says whether the tempo opens a menu.
-      np.kick();
+      for (const fn of roomHooks) fn();
       const nav = document.querySelector('.appnav');
       if (!nav) return;
       const tabs = navTabs(path, tapeOn() !== false);

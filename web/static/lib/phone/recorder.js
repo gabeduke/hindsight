@@ -1,7 +1,7 @@
 // The phone recorder: records the phone's mic, or an input plugged into the
 // phone, straight into Hindsight. One per page (phoneRecorder), on the
 // page's #phone-sheet: Capture's ● Phone, the Studio's, the tape's menu
-// (Record from this phone…) and the mini player's ● (lib/bar/phone-key.js)
+// (Record from this phone…) and the mini player's ● (lib/components/transport/phone-key.js)
 // all drive the same one, so they all show the one recording.
 //
 // Opening the sheet asks for the input and starts a meter, so the level can

@@ -1,4 +1,4 @@
-// web/static/lib/bar/fold.js
+// web/static/lib/components/transport/fold.js
 // The bar folds by the grabber on its top edge (docs/architecture/
 // bar.md, "It folds by its grabber"): a tap folds it or unfolds it, a drag
 // down folds it and a drag up unfolds it. Folded, it is one row of keys and
@@ -11,8 +11,8 @@
 // (a FLIP), so nothing but a transform moves on each frame. On a phone the
 // grabber belongs to the player pulled up, which it puts away (player.js).
 
-import { GESTURE } from '../ui/press.js';
-import { partOf } from './slots.js';
+import { GESTURE } from '../../ui/press.js';
+import { partOf } from '../../bar/slots.js';
 
 /** REDUCED is the screen asking for less motion: the fold is a change, not a slide. */
 export const REDUCED = '(prefers-reduced-motion: reduce)';

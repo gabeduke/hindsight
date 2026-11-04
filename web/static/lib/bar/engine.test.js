@@ -45,7 +45,7 @@ test('with no tape on the Pi the engine holds nothing, and the bar waits hidden'
   assert.equal(engine.feed, null, 'the feed is not made until it is chosen');
   assert.equal(engine.bar.src, null);
   assert.equal(engine.bar.snapshot().kind, null);
-  assert.equal(page.np.held, engine.bar.snapshot().id, 'the bar has drawn the engine’s nothing');
+  assert.equal($('np').getAttribute('data-source'), null, 'the bar has drawn the engine’s nothing');
   assert.equal(bar.sourceKind, null);
   assert.equal($('np').hidden, true);
 });
@@ -64,7 +64,7 @@ test('a tape made after the engine was (a Pi'+"'"+'s first) is mounted by setTap
 test('with a tape on the Pi the bar holds it, and the engine has the tape and its player on this device', async () => {
   const { engine, bar, $, frames } = await open();
   assert.equal(engine.tape.kind, 'tape');
-  assert.equal(page.np.held, engine.bar.snapshot().id, 'the bar NowPlaying draws is the engine’s');
+  assert.equal($('np').getAttribute('data-source'), engine.bar.snapshot().kind, 'the bar the Transport draws is the engine’s');
   assert.equal($('np').getAttribute('data-source'), 'tape');
   assert.equal(bar.sourceKind, 'tape');
   assert.equal(engine.stream.active, false, 'not listening here until asked');
@@ -406,11 +406,11 @@ test('the engine and the output UI make one StreamPlayer', async () => {
 
 
 test('what redraws the bar from outside (a room switch, the scheme, the screen’s shape) asks the engine for a frame', async () => {
-  const { engine, w } = await open();
+  const { engine, w, $ } = await open();
   w.raf.length = 0;
   page.np.kick();
   assert.ok(w.raf.length > 0, 'a frame is asked for');
-  assert.equal(page.np.held, engine.bar.snapshot().id);
+  assert.equal($('np').getAttribute('data-source'), engine.bar.snapshot().kind);
   assert.equal(engine.bar.snapshot().kind, 'tape');
 });
 

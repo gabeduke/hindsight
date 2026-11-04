@@ -4,7 +4,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { outStrip, clockLamp } from './tape-status.js';
-import { barPage } from './bar-harness.js';
+import { barPage } from '../../bar/bar-harness.js';
 
 const SR = 48000;
 const BAR = 2.5 * SR;
@@ -134,7 +134,7 @@ test('the bar draws the output strip while the tape plays on this phone, with no
 
 test('with a take in the bar, the strip still follows this phone’s sound as it changes', async () => {
   const { $, engine } = await open({ output_mode: 'phone', playing: true });
-  const { aTake } = await import('./bar-harness.js');
+  const { aTake } = await import('../../bar/bar-harness.js');
   const take = aTake('jam_a.wav');
   engine.bar.loadTake(take.t, take.player);
   assert.equal(engine.bar.sourceKind, 'take');

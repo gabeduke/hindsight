@@ -86,6 +86,9 @@
   --well:      #161718;
   --well-hi:   #0e0f10;
   --well-line: rgba(0, 0, 0, .6);
+  /* A well's inset, the same in both schemes: the bar's output strip, the
+     banner while a phone has the tape. */
+  --well-sh:   rgba(0, 0, 0, .6);
   --well-ink:  #f2e6c8;
   --well-dim:  #a39d90;
   --well-rule: rgba(242, 230, 200, .14);
@@ -1948,12 +1951,12 @@ body.help-mode main { margin-bottom: calc(var(--tip-h, 0px) + 24px); }
 .tape-pill[aria-expanded="true"] { background: var(--panel-2); border-color: var(--focus); }
 .tape-pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 @media (hover: hover) { .tape-pill:not(:disabled):not(:active):not(.down):hover { background: var(--panel-2); } }
-/* Where the tape plays: the strip across the top of the bar, the banner
-   other devices show while a phone has the tape, and the Output sheet. */
-.out-strip, .out-banner { display: flex; align-items: center; gap: 10px; padding: 0 12px; min-height: 40px; border-radius: 10px;
-  background: var(--well); color: var(--well-ink); box-shadow: inset 0 2px 5px rgba(0,0,0,.6), 0 1px 0 var(--hl); font-size: 13.5px; }
-.out-strip[hidden], .out-banner[hidden] { display: none; }
-.out-banner { border-radius: 0; min-height: 56px; padding: 0 20px; font-size: 14.5px; }
+/* Where the tape plays: the banner other devices show while a phone has
+   the tape, and the Output sheet. The strip across the top of the bar,
+   which looks the same, is the bar's (css/bar.css, .np .out-strip). */
+.out-banner { display: flex; align-items: center; gap: 10px; padding: 0 20px; min-height: 56px; border-radius: 0;
+  background: var(--well); color: var(--well-ink); box-shadow: inset 0 2px 5px var(--well-sh), 0 1px 0 var(--hl); font-size: 14.5px; }
+.out-banner[hidden] { display: none; }
 .out-banner-text { flex: 1; min-width: 0; }
 #np-out-strip-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #np-out-strip-right { color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent); font-size: 12px; font-weight: 600; }
@@ -2210,7 +2213,7 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
   padding: 4px; border: 1px solid var(--line);
 }
 /* The head of the track a press on the keyboard put a clip on, lit for its
-   second (lib/bar/press-note.js lightFor), and the bar's ▶ or ● it pressed
+   second (lib/bar/press-light.js lightFor), and the bar's ▶ or ● it pressed
    (css/bar.css draws their outline), each in the press's colour. */
 .tt-head.kb-lit { outline: 2px solid var(--kb, var(--ink)); outline-offset: -2px; }
 .kb-lit[data-kb="play"] { --kb: var(--go); }

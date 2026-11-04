@@ -2,7 +2,7 @@
 // phone has it, and the output sheet's state, rendered over the engine's one
 // StreamPlayer (engine.output). The strip across the top of the bar, while
 // it plays on this phone, is the bar's, drawn in every room
-// (lib/bar/tape-status.js).
+// (lib/components/transport/tape-status.js).
 import { paintOutSheet, outDelay } from './out-switch.js';
 
 const $ = (id) => document.getElementById(id);

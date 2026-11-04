@@ -76,7 +76,7 @@ export function mountCapture(ctx) {
   const shelfBench = matchMedia('(min-width: 900px) and (orientation: landscape) and (min-height: 561px)');
   const shelfCount = () => (shelfWide.matches ? 6 : shelfBench.matches ? 4 : 3);
 
-  // The now-playing bar: the tape, or a spine pressed (lib/bar/bar.js).
+  // The now-playing bar: the tape, or a spine pressed (lib/components/transport/bar.js).
   const np = ctx.engine?.bar || null;
 
   const navigateTo = (url) => ctx.go(url);

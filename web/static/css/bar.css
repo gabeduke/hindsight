@@ -1,6 +1,6 @@
 /* web/static/css/bar.css
    The bar: the one transport, docked at the foot of both rooms and of Open,
-   the same object across a room switch (lib/bar/bar.js;
+   the same object across a room switch (lib/components/transport/bar.js;
    docs/architecture/bar.md). Every rule that draws it is here, and nowhere else: it once had
    232 selectors in 14 sections of styles.css, hid its keys with :not() lists
    and !important, and ran off a tablet's right edge.
@@ -44,7 +44,9 @@
   box-shadow: inset 0 1px 0 var(--hl), 0 -12px 24px -18px var(--sh-strong);
 }
 .np[hidden] { display: none; }
-.np .out-strip { min-height: 32px; font-size: 13px; }
+.np .out-strip { display: flex; align-items: center; gap: 10px; padding: 0 12px; min-height: 32px; border-radius: 10px;
+  background: var(--well); color: var(--well-ink); box-shadow: inset 0 2px 5px var(--well-sh), 0 1px 0 var(--hl); font-size: 13px; }
+.np .out-strip[hidden] { display: none; }
 
 /* ---------- its rows and zones ---------- */
 /* The first row is the container its widths are asked of (not .np, nor the
@@ -126,7 +128,7 @@
 /* Amber on black in both schemes, like every counter here: where it is
    (the lamp, BAR and the position, the time under them), then three keys,
    each a value over its legend -- the tempo, the source and where it plays
-   -- ruled apart. A tap on one opens its menu (lib/bar/bar.js). */
+   -- ruled apart. A tap on one opens its menu (lib/components/transport/bar.js). */
 .np .np-lcd {
   position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; height: auto;
   display: flex; flex-wrap: wrap; align-items: stretch; overflow: hidden;
@@ -208,7 +210,7 @@
 .np .np-long { display: none; }
 
 /* ---------- the keyboard's press ---------- */
-/* A press on the keyboard (lib/bar/press-note.js): its words over the
+/* A press on the keyboard (lib/components/transport/press-note.js): its words over the
    display for the second the keyboard's own screen shows them, on the
    display's black, in the press's colour (PLAY green, KEEP red, STOP and
    the verbs the display's own ink), the keyboard's mark before them. A
@@ -339,7 +341,7 @@
 }
 /* The tape on a phone: Catch needs the jam room. */
 .np :is(#np-catch-pass, #np-catch-more).jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
-/* Its menu (lib/bar/tape-keys.js renderMenu): menu.js's rows; why one can't go yet wraps under it.
+/* Its menu (lib/components/transport/tape-keys.js renderMenu): menu.js's rows; why one can't go yet wraps under it.
    The bar's three menus open in the top layer (menu.js's popover), so they
    are over the phone's player pulled up, where Catch and the display are,
    with no z-index of their own. */
@@ -355,9 +357,9 @@
 .np .np-grab-word { font: 700 15px var(--label-font); letter-spacing: .14em; }
 .np .np-grab-sub { font: 400 11px var(--font); color: var(--ink-dim); white-space: nowrap; }
 
-/* ---------- the source's menu (lib/bar/source-menu.js) ---------- */
+/* ---------- the source's menu (lib/components/transport/source-menu.js) ---------- */
 .np .np-source-menu { min-width: 240px; max-width: calc(100vw - 16px); }
-/* ---------- the phone's ▾: record from this phone (lib/bar/phone-key.js) ---------- */
+/* ---------- the phone's ▾: record from this phone (lib/components/transport/phone-key.js) ---------- */
 .np .np-phone-menu { min-width: 250px; max-width: calc(100vw - 16px); }
 /* While the phone records, its ▾ is red too (● is pressed: .tb-rec's). */
 .np .np-phone-more.recording { color: var(--rec); }
@@ -426,7 +428,7 @@
 /* ---------- the grabber, and the bar folded ---------- */
 /* A pill on a lip above the bar's top edge, inside a 96×44 button that
    rises from the bar's top padding, so its hit area never covers a key
-   (lib/bar/fold.js: a tap folds or unfolds, a drag down folds, up unfolds). */
+   (lib/components/transport/fold.js: a tap folds or unfolds, a drag down folds, up unfolds). */
 .np .np-grabber {
   position: absolute; left: 50%; top: -35px; z-index: 2; translate: -50% 0;
   width: 96px; height: 44px; margin: 0; padding: 0; border: 0; background: transparent;
@@ -534,13 +536,13 @@
   .np[data-size="mini"] .icon-btn { height: 50px; min-height: 50px; width: 44px; }
   .np[data-size="mini"] .tb-play { width: 50px; }
   /* The big red ●, and its ▾ (the phone's input) joined to it: the tape's
-     ● in the Studio, this phone's everywhere else (lib/bar/phone-key.js). */
+     ● in the Studio, this phone's everywhere else (lib/components/transport/phone-key.js). */
   .np[data-size="mini"] .tb-rec { width: 46px; }
   .np[data-size="mini"] .tb-rec .i { width: 24px; height: 24px; }
   .np[data-size="mini"] .np-phone-more { width: 26px; margin-left: -4px; padding: 0; }
   .np[data-size="mini"] .np-catch { min-width: 64px; padding: 0 6px; flex: 1 1 auto; }
   .np[data-size="mini"] .np-catch-sub { display: none; }
-  /* Catch's own short second line down here (.np-catch-mini, lib/bar/tape-keys.js): "→ 2",
+  /* Catch's own short second line down here (.np-catch-mini, lib/components/transport/tape-keys.js): "→ 2",
      "in 1 pass" say what it catches and why it waits. */
   .np[data-size="mini"] .np-catch .np-catch-mini { display: block; font: 500 9px/1.1 var(--mono); opacity: .88; white-space: nowrap; }
   .np[data-size="mini"] .np-catch-more { width: 28px; }

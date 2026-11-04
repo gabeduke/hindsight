@@ -1,4 +1,4 @@
-// web/static/lib/bar/phone-key.js
+// web/static/lib/components/transport/phone-key.js
 // Recording from a phone, from its mini player (the studio space's
 // decisions, "Recording from a phone"; docs/architecture/bar.md): a big red
 // ● that records from this phone, and its input on a ▾ beside it. In the
@@ -12,9 +12,9 @@
 // (lib/phone/recorder.js phoneRecorder): the sheet, the rooms' ● Phone and
 // these all show the same one.
 
-import { menu, menuItem, menuRows } from '../ui/menu.js';
-import { fmtClock } from '../phone/recorder.js';
-import { partOf } from './slots.js';
+import { menu, menuItem, menuRows } from '../../ui/menu.js';
+import { fmtClock } from '../../phone/recorder.js';
+import { partOf } from '../../bar/slots.js';
 
 const setAttr = (el, k, v) => { if (el && el.getAttribute(k) !== v) el.setAttribute(k, v); };
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pressNote, lightFor, lightTrackHead } from './press-note.js';
+import { pressNote } from './press-note.js';
 
 // Enough of an element for the note: hidden, dataset, classList, text.
 function el() {
@@ -68,35 +68,4 @@ test('KEEP lights ●; a Mixer press carries its track, for its colour', () => {
   assert.ok(n.keys.rec.classList.contains('kb-lit'));
   note.show(press({ words: 'MUTE T3', role: 'mixer', lit: ['track'], track: 3 }));
   assert.equal(n.el.dataset.kbTrack, '3');
-});
-
-test('lightFor lights a track\'s head for the second, a second press starting it again', () => {
-  const env = timers();
-  const head = el();
-  lightFor([head, null], press({ role: 'verb', lit: ['track'], track: 2 }), env);
-  assert.ok(head.classList.contains('kb-lit'));
-  assert.equal(head.dataset.kbTrack, '2');
-  env.advance(600);
-  lightFor([head], press({ role: 'verb', lit: ['track'], track: 2 }), env);
-  env.advance(600);
-  assert.ok(head.classList.contains('kb-lit'), 'the first light\'s timer was put by');
-  env.advance(400);
-  assert.ok(!head.classList.contains('kb-lit'));
-  assert.equal(head.dataset.kbTrack, undefined);
-});
-
-test('the Studio lights the head of the track a CATCH or DROP put a clip on, and no other', () => {
-  const env = timers();
-  const rows = [1, 2, 3, 4].map((n) => {
-    const head = el();
-    return { n, head, row: { querySelector: (q) => (q === '.tt-head' ? head : null) } };
-  });
-  const lit = () => rows.filter((r) => r.head.classList.contains('kb-lit')).map((r) => r.n);
-  assert.equal(lightTrackHead(rows, press({ words: 'DROPPED ON T2', role: 'verb', lit: ['track'], track: 2 }), env), rows[1].head);
-  assert.deepEqual(lit(), [2]);
-  env.advance(1000);
-  assert.deepEqual(lit(), []);
-  assert.equal(lightTrackHead(rows, press({ words: 'PLAY' }), env), null, 'PLAY lights no head');
-  assert.equal(lightTrackHead(rows, press({ words: 'X', role: 'verb', lit: ['track'], track: 7 }), env), null, 'a track the tape has not got');
-  assert.deepEqual(lit(), []);
 });

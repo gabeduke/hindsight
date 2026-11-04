@@ -1,5 +1,5 @@
 // The phone's player (lib/bar/player.js), in two halves (D5,
-// docs/plan/transport-extraction.md): the sheet is the surface's
+// docs/architecture/bar.md, *The Transport's extraction*): the sheet is the surface's
 // (playerSheet), the keys the bar's (playerKeys), which open it, put it
 // away, hand it a drag and lend it the key the focus goes back to.
 import { test } from 'node:test';

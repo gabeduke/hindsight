@@ -19,7 +19,7 @@
 // A press on the keyboard (docs/architecture/push.md, *The keyboard's press*)
 // comes on it too, the moment it is made, under `press`: the banner's
 // words, its role, what it lit and when its second began, by the Pi's
-// clock. pressOf reads one; the bar shows it (lib/bar/press-note.js).
+// clock. pressOf reads one; the bar shows it (lib/components/transport/press-note.js).
 //
 // Each message carries the take list's revision too, as takes_rev
 // (docs/architecture/push.md, *The takes' revision*): onTakes hears every

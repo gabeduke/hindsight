@@ -1,9 +1,10 @@
-// web/static/lib/bar/press-note.js
+// web/static/lib/components/transport/press-note.js
 // The keyboard's press on the bar (docs/architecture/push.md, *The
 // keyboard's press*): the banner's words over the bar's display for the second the
 // keyboard shows them, marked as the keyboard's by its icon, in the press's
 // colour (amber for a refusal), and what it changed lit for that second:
-// ▶, ●, or (lightFor, from the Studio) a track's head.
+// ▶ or ● (lightFor, lib/bar/press-light.js, which lights a track's head
+// for the Studio too).
 //
 // The press comes from the tape's changes socket (lib/tape/changes.js
 // pressOf), through the bar's tape source (lib/models/tape-source.js onPress). The note
@@ -16,39 +17,8 @@
 // are emptied when it goes. It is never `hidden`, which would take it out
 // of the tree and leave nothing to announce.
 
-import { partOf } from './slots.js';
-
-const LIT_CLASS = 'kb-lit';
-
-// What is lit, and the timer that puts it out, per element: a second press
-// on the same key starts its second again.
-const lights = new WeakMap();
-
-/**
- * lightFor lights els in p's role for what is left of p's second
- * (p.ms): data-kb carries the role, and data-kb-track a Mixer press's
- * track, for its colour. env's timers are for tests.
- */
-export function lightFor(els, p, env = {}) {
-  const wait = env.setTimeout ?? setTimeout;
-  const unwait = env.clearTimeout ?? clearTimeout;
-  for (const el of els) {
-    if (!el) continue;
-    const was = lights.get(el);
-    if (was) unwait(was);
-    el.classList.add(LIT_CLASS);
-    el.dataset.kb = p.role;
-    if (p.track) el.dataset.kbTrack = String(p.track); else delete el.dataset.kbTrack;
-    lights.set(el, wait(() => putOut(el), p.ms));
-  }
-}
-
-function putOut(el) {
-  lights.delete(el);
-  el.classList.remove(LIT_CLASS);
-  delete el.dataset.kb;
-  delete el.dataset.kbTrack;
-}
+import { partOf } from '../../bar/slots.js';
+import { lightFor } from '../../bar/press-light.js';
 
 /**
  * pressNote is the note on the bar's display: `el` (#np-press), its words
@@ -84,18 +54,6 @@ export function pressNote({ el, words, keys = {} }, env = {}) {
     clear,
     get showing() { return showing; },
   };
-}
-
-/**
- * lightTrackHead lights the head of the track p changed (p.track, 1 up),
- * among the Studio's lanes ({n, row}), when p lit a track: the Studio's own
- * part of a press (lib/tape/page.js). Answers the head lit, or null.
- */
-export function lightTrackHead(lanes, p, env = {}) {
-  if (!p || !p.lit.includes('track')) return null;
-  const head = lanes.find((l) => l.n === p.track)?.row.querySelector('.tt-head') ?? null;
-  if (head) lightFor([head], p, env);
-  return head;
 }
 
 /**
