@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.04.2 — 2026-11-04
+
+- The phone's player gives ▣ the focus back once as it is put away, and the recorder's unused waiting list is gone (97b635f2)
+- The bar finds its keys inside itself and reaches the page only through what the shell hands it (970c7453)
+- A menu row can end on an icon's markup, and the scheme's query has a name, for code that names no document (1c4a169e)
+
+
 ## v2026.11.04.1 — 2026-11-04
 
 - The bar's menus (Catch's ▾, what plays, record from this phone) live inside the bar and open over everything (6b7bd369)
