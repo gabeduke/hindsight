@@ -907,6 +907,11 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   el.close.addEventListener('click', close);
   el.unfold.addEventListener('click', () => { st.unfolded = !st.unfolded; render(); });
   el.trim.addEventListener('click', () => { st.trim = !st.trim; render(); });
+  // A tablet turned to a phone's shape, or back, with the drawer open: the
+  // sheet has no small state, so the lanes' classes follow the turn.
+  if (typeof sheetQuery?.addEventListener === 'function') {
+    if (ctx) ctx.on(sheetQuery, 'change', render); else sheetQuery.addEventListener('change', render);
+  }
   // The ruler's own snap, stepped on by the Studio (lib/tape/page.js), which
   // says it back in the detail: ⌗'s View menu sets the same one.
   el.snap.addEventListener('click', () => doc.dispatchEvent(new CustomEvent('hindsight:snap-next')));
