@@ -86,7 +86,9 @@ not walked and is step 1.
    still docked above the bar: decision 0061 stands.
 3. **A track's head is its name, ● and ›, with a mouse as on a touch
    screen.** M, S, the level and the input are in the inspector everywhere.
-   One layout, not two. Extends decision 0059.
+   One layout, not two. Extends decision 0059. Built 2026-11-10: one head,
+   M, S and the level out of it. The input chip is still in the head, until
+   `inputs.md`'s strip gives an input another place to be seen.
 4. **The feed is its ribbon, and a touch on it says "from here".** Gabe,
    2026-11-09: KEEP 30s is rare; he reads the waveform, sees where the jam
    began showing activity, and wants to keep back to that point ("the last
@@ -180,7 +182,7 @@ Each step is one PR, looked at on the tablet before the next, and ends with
    which is the two faces'. Was: tap to set it, KEEP to it, the whole
    ring on the ribbon; J1.1 and J1.3 extended, with the story in
    `docs/flows.md`. Then **the track heads** (decision 3), a PR of their
-   own.
+   own: done 2026-11-10.
    Then **the two faces** (decision 9), once the feed's face and the
    tape's each stand alone.
 4. **The cue clip's panel and the words** (decisions 6, 7), with

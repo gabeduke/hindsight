@@ -2982,21 +2982,14 @@ function buildLanes() {
       row.className = 'tape-track';
       row.innerHTML = `
         <div class="tt-head" data-tip="track">
-          <span class="tt-num" aria-hidden="true"></span>
           <button class="tt-name" type="button"></button>
           <button class="chip tt-arm" type="button" aria-pressed="false" data-tip="track-arm"><span class="tt-arm-dot" aria-hidden="true"></span></button>
           <button class="chip tt-in" type="button" data-tip="track-input"><span class="tt-in-led" aria-hidden="true"></span><span class="tt-in-v"></span></button>
-          <button class="chip tt-mute" type="button" aria-pressed="false" data-tip="track-mute">M</button>
-          <button class="chip tt-solo" type="button" aria-pressed="false" data-tip="track-solo">S</button>
           <span class="tt-pend" hidden></span>
-          <input class="tt-gain" type="range" min="-30" max="6" step="0.5" aria-label="Track level" data-tip="track-gain">
           <button class="chip tt-more" type="button" data-tip="track-more">${icon('right', { size: 14 })}</button>
         </div>
         <canvas class="tt-lane" data-tip="tape-lane"></canvas>`;
       const n = tr.n;
-      // The track's colour, for its number's ring (styles.css .tt-num).
-      row.style.setProperty('--tc', `var(--t${((n - 1) % 4) + 1})`);
-      row.querySelector('.tt-num').textContent = String(n);
       row.querySelector('.tt-name').dataset.n = String(n);
       const lane = {
         n, row,
@@ -3004,10 +2997,7 @@ function buildLanes() {
         arm: row.querySelector('.tt-arm'),
         input: row.querySelector('.tt-in'),
         inputText: row.querySelector('.tt-in-v'),
-        mute: row.querySelector('.tt-mute'),
-        solo: row.querySelector('.tt-solo'),
         pend: row.querySelector('.tt-pend'),
-        gain: row.querySelector('.tt-gain'),
         more: row.querySelector('.tt-more'),
         canvas: row.querySelector('.tt-lane'),
         warn: null,
@@ -3057,13 +3047,9 @@ function buildLanes() {
       warn.hidden = true;
       lane.arm.before(warn);
       mountInputMenu(n, lane.input);
-      lane.mute.addEventListener('click', () => { askHeard(n); patch({ track: { n, mute: !track(n).mute } }); });
-      lane.solo.addEventListener('click', () => { askHeard(n); patch({ track: { n, solo: !track(n).solo } }); });
-      lane.gain.addEventListener('input', () => { lane.gain.dataset.busy = '1'; });
-      lane.gain.addEventListener('change', () => { delete lane.gain.dataset.busy; patch({ track: { n, gain_db: Number(lane.gain.value) } }); });
-      // › opens its inspector in one tap, armed or not, and moves no arm: on
-      // a touch screen M, S and the level are there, not in the head
-      // (styles.css, "the heads on a touch screen").
+      // › opens its inspector in one tap, armed or not, and moves no arm:
+      // M, S and the level are there, not in the head (styles.css, "the
+      // heads").
       lane.more.addEventListener('click', (e) => {
         if (state.track !== n) { state.track = n; render(); }
         openTrack(n, { focus: e.detail === 0 });
@@ -3292,8 +3278,6 @@ function syncLaneRows(t) {
         lane.warn.setAttribute('aria-label', why);
       }
     }
-    setIf(lane.mute, 'aria-pressed', String(!!tr.mute));
-    setIf(lane.solo, 'aria-pressed', String(!!tr.solo));
     // Where M and S are in the inspector, › is lit with them: muted or
     // soloed shows on the head that has neither key.
     const heard = tr.mute ? 'mute' : tr.solo ? 'solo' : '';
@@ -3307,9 +3291,6 @@ function syncLaneRows(t) {
     lane.row.classList.toggle('pending', isPending);
     if (lane.pend.hidden !== !isPending) lane.pend.hidden = !isPending;
     if (isPending) setText(lane.pend, `in ${(output.player.delayMs() / 1000).toFixed(1)} s`);
-    const gain = String(tr.gain_db);
-    if (!lane.gain.dataset.busy && lane.gain.value !== gain) lane.gain.value = gain;
-    setIf(lane.gain, 'title', `${tr.gain_db} dB`);
   }
 }
 
