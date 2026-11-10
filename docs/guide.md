@@ -1581,7 +1581,7 @@ has no tip.
 | ▾ (GRAB) | How much GRAB takes, the last 1, 2, 4 or 8 bars, and from which input: the armed track's, unless you pick one |
 | Feed (lamp) | The feed's lamp: green while it records, amber or red when something wants a look. It opens the feed's readouts, its input channels and the way to the rig |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
-| Ribbon | The last 15 minutes, recent end stretched. Hold and drag to select a span; tap a flag for its options |
+| Ribbon | The last 15 minutes, recent end stretched. In the Studio a tap marks “from here”, and KEEP keeps from the mark to now (a tap at the right edge takes it off). Hold and drag to select a span; tap a flag for its options |
 | Save as take (ribbon) | Save exactly the span you selected on the ribbon as a take |
 | × (ribbon) | Forget the span selected on the ribbon |
 | Save from here to now | Save a take that starts at this flag and runs to now |
@@ -1783,7 +1783,6 @@ has no tip.
 | Last 1 2 4 8 (grab) | How many bars Grab takes. It starts at the tape's loop length, so a grab fits the loop it is for; with no tempo, twice as many seconds |
 | Feed source | Which input Grab takes from |
 | Grab (ribbon) | Put exactly the span you selected on the ribbon onto the cue lane |
-| KEEP (ribbon) | Keep exactly the span you selected on the ribbon as a take; the key says how long it is |
 | Drawer grip | Pull the drawer up or down. Hold it, then drag onto a lane, to drop it there |
 | Inputs (cue) | Which inputs the clip holds, a lane each, all over the same span: tap one to take it again with or without that input. They drop on neighbouring tracks |
 | Audition | Loop the clip on this device, never through the Pi, so the jam goes on |

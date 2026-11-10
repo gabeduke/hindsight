@@ -66,8 +66,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   const drawer = tpl('buffer-panel-tpl').cloneNode(true).children[0];
   if (ctx?.dockSlot) ctx.dockSlot.add(drawer);
   else feed.after(drawer);
-  // GRAB, then KEEP: the selection's two verbs.
-  doc.getElementById('rb-sel')?.querySelector('.rb-sel-save')?.before(tpl('buffer-sel-tpl').cloneNode(true));
+  // GRAB on the selection's bar (KEEP is the feed's own key).
+  doc.getElementById('rb-sel')?.append(tpl('buffer-sel-tpl').cloneNode(true));
 
   // The drawer's own keys by id, found in it wherever the dock has it.
   const $ = (id) => drawer.querySelector(`#${id}`) || doc.getElementById(id);

@@ -1,6 +1,6 @@
 # State of Hindsight
 
-**As of 2026-11-01.** What is open, one or two lines each, with a pointer to
+**As of 2026-11-10.** What is open, one or two lines each, with a pointer to
 where its detail lives. Keep it current and short; when an item closes,
 delete it. How things work is in `docs/architecture.md` (an index of
 `docs/architecture/`); why, and what Gabe has decided, in
@@ -73,6 +73,11 @@ and still looks it:
   handlers in `lib/tape/page.js` before blaming the flow); J1.3's second
   hold-drag on the feed ribbon once didn't open the selection at
   `FLOWS_CPU=4`.
+- **On a phone, Recently deleted's Restore and Delete forever are under the
+  tabs** (2026-11-10): the flows' layout check found both keys' middles
+  under the Listening Room tab once a flow left a take in the trash (J2.11
+  [phone], "layout covered"). No flow had a trash before, so it may be
+  old. Not looked at yet.
 - **Two copies of the display's keys** until 5h: the Transport's
   (its template, `css/bar.css` `.np-lcd-*`) and the `display`
   component's (`lib/components/display`, `css/display.css`), which only
@@ -130,6 +135,17 @@ and still looks it:
 
 ## Next
 
+- **The calm Studio** (`the-calm-studio.md`, direction agreed 2026-11-09):
+  what is on the Studio's screen, and when. The Studio showed 52 things to
+  press; the spec sorts them into always there, there on a touch, and one
+  tap away, and makes the feed and the tape two faces of one room. Built:
+  step 1 (the walk), step 2 (the cue clip's drawer opens small, #278) and
+  the feed's mark of step 3 (a tap on the ribbon, KEEP to it, one KEEP,
+  the VU needles out). Next: the track heads with a mouse as on touch,
+  then the two faces. Gabe's calls before the bar changes are in the spec.
+  `inputs.md` (proposed) folds into its step 4. This comes before the
+  component migration's next row: a component is now moved when a journey
+  needs it.
 
 - **The component migration, paced** (`components.md`, agreed
   2026-10-30). One component per session, one PR each, tried by Gabe on

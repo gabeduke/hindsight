@@ -524,7 +524,20 @@ the input follows the armed track's, with an override in GRAB's ▾. The
 readouts (free disk, dropped buffers, the MIDI tempo, *Input channels*)
 are in a sheet behind the strip's lamp, which lights when something is
 wrong, with a link to the Rig. ● Phone shows on the strip only while it
-records.
+records. The lamp has the level beside it as two bars; the VU needles left
+the Studio on 2026-11-10 and their width is the ribbon's, which lines up
+with nothing under it (its time is the ring's, not the lanes').
+
+**The mark.** A tap on the Studio's ribbon is "from here": a selection
+from that moment to now (`lib/objects/ribbon.js`, `tapMarks`, which only
+the Studio asks for; Capture keeps the hold). A hold and a drag still
+selects a span in the middle. The ribbon says what is selected each time
+it draws it (`onSel`, `selInfo`: its seconds, whether it runs to now), and
+**the feed's own KEEP keeps it** (`lib/rooms/studio.js`, `marked`): the key
+reads its length and "from your mark to now", and with nothing selected
+keeps the length on its ▾ as before. The selection's bar holds what it is,
+× and GRAB, and no Keep of its own: one KEEP on the screen. A tap at the
+ribbon's right edge, which is now, takes the mark off.
 
 **The track heads** (`lib/tape/page.js` `buildLanes`; `styles.css`, *The
 heads on a touch screen*) are each track's name, ●, input chip, M, S and

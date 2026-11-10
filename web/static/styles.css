@@ -3564,8 +3564,6 @@ input, select, textarea { color-scheme: inherit; }
 }
 .studio-feed-head { grid-area: head; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .studio-feed > .viz-wrap { grid-area: ribbon; height: 64px; }
-.studio-feed-head > .vu-row { display: none; margin: 0; }
-.studio-feed-head > .vu-row .vu-peak { font-size: 0; gap: 0; top: 5px; right: 6px; }
 .studio-feed-head > .meters { flex: 1 1 auto; display: flex; gap: 4px; margin: 0; min-width: 0; }
 .studio-feed > .rb-sel { grid-area: sel; margin: 0; }
 .studio-keys { grid-area: keys; display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; min-width: 0; }
@@ -3614,30 +3612,25 @@ input, select, textarea { color-scheme: inherit; }
 .studio-feed .key-pop-row { display: flex; align-items: center; gap: 8px; }
 .studio-feed .key-pop .seg button { min-height: 44px; min-width: 44px; padding: 0 12px; }
 
-/* From 700 px the feed lines up with the lanes under it: the meters sit over
-   the lanes' heads (same widths as .tape-track's first column) and the
-   ribbon runs over the lanes themselves, so its left edge is theirs. The
+/* From 700 px the feed is a row: the lamp and its two bars, then the ribbon
+   with all the width that leaves (it is the waveform a moment is found on;
+   its time is the ring's, not the lanes', so it lines up with nothing). The
    keys under the ribbon, until a row has room for them beside it. */
-.studio-feed { --lane-head: 160px; }
-@media (min-width: 1400px) { .studio-feed { --lane-head: 200px; } }
 @media (min-width: 700px) {
   .studio-feed {
-    grid-template-columns: var(--lane-head) minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas: "head ribbon" "keys keys" "sel sel";
     column-gap: 6px; padding: 8px 14px 8px 0;
   }
   .studio-feed > .viz-wrap { height: 86px; }
   .studio-feed-head { flex-direction: column; align-items: stretch; gap: 4px; padding-left: 14px; align-self: stretch; justify-content: center; }
   .studio-feed-head > .studio-lamp { align-self: flex-start; }
-  .studio-feed-head > .vu-row { display: flex; gap: 6px; }
-  .studio-feed-head > .vu-row .vu { flex: 1 1 0; width: auto; }
-  .studio-feed-head > .meters { display: none; }
   .studio-feed > .studio-keys { justify-content: flex-end; }
   .studio-feed > .rb-sel { margin-left: 14px; }
 }
 @media (min-width: 900px) {
   .studio-feed {
-    grid-template-columns: var(--lane-head) minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas: "head ribbon keys" "sel sel sel";
   }
   .studio-feed > .studio-keys { flex-wrap: nowrap; align-self: center; }
@@ -3715,7 +3708,7 @@ body.tape-page.tracks-fold #lanes { display: none; }
     gap: 6px 10px; padding: 6px 10px;
   }
   .studio-feed > .viz-wrap { height: 52px; }
-  .studio-feed-head > .vu-row, .studio-feed-head > .meters { display: none; }
+  .studio-feed-head > .meters { display: none; }
   .studio-keys { flex-wrap: nowrap; }
   .studio-keys > .key-split { flex: none; }
 }

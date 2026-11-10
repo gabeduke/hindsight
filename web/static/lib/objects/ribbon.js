@@ -17,7 +17,9 @@
 //
 // Hold, then drag, selects any span of the ring; Save as take saves exactly
 // that span (POST /api/trigger?from=&to=, absolute ring frames), not the last
-// N minutes. A hold released without a drag selects from there to now. A
+// N minutes. A hold released without a drag selects from there to now; where
+// the page asks (tapMarks, the Studio), a tap does too: the mark, "from here".
+// A tap at the right edge, which is now, takes the mark off. A
 // selection is kept in absolute frames, so it slides left as time passes,
 // like the audio it names. Tapping a flag opens its sheet: Save from here to
 // now, or delete it.
@@ -65,16 +67,15 @@ export class Ribbon {
    * @param {HTMLElement} wrap the existing .viz-wrap
    * @param {{onToast?: (msg: string, kind?: string) => void}} [opts]
    */
-  constructor(wrap, { onToast, onSaved, onSavedToast, selBar, flagSheet, keepWords } = {}) {
+  constructor(wrap, { onToast, onSaved, onSavedToast, selBar, flagSheet, tapMarks = false, onSel } = {}) {
     this.wrap = wrap;
     this.onToast = onToast;
     this.onSaved = onSaved;
     this.onSavedToast = onSavedToast; // (msg, name): a save's toast, with its Undo
     this.selBar = selBar || null;
-    // (seconds) => the selection's KEEP key, naming what it keeps (the
-    // Studio's: "Keep 41s"). Capture leaves it out and keeps "Save as take".
-    this.keepWords = keepWords || null;
     this.flagSheet = flagSheet || null;
+    this.tapMarks = !!tapMarks; // a tap sets the mark: from there to now
+    this.onSel = onSel || null; // (info | null): what is selected, each time it is drawn
     this.sel = null;   // {from, to}: absolute ring frames; to null means "now"
     this.press = null; // the pointer gesture in progress
     this.spans = [];      // capture tiers in seconds; 0 means the whole ring
@@ -179,7 +180,14 @@ export class Ribbon {
       if (!p || e.pointerId !== p.id) return;
       clearTimeout(p.timer);
       this.press = null;
-      if (!p.armed) return;
+      if (!p.armed) {
+        // A tap: the press never moved past the slop (a move drops it, above).
+        if (commit && this.tapMarks) {
+          const from = this.frameAtX(e.clientX);
+          this.setSel(from == null ? null : { from, to: null });
+        }
+        return;
+      }
       if (commit) this.setSel(this.spanOf(p));
       else this.setSel(this.prevSel ?? null);
     };
@@ -200,6 +208,17 @@ export class Ribbon {
     return { from: a, to: Math.max(b, a + 1) };
   }
 
+  /** What is selected, for a key that names it: its length in seconds,
+   * whether it runs to now, and whether it has left the ring. Null with
+   * nothing selected. */
+  selInfo(ax = this.axis()) {
+    const sel = this.sel;
+    if (!sel || !ax) return null;
+    const buffered = this.data?.buffered_seconds ?? Infinity;
+    const toAge = sel.to == null ? 0 : ageOf(sel.to, ax.total, ax.sr);
+    return { seconds: ((sel.to ?? ax.total) - sel.from) / ax.sr, toNow: sel.to == null, gone: sel.to != null && toAge > buffered };
+  }
+
   setSel(sel, provisional = false) {
     if (!provisional) this.prevSel = sel;
     this.sel = sel;
@@ -210,7 +229,8 @@ export class Ribbon {
     const bar = this.selBar;
     if (!bar) return;
     bar.querySelector('.rb-sel-clear').addEventListener('click', () => this.setSel(null));
-    bar.querySelector('.rb-sel-save').addEventListener('click', () => this.saveSel());
+    // The Studio's bar has no Keep of its own: its KEEP key keeps the selection.
+    bar.querySelector('.rb-sel-save')?.addEventListener('click', () => this.saveSel());
   }
 
   async saveSpan(from, to) {
@@ -259,12 +279,8 @@ export class Ribbon {
       ? 'This span has left the buffer'
       : `${fmtAge(len)} · ${when}${gone ? ' · starts before the oldest audio' : ''}`;
     bar.classList.toggle('gone', gone);
-    const save = bar.querySelector('.rb-sel-save');
-    save.disabled = allGone;
-    if (this.keepWords && !allGone) {
-      const words = this.keepWords(len);
-      if (save.textContent !== words) save.textContent = words;
-    }
+    const save = bar.querySelector('.rb-sel-save'); // Capture's "Save as take"; the Studio's KEEP is its own key
+    if (save) save.disabled = allGone;
   }
 
   // --- a flag's sheet ---------------------------------------------------------
@@ -474,6 +490,7 @@ export class Ribbon {
       band.style.width = `${Math.max(0.4, r - l).toFixed(2)}%`;
     }
     this.bandLayer.hidden = !!this.sel;
+    this.onSel?.(this.selInfo(ax));
     this.renderBar(ax);
     this.sync();
   }
