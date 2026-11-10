@@ -12,6 +12,8 @@
 /** The body's classes: the buffer is open; the lanes are folded. */
 export const OPEN = 'buffer-open';
 export const FOLD = 'buffer-fold';
+/** The drawer is open small (no bench): the lanes keep their room, a head its name and ●. */
+export const SMALL = 'buffer-small';
 /** A lane's row while a drag is over it: it opens to full height. */
 export const TARGET = 'buffer-target';
 
@@ -23,6 +25,11 @@ export function setOpen(body, on) {
 /** setFold folds the lanes to strips, or gives them their height back. */
 export function setFold(body, on) {
   body.classList.toggle(FOLD, !!on);
+}
+
+/** setSmall marks the drawer open small: the lanes share the room over it, unfolded. */
+export function setSmall(body, on) {
+  body.classList.toggle(SMALL, !!on);
 }
 
 /** setTarget opens the one row under a drag (null: none) and lets the rest fold. */

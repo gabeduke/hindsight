@@ -1369,9 +1369,11 @@ is something to jam with and to work on before it goes on the tape.
   **Dragging a part onto a track** puts it on the tape there. The lane is
   saved with the tape, so another device sees it; what's playing on it never
   goes into a bounce.
-- **Hold a part** (or right-click it) to open its **drawer**, above the bar;
-  the lanes fold to strips to make room (**Unfold** gives them their height
-  back), and Escape, Back or ✕ closes it. Pick the inputs it holds -- two
+- **Hold a part** (or right-click it) to open its **drawer**, above the bar,
+  and Escape, Back or ✕ closes it. It opens small: the part, **Drop**,
+  **Keep** and **Toss**, with every track still there to press. **Trim**
+  opens the rest, and the lanes fold to strips to make room (**Unfold**
+  gives them their height back). Pick the inputs it holds -- two
   make two lanes, dropped on neighbouring tracks -- and drag **IN** and
   **OUT** into the bar either side, or move them with **[ ]** and **⇧[ ⇧]**
   a step of the snap (⌗) at a time. **Audition** loops it here, never
@@ -1785,6 +1787,7 @@ has no tip.
 | Drawer grip | Pull the drawer up or down. Hold it, then drag onto a lane, to drop it there |
 | Inputs (cue) | Which inputs the clip holds, a lane each, all over the same span: tap one to take it again with or without that input. They drop on neighbouring tracks |
 | Audition | Loop the clip on this device, never through the Pi, so the jam goes on |
+| Trim | Open the bench: the clip’s inputs, IN and OUT, its gain, Normalize, Reverse and the fades. The lanes fold to strips while it is open |
 | Unfold | Give the lanes their height back, and leave the drawer open |
 | Loop (cue) | Whether a launch from the cue lane plays the clip round and round until it is tapped again, or once |
 | ✕ (cue) | Close the drawer. The clip stays on the cue lane: hold it there to open it again |

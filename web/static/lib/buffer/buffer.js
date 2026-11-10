@@ -27,7 +27,7 @@ import {
 import { boardOf, clipOn, grabbedWords } from './cueclip.js';
 import { bindBufferKeys } from './keys.js';
 import { keyState, windowFrames, pulledTo } from './state.js';
-import { setOpen, setFold } from './fold.js';
+import { setOpen, setFold, setSmall } from './fold.js';
 import { Overlay, Lift, boxesFor } from './lanes.js';
 import { SNAPS, FADE_SHAPES } from '../tape/geometry.js';
 import { showDocked } from '../shell/view.js';
@@ -89,6 +89,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     snap: $('buffer-snap'),
     snapName: $('buffer-snap-name'),
     unfold: $('buffer-unfold'),
+    trim: $('buffer-trim'),
     close: $('buffer-close'),
     grip: $('buffer-grip'),
     win: $('buffer-window'),
@@ -142,6 +143,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     dropped: '',      // a buffer just dropped (its created): ↵ drops it again further on, for a moment
     droppedAt: 0,     // when
     unfolded: false,  // UNFOLD: the lanes have their height back, the buffer stays
+    trim: false,      // TRIM: the bench is open (the inputs, IN/OUT, gain, the shapes); a clip opens with it shut
     n: readPick() ?? 4,    // the feed's 1 / 2 / 4 / 8: it starts at the tape's loop in bars (rooms/grab.js)
     loopBars: null,   // the loop N last followed
     chosen: null,     // the sources picked by hand; null follows the armed track's input
@@ -200,6 +202,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
 
   // select opens the drawer on a clip on the lane ('' closes it).
   function select(id) {
+    if ((id || '') !== st.sel) st.trim = false; // another clip opens small
     st.sel = id || '';
     st.open = !!id;
     st.dropped = '';
@@ -577,6 +580,11 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
 
   // --- rendering ---------------------------------------------------------------------
 
+  // A phone's layout, where the buffer is a sheet (its grip, below).
+  const sheetQuery = typeof matchMedia === 'function'
+    ? matchMedia('(orientation: landscape) and (max-height: 440px), (max-width: 699.98px)') : null;
+  const sheetMode = () => !!sheetQuery?.matches;
+
   function render() {
     const b = st.board, g = grabOf(), d = st.detail;
     const open = st.open && (!!g || st.grabbing);
@@ -584,7 +592,13 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     const opening = active && open && !shown;
     shown = active && open;
     setOpen(body, shown);
-    setFold(body, active && open && !st.unfolded);
+    // The lanes fold only for the bench: small, the drawer leaves them their
+    // height. A phone's sheet has no small state (its heights are its own).
+    const bench = st.trim || sheetMode();
+    el.panel.dataset.trim = bench ? 'open' : 'shut';
+    el.trim.setAttribute('aria-expanded', String(st.trim));
+    setFold(body, active && open && bench && !st.unfolded);
+    setSmall(body, active && open && !bench);
     // Docked above the bar (lib/shell/view.js showDocked).
     showDocked(ctx, el.panel, open);
     if (opening) revealLanes(); // the boxes it reads are laid out as it reads them
@@ -825,9 +839,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   // On a phone the buffer is a sheet: its grip pulls it up or down to the
   // inspector's three heights -- peek, half, full -- and held, then dragged,
   // lifts the buffer onto a lane.
-  const sheetQuery = typeof matchMedia === 'function'
-    ? matchMedia('(orientation: landscape) and (max-height: 440px), (max-width: 699.98px)') : null;
-  const sheetMode = () => !!sheetQuery?.matches;
   const reducedQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const reducedMotion = () => !!reducedQuery?.matches;
   function wireSheet() {
@@ -895,6 +906,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   }
   el.close.addEventListener('click', close);
   el.unfold.addEventListener('click', () => { st.unfolded = !st.unfolded; render(); });
+  el.trim.addEventListener('click', () => { st.trim = !st.trim; render(); });
   // The ruler's own snap, stepped on by the Studio (lib/tape/page.js), which
   // says it back in the detail: ⌗'s View menu sets the same one.
   el.snap.addEventListener('click', () => doc.dispatchEvent(new CustomEvent('hindsight:snap-next')));
@@ -1002,6 +1014,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
       shown = false;
       setOpen(body, false);
       setFold(body, false);
+      setSmall(body, false);
     },
     show() {
       if (!openNoted()) render();
