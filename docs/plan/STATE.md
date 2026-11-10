@@ -85,6 +85,12 @@ and still looks it:
 
 ## Open, needs Gabe at the rig
 
+- **The Pi ran hot and crashed with the AMS-24 plugged in** (Gabe,
+  2026-11-09). Unproven; the lead guess is the AMS-24's bus power. It runs
+  with the AMS-24 unplugged. Before plugging it back in: a powered hub, or
+  `vcgencmd get_throttled` on the Pi with it attached. A second, unproven
+  suspect is `internal/audio/extra_alsa.go`'s retry on EAGAIN with no
+  pause.
 - **Extra inputs** (`extra-inputs.md`, spec 2026-11-02): the AMS-24's two
   inputs recorded beside the EP-136's as channels 9–10, resampled onto its
   clock, never played out of. Built 2026-11-03 (#265–#271): steps 1–4 and
@@ -138,12 +144,14 @@ and still looks it:
 - **The calm Studio** (`the-calm-studio.md`, direction agreed 2026-11-09):
   what is on the Studio's screen, and when. The Studio showed 52 things to
   press; the spec sorts them into always there, there on a touch, and one
-  tap away, and makes the feed and the tape two faces of one room. Built:
-  step 1 (the walk), step 2 (the cue clip's drawer opens small, #278) and
-  the feed's mark of step 3 (a tap on the ribbon, KEEP to it, one KEEP,
-  the VU needles out), and the track heads, with a mouse as on touch.
-  Next: the two faces. Gabe's calls before the bar changes are in the spec.
-  `inputs.md` (proposed) folds into its step 4. This comes before the
+  tap away, and makes the feed and the tape two faces of one room. Built
+  (#278 to #282): the cue clip's drawer opens small, the feed's mark (a
+  tap on the ribbon, KEEP and GRAB from it, one KEEP, the VU needles out),
+  and one track head with a mouse and on touch. Next, in a fresh session:
+  the two faces, with Gabe's two journeys as flows. Waiting on Gabe: the
+  three calls in the spec (Catch on the bar, Reverse and the fades in
+  Trim, the metronome's place) and his look at the two-faces wireframe.
+  `inputs.md` (proposed) folds into its step 6. This comes before the
   component migration's next row: a component is now moved when a journey
   needs it.
 
