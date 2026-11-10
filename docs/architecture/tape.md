@@ -546,15 +546,14 @@ mark would land on it. A span in the middle keeps its bar: what it is, ×
 and GRAB, and no Keep of its own. One KEEP on the screen.
 
 **The track heads** (`lib/tape/page.js` `buildLanes`; `styles.css`, *The
-heads on a touch screen*) are each track's name, ●, input chip, M, S and
-level. On a touch screen (`(pointer: coarse)`) the head keeps what a jam
-needs: the name, ● a finger wide (44 px), the input chip, and › at its end,
-which opens the track's inspector in one tap, on that track, armed or not,
+heads*) are each track's name, ● a finger wide (44 px), its
+input chip, and ›, with a mouse as on a touch screen (from 2026-11-10; a
+mouse had M, S and the level in the head until then). › is at the head's
+end and opens the track's inspector in one tap, on that track, armed or not,
 moving no arm. M, S and the level are at the top of the inspector
 (`#track-mute`, `#track-solo`, `#track-gain`), and › is lit yellow or blue
 while the track is muted or soloed (`data-heard`), so a head with neither
-key still says so. With a mouse M, S and the level stay in the head, and
-there's no ›. The inspector moves to the record track when the arm moves
+key still says so. The inspector moves to the record track when the arm moves
 (`sheetRec`), not on every render: it once went back to the armed track
 under a finger that had opened another's. On a tablet the Studio holds a
 budget at rest, checked by J1.16 (`scripts/flows/layout.mjs`,

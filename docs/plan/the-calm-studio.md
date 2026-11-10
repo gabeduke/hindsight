@@ -1,14 +1,15 @@
 # The calm Studio: what is on screen, and when
 
-**Status: direction agreed 2026-11-09 from a wireframe; the decisions below
-are not agreed line by line yet.** Gabe: the Studio is where he spends his
+**Status: direction agreed 2026-11-09 from a wireframe, and the order of
+what is left agreed 2026-11-10; decisions 1 to 4 are built (*Build order*),
+and 5 to 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
 time, and it is "so damn cluttered": "it is hard to tell what buttons are
 useful to me."
 
 This is about **what is on screen**, not how it looks. `the-play-look.md` is
 the look (a theme, per component) and still waits on Gabe's pick; nothing
 here depends on it. `inputs.md` (proposed the same day) folds into this
-spec's step 4.
+spec's step 6.
 
 ## How Gabe uses the Studio
 
@@ -23,8 +24,7 @@ one tap away, or gone.
 
 ## What a walk of the demo found (2026-11-09)
 
-1280×800, mouse layout, one part on the tape; the tablet's touch layout was
-not walked and is step 1.
+1280×800, mouse layout, one part on the tape, before anything was built.
 
 - **52 things to press** at rest, 59 with a grabbed clip's drawer open. On
   the tablet the budget is `STUDIO_BUDGET.controls`, 44
@@ -41,7 +41,7 @@ not walked and is step 1.
 - **What already works**: selecting a part brings up one row (Cut, Copy,
   Split, Duplicate, Move here, Remove, Done) that leaves when it is done.
 
-### On the tablet profile (step 1, 2026-11-09)
+### On the tablet profile (step 1, 2026-11-09, before anything was built)
 
 `node scripts/flows.mjs J1.1 J1.3 J1.4 J1.6 J1.11 J3.1 --profile=tablet
 --storyboard=dir`, 1024×768: 13 of 13 runs passed.
@@ -64,7 +64,7 @@ not walked and is step 1.
 - **No flow is either of Gabe's journeys end to end.** The pieces are
   J1.3, J1.6, J1.4, J1.11 and J3.1; nothing keeps a jam from a mark, loops
   it and records over it, and nothing arranges parts from two takes. They
-  are written with step 3, as `todo` flows first, since the gestures they
+  are written with the two faces (step 5), as `todo` flows first, since the gestures they
   press are the ones this spec changes.
 
 ## Decisions
@@ -86,7 +86,9 @@ not walked and is step 1.
    still docked above the bar: decision 0061 stands.
 3. **A track's head is its name, ● and ›, with a mouse as on a touch
    screen.** M, S, the level and the input are in the inspector everywhere.
-   One layout, not two. Extends decision 0059.
+   One layout, not two. Extends decision 0059. Built 2026-11-10: one head,
+   M, S and the level out of it. The input chip is still in the head, until
+   `inputs.md`'s strip gives an input another place to be seen.
 4. **The feed is its ribbon, and a touch on it says "from here".** Gabe,
    2026-11-09: KEEP 30s is rare; he reads the waveform, sees where the jam
    began showing activity, and wants to keep back to that point ("the last
@@ -99,7 +101,7 @@ not walked and is step 1.
      and keeps its height: the waveform is how he finds the moment. What
      leaves the feed's panel is the VU pair and the readouts (they open
      from the lamp). Gabe, 2026-11-09: "vu meters dont add a lot". The
-     ribbon's width comes from the keys on its right (step 3).
+     ribbon's width comes from the keys on its right (the two faces, step 5).
    - **KEEP with no mark** keeps the last length chosen, as now; the fixed
      lengths (30 s, 2 m) stay on its ▾ and nowhere else.
    - GRAB keeps its bars; with a mark set it grabs from the mark. As
@@ -138,7 +140,7 @@ not walked and is step 1.
    0061). One holding place, the cue lane, for everything lifted, and one
    Drop. Amends 0061.
 
-## Gabe's calls before step 2
+## Gabe's calls before the bar changes
 
 - **Which capture verbs stay on the surface.** The wireframe kept GRAB,
   KEEP and ● and took Catch off the bar. If Catch is the one he uses, it
@@ -161,33 +163,34 @@ not walked and is step 1.
 Each step is one PR, looked at on the tablet before the next, and ends with
 `STUDIO_BUDGET` lowered to what it measured.
 
-1. **Walk the two journeys on the tablet profile** and save a filmstrip of
-   each: `node scripts/flows.mjs --storyboard` already draws one; add the
-   two journeys as flows if they are not there (catch a moment, loop it,
-   play over it; cut and arrange parts from two takes), each recording its
-   count of presses. No change to the app.
-2. **The drawer opens small** (decision 2): done 2026-11-09, with decision
-   6's Drop, Trim and Toss; J1.6 holds every track to a finger's height
-   beside it. Not done here: the ribbon's width. The ribbon starts where
-   the lanes do, so the VU pair's column is the track heads' and gives it
-   nothing; its width is taken by GRAB, KEEP and Note on its right, which
-   is step 3's and the two faces'.
-3. **The feed's mark** (decision 4): built 2026-11-10 (the tap, KEEP to
-   the mark, one KEEP on the screen, the VU needles out). The ribbon was
-   already the whole ring, on a logarithmic axis. GRAB follows the mark
-   too, and the mark has its own key on the ribbon in place of a row that
-   pushed the lanes down. Left: the ribbon's width (the keys on its right),
-   which is the two faces'. Was: tap to set it, KEEP to it, the whole
-   ring on the ribbon; J1.1 and J1.3 extended, with the story in
-   `docs/flows.md`. Then **the track heads** (decision 3), a PR of their
-   own.
-   Then **the two faces** (decision 9), once the feed's face and the
-   tape's each stand alone.
-4. **The cue clip's panel and the words** (decisions 6, 7), with
-   `inputs.md`'s names for inputs.
-5. **The bar's display** (decision 5) and the capture verbs, after Gabe's
+Done:
+
+1. **The walk on the tablet profile** (2026-11-09): its findings are above.
+   The two journeys' own flows were not written; they are step 5.
+2. **The drawer opens small** (decisions 2 and 6; #278): one row of the
+   clip's window, DROP, KEEP, Toss, Trim and ✕, and J1.6 holds every track
+   to a finger's height beside it.
+3. **The feed's mark** (decision 4; #279, #280, #281): a tap on the ribbon,
+   KEEP and GRAB from it, the mark's own key on the ribbon, one KEEP on the
+   screen, the VU needles out and the level two narrow bars. J1.3 has the
+   story. Not done: a drag of the mark, and snapping a GRAB from the mark
+   to the bar.
+4. **The track heads** (decision 3; #282): one head with a mouse and on
+   touch. The input chip is still in it.
+
+Left, in order:
+
+5. **The two faces** (decision 9), with **the two journeys as flows**
+   (catch a jam from a mark, loop it, play over it; cut and arrange parts
+   from two takes), `todo` first, each recording its count of presses. This
+   is what gives the ribbon its width: today GRAB, KEEP and Note on its
+   right take it.
+6. **The cue clip's panel and the words** (decision 7; what is left of 6),
+   with `inputs.md`'s names for inputs and its strip, which is where the
+   head's input chip goes.
+7. **The bar's display** (decision 5) and the capture verbs, after Gabe's
    calls.
-6. **Rip out** what the steps left unused, and lower the budget.
+8. **Rip out** what the steps left unused, and lower the budget.
 
 ## How it stays calm
 

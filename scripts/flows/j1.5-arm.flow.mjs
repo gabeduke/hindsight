@@ -40,15 +40,8 @@ export default {
 
     // The second armed track's inspector says it's armed: Catch and ● Rec
     // go onto it too. (It once said "Not armed", offering Arm it, which
-    // would have taken the arm off track 1.) Its › on a touch screen; its
-    // name twice with a mouse.
-    await t.step('open track 3’s inspector', async () => {
-      if (t.profile === 'desktop') {
-        await t.tap(page.locator('.tt-name').nth(2));
-        await t.wait(300);
-        await t.tap(page.locator('.tt-name').nth(2));
-      } else await t.tap(page.locator('#lanes .tt-more').nth(2));
-    });
+    // would have taken the arm off track 1.)
+    await t.step('tap track 3’s ›', () => t.tap(page.locator('#lanes .tt-more').nth(2)));
     t.expect('it is track 3’s, recording onto it, with no Arm it', await t.poll(() => document.getElementById('track-sheet').open
       && /^Track 3\b/.test(document.getElementById('track-title').textContent)
       && document.getElementById('track-rec-title').textContent === 'Recording onto it'
@@ -130,31 +123,17 @@ export default {
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('the inspector closes', await t.poll(() => !document.getElementById('track-sheet').open));
 
-    // Another track's mute, with track 3 armed. On a touch screen M, S and
-    // the level are in the inspector, and › at the head's end opens it in
-    // one tap, on that track, moving no arm; with a mouse they're in the
-    // head, and there's no ›.
+    // Another track's mute, with track 3 armed. M, S and the level are in
+    // the inspector, and › at the head's end opens it in one tap, on that
+    // track, moving no arm; with a mouse as on a touch screen.
     const muted = async () => !!(await api.tapeState()).tracks[1].mute;
-    if (t.profile === 'desktop') {
-      const head = await page.evaluate(() => {
-        const row = document.querySelectorAll('#lanes .tt-head')[1];
-        const on = (sel) => !!row.querySelector(sel)?.getClientRects().length;
-        return { mute: on('.tt-mute'), solo: on('.tt-solo'), gain: on('.tt-gain'), more: on('.tt-more') };
-      });
-      t.expect('with a mouse the head has M, S and the level, and no ›', head.mute && head.solo && head.gain && !head.more, head);
-      await t.step('click track 2’s M', () => page.locator('#lanes .tt-mute').nth(1).click());
-      t.expect('track 2 is muted, on the Pi', await api.until(muted, 'track 2 muted', 5000).catch(() => false));
-      await t.step('click it again', () => page.locator('#lanes .tt-mute').nth(1).click());
-      t.expect('track 2 is heard again, on the Pi', await api.until(async () => !(await muted()), 'track 2 heard', 5000).catch(() => false));
-      return;
-    }
     const head = await page.evaluate(() => {
       const row = document.querySelectorAll('#lanes .tt-head')[1];
       const on = (sel) => !!row.querySelector(sel)?.getClientRects().length;
       const arm = row.querySelector('.tt-arm').getBoundingClientRect();
       return { mute: on('.tt-mute'), solo: on('.tt-solo'), gain: on('.tt-gain'), more: on('.tt-more'), arm: Math.round(Math.min(arm.width, arm.height)) };
     });
-    t.expect('on a touch screen the head has ● a finger wide and ›, and no M, S or level', !head.mute && !head.solo && !head.gain && head.more && head.arm >= 44, head);
+    t.expect('the head has ● a finger wide and ›, and no M, S or level', !head.mute && !head.solo && !head.gain && head.more && head.arm >= 44, head);
     await t.step('tap track 2’s ›', () => t.tap(page.locator('#lanes .tt-more').nth(1)));
     const onTwo = () => document.getElementById('track-sheet').open && /^Track 2\b/.test(document.getElementById('track-title').textContent);
     const opened = await t.poll(onTwo);

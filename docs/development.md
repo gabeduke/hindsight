@@ -238,7 +238,8 @@ deploy.sh's list.
 `--static` takes about a second: no rebuild, no restart. The UI is served with
 `http.FileServer` straight from disk on each request, so an HTML, CSS or JS
 change is live on the next reload. Use the full deploy only when Go code
-changed.
+changed. The demo serves the same way, so don't edit `web/static` while a
+flows run is going: its later flows load the half-made change.
 
 If an ssh agent is holding your key hostage — 1Password installs a global
 `IdentityAgent` in `~/.ssh/config`, and signing fails whenever the vault is
