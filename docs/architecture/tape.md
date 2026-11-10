@@ -492,6 +492,17 @@ note, the bar's feed) leaves the clip's id in sessionStorage
 (`lib/buffer/replaced.js` `remember`), and the Studio opens on it once
 (`recallNote`), with its Undo when it took an untouched clip's place.
 
+**The drawer opens small** on a tablet or a computer (`data-trim="shut"` on
+the panel, `st.trim` in `buffer.js`): one row, the clip's window with IN and
+OUT, DROP, KEEP, Toss, then **Trim** and ✕. The lanes are not folded for it
+(`body.buffer-small`, `lib/buffer/fold.js` `setSmall`): they share the room
+over it, each head one row, its name and ●, so all four are in sight and can
+be pressed. **Trim** opens the bench (`data-trim="open"`): the inputs, the
+IN and OUT steps, gain, Normalize, Reverse, the fades, Audition, the snap,
+Unfold and Loop, with the lanes folded to strips (`body.buffer-fold`) as
+they always were. Another clip opens small again. A phone's sheet has no
+small state: its heights are its own.
+
 **On a phone** the drawer is a sheet at the inspector's heights (peek,
 half, full), docked above the mini player as the inspector is, so it never
 covers ▶. Opening, it brings the cue lane (its clip) and the armed track

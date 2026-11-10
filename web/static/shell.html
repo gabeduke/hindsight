@@ -800,7 +800,7 @@
   <button class="icon-btn buffer-grab-sel" type="button" data-tip="grab-span">GRAB</button>
 </template>
 <template id="buffer-panel-tpl">
-  <section class="panel buffer-panel" id="buffer" aria-label="The cue clip" data-height="half" hidden>
+  <section class="panel buffer-panel" id="buffer" aria-label="The cue clip" data-height="half" data-trim="shut" hidden>
     <button class="buffer-sheet-grip" type="button" aria-label="Pull it up or down; hold it and drag onto a lane to drop it there" data-tip="buffer-grip"></button>
     <div class="buffer-head">
       <h2 class="buffer-title" id="buffer-title">Cue</h2>
@@ -812,6 +812,10 @@
       <button class="icon-btn buffer-snap" id="buffer-snap" type="button" data-tip="tape-snap"><svg class="i i-view" width="12" height="12" aria-hidden="true"><use href="/icons/ui.svg?v=c634899d#view"/></svg><span id="buffer-snap-name">Bar</span></button>
       <button class="icon-btn buffer-unfold" id="buffer-unfold" type="button" aria-pressed="false" data-tip="buffer-unfold">Unfold<span aria-hidden="true"> ▾</span></button>
       <button class="icon-btn buffer-loop" id="buffer-loop" type="button" aria-pressed="true" data-tip="buffer-loop">Loop</button>
+      <!-- The drawer opens small (the clip, Drop, Keep, Toss) so the lanes keep
+           their height; Trim opens the bench: the inputs, IN and OUT, gain and
+           the shapes (docs/plan/the-calm-studio.md, decision 6). -->
+      <button class="icon-btn buffer-trim" id="buffer-trim" type="button" aria-expanded="false" data-tip="buffer-trim">Trim</button>
       <button class="icon-btn buffer-close" id="buffer-close" type="button" aria-label="Close the drawer; hold the clip on the cue lane to open it again" data-tip="buffer-close">✕</button>
     </div>
     <div class="buffer-body">

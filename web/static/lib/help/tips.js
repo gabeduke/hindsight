@@ -247,6 +247,7 @@ export const TIPS = [
   { control: 'Drawer grip', ids: ['buffer-grip'], tip: 'Pull the drawer up or down. Hold it, then drag onto a lane, to drop it there' },
   { control: 'Inputs (cue)', ids: ['buffer-sources'], tip: 'Which inputs the clip holds, a lane each, all over the same span: tap one to take it again with or without that input. They drop on neighbouring tracks' },
   { control: 'Audition', ids: ['buffer-audition'], tip: 'Loop the clip on this device, never through the Pi, so the jam goes on' },
+  { control: 'Trim', ids: ['buffer-trim'], tip: 'Open the bench: the clip’s inputs, IN and OUT, its gain, Normalize, Reverse and the fades. The lanes fold to strips while it is open' },
   { control: 'Unfold', ids: ['buffer-unfold'], tip: 'Give the lanes their height back, and leave the drawer open' },
   { control: 'Loop (cue)', ids: ['buffer-loop'], tip: 'Whether a launch from the cue lane plays the clip round and round until it is tapped again, or once' },
   { control: '✕ (cue)', ids: ['buffer-close'], tip: 'Close the drawer. The clip stays on the cue lane: hold it there to open it again' },

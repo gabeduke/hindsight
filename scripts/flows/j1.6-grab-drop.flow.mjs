@@ -59,6 +59,11 @@ export default {
         const rows = [...document.querySelectorAll('#lanes > .tape-track')];
         return rows.length > 0 && rows.every((r) => { const b = r.getBoundingClientRect(); return b.height > 0 && b.bottom <= top + 1; });
       }, null, 3000));
+      // The drawer opens small, so the lanes aren't strips: each is a finger
+      // tall (docs/plan/the-calm-studio.md, decision 2).
+      t.expect('each track is a finger tall: the drawer opens small', await t.poll(() =>
+        [...document.querySelectorAll('#lanes > .tape-track')].every((r) => r.getBoundingClientRect().height >= 44), null, 3000),
+      await page.evaluate(() => [...document.querySelectorAll('#lanes > .tape-track')].map((r) => Math.round(r.getBoundingClientRect().height)).join(' ')));
     } else {
       const armed = (await api.tapeState()).rec_track;
       t.expect('the cue lane and the armed track are in sight above the drawer, under the header', await t.poll((n) => {
