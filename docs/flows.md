@@ -13,8 +13,8 @@ node scripts/flows.mjs --workers=1       # one run at a time
 ```
 
 The runs are shared among workers, a demo each (half the machine's cores, 4
-at most; `--workers=N` or `FLOWS_WORKERS`), so no run sees what another
-seeded. The table is in the flows' order whatever order they finished in,
+at most; `--workers=N` or `FLOWS_WORKERS`); a worker's runs share its demo,
+in turn. The table is in the flows' order whatever order they finished in,
 and its last line says how long the run took. A flow that fails only with
 others running beside it is racing the app: try it alone (`--workers=1`),
 and fix the race, not the flow's patience. A flow that measures time itself

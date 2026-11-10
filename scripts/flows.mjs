@@ -17,8 +17,8 @@
 // instead of `go run`. Exits 1 when any core flow fails; a `todo` flow (a
 // story not built yet) is reported but never fails the run.
 //
-// The runs are shared out among workers, each with a demo of its own, so no
-// run sees what another seeded; the scenarios print as they finish, and the
+// The runs are shared out among workers, each with a demo of its own (a
+// worker's runs share its demo, in turn); the scenarios print as they finish, and the
 // table, the JSON and the storyboard are in the flows' order whatever the
 // workers' was. Against HINDSIGHT_URL there is one demo, so one worker. A
 // flow that says `alone: true` waits for the rest and runs by itself.
@@ -70,9 +70,15 @@ const runs = flows.flatMap((flow) => {
   return (picked ? own.filter((q) => picked.includes(q)) : own).map((profile) => ({ flow, profile }));
 });
 
-const asked = Number(opt('workers') ?? process.env.FLOWS_WORKERS);
-if (opt('workers') !== undefined && !(Number.isInteger(asked) && asked >= 1)) {
-  console.error('--workers takes a whole number, 1 or more');
+if (!runs.length) {
+  console.error(`no run matches: ${flows.map((f) => f.id).join(', ')} on ${picked.join(',')}`);
+  process.exit(2);
+}
+
+const asking = opt('workers') ?? process.env.FLOWS_WORKERS;
+const asked = Number(asking);
+if (asking !== undefined && !(Number.isInteger(asked) && asked >= 1)) {
+  console.error('--workers (or FLOWS_WORKERS) takes a whole number, 1 or more');
   process.exit(2);
 }
 const external = process.env.HINDSIGHT_URL;
@@ -93,7 +99,8 @@ if (down) {
 // A fake microphone, allowed without asking: recording from a phone (J4.1).
 // Muted unless FLOWS_AUDIO=1: the page still plays (so the flows see the
 // same thing), but nothing comes out of the machine's speakers.
-const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', ...(process.env.FLOWS_AUDIO === '1' ? [] : ['--mute-audio'])] });
+let browser = null;
+const launch = () => chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', ...(process.env.FLOWS_AUDIO === '1' ? [] : ['--mute-audio'])] });
 const results = new Array(runs.length);
 // Where the phone's ▶ stood, for the whole run (layout.mjs, bar-play-x):
 // one Map for every worker, so ▶ is held to one x across them all.
@@ -116,10 +123,11 @@ const work = async (demo, queue) => {
   }
 };
 try {
+  browser = await launch();
   await Promise.all(demos.map((demo) => work(demo, shared)));
   await work(demos[0], alone);
 } finally {
-  await browser.close();
+  await browser?.close();
   for (const d of demos) d.stop();
 }
 const took = (Date.now() - began) / 1000;
