@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.10.5 — 2026-11-10
+
+- The calm Studio's spec says what is built and what is left, and the plan says what waits on Gabe (5381acd2)
+- The rules, decision 0059 and the plan say the track head is one layout (07f8aa81)
+- A track's head is the same with a mouse as on a touch screen: its name, ●, its input and ›, with Mute, Solo and the level in the inspector › opens (620d1816)
+
+
 ## v2026.11.10.4 — 2026-11-10
 
 - The level by the Studio's lamp is two bars you can see, and narrower, so the ribbon is wider (12ae963d)
