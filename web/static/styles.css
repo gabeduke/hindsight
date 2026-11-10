@@ -3634,6 +3634,10 @@ input, select, textarea { color-scheme: inherit; }
   .studio-feed > .viz-wrap { height: 86px; }
   .studio-feed-head { flex-direction: column; align-items: stretch; gap: 4px; padding-left: 14px; align-self: stretch; justify-content: center; }
   .studio-feed-head > .studio-lamp { align-self: flex-start; }
+  /* The level by the lamp is two short bars: their numbers are in the
+     lamp's sheet, and a bar with no width of its own showed none. */
+  .studio-feed-head > .meters .meter { grid-template-columns: 12px 52px; gap: 6px; }
+  .studio-feed-head > .meters .val { display: none; }
   .studio-feed > .studio-keys { justify-content: flex-end; }
   .studio-feed > .rb-sel { margin-left: 14px; }
 }
