@@ -72,7 +72,7 @@ export default {
 
     // The mark: a tap says "from here", and KEEP keeps from it to now.
     await t.step('tap the ribbon where the jam began', () => tapAt(t, ribbon, 0.45));
-    t.expect('the mark is on the ribbon, with its own key to take it off', await t.poll(() => !!document.querySelector('#viz-wrap .rb-mark-clear')),
+    t.expect('the mark is on the ribbon, with its own key to take it off', await t.poll(() => !!document.querySelector('#viz-wrap .rb-mark-clear:not([hidden])')),
       await page.evaluate(() => JSON.stringify({ band: document.querySelector('#viz-wrap .rb-sel-band')?.style.cssText ?? null, readout: document.querySelector('#viz-wrap .rb-readout')?.textContent, keep: document.getElementById('studio-keep')?.textContent })));
     t.expect('no bar opens for a mark: the lanes stay where they are', await page.evaluate(() => document.getElementById('rb-sel').hidden));
     t.expect('KEEP says it keeps from the mark', await t.poll(() => /mark/.test(document.getElementById('studio-keep-sub')?.textContent || '')),
@@ -80,15 +80,15 @@ export default {
     t.expect('and GRAB that it grabs from it', await t.poll(() => /mark/.test(document.querySelector('.buffer-grab')?.textContent || '')),
       await page.locator('.buffer-grab').innerText());
     const marked = wordsSeconds(await page.locator('#studio-keep-len').innerText());
-    await t.step('tap the mark’s key', () => t.tap(page.locator('#viz-wrap .rb-mark-clear')));
-    t.expect('the mark is off, and KEEP is its length again', await t.poll(() => !document.querySelector('#viz-wrap .rb-mark-clear') && !/mark/.test(document.getElementById('studio-keep-sub')?.textContent || '')));
+    await t.step('tap the mark’s key', () => t.tap(page.locator('#viz-wrap .rb-mark-clear:not([hidden])')));
+    t.expect('the mark is off, and KEEP is its length again', await t.poll(() => !document.querySelector('#viz-wrap .rb-mark-clear:not([hidden])') && !/mark/.test(document.getElementById('studio-keep-sub')?.textContent || '')));
     await t.step('mark again', () => tapAt(t, ribbon, 0.45));
-    await t.poll(() => !!document.querySelector('#viz-wrap .rb-mark-clear'));
+    await t.poll(() => !!document.querySelector('#viz-wrap .rb-mark-clear:not([hidden])'));
     await t.step('tap KEEP', () => t.tap(page.locator('#studio-keep')));
     const fromMark = await api.until(async () => (await api.takes()).find((x) => !before.has(x.name) && x.has_peaks), 'the take from the mark');
     t.expect('the take runs from the mark to now', fromMark.duration_seconds >= marked - 1.5 && fromMark.duration_seconds <= marked + 4,
       `marked ${marked} s ago, kept ${fromMark.duration_seconds.toFixed(2)} s`);
-    t.expect('the mark lets go', await t.poll(() => !document.querySelector('#viz-wrap .rb-mark-clear')));
+    t.expect('the mark lets go', await t.poll(() => !document.querySelector('#viz-wrap .rb-mark-clear:not([hidden])')));
     // Taken back, so this flow leaves the shelf one take longer, as it did
     // before the mark: J5.1's List check on a phone depends on the run's
     // count of takes (docs/plan/STATE.md, Known bugs).

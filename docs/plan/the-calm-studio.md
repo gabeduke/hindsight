@@ -102,8 +102,9 @@ not walked and is step 1.
      ribbon's width comes from the keys on its right (step 3).
    - **KEEP with no mark** keeps the last length chosen, as now; the fixed
      lengths (30 s, 2 m) stay on its ▾ and nowhere else.
-   - GRAB keeps its bars; with a mark set it grabs from the mark, snapped
-     to the bar.
+   - GRAB keeps its bars; with a mark set it grabs from the mark. As
+     built it is the mark's own frames, not snapped to the bar: the clip's
+     IN and OUT in the drawer snap. Snapping the grab is open.
 5. **The bar's display has one key for tempo and output**, opening one
    panel; the source key stays only where there is a choice to make.
    Amends decision 0047.

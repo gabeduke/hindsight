@@ -274,7 +274,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   }
 
   async function grab(req, what) {
-    if (st.grabbing) return;
+    if (st.grabbing) return false;
     // With no tape heard of yet (a GRAB pressed as the page opens), the Pi
     // takes the tape it has loaded.
     const id = tapeId();
@@ -295,8 +295,10 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
       } else {
         toast(`${grabbedWords(what, b.edit)}${note ? ` — ${note}` : ''}`, kind);
       }
+      return true;
     } catch (e) {
       toast(`Could not grab: ${e.message}`, 'bad');
+      return false;
     } finally {
       st.grabbing = false;
       render();
@@ -321,7 +323,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     if (!sel) return;
     const req = { ring_from: sel.from };
     if (sel.to != null) req.ring_to = sel.to;
-    grab(req, 'that span of the feed').then(() => ribbon.setSel(null));
+    // The mark stays when the grab didn't happen: it is still what was meant.
+    grab(req, 'that span of the feed').then((ok) => { if (ok) ribbon.setSel(null); });
   }
 
   function toggleSource(name) {

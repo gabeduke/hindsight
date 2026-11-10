@@ -409,6 +409,7 @@ main {
   display: grid; place-items: center; border: 0; border-radius: 50%;
   background: var(--sel); color: var(--oxide-edge); pointer-events: auto; cursor: pointer;
 }
+.rb-mark-clear[hidden] { display: none; }
 .rb-mark-clear::after { content: ''; position: absolute; inset: -11px; }
 .rb-sel-band {
   position: absolute; top: 0; bottom: 0;

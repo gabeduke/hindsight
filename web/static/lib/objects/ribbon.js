@@ -116,6 +116,19 @@ export class Ribbon {
     // The record head: always recording, so always lit.
     const now = add(this.labelLayer, 'span', 'rb-now-label');
     now.innerHTML = '<span class="rb-rec-dot" aria-hidden="true"></span>REC';
+    // The mark's own key, at its start: a tap takes it off. One button, moved
+    // and shown by renderSel, never rebuilt: the layers under it are redrawn
+    // each poll, and a press that straddled a redraw would lose its click.
+    this.markOff = null;
+    if (this.tapMarks) {
+      const off = this.markOff = add(this.labelLayer, 'button', 'rb-mark-clear');
+      off.type = 'button';
+      off.hidden = true;
+      off.setAttribute('aria-label', 'Take the mark off');
+      off.dataset.tip = 'ribbon-clear';
+      off.innerHTML = icon('close', { size: 14 });
+      off.addEventListener('click', (e) => { e.stopPropagation(); this.setSel(null); });
+    }
     // The strip under the tape: how long ago, from the ring's oldest end to now.
     this.ruler = add(wrap, 'div', 'rb-ruler');
 
@@ -152,10 +165,10 @@ export class Ribbon {
   wireSelect() {
     const w = this.wrap;
     w.addEventListener('pointerdown', (e) => {
+      this.held = false; // a new press: its click may be a tap
       if (!e.isPrimary || e.button > 0 || e.target.closest('.rb-flag') || e.target.closest('.rb-mark-clear') || !this.axis()) return;
       if (this.press) clearTimeout(this.press.timer);
       const p = { id: e.pointerId, x: e.clientX, y: e.clientY, armed: false, anchor: null, end: null };
-      this.held = false;
       p.timer = setTimeout(() => {
         p.armed = true;
         this.held = true; // the click that ends a hold is not a tap
@@ -171,7 +184,9 @@ export class Ribbon {
       const p = this.press;
       if (!p || e.pointerId !== p.id) return;
       if (!p.armed) {
-        if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > MOVE_PX) { clearTimeout(p.timer); this.press = null; }
+        // Moved before the hold: not a selection, and its click (a mouse's
+        // comes even after a drag) is not a tap.
+        if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > MOVE_PX) { clearTimeout(p.timer); this.press = null; this.held = true; }
         return;
       }
       e.preventDefault();
@@ -502,18 +517,10 @@ export class Ribbon {
       const band = add(this.selLayer, 'div', 'rb-sel-band');
       band.style.left = `${l.toFixed(2)}%`;
       band.style.width = `${Math.max(0.4, r - l).toFixed(2)}%`;
-      if (this.tapMarks && this.sel.to == null) {
-        // The mark's own key, at its start: a tap takes it off.
-        const off = add(this.selLayer, 'button', 'rb-mark-clear');
-        off.type = 'button';
-        off.setAttribute('aria-label', 'Take the mark off');
-        off.dataset.tip = 'ribbon-clear';
-        off.innerHTML = icon('close', { size: 14 });
-        off.style.left = `${l.toFixed(2)}%`;
-        off.addEventListener('click', (e) => { e.stopPropagation(); this.setSel(null); });
-      }
+      if (this.markOff) this.markOff.style.left = `${l.toFixed(2)}%`;
     }
     this.bandLayer.hidden = !!this.sel;
+    if (this.markOff) this.markOff.hidden = !(this.sel && ax && this.sel.to == null);
     this.onSel?.(this.selInfo(ax));
     this.renderBar(ax);
     this.sync();
