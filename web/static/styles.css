@@ -402,6 +402,15 @@ main {
 /* A span held and dragged on the ribbon. Hold-to-select must not start the
    phone's text selection or callout, and a vertical swipe still scrolls. */
 .viz-wrap { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.rb-mark-clear {
+  /* The mark's key (ribbon.js, renderSel): on the band's start, a finger
+     wide by its hit box, as a flag's is. */
+  position: absolute; top: 3px; width: 22px; height: 22px; margin-left: 3px; padding: 0;
+  display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: var(--sel); color: var(--oxide-edge); pointer-events: auto; cursor: pointer;
+}
+.rb-mark-clear[hidden] { display: none; }
+.rb-mark-clear::after { content: ''; position: absolute; inset: -11px; }
 .rb-sel-band {
   position: absolute; top: 0; bottom: 0;
   background: color-mix(in srgb, var(--sel) 22%, transparent);

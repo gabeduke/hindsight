@@ -535,9 +535,15 @@ selects a span in the middle. The ribbon says what is selected each time
 it draws it (`onSel`, `selInfo`: its seconds, whether it runs to now), and
 **the feed's own KEEP keeps it** (`lib/rooms/studio.js`, `marked`): the key
 reads its length and "from your mark to now", and with nothing selected
-keeps the length on its ▾ as before. The selection's bar holds what it is,
-× and GRAB, and no Keep of its own: one KEEP on the screen. A tap at the
-ribbon's right edge, which is now, takes the mark off.
+keeps the length on its ▾ as before. **GRAB follows it too**
+(`lib/buffer/buffer.js`, `markedOnRibbon`): the key reads the length and
+"from your mark", and a press grabs that span. A mark has no bar, so the
+lanes stay where they are: it carries its own key on the ribbon, at its
+start (`.rb-mark-clear`), and a tap on that, or at the ribbon's right edge,
+which is now, takes it off. The mark is set on the tap's click, not its
+lift: the key is drawn under the finger, and a click arriving after the
+mark would land on it. A span in the middle keeps its bar: what it is, ×
+and GRAB, and no Keep of its own. One KEEP on the screen.
 
 **The track heads** (`lib/tape/page.js` `buildLanes`; `styles.css`, *The
 heads on a touch screen*) are each track's name, ●, input chip, M, S and
