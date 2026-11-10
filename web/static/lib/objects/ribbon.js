@@ -216,7 +216,10 @@ export class Ribbon {
     if (!sel || !ax) return null;
     const buffered = this.data?.buffered_seconds ?? Infinity;
     const toAge = sel.to == null ? 0 : ageOf(sel.to, ax.total, ax.sr);
-    return { seconds: ((sel.to ?? ax.total) - sel.from) / ax.sr, toNow: sel.to == null, gone: sel.to != null && toAge > buffered };
+    // A mark older than the ring's oldest audio keeps what is left: the
+    // length is what a KEEP would get (the Pi clamps the same way).
+    const seconds = Math.min(((sel.to ?? ax.total) - sel.from) / ax.sr, sel.to == null ? buffered : Infinity);
+    return { seconds, toNow: sel.to == null, gone: sel.to != null && toAge > buffered };
   }
 
   setSel(sel, provisional = false) {
@@ -246,16 +249,19 @@ export class Ribbon {
     return body;
   }
 
+  /** Saves what is selected as a take; answers whether it was saved. */
   async saveSel() {
     const sel = this.sel;
-    if (!sel) return;
+    if (!sel) return false;
     const btn = this.selBar?.querySelector('.rb-sel-save');
     if (btn) btn.disabled = true;
     try {
       await this.saveSpan(sel.from, sel.to);
       if (this.sel === sel) this.setSel(null); // not one made since
+      return true;
     } catch (e) {
       this.onToast?.(`Could not save: ${e.message}`, 'bad');
+      return false;
     } finally {
       if (btn) btn.disabled = false;
     }

@@ -23,7 +23,7 @@ test('the Studio’s selection offers GRAB on its bar and KEEP on the feed’s o
   assert.doesNotMatch(bar, /rb-sel-save|>Keep</, 'one KEEP on the screen: the feed’s key keeps the selection');
   assert.match(tape, /<template id="buffer-sel-tpl">\s*<button[^>]*buffer-grab-sel[^>]*>GRAB</, 'and GRAB, which the buffer puts in');
   const studio = read('./studio.js');
-  assert.match(studio, /if \(marked\) \{\s*try \{ await ribbon\.saveSel\(\)/, 'KEEP keeps what is marked or selected');
+  assert.match(studio, /if \(marked\) \{\s*kept = await ribbon\.saveSel\(\)/, 'KEEP keeps what is marked or selected');
 });
 
 test('GRAB goes onto the selection bar, not by Copy’s place', () => {

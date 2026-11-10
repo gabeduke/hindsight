@@ -271,12 +271,13 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     paintKeep();
     // With a mark or a span on the ribbon, KEEP keeps that (the ribbon's own
     // save, with its toast and Undo); the length on ▾ is for no mark.
-    if (marked) {
-      try { await ribbon.saveSel(); } finally { keeping = false; paintKeep(); pollStatus(); }
-      return;
-    }
     let kept = false;
     try {
+      if (marked) {
+        kept = await ribbon.saveSel();
+        if (kept) try { navigator.vibrate?.([12, 70, 12]); } catch { /* no haptics here */ }
+        return;
+      }
       const body = await keepTake(seconds);
       const title = takeTitle(body, { day: true });
       keptToast(`Kept ${named(takeTitle(body, { seconds: body.seconds, day: true }))}: it’s on the Listening Room’s shelf`, body.name, title);
