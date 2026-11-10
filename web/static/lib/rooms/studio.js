@@ -86,6 +86,7 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
   let seconds = readKeep() ?? 30; // the length KEEP keeps; 0 is the whole ring
   let keeping = false;   // a KEEP on its way
   let marked = null;     // what is selected on the ribbon ({seconds, toNow}): KEEP keeps that
+  let onMark = () => {}; // GRAB's key follows the mark too, once the buffer is mounted
   let bars = null;
   let chans = null;      // the input diagnostic's meters, one per channel
   let captureErr = { text: '', since: 0, shown: false }; // heldError's
@@ -124,7 +125,7 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     // A tap on the ribbon is the mark, "from here": KEEP then keeps from it
     // to now, and says how long that is (docs/plan/the-calm-studio.md, 4).
     tapMarks: true,
-    onSel: (info) => { marked = info && !info.gone ? info : null; paintKeep(); },
+    onSel: (info) => { marked = info && !info.gone ? info : null; paintKeep(); onMark(); },
   });
 
   // KEEP's ▾: its lengths, in a panel under the pair (lib/ui/menu.js), on
@@ -359,6 +360,7 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
   const buffer = mountBuffer(doc, {
     feed: main.querySelector('.studio-feed'), keysRow: main.querySelector('.studio-keys'), ribbon, toast, ctx,
   });
+  if (buffer) onMark = () => buffer.render();
 
   // The Studio's verbs: CATCH presses the bar's Catch, KEEP keeps the feed.
   // They come as `hindsight:verb` from the keys below, which leave a key the

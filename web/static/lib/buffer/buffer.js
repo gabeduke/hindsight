@@ -42,7 +42,7 @@ import { followLoop, readPick, writePick, readSource, writeSource } from '../roo
 import { splitKey, barTop } from '../ui/menu.js';
 import { layersOf } from '../ui/layers.js';
 import { revealAbove } from '../ui/reveal.js';
-import { keepLabel, bufferKeepLength } from '../rooms/keeplabel.js';
+import { keepLabel, bufferKeepLength, lengthWords } from '../rooms/keeplabel.js';
 import { recallNote, raiseUndo } from './replaced.js';
 import { GESTURE } from '../ui/press.js';
 
@@ -308,6 +308,12 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     const n = st.n;
     if (hasGrid) return grab({ bars: n }, `the last ${n} bar${n === 1 ? '' : 's'}`);
     return grab({ seconds: grabSeconds(n) }, `the last ${grabSeconds(n)} s`);
+  }
+
+  /** What is marked or selected on the feed's ribbon and still in the ring, or null. */
+  function markedOnRibbon() {
+    const info = ribbon?.selInfo?.();
+    return info && !info.gone ? info : null;
   }
 
   function grabSpan() {
@@ -607,10 +613,13 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     const k = grabKey(st.n, hasGrid);
     el.grabWord.textContent = st.grabbing ? 'Grabbing…' : k.word;
     // The key says how much, and from which input: its ▾ is where they change.
-    el.grabN.textContent = st.grabbing || !hasGrid ? '' : ` ${st.n} bar${st.n === 1 ? '' : 's'}`;
+    // With a mark or a span on the ribbon it grabs that, and says its length.
+    const marked = markedOnRibbon();
+    el.grabN.textContent = st.grabbing ? '' : marked ? ` ${lengthWords(marked.seconds)}` : !hasGrid ? '' : ` ${st.n} bar${st.n === 1 ? '' : 's'}`;
     const following = !st.chosenSource;
-    if (el.grabFrom) el.grabFrom.textContent = st.grabbing ? '' : `from ${sources().join(' + ')}${following ? ' · armed' : ''}`;
-    el.grab.setAttribute('aria-label', st.grabbing ? 'Grabbing' : k.label);
+    const where = marked ? (marked.toNow ? 'from your mark' : 'the span you selected') : `from ${sources().join(' + ')}${following ? ' · armed' : ''}`;
+    if (el.grabFrom) el.grabFrom.textContent = st.grabbing ? '' : where;
+    el.grab.setAttribute('aria-label', st.grabbing ? 'Grabbing' : marked ? `Grab ${lengthWords(marked.seconds)}, ${where}` : k.label);
     el.grab.disabled = st.grabbing;
     for (const btn of el.picks.children) {
       const m = Number(btn.dataset.n);
@@ -894,7 +903,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   for (const root of [el.panel, grabRow]) {
     root.addEventListener('mousedown', (e) => { if (e.target.closest('button') && !e.target.closest('.buffer-sheet-grip')) e.preventDefault(); });
   }
-  el.grab.addEventListener('click', grabBars);
+  el.grab.addEventListener('click', () => (markedOnRibbon() ? grabSpan() : grabBars()));
   // GRAB's ▾: how much, and from which input, in a panel under the pair
   // (lib/ui/menu.js), on the Studio's stack of open things. A pick leaves it
   // open for the next; GRAB, a press elsewhere, Escape or Back closes it.

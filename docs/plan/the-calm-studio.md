@@ -173,10 +173,10 @@ Each step is one PR, looked at on the tablet before the next, and ends with
    is step 3's and the two faces'.
 3. **The feed's mark** (decision 4): built 2026-11-10 (the tap, KEEP to
    the mark, one KEEP on the screen, the VU needles out). The ribbon was
-   already the whole ring, on a logarithmic axis. Left: GRAB from the
-   mark by the main GRAB key (it is on the selection's bar), and the bar
-   itself, a row that pushes the lanes down while a mark is set: it goes
-   when the feed has a face of its own. Was: tap to set it, KEEP to it, the whole
+   already the whole ring, on a logarithmic axis. GRAB follows the mark
+   too, and the mark has its own key on the ribbon in place of a row that
+   pushed the lanes down. Left: the ribbon's width (the keys on its right),
+   which is the two faces'. Was: tap to set it, KEEP to it, the whole
    ring on the ribbon; J1.1 and J1.3 extended, with the story in
    `docs/flows.md`. Then **the track heads** (decision 3), a PR of their
    own.

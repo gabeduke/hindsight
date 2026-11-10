@@ -37,6 +37,7 @@ import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from './ribbonmath.
 import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from './ribbon-draw.js';
 import { token } from '../theme.js';
 import { GESTURE } from '../ui/press.js';
+import { icon } from '../ui/icons.js';
 
 const HOLD_MS = GESTURE.HOLD.ribbon;
 const MOVE_PX = GESTURE.SLOP_PX;
@@ -151,11 +152,13 @@ export class Ribbon {
   wireSelect() {
     const w = this.wrap;
     w.addEventListener('pointerdown', (e) => {
-      if (!e.isPrimary || e.button > 0 || e.target.closest('.rb-flag') || !this.axis()) return;
+      if (!e.isPrimary || e.button > 0 || e.target.closest('.rb-flag') || e.target.closest('.rb-mark-clear') || !this.axis()) return;
       if (this.press) clearTimeout(this.press.timer);
       const p = { id: e.pointerId, x: e.clientX, y: e.clientY, armed: false, anchor: null, end: null };
+      this.held = false;
       p.timer = setTimeout(() => {
         p.armed = true;
+        this.held = true; // the click that ends a hold is not a tap
         p.anchor = this.frameAtX(p.x) ?? this.axis().total;
         p.end = null;
         try { w.setPointerCapture(p.id); } catch { /* fine */ }
@@ -180,18 +183,20 @@ export class Ribbon {
       if (!p || e.pointerId !== p.id) return;
       clearTimeout(p.timer);
       this.press = null;
-      if (!p.armed) {
-        // A tap: the press never moved past the slop (a move drops it, above).
-        if (commit && this.tapMarks) {
-          const from = this.frameAtX(e.clientX);
-          this.setSel(from == null ? null : { from, to: null });
-        }
-        return;
-      }
+      if (!p.armed) return;
       if (commit) this.setSel(this.spanOf(p));
       else this.setSel(this.prevSel ?? null);
     };
     w.addEventListener('pointerup', (e) => finish(e, true));
+    // A tap is the mark, where the page asks for it. On the click, not the
+    // lift: the mark's own key is drawn under the finger, and a click that
+    // came after the mark would land on it and take the mark off again.
+    w.addEventListener('click', (e) => {
+      if (!this.tapMarks || this.held || e.button > 0 || !this.axis()) return;
+      if (e.target.closest('.rb-flag') || e.target.closest('.rb-mark-clear')) return;
+      const from = this.frameAtX(e.clientX);
+      this.setSel(from == null ? null : { from, to: null });
+    });
     w.addEventListener('pointercancel', (e) => finish(e, false));
     w.addEventListener('contextmenu', (e) => { if (this.press) e.preventDefault(); });
     // Once a hold has armed, a drag that starts out vertical must select, not
@@ -271,8 +276,11 @@ export class Ribbon {
     const bar = this.selBar;
     if (!bar) return;
     const sel = this.sel;
-    bar.hidden = !sel;
-    if (!sel || !ax) return;
+    // The mark has no bar: the feed's KEEP and GRAB say it, and its own key
+    // on the ribbon takes it off (renderSel). A span in the middle has one.
+    const mark = this.tapMarks && sel && sel.to == null;
+    bar.hidden = !sel || mark;
+    if (!sel || mark || !ax) return;
     const to = sel.to ?? ax.total;
     const fromAge = ageOf(sel.from, ax.total, ax.sr);
     const toAge = sel.to == null ? 0 : ageOf(to, ax.total, ax.sr);
@@ -494,6 +502,16 @@ export class Ribbon {
       const band = add(this.selLayer, 'div', 'rb-sel-band');
       band.style.left = `${l.toFixed(2)}%`;
       band.style.width = `${Math.max(0.4, r - l).toFixed(2)}%`;
+      if (this.tapMarks && this.sel.to == null) {
+        // The mark's own key, at its start: a tap takes it off.
+        const off = add(this.selLayer, 'button', 'rb-mark-clear');
+        off.type = 'button';
+        off.setAttribute('aria-label', 'Take the mark off');
+        off.dataset.tip = 'ribbon-clear';
+        off.innerHTML = icon('close', { size: 14 });
+        off.style.left = `${l.toFixed(2)}%`;
+        off.addEventListener('click', (e) => { e.stopPropagation(); this.setSel(null); });
+      }
     }
     this.bandLayer.hidden = !!this.sel;
     this.onSel?.(this.selInfo(ax));
