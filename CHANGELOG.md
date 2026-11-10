@@ -5,6 +5,13 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.10.1 — 2026-11-10
+
+- On a phone the drawer's sheet has no Trim key, and a tablet turned on its side keeps the right lanes (ee089ed8)
+- A grabbed clip's drawer opens small (the clip, Drop, Keep, Toss), so all four tracks stay a finger tall above it; Trim opens the rest (5c59765a)
+- Spec: the calm Studio (what is on screen, and when), and inputs seen and recorded in one move (3adbe0ec)
+
+
 ## v2026.11.04.3 — 2026-11-04
 
 - The bar's deck is .np-deck, and Guardrail 15 reads the window as it did; the Transport's unmount stops the keyboard note's timer (c610089e)
