@@ -59,10 +59,61 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Did the merged pull request already pass the flows on these very files?
+  # CI drove them on its last commit minutes ago. If main differs from that
+  # commit only in the two files a release itself writes (CHANGELOG.md and
+  # the hub's image tag in deploy/hub/kustomization.yaml, which no page, no
+  # demo and no flow reads), main runs the Go and unit tests again and not
+  # the flows. Anything else (a pull request behind main by a real change, a
+  # push straight to main, a flows run that was red or cancelled, a question
+  # the API didn't answer) says false, and main runs them all.
+  same-files:
+    if: ${{ github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    outputs:
+      skip-flows: ${{ steps.ask.outputs.skip }}
+    steps:
+      - name: Compare main with the pull request's last commit
+        id: ask
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          skip=false
+          head="$(gh api "repos/$REPO/commits/$SHA/pulls" \
+            -q "[.[] | select(.merge_commit_sha == \"$SHA\")][0].head.sha // empty" || true)"
+          if [ -n "$head" ]; then
+            # What main holds that the pull request's last commit didn't,
+            # but for the release's own two files: 0 when nothing.
+            other="$(gh api "repos/$REPO/compare/$head...$SHA" \
+              -q '[.files[].filename] - ["CHANGELOG.md", "deploy/hub/kustomization.yaml"] | length' || true)"
+            # The newest "flows" check on that commit: ci.yml's job on the
+            # pull request (called from here it is "test / flows").
+            flows="$(gh api "repos/$REPO/commits/$head/check-runs?check_name=flows&per_page=100" \
+              -q '[.check_runs[]] | sort_by(.started_at) | last | .conclusion // empty' || true)"
+            echo "main $SHA; pull request head $head; other files changed: ${other:-unknown}; its flows: ${flows:-none}"
+            if [ "$other" = "0" ] && [ "$flows" = "success" ]; then skip=true; fi
+          else
+            echo "no merged pull request found for $SHA"
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          echo "the flows on main: $([ "$skip" = true ] && echo 'skipped, passed on the same files' || echo 'run')" >> "$GITHUB_STEP_SUMMARY"
+
   test:
     # Reused rather than duplicated, so a red main cannot publish.
-    if: ${{ github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
+    # !cancelled(): if same-files itself failed, its answer is empty, which
+    # reads as false, and everything runs.
+    needs: same-files
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
     uses: ./.github/workflows/ci.yml
+    with:
+      skip-flows: ${{ needs.same-files.outputs.skip-flows == 'true' }}
 
   release:
     needs: test

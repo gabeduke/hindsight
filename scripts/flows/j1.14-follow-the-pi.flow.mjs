@@ -16,6 +16,7 @@ const TRIES = 5;
 export default {
   id: 'J1.14',
   title: 'The Studio follows a press made at the Pi',
+  alone: true, // it times the page to 100 ms: nothing runs beside it
   async run(t) {
     const { page, api } = t;
     const tape = await t.given('a fresh tape', () => api.tape('Follow'));

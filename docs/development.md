@@ -688,8 +688,10 @@ and a re-shoot produces a comparable image.
   STOP falls to 0 over a beat.
 - Node 22 for the JS tests (as CI): 20 has no glob support in `--test`
   and no global `navigator`.
-- The layout checks settle each screen and look twice, which makes a whole
-  run of the flows about 9 minutes locally.
+- A flow run is about 18 seconds, most of it waiting on audio in real
+  time (and the layout checks settle each screen and look twice): 111 runs
+  were 33 minutes one at a time. They run on workers, a demo each
+  (`docs/flows.md`); the run's last line says how long it took.
 - Not a bug: a take tapped while its preview encodes says "Still encoding"
   and loads when ready, which is why `t.api.keep` waits.
 

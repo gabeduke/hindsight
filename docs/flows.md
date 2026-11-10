@@ -9,7 +9,17 @@ node scripts/flows.mjs              # all flows on their profiles, own demo
 node scripts/flows.mjs J2 J1.6      # by id prefix
 node scripts/flows.mjs --profile=phone   # only the phone runs
 node scripts/flows.mjs --profile=tablet --storyboard=/tmp/sb   # and a page of every screen
+node scripts/flows.mjs --workers=1       # one run at a time
 ```
+
+The runs are shared among workers, a demo each (half the machine's cores, 4
+at most; `--workers=N` or `FLOWS_WORKERS`); a worker's runs share its demo,
+in turn. The table is in the flows' order whatever order they finished in,
+and its last line says how long the run took. A flow that fails only with
+others running beside it is racing the app: try it alone (`--workers=1`),
+and fix the race, not the flow's patience. A flow that measures time itself
+(J1.14's 100 ms) says `alone: true`, and runs after the rest with nothing
+beside it.
 
 Setup once: `npm install --no-save playwright@1.49.0 axe-core@4.11.4 && npx playwright install chromium`.
 It needs Go (it runs `go run ./cmd/hindsight --demo` on a free port, data in
@@ -201,6 +211,7 @@ export default {
   id: 'J2.4', title: 'Jot a note while a take plays',
   // status: 'todo', profiles: ['phone'] (default tablet, desktop and phone), allowHttpErrors: true,
   // checksMenus: ['#tape-menu'] (the layout checks must see it open)
+  // alone: true (it measures time: it runs after the rest, by itself)
   async run(t) {
     const take = await t.given('a take on the shelf', () => t.api.keep(20)); // seed through the API
     await t.given('the Listening Room is open', () => t.page.goto(`${t.base}/takes.html`));
@@ -233,8 +244,10 @@ export default {
   take still encoding does nothing); `t.api.tape(name)` loads a fresh tape
   and empties the buffer; `t.api.age(name, date)` dates a take, as if kept
   then, by writing its sidecar in the run's own demo (so not with
-  `HINDSIGHT_URL`). The profiles share one demo, in turn: a take one
-  profile seeds is on the others' shelves too.
+  `HINDSIGHT_URL`). A demo is shared by the runs its worker is given, in
+  turn: a take one run seeds is on the shelf for the worker's later runs,
+  and which runs those are changes from run to run, so a flow counts on
+  nothing it didn't seed.
 - `t.api.keyboard()` plugs the SMK-37 into the run's own demo: a FIFO for
   its rawmidi node, which the demo's MIDI watcher reads as the keyboard's
   (the demo boots with `TAPE_CONTROLLER=SMK` and an empty node directory,
