@@ -7,6 +7,14 @@ on:
   pull_request:
   # main is covered by release.yml, which calls this workflow.
   workflow_call:
+    inputs:
+      # release.yml sets it (its same-files job says when) if the merged
+      # pull request's last commit passed the flows and main differs from it
+      # only in what a release writes: the same files are not driven twice.
+      # Never set for a pull request or by hand.
+      skip-flows:
+        type: boolean
+        default: false
   # Any other branch, by hand.
   workflow_dispatch:
 
@@ -114,10 +122,13 @@ jobs:
   # green through a Studio that threw on every load; this is what notices.
   # A todo flow (a story not built yet) reports and never fails the job.
   flows:
+    if: ${{ !inputs.skip-flows }}
     runs-on: ubuntu-latest
     env:
       PLAYWRIGHT: 1.49.0
-    # About 9 minutes, 10 at p90; 47 on the slow-mirror day above.
+    # The flows were 33 minutes of this job on 2026-11-10, one run at a time
+    # (111 runs, about 18 s each, most of it waiting on audio in real time);
+    # they are shared among workers now, a demo each (scripts/flows.mjs).
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -186,12 +197,15 @@ jobs:
       # Each scenario prints as Given/When/Then; the layout checks run on
       # every screen. No LLM: the review is its own opt-in workflow
       # (ux-review.yml). They run when a component failed too, so the job
-      # says what both found.
+      # says what both found. Three workers on the runner's four cores (a
+      # demo and a page each; four on eight cores made the bounce and the
+      # 100 ms flow late): the step's last line says how long the runs
+      # took, and their sum.
       - name: User flows
         if: ${{ success() || steps.components.outcome == 'failure' }}
         run: |
           CGO_ENABLED=0 go build -o /tmp/hindsight ./cmd/hindsight
-          HINDSIGHT_BIN=/tmp/hindsight node scripts/flows.mjs --shots=flow-shots --json=flows.json --storyboard=storyboard
+          HINDSIGHT_BIN=/tmp/hindsight node scripts/flows.mjs --workers=3 --shots=flow-shots --json=flows.json --storyboard=storyboard
 
       # The storyboard (storyboard/index.html: every screen, pass or fail;
       # storyboard/components/index.html, every component at every size),

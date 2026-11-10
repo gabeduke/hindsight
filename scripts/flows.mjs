@@ -4,6 +4,7 @@
 //   node scripts/flows.mjs                     # every flow on its profiles (tablet, desktop, phone unless it says)
 //   node scripts/flows.mjs J2.2 J1.1           # just these
 //   node scripts/flows.mjs --profile=phone     # only that device's runs (tablet,desktop,phone,pixel,upright)
+//   node scripts/flows.mjs --workers=1         # one run at a time (default: half the cores, 4 at most)
 //   node scripts/flows.mjs --json=out.json     # results for a machine to read
 //   node scripts/flows.mjs --storyboard=dir    # a picture per screen, and dir/index.html
 //   node scripts/flows.mjs --storyboard=dir --review   # and Claude's notes on each (opt-in)
@@ -15,9 +16,15 @@
 // every run starts from an empty shelf. HINDSIGHT_BIN runs a built binary
 // instead of `go run`. Exits 1 when any core flow fails; a `todo` flow (a
 // story not built yet) is reported but never fails the run.
+//
+// The runs are shared out among workers, each with a demo of its own, so no
+// run sees what another seeded; the scenarios print as they finish, and the
+// table, the JSON and the storyboard are in the flows' order whatever the
+// workers' was. Against HINDSIGHT_URL there is one demo, so one worker. A
+// flow that says `alone: true` waits for the rest and runs by itself.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { availableParallelism, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
@@ -55,39 +62,71 @@ if (!flows.length) {
   process.exit(2);
 }
 
-let demo = null;
-let base = process.env.HINDSIGHT_URL;
-if (!base) {
-  console.log('booting the demo…');
-  demo = await bootDemo({ log: console.log });
-  base = demo.base;
+// Every run, in the order the table lists them. A flow may name the
+// profiles it makes sense on (a tablet's budget, a phone-only sheet): those,
+// else the tablet, the desktop and the phone. --profile narrows.
+const runs = flows.flatMap((flow) => {
+  const own = flow.profiles ?? ['tablet', 'desktop', 'phone'];
+  return (picked ? own.filter((q) => picked.includes(q)) : own).map((profile) => ({ flow, profile }));
+});
+
+const asked = Number(opt('workers') ?? process.env.FLOWS_WORKERS);
+if (opt('workers') !== undefined && !(Number.isInteger(asked) && asked >= 1)) {
+  console.error('--workers takes a whole number, 1 or more');
+  process.exit(2);
 }
-const api = apiFor(base, { dir: demo?.dir });
+const external = process.env.HINDSIGHT_URL;
+const workers = external ? 1
+  : Math.min(runs.length, asked >= 1 ? asked : Math.max(1, Math.min(4, availableParallelism() >> 1)));
+
+// A demo per worker (or the one at HINDSIGHT_URL), booted together.
+console.log(external ? `the demo at ${external}` : `booting ${workers === 1 ? 'the demo' : `${workers} demos`}…`);
+const booted = await Promise.allSettled(Array.from({ length: workers },
+  () => (external ? { base: external, stop() {}, dir: null } : bootDemo({ log: console.log }))));
+const demos = booted.filter((b) => b.status === 'fulfilled').map((b) => b.value);
+const down = booted.find((b) => b.status === 'rejected');
+if (down) {
+  for (const d of demos) d.stop();
+  throw down.reason;
+}
+
 // A fake microphone, allowed without asking: recording from a phone (J4.1).
 // Muted unless FLOWS_AUDIO=1: the page still plays (so the flows see the
 // same thing), but nothing comes out of the machine's speakers.
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', ...(process.env.FLOWS_AUDIO === '1' ? [] : ['--mute-audio'])] });
-const results = [];
-// Where the phone's ▶ stood, for the whole run (layout.mjs, bar-play-x).
+const results = new Array(runs.length);
+// Where the phone's ▶ stood, for the whole run (layout.mjs, bar-play-x):
+// one Map for every worker, so ▶ is held to one x across them all.
 const bar = new Map();
-try {
-  for (const flow of flows) {
-    // A flow may name the profiles it makes sense on (a tablet's budget, a
-    // phone-only sheet): those, else the tablet, the desktop and the phone.
-    // --profile narrows.
-    const own = flow.profiles ?? ['tablet', 'desktop', 'phone'];
-    for (const p of picked ? own.filter((q) => picked.includes(q)) : own) {
-      const r = { ...await runFlow(browser, flow, p, { base, api, shots, storyboard, known, bar }), file: flow.file };
-      console.log(`${scenario(r)}\n  => ${r.ok ? 'pass' : r.status === 'todo' ? 'todo' : 'FAIL'}\n`);
-      results.push(r);
-    }
+const began = Date.now();
+// A flow that measures time (alone: true, J1.14's 100 ms) runs after the
+// rest, with nothing beside it: four pages and four demos on one machine
+// are what it would be timing otherwise.
+const order = runs.map((_, i) => i);
+const shared = order.filter((i) => !runs[i].flow.alone);
+const alone = order.filter((i) => runs[i].flow.alone);
+const work = async (demo, queue) => {
+  const api = apiFor(demo.base, { dir: demo.dir });
+  while (queue.length) {
+    const i = queue.shift();
+    const { flow, profile } = runs[i];
+    const r = { ...await runFlow(browser, flow, profile, { base: demo.base, api, shots, storyboard, known, bar }), file: flow.file };
+    console.log(`${scenario(r)}\n  => ${r.ok ? 'pass' : r.status === 'todo' ? 'todo' : 'FAIL'}\n`);
+    results[i] = r;
   }
+};
+try {
+  await Promise.all(demos.map((demo) => work(demo, shared)));
+  await work(demos[0], alone);
 } finally {
   await browser.close();
-  demo?.stop();
+  for (const d of demos) d.stop();
 }
+const took = (Date.now() - began) / 1000;
+const summed = results.reduce((n, r) => n + r.ms, 0) / 1000;
 
 console.log(`\n${report(results)}`);
+console.log(`${runs.length} runs in ${took.toFixed(0)}s on ${workers} worker${workers === 1 ? '' : 's'} (${summed.toFixed(0)}s of runs)`);
 const met = new Set(results.flatMap((r) => (r.log ?? []).flatMap((l) => (l.layout ?? [])
   .filter((f) => f.severity === 'fail' || f.severity === 'known').map((f) => `${r.profile}|${findingKey(f)}`))));
 if (args.includes('--update-layout-known')) {
