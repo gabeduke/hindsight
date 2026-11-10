@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.10.4 — 2026-11-10
+
+- The level by the Studio's lamp is two bars you can see, and narrower, so the ribbon is wider (12ae963d)
+
+
 ## v2026.11.10.3 — 2026-11-10
 
 - The mark's key is one button that a redraw can't take from under a finger; a grab that fails leaves the mark; a mouse drag is not a tap (3657d0e9)
