@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.10.2 — 2026-11-10
+
+- KEEP from a mark flashes and ticks as any KEEP does, and an old mark's length is what the ring still holds (17cfcae6)
+- A tap on the Studio's feed marks "from here", and KEEP keeps from the mark to now; one KEEP on the screen, and the VU needles give their room to the ribbon (6f67437d)
+
+
 ## v2026.11.10.1 — 2026-11-10
 
 - On a phone the drawer's sheet has no Trim key, and a tablet turned on its side keeps the right lanes (ee089ed8)
