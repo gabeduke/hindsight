@@ -7,7 +7,9 @@ built 2026-10-29.
 
 On a touch screen a track's head holds what a jam needs: its name, ● a
 finger wide, its input and ›, which opens the track's inspector, where M,
-S and the level are. With a mouse they stay in the head. On a tablet the
+S and the level are. With a mouse they stayed in the head until
+2026-11-10; since then the head is the same with a mouse
+(`docs/plan/the-calm-studio.md`, decision 3). On a tablet the
 Studio, at rest, holds no more controls than its budget (`STUDIO_BUDGET`
 in `scripts/flows/layout.mjs`, checked by J1.16), next to none under
 32 px, and all four tracks above the bar. The budget's numbers only go

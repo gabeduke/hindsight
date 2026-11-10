@@ -2254,9 +2254,9 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .tt-head .tt-in { display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; font: 600 10.5px var(--mono); letter-spacing: 0; text-transform: none; }
 .tt-in-led { width: 6px; height: 6px; border-radius: 50%; background: var(--led-off); flex: none; }
 .tt-head .tt-in.signal .tt-in-led { background: var(--go); box-shadow: 0 0 5px var(--go-glow); }
-/* The track's number: printed on the masking tape where the head is narrow
-   (most screens), in a ring of the track's colour where it's wide, with
-   room for full-size keys beside it. The head's own width decides. */
+/* The track's number is printed on the masking tape. A head with no ●
+   (the bench's, lib/objects/bench.js) has it in a ring of the track's
+   colour where it is wide; the head's own width decides. */
 .tt-head { container: tthead / inline-size; }
 .tt-head .tt-name::before { content: attr(data-n) " "; }
 .tt-num { display: none; }
@@ -2359,8 +2359,7 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
    be: the level is here alone on a touch screen. */
 #track-sheet .clip-field input[type=range] { height: 24px; }
 @media (max-width: 480px) {
-  /* Narrow: the chips shrink so number, bus, M and S share a row, and the
-     level slider stays under them. */
+  /* Narrow: a narrower head, and its chips shrink. */
   .tape-track, .cue-row { grid-template-columns: 112px 1fr; }
   .tt-head { gap: 3px; padding: 3px; }
   .tt-head .chip { padding: 0 6px; }
@@ -2986,7 +2985,8 @@ body.wave-page > main.wave-main { flex: 1 1 auto; min-height: 0; width: 100%; bo
 /* A short screen -- the bench tablet docked at 1024x600: the heads are
    tighter, so the four lanes keep their height over a drawer. */
 @media (min-width: 1000px) and (max-height: 640px) {
-  /* The head's two rows (the name's strip; the keys and level) fit in 64. */
+  /* A head with no ● (the bench's) is tighter; the Studio's head is its
+     grid's rows ("The heads", below), and only its name's type is set here. */
   .tt-head { gap: 3px; padding: 3px 4px; }
   .tt-head .chip { min-height: 28px; }
   .tt-head .tt-name { min-height: 22px; font-size: 15px; padding-block: 0; }

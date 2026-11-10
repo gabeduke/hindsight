@@ -141,8 +141,8 @@ and still looks it:
   tap away, and makes the feed and the tape two faces of one room. Built:
   step 1 (the walk), step 2 (the cue clip's drawer opens small, #278) and
   the feed's mark of step 3 (a tap on the ribbon, KEEP to it, one KEEP,
-  the VU needles out). Next: the track heads with a mouse as on touch,
-  then the two faces. Gabe's calls before the bar changes are in the spec.
+  the VU needles out), and the track heads, with a mouse as on touch.
+  Next: the two faces. Gabe's calls before the bar changes are in the spec.
   `inputs.md` (proposed) folds into its step 4. This comes before the
   component migration's next row: a component is now moved when a journey
   needs it.
