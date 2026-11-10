@@ -171,7 +171,12 @@ Each step is one PR, looked at on the tablet before the next, and ends with
    the lanes do, so the VU pair's column is the track heads' and gives it
    nothing; its width is taken by GRAB, KEEP and Note on its right, which
    is step 3's and the two faces'.
-3. **The feed's mark** (decision 4): tap to set it, KEEP to it, the whole
+3. **The feed's mark** (decision 4): built 2026-11-10 (the tap, KEEP to
+   the mark, one KEEP on the screen, the VU needles out). The ribbon was
+   already the whole ring, on a logarithmic axis. Left: GRAB from the
+   mark by the main GRAB key (it is on the selection's bar), and the bar
+   itself, a row that pushes the lanes down while a mark is set: it goes
+   when the feed has a face of its own. Was: tap to set it, KEEP to it, the whole
    ring on the ribbon; J1.1 and J1.3 extended, with the story in
    `docs/flows.md`. Then **the track heads** (decision 3), a PR of their
    own.

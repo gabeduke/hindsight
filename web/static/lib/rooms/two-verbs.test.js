@@ -15,19 +15,21 @@ const tape = strip(read('../../shell.html'));
 const capture = /<main id="view-capture"[\s\S]*?<\/main>/.exec(tape)[0];
 const selBar = (html, id = 'rb-sel') => new RegExp(`<div class="rb-sel" id="${id}"[\\s\\S]*?<\\/div>`).exec(html)[0];
 
-test('the Studio’s selection offers KEEP, and GRAB beside it: no Copy, no Keep as clip, no Save as take', () => {
+test('the Studio’s selection offers GRAB on its bar and KEEP on the feed’s own key: no second Keep, no Copy, no Keep as clip, no Save as take', () => {
   const bar = selBar(tape);
   assert.doesNotMatch(bar, /rb-sel-copy|>Copy</, 'Copy was the same request as GRAB');
   assert.doesNotMatch(bar, /rb-sel-keep|Keep as clip/, 'the crate is not offered on a selection');
   assert.doesNotMatch(bar, /Save as take|KEEP AS TAKE/i, 'a selection’s verb is KEEP');
-  assert.match(bar, /class="icon-btn primary rb-sel-save"[^>]*>Keep</, 'the one primary key is KEEP');
+  assert.doesNotMatch(bar, /rb-sel-save|>Keep</, 'one KEEP on the screen: the feed’s key keeps the selection');
   assert.match(tape, /<template id="buffer-sel-tpl">\s*<button[^>]*buffer-grab-sel[^>]*>GRAB</, 'and GRAB, which the buffer puts in');
+  const studio = read('./studio.js');
+  assert.match(studio, /if \(marked\) \{\s*kept = await ribbon\.saveSel\(\)/, 'KEEP keeps what is marked or selected');
 });
 
-test('GRAB goes into the selection bar by the KEEP key, not by Copy’s place', () => {
+test('GRAB goes onto the selection bar, not by Copy’s place', () => {
   const buffer = read('../buffer/buffer.js');
   assert.doesNotMatch(buffer, /rb-sel-copy/, 'Copy is gone: nothing may be placed by it');
-  assert.match(buffer, /\.rb-sel-save'\)\?\.before\(/, 'GRAB sits before KEEP');
+  assert.match(buffer, /getElementById\('rb-sel'\)\?\.append\(/, 'GRAB is the bar’s last key');
 });
 
 test('`/` with the tape off offers Save as take on a selection, and nothing for the crate or the clipboard', () => {
@@ -46,13 +48,15 @@ test('the feed’s KEEP key carries its length, the buffer’s its own', () => {
   assert.match(keep, /id="buffer-keep-len"/);
 });
 
-test('the ribbon names the selection’s KEEP when it is told to, and only then', () => {
+test('the feed’s KEEP names the mark or the selection, told by the ribbon; a tap marks only where the page asks', () => {
   const ribbon = read('../objects/ribbon.js');
-  assert.match(ribbon, /keepWords/, 'the Studio hands it a way to word KEEP');
+  assert.match(ribbon, /this\.onSel\?\.\(this\.selInfo\(ax\)\)/, 'the ribbon says what is selected each time it draws it');
+  assert.doesNotMatch(ribbon, /keepWords/, 'it words no key of its own any more');
   const studio = read('./studio.js');
-  assert.match(studio, /keepWords:/);
+  assert.match(studio, /tapMarks: true/);
+  assert.match(studio, /marked \? selectionKeepLength\(marked\.seconds\)/, 'the key says how long the mark or the span is');
   assert.match(studio, /setAttribute\('aria-label', keepAria\(len\)\)/, 'the feed key’s name comes from keepAria, which contains the label');
-  assert.doesNotMatch(read('../../app.js'), /keepWords/, 'Capture does not');
+  assert.doesNotMatch(read('../../app.js'), /tapMarks/, 'Capture keeps the hold');
 });
 
 test('a take’s GRAB: Open, the notes, and no Send to (the sheet that carried one is gone, F5a)', () => {

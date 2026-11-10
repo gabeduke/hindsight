@@ -17,7 +17,6 @@
 import { connectLive } from '../live.js';
 import { onResume, timedFetch } from '../link.js';
 import { Meters, tierPhrase, captureTiers, frameLevels, readouts, heldError, lampState } from '../meter.js';
-import { VUMeters } from '../objects/vu.js';
 import { Ribbon } from '../objects/ribbon.js';
 import { toast } from '../toast.js';
 import { restoreTake } from '../trash.js';
@@ -30,7 +29,7 @@ import { takeTitle } from './takename.js';
 import { named } from './words.js';
 import { mountBuffer } from '../buffer/buffer.js';
 import { bindStudioKeys } from './keys.js';
-import { keepLabel, keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
+import { keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
 import { splitKey, barTop } from '../ui/menu.js';
 import { layersOf } from '../ui/layers.js';
 
@@ -66,7 +65,6 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     len: $('studio-keep-len'),
     sub: $('studio-keep-sub'),
     viz: $('viz-wrap'),
-    vu: $('vu'),
     meters: $('meters'),
     health: $('studio-health'),
     disk: $('stat-disk'),
@@ -87,7 +85,7 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
   let reached = false;   // whether the last poll got one
   let seconds = readKeep() ?? 30; // the length KEEP keeps; 0 is the whole ring
   let keeping = false;   // a KEEP on its way
-  let vu = null;
+  let marked = null;     // what is selected on the ribbon ({seconds, toNow}): KEEP keeps that
   let bars = null;
   let chans = null;      // the input diagnostic's meters, one per channel
   let captureErr = { text: '', since: 0, shown: false }; // heldError's
@@ -123,9 +121,10 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     onSavedToast: keptToast,
     selBar: $('rb-sel'),
     flagSheet: $('rb-flag-sheet'),
-    // A selection of the feed has two verbs, GRAB (the buffer's) and KEEP,
-    // and KEEP says how much it keeps.
-    keepWords: (seconds) => keepLabel(selectionKeepLength(seconds)),
+    // A tap on the ribbon is the mark, "from here": KEEP then keeps from it
+    // to now, and says how long that is (docs/plan/the-calm-studio.md, 4).
+    tapMarks: true,
+    onSel: (info) => { marked = info && !info.gone ? info : null; paintKeep(); },
   });
 
   // KEEP's ▾: its lengths, in a panel under the pair (lib/ui/menu.js), on
@@ -160,14 +159,11 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     ribbon.setSelected(seconds);
   }
 
-  // The meters: needles from 700 px, two bars on a phone (CSS picks); and
+  // The meters: two bars by the lamp; and
   // the diagnostic's, one per input, the saved ones lit.
   function buildMeters(s) {
     const labels = s.save_channels.length > 1 ? ['L', 'R'] : ['M'];
-    vu?.destroy(); // off the ticker before its nodes go
-    el.vu.replaceChildren();
     el.meters.replaceChildren();
-    vu = new VUMeters(el.vu, { labels });
     bars = new Meters(el.meters, { labels, selected: [] });
     el.chanGrid.replaceChildren();
     chans = new Meters(el.chanGrid, {
@@ -211,11 +207,11 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     el.word.textContent = busy ? 'Keeping…' : status && !healthy ? 'No input' : 'Keep';
     // KEEP names what it keeps, on every screen: the sub-line that says it in
     // words has no room on a phone, the length beside the word does.
-    const len = status && healthy && !busy ? feedKeepLength(seconds, status.ring_seconds) : '';
+    const len = !(status && healthy && !busy) ? '' : marked ? selectionKeepLength(marked.seconds) : feedKeepLength(seconds, status.ring_seconds);
     el.len.textContent = len;
     if (len) el.keep.setAttribute('aria-label', keepAria(len));
     else el.keep.removeAttribute('aria-label');
-    el.sub.textContent = status ? tierPhrase(seconds, status.ring_seconds) : '';
+    el.sub.textContent = !status ? '' : marked ? (marked.toNow ? 'from your mark to now' : 'the span you selected') : tierPhrase(seconds, status.ring_seconds);
     el.sub.hidden = !healthy || busy;
   }
 
@@ -273,8 +269,15 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     try { navigator.vibrate?.(10); } catch { /* no haptics here */ }
     keeping = true;
     paintKeep();
+    // With a mark or a span on the ribbon, KEEP keeps that (the ribbon's own
+    // save, with its toast and Undo); the length on ▾ is for no mark.
     let kept = false;
     try {
+      if (marked) {
+        kept = await ribbon.saveSel();
+        if (kept) try { navigator.vibrate?.([12, 70, 12]); } catch { /* no haptics here */ }
+        return;
+      }
       const body = await keepTake(seconds);
       const title = takeTitle(body, { day: true });
       keptToast(`Kept ${named(takeTitle(body, { seconds: body.seconds, day: true }))}: it’s on the Listening Room’s shelf`, body.name, title);
@@ -309,7 +312,6 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
       if (!status) return;
       const { rms, peak, clip } = frameLevels(f, status.save_channels.map((c) => c - 1));
       bars?.update(rms, peak, clip);
-      vu?.update(rms, peak, clip);
       const last = f.bins?.[f.bins.length - 1];
       if (chans && last?.rms) chans.update(last.rms, f.peak, f.clip);
     },

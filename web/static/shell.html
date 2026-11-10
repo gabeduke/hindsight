@@ -638,8 +638,9 @@
            readouts and the input channels, which were a line here and a
            disclosure under the lanes. -->
       <button class="studio-lamp" id="studio-lamp" type="button" aria-haspopup="dialog" aria-controls="feed-sheet" data-tip="feed-lamp" data-state="none"><span class="studio-lamp-led" aria-hidden="true"></span><span class="studio-feed-title">Feed</span></button>
-      <!-- VU needles; on a phone, the bars instead. -->
-      <div class="vu-row" id="vu"></div>
+      <!-- The level, as two bars under the lamp. The VU needles left the
+           Studio on 2026-11-10 (docs/plan/the-calm-studio.md, decision 4):
+           their width is the ribbon's. -->
       <div class="meters" id="meters"></div>
     </div>
     <div class="viz-wrap" id="viz-wrap" data-tip="ribbon"></div>
@@ -661,14 +662,14 @@
       <span class="key-pop-label">Keep the last</span>
       <div class="seg" id="dur-seg" role="group" aria-label="Keep length" data-tip="capture"></div>
     </div>
-    <!-- A span held and dragged on the ribbon, and what to do with it. -->
+    <!-- The mark (a tap on the ribbon: from there to now) or a span held and
+         dragged on it, and what to do with it. -->
     <div class="rb-sel" id="rb-sel" hidden>
       <span class="rb-sel-text"></span>
       <button class="icon-btn rb-sel-clear" type="button" aria-label="Clear the selection" data-tip="ribbon-clear">×</button>
-      <!-- GRAB (the buffer puts it in, before this) and KEEP: one selection,
-           two verbs. KEEP says its length; Copy and Keep as clip are not
-           offered here (docs/architecture/rooms.md, Vocabulary). -->
-      <button class="icon-btn primary rb-sel-save" type="button" data-tip="selection-keep">Keep</button>
+      <!-- GRAB (the buffer puts it in, last). KEEP is the feed's own key,
+           which keeps what is marked or selected and says how long it is:
+           one KEEP on the screen, not two (the-calm-studio.md, decision 7). -->
     </div>
   </section>
 </template>

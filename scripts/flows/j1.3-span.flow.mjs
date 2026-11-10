@@ -1,5 +1,16 @@
-// J1.3 Select a span of the feed: hold on the ribbon and drag, then KEEP
-// just that span as a take, or GRAB it onto the cue lane. docs/flows.md#j13
+// J1.3 Tap the feed where the jam began and KEEP from there to now; or hold
+// on the ribbon and drag to select a span, then KEEP just that as a take, or
+// GRAB it onto the cue lane. docs/flows.md#j13
+
+// tapAt is one tap on the ribbon, a part of the way along it: a finger on a
+// touch profile, the mouse otherwise.
+async function tapAt(t, locator, pct) {
+  const box = await locator.boundingBox();
+  const x = box.x + box.width * pct;
+  const y = box.y + box.height / 2;
+  if (!t.profile.startsWith('desktop')) return t.page.touchscreen.tap(x, y);
+  return t.page.mouse.click(x, y);
+}
 
 // holdDrag is the ribbon's select gesture: a press held past the hold time,
 // then a drag. A finger on a touch profile (real touch events), the mouse
@@ -53,6 +64,25 @@ export default {
     await t.poll(() => document.querySelector('#viz-wrap .rb-tick'), null, 8000); // drawn: it can name frames
     const bar = page.locator('#rb-sel');
 
+    // The mark: a tap says "from here", and KEEP keeps from it to now.
+    await t.step('tap the ribbon where the jam began', () => tapAt(t, ribbon, 0.45));
+    t.expect('the mark runs to now', await t.poll(() => /to now/.test(document.querySelector('#rb-sel .rb-sel-text')?.textContent || '')),
+      await page.locator('#rb-sel .rb-sel-text').textContent());
+    const marked = selSeconds(await page.locator('#rb-sel .rb-sel-text').innerText());
+    t.expect('KEEP says it keeps from the mark', await t.poll(() => /mark/.test(document.getElementById('studio-keep-sub')?.textContent || '')),
+      await page.locator('#studio-keep').innerText());
+    await t.step('tap KEEP', () => t.tap(page.locator('#studio-keep')));
+    const fromMark = await api.until(async () => (await api.takes()).find((x) => !before.has(x.name) && x.has_peaks), 'the take from the mark');
+    t.expect('the take runs from the mark to now', fromMark.duration_seconds >= marked - 1.5 && fromMark.duration_seconds <= marked + 4,
+      `marked ${marked} s ago, kept ${fromMark.duration_seconds.toFixed(2)} s`);
+    t.expect('the mark lets go', await t.poll(() => document.getElementById('rb-sel')?.hidden));
+    // Taken back, so this flow leaves the shelf one take longer, as it did
+    // before the mark: J5.1's List check on a phone depends on the run's
+    // count of takes (docs/plan/STATE.md, Known bugs).
+    await api.del(`/api/delete?file=${encodeURIComponent(fromMark.name)}`);
+    await api.del(`/api/trash?file=${encodeURIComponent(fromMark.name)}`); // and out of Recently deleted, which later flows' screens would show
+    before.add(fromMark.name);
+
     // Keep: a span well inside the feed, not reaching now.
     await t.step('hold and drag across the ribbon', () => holdDrag(t, ribbon, 0.35, 0.7));
     t.expect('the selection bar opens', await bar.isVisible());
@@ -60,7 +90,7 @@ export default {
     const len = selSeconds(text);
     t.expect('it names the span, not reaching now', len >= 2 && !/to now/.test(text), `"${text}"`);
 
-    await t.step('tap the selection’s Keep', () => t.tap(page.locator('#rb-sel .rb-sel-save')));
+    await t.step('tap KEEP, which keeps the selection', () => t.tap(page.locator('#studio-keep')));
     const take = await api.until(async () => (await api.takes()).find((x) => !before.has(x.name) && x.has_peaks), 'the kept span');
     t.expect('the take is that span', Math.abs(take.duration_seconds - len) <= 1.5,
       `selected ${len} s, kept ${take.duration_seconds.toFixed(2)} s`);

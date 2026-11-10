@@ -30,7 +30,7 @@ test('outside its templates the tape page has no feed, and nowhere an about line
 
 test("the Studio's templates carry the feed, KEEP, the input diagnostic and its sheets", () => {
   const feed = inTemplate('studio-feed-tpl');
-  for (const id of ['viz-wrap', 'rb-sel', 'vu', 'meters', 'dur-seg', 'studio-keep', 'studio-keep-more', 'studio-keep-pop', 'studio-lamp']) assert.ok(feed.includes(`id="${id}"`), `the feed lacks #${id}`);
+  for (const id of ['viz-wrap', 'rb-sel', 'meters', 'dur-seg', 'studio-keep', 'studio-keep-more', 'studio-keep-pop', 'studio-lamp']) assert.ok(feed.includes(`id="${id}"`), `the feed lacks #${id}`);
   // The input diagnostic and the readouts are behind the feed's lamp, in its
   // sheet (docs/plan/the-studio-on-one-screen.md): no foot under the lanes.
   assert.ok(!tape.includes('studio-foot-tpl'), 'the foot is gone');
