@@ -45,6 +45,28 @@ export function heardIndex({ rd, at }, now, rate, latencyS) {
   return rd + Math.round((now - at) * rate) - Math.round(latencyS * rate);
 }
 
+// HeardClock smooths heardIndex for drawing. The audio clock behind it
+// (AudioContext.currentTime) moves a device buffer at a time -- tens of ms
+// on Android at latencyHint 'playback' -- so a playhead drawn from it at
+// 60 fps stands still for a frame or two, then jumps. This runs on the
+// page's own clock (performance.now) at the context's rate and leans a
+// tenth of the way toward the audio clock each read; a gap bigger than
+// SNAP_S (a reset, a stall, a jump) snaps to it. It never steps back
+// except on a snap.
+const SNAP_S = 0.1, LEAN = 0.1;
+export class HeardClock {
+  constructor() { this.i = null; this.t = 0; }
+  reset() { this.i = null; }
+  at(raw, nowMs, rate) {
+    if (this.i === null || nowMs < this.t) { this.i = raw; this.t = nowMs; return Math.round(raw); }
+    const predicted = this.i + (nowMs - this.t) * rate / 1000;
+    const err = raw - predicted;
+    this.i = Math.abs(err) > SNAP_S * rate ? raw : Math.max(this.i, predicted + err * LEAN);
+    this.t = nowMs;
+    return Math.round(this.i);
+  }
+}
+
 // fillReport is what the page tells the stream every 500 ms: its delay,
 // and, once the page knows the Pi's clock (play/piclock.js; toPi answers
 // undefined until then: since the instrument strip went, always), the

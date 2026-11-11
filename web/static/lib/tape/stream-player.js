@@ -1,7 +1,7 @@
 // The tape, played here: the stream's WebSocket into an AudioWorklet, with
 // reconnects, the fill reported to the Pi, the screen held on and the lock
 // screen's play and pause.
-import { parsePacket, StampLog, heardIndex, nextBackoff, fillReport } from './stream-buffer.js';
+import { parsePacket, StampLog, heardIndex, nextBackoff, fillReport, HeardClock } from './stream-buffer.js';
 import { piClock } from '../play/piclock.js';
 import { holdScreen } from '../wakelock.js';
 import { rememberListener, rejoin } from './listener.js';
@@ -16,6 +16,7 @@ export class StreamPlayer {
     this.wasLost = false; this.lostAt = 0; this.lastPacket = 0; this.flowing = false; this.rejoin = null;
     this.joining = false; this.rejoined = false; this.mode = null; this.quiet = false; this.kept = false;
     this.log = new StampLog();
+    this.clock = new HeardClock();
     this.queued = 0; this.report = null; this.ws = null; this.ctx = null; this.node = null; this.underruns = 0;
     this._state = 'off'; this.backoff = 0; this.wake = null; this.stopped = true;
     this.onVisible = () => { if (!document.hidden && !this.stopped && this.ctx) this.ctx.resume().catch(() => {}); };
@@ -162,7 +163,7 @@ export class StreamPlayer {
   }
 
   reset() {
-    this.log.clear(); this.queued = 0; this.report = null;
+    this.log.clear(); this.queued = 0; this.report = null; this.clock.reset();
     this.node.port.postMessage({ cmd: 'reset' });
   }
 
@@ -171,16 +172,19 @@ export class StreamPlayer {
     const sr = this.ctx?.sampleRate || 48000;
     const out = (this.ctx?.outputLatency || 0) + (this.ctx?.baseLatency || 0);
     this.ws.send(JSON.stringify(fillReport({
-      delayMs: this.delayMs(), heard: this.heard(), nowMs: performance.now(), toPi: (t) => piClock.toPi(t),
+      delayMs: this.delayMs(), heard: this.heard({ raw: true }), nowMs: performance.now(), toPi: (t) => piClock.toPi(t),
       bufMs: ((this.report?.fill) || 0) / sr * 1000, outMs: out * 1000, underruns: this.underruns,
     })));
   }
 
-  // What the speaker is playing now.
-  heard() {
+  // What the speaker is playing now, smoothed for drawing (HeardClock);
+  // `raw`: straight from the audio clock, for timing the Pi's controls.
+  heard({ raw = false } = {}) {
     if (!this.report || !this.ctx) return null;
     const lat = (this.ctx.outputLatency || 0) + (this.ctx.baseLatency || 0);
-    return this.log.at(heardIndex(this.report, this.ctx.currentTime, this.ctx.sampleRate, lat), this.getLoop());
+    let i = heardIndex(this.report, this.ctx.currentTime, this.ctx.sampleRate, lat);
+    if (!raw) i = this.clock.at(i, performance.now(), this.ctx.sampleRate);
+    return this.log.at(i, this.getLoop());
   }
 
   delayMs() {
