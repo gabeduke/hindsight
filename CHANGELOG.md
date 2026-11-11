@@ -5,6 +5,14 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.11.1 — 2026-11-11
+
+- The tape on a phone plays without gaps on a kit set to a low output latency: the renderer keeps five blocks ahead while the pacer drives it (59ca983a)
+- The flows runner refuses a run that matches nothing and a worker count that isn't a number, and leaves no demo behind if the browser won't start (89934d4f)
+- A release doesn't drive the flows again when the pull request just passed them on the same files (5b31527f)
+- The user flows run on workers, a demo each: a whole run is 11 minutes, not 25, and a flow that measures time runs by itself after the rest (61d90e04)
+
+
 ## v2026.11.10.5 — 2026-11-10
 
 - The calm Studio's spec says what is built and what is left, and the plan says what waits on Gabe (5381acd2)
