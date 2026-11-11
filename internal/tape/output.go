@@ -60,6 +60,10 @@ type Output struct {
 	lost         atomic.Bool
 	modeAttaches atomic.Uint64 // the stream's attaches when the mode last changed, less any listening then
 
+	// pacing: the pacer drives the tape (a phone, no device pulling); the
+	// renderer reads it to keep a lead the pacer's steps can't run through.
+	pacing atomic.Bool
+
 	// the pacer's own, under paceMu (its goroutine, or a test calling paceStep)
 	paceMu    sync.Mutex
 	paceAt    int64
@@ -115,9 +119,8 @@ func (o *Output) setMode(m OutputMode) {
 }
 
 // PullFrames is the device's (audio.PullSize). The pacer's own pulls, for a
-// phone with the device away, are a step or two of the stream's (stream.go)
-// and aren't counted: at a low OUTPUT_LATENCY_MS a phone with no device to
-// pace it can hear a gap where the renderer was a step behind.
+// phone with the device away, aren't counted here: while it drives, the
+// renderer keeps paceAheadBlocks ahead instead (Engine.aheadNow).
 func (o *Output) PullFrames() int {
 	if p, ok := o.dev.(audio.PullSize); ok {
 		return p.PullFrames()
@@ -244,8 +247,10 @@ func (o *Output) paceStep() {
 	quiet := now-o.lastDevCall.Load() >= int64(deviceQuiet)
 	if o.Mode() == ModeJam || o.stream.Listeners() == 0 || !quiet {
 		o.paceAt = 0
+		o.pacing.Store(false)
 		return
 	}
+	o.pacing.Store(true) // the renderer keeps the pacer's lead (aheadNow)
 	if o.paceAt == 0 {
 		o.paceAt = now
 		return
