@@ -5,6 +5,11 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.11.2 — 2026-11-11
+
+- The playhead glides on a phone playing the tape, instead of standing still and jumping a buffer at a time (f890008a)
+
+
 ## v2026.11.11.1 — 2026-11-11
 
 - The tape on a phone plays without gaps on a kit set to a low output latency: the renderer keeps five blocks ahead while the pacer drives it (59ca983a)
