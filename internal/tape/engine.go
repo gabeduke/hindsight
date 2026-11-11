@@ -26,6 +26,12 @@ import (
 const (
 	// BlockFrames is what the renderer renders at a time: 21 ms.
 	BlockFrames = 1024
+	// paceAheadBlocks is how far ahead the renderer keeps while the pacer
+	// drives it (the tape on a phone, with no device pulling): 107 ms, the
+	// five blocks it always kept. The pacer's ticker pulls 20 ms steps,
+	// several back to back when it fires late, and the phone buffers 0.8 s
+	// anyway, so a short lead buys nothing there and costs gaps.
+	paceAheadBlocks = 5
 )
 
 var (
@@ -331,7 +337,8 @@ func NewEngine(o Options) *Engine {
 	}
 	blocks := aheadFor(o.OutputLatencyMS, pull, sr)
 	e.ahead = uint64(blocks) * BlockFrames
-	e.blocks, e.free = make(chan *block, blocks+3), make(chan *block, blocks+3)
+	n := max(blocks, paceAheadBlocks) + 3
+	e.blocks, e.free = make(chan *block, n), make(chan *block, n)
 	// ECHO's delay line, at its longest, made here so the render goroutine
 	// never waits on the allocator for it.
 	e.perf.bus.echo.line = make([]float32, 0, echoMaxFrames(float64(sr))*OutChannels)
@@ -477,7 +484,16 @@ func (e *Engine) pull(out []int32) {
 	}
 }
 
-// renderLoop keeps e.ahead rendered ahead of the device.
+// aheadNow is how far ahead the renderer keeps now: the device's lead, or,
+// while the pacer drives the tape for a phone, at least paceAheadBlocks.
+func (e *Engine) aheadNow() uint64 {
+	if r := e.router(); r != nil && r.pacing.Load() {
+		return max(e.ahead, paceAheadBlocks*BlockFrames)
+	}
+	return e.ahead
+}
+
+// renderLoop keeps aheadNow rendered ahead of the device.
 func (e *Engine) renderLoop() {
 	defer close(e.done)
 	// What the device played before the renderer was running isn't late.
@@ -497,9 +513,10 @@ func (e *Engine) renderLoop() {
 			e.safely(func() { e.advance(nil, out, int(d-out)) })
 			out = d
 		}
+		ahead := e.aheadNow()
 		if e.sink == nil {
 			e.safely(func() { e.idle(out) })
-		} else if out-d >= e.ahead {
+		} else if out-d >= ahead {
 			// Far enough ahead to wait -- but not to leave a load waiting
 			// on a device that isn't pulling.
 			e.safely(func() {
@@ -508,7 +525,7 @@ func (e *Engine) renderLoop() {
 				}
 			})
 		}
-		if out-d >= e.ahead || e.sink == nil {
+		if out-d >= ahead || e.sink == nil {
 			select {
 			case <-e.stop:
 				return

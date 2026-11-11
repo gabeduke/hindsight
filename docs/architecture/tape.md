@@ -68,9 +68,12 @@ biggest pull (`audio.PullSize`: the device's 1024 frames, the demo's
 (107 ms) at the default 100 ms, one (21 ms) at 20 ms; it is counted in
 time, so a 96 kHz kit keeps ten. Each block ahead is that much more lead
 between a press and its sound; a deeper FIFO rides out a device that, after
-a stall, asks for several pulls back to back. The phone's pacer, which
-pulls for a phone while the device is away, isn't counted: at a low
-setting a phone with no device can hear a gap.
+a stall, asks for several pulls back to back. While the phone's pacer
+drives the tape (a phone listening, the device away), the renderer keeps
+at least five blocks ahead whatever `OUTPUT_LATENCY_MS` says
+(`Engine.aheadNow`): the pacer pulls 20 ms steps, several back to back
+when its ticker fires late, and one block ahead turned a third of the
+stream to silence.
 The device's callback takes blocks from the FIFO and never blocks or
 allocates; if none is ready it plays silence, counts it as late, and the
 tape counts on, so the tape never drifts against the device. Everything the
