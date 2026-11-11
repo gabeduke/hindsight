@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parsePacket, StampLog, heardIndex, nextBackoff, step, fillReport } from './stream-buffer.js';
+import { parsePacket, StampLog, heardIndex, nextBackoff, step, fillReport, HeardClock } from './stream-buffer.js';
 
 function packet(frame, pos, playing, frames = 4) {
   const b = new ArrayBuffer(24 + frames * 4);
@@ -110,4 +110,35 @@ test('the fill report says what the speaker plays, and when, once the Pi\'s cloc
   assert.deepEqual(fillReport({ ...base, toPi: (t) => t + 5000 }),
     { type: 'fill', ms: 842, frame: 96000, at: 6000, buf_ms: 800, out_ms: 42, underruns: 2 });
   assert.deepEqual(fillReport({ ...base, heard: null, toPi: (t) => t }), { type: 'fill', ms: 842 }, 'nothing heard yet');
+});
+
+// Android's audio clock moves a buffer at a time: here 40 ms steps, read at
+// 60 fps. The raw index stands still for two frames and jumps on the third;
+// the playhead mustn't.
+test('the heard clock moves every frame on an audio clock that steps', () => {
+  const rate = 48000, c = new HeardClock();
+  let prev = null, still = 0, maxStep = 0;
+  for (let f = 0; f < 600; f++) {
+    const nowMs = f * 1000 / 60;
+    const raw = Math.floor(nowMs / 40) * 40 * rate / 1000; // the audio clock, in 40 ms steps
+    const i = c.at(raw, nowMs, rate);
+    if (prev !== null && f > 60) {
+      if (i === prev) still++;
+      maxStep = Math.max(maxStep, i - prev);
+      assert.ok(Math.abs(i - raw) < 0.05 * rate, `frame ${f}: ${i} drifted from ${raw}`);
+    }
+    prev = i;
+  }
+  assert.equal(still, 0, 'the playhead stood still on some frames');
+  assert.ok(maxStep < 1.5 * rate / 60, `a frame jumped ${maxStep} frames`);
+});
+
+test('the heard clock snaps to a jump and starts again after a reset', () => {
+  const rate = 48000, c = new HeardClock();
+  c.at(0, 0, rate);
+  c.at(800, 1000 / 60, rate);
+  assert.equal(c.at(rate * 5, 2000 / 60, rate), rate * 5); // a jump: snaps
+  assert.ok(c.at(1000, 3000 / 60, rate) === 1000); // back more than 0.1 s: snaps back
+  c.reset();
+  assert.equal(c.at(42, 99999, rate), 42);
 });
