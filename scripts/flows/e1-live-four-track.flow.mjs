@@ -22,9 +22,11 @@ import { mini, pullUp, putAway } from './player.mjs';
 // Givens. It only goes down (the-calm-studio.md, "How it stays calm"): the day
 // a change makes the journey shorter, lower it; if a change makes it longer,
 // the change is wrong, not this number.
-const PRESSES_MAX = 10;
-// On a phone the Loop and Catch keys are in the player pulled up, and the
-// lanes under it: each costs a press to pull up and one to put away.
+// Catch is on ●'s ▾ since step 7a (Gabe's call, 2026-11-13): two presses where it was one.
+const PRESSES_MAX = 11;
+// On a phone the Loop key is in the player pulled up, and the lanes under it:
+// it costs a press to pull up and one to put away. Catch is not: ●'s ▾ is on
+// the mini player, so Catch's two presses are the same on a phone.
 const PLAYER_PRESSES = 2;
 
 const parts = (s) => (s.tracks ?? []).reduce((n, tr) => n + (tr.clips?.length ?? 0), 0);
@@ -102,14 +104,15 @@ export default {
     t.expect(`the Pi has track ${other} armed`, await api.until(async () => (await api.tapeState()).rec_track === other, 'the other track armed', 5000).catch(() => false));
     const pass = state0.grid.frames / 48000; // the loop, in seconds (the tape's rate)
     await t.wait(pass * 1000 + 1500); // a pass has gone round, over the part
-    await withPlayer(() => tapKey('tap Catch', page.locator('#np-catch-pass')));
+    await tapKey('tap ●’s ▾', page.locator('#np-rec-more'));
+    await tapKey('tap The last pass', page.locator('#np-rec-menu .menu-item', { hasText: 'The last pass' }));
     const toast = page.locator('#toasts .toast').filter({ hasText: /Caught/ }).first();
     t.expect('a "Caught" toast', await toast.waitFor({ timeout: 10_000 }).then(() => true, () => false));
     const over = await api.until(async () => ((await api.tapeState()).tracks[other - 1]?.clips ?? []).length === 1, `a pass on track ${other}`, 8000).catch(() => false);
     t.expect(`track ${other} holds the pass played over the part`, over && parts(await api.tapeState()) === 2, (await api.tapeState()).tracks.map((tr) => tr.clips.length));
     await press('press ▶ again to stop', () => t.tap(page.locator('#np-play')));
 
-    const max = PRESSES_MAX + (await mini(page) ? 2 * PLAYER_PRESSES : 0);
+    const max = PRESSES_MAX + (await mini(page) ? PLAYER_PRESSES : 0);
     t.expect(`the journey took ${presses} presses`, presses <= max, `${presses} presses, more than the ${max} it may take`);
   },
 };

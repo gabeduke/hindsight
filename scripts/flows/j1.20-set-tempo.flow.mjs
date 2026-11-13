@@ -65,8 +65,26 @@ export default {
     t.expect('the part on track 1 has not moved or changed', JSON.stringify(after.tracks[0].clips) === clip, { before: clip, after: after.tracks[0].clips });
     t.expect('the loop has not moved', JSON.stringify(after.loop) === loop, { before: loop, after: after.loop });
 
+    // The click is a switch in this panel (the bar has no key for it, step
+    // 7a): it flips what the Pi has, and says so by aria-pressed.
+    const clickOn = async () => !!(await api.tapeState()).click;
+    const was = await clickOn();
+    await t.step('tap Click', () => t.tap(page.locator('#tempo-click')));
+    t.expect('Click flips, on the Pi and on its switch', await api.until(async () => (await clickOn()) === !was, 'the click to flip', 5000).catch(() => false)
+      && await t.poll((on) => document.getElementById('tempo-click')?.getAttribute('aria-pressed') === String(on), !was), { was, now: await clickOn() });
+    await t.step('tap Click again', () => t.tap(page.locator('#tempo-click')));
+    t.expect('and flips back', await api.until(async () => (await clickOn()) === was, 'the click to flip back', 5000).catch(() => false)
+      && await t.poll((on) => document.getElementById('tempo-click')?.getAttribute('aria-pressed') === String(on), was), { was, now: await clickOn() });
+
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('Escape shuts the panel', await t.poll(() => document.getElementById('tempo-menu')?.hidden));
+    // M still turns it, from the keyboard (a desktop's).
+    if (t.profile.startsWith('desktop')) {
+      await t.step('press M', () => page.keyboard.press('m'));
+      t.expect('M turns the click, on the Pi', await api.until(async () => (await clickOn()) === !was, 'the click to flip by M', 5000).catch(() => false));
+      await t.step('press M again', () => page.keyboard.press('m'));
+      t.expect('and back', await api.until(async () => (await clickOn()) === was, 'the click to flip back by M', 5000).catch(() => false));
+    }
     if (phone) t.expect('the player goes down', await t.step('put the player away', () => putAway(t)));
   },
 };

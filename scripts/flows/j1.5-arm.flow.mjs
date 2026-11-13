@@ -51,12 +51,32 @@ export default {
     t.expect('the inspector closes, both still armed', await t.poll(() => !document.getElementById('track-sheet').open)
       && same(armed(await api.tapeState()), [1, 3]), armed(await api.tapeState()));
 
-    // A waiting Catch says what it waits for ("press ▶"); it names the tracks
-    // once a pass has gone round (4 bars at 96 BPM, about 10 s).
+    // A waiting Catch says what it waits for, on ●'s ▾ (step 7a): The last
+    // pass is aria-disabled with its reason under it ("press ▶"), a tap on it
+    // leaves the menu open, and the menu's head names where it lands. It
+    // names the tracks, and the row goes once a pass has gone round (4 bars
+    // at 96 BPM, about 10 s).
+    const row = page.locator('#np-rec-menu .menu-item', { hasText: 'The last pass' });
+    const peek = () => t.poll(() => {
+      const m = document.getElementById('np-rec-menu');
+      const r = [...(m?.querySelectorAll('.menu-item') ?? [])].find((i) => /The last pass/.test(i.textContent));
+      if (!m || m.hidden || !r) return null;
+      return { head: m.querySelector('.menu-sub')?.textContent ?? '', disabled: r.getAttribute('aria-disabled') === 'true', why: r.querySelector('.menu-sub')?.textContent ?? '' };
+    });
+    await t.step('tap ●’s ▾', () => t.tap(page.locator('#np-rec-more')));
+    const waiting = await peek();
+    t.expect('its head names both armed tracks', /\b1\b/.test(waiting?.head ?? '') && /\b3\b/.test(waiting?.head ?? ''), waiting);
+    t.expect('with no pass yet, The last pass waits and says why', waiting?.disabled && waiting.why.trim().length > 0, waiting);
+    await t.step('tap The last pass while it waits', () => t.tap(row));
+    t.expect('the menu stays open', !!await peek());
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
+    t.expect('Escape shuts it', await t.poll(() => document.getElementById('np-rec-menu')?.hidden));
     await t.step('play a pass', () => t.tap(page.locator('#np-play')));
-    const ready = await t.poll(() => !document.getElementById('np-catch-pass')?.classList.contains('waits'), null, 25_000);
-    const says = (await page.locator('#np-catch-pass .np-catch-sub').innerText()).replace(/\s+/g, ' ');
-    t.expect('Catch names both armed tracks', ready && /\b1\b/.test(says) && /\b3\b/.test(says), `ready=${ready} "${says}"`);
+    await t.wait(11_000);
+    await t.step('tap ●’s ▾ again', () => t.tap(page.locator('#np-rec-more')));
+    const ready = await peek();
+    t.expect('after a pass The last pass is ready, onto both armed tracks', ready && !ready.disabled && /\b1\b/.test(ready.head) && /\b3\b/.test(ready.head), ready);
+    await t.step('press Escape', () => page.keyboard.press('Escape'));
     await t.step('stop', () => t.tap(page.locator('#np-play')));
 
     await t.step('hold track 1’s ● again', () => t.hold(arm(0)));
