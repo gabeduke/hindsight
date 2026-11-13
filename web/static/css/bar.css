@@ -7,8 +7,7 @@
 
    Its shape: a row of five zones -- the deck (the reels and the display),
    the transport (|◀ ▶ ● and, in the Studio, ●'s ▾, which Catch is on), the
-   verb (the feed's GRAB), the modes (⟲ and the metronome) and the end
-   (⏏ Open › ✎) -- and
+   verb (the feed's GRAB), the modes (⟲) and the end (⏏ Open › ✎) -- and
    the strip under them. Each zone
    is a named slot in the markup (data-slot); the zones keep their place in
    every room and for every source, and ▶ never moves.
@@ -273,13 +272,13 @@
 .np .icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* LEDs: a latched key says so with a light as well as by sitting low. A
    lamp is a bulb: it lights at once and fades as it goes out. */
-.np .tb-play::before, .np .tb-loop::before, .np .tb-click::before {
+.np .tb-play::before, .np .tb-loop::before {
   content: ''; display: block; flex: none; width: 7px; height: 7px; border-radius: 50%;
   background: var(--led-off); box-shadow: inset 0 1px 1px rgba(0,0,0,.35);
   transition: background var(--t-move) var(--ease-out), box-shadow var(--t-move) var(--ease-out);
 }
 .np .tb-play.playing::before { background: var(--go); box-shadow: 0 0 0 2px color-mix(in srgb, var(--go) 22%, transparent), 0 0 9px var(--go-glow); transition-duration: var(--t-press); }
-.np :is(.tb-loop, .tb-click)[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); transition-duration: var(--t-press); }
+.np .tb-loop[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); transition-duration: var(--t-press); }
 /* ▶: 56 wide. */
 .np .tb-play { width: 56px; }
 .np .tb-play.playing { color: var(--go); }
@@ -304,7 +303,6 @@
 .np .tb-loop { width: 60px; gap: 3px; }
 .np .loop-face { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .np .loop-word { font: 600 11px/12px var(--font); }
-.np .tb-click { gap: 4px; }
 /* Open ›: its word and the chevron. */
 .np .np-open { width: 66px; flex-direction: row; gap: 2px; padding: 0 0 0 6px; white-space: nowrap; }
 /* Open's own keys at the end: In, Out and ✎. */
@@ -389,7 +387,7 @@
   /* A tablet on its side and wider: the deck as the kit draws it, 352 at
      1024, growing with the bar to 768 (▶ where it always stood). The verb
      and the modes are as wide as what they hold: in the Studio ⟲ follows
-     ●'s ▾, where Catch stood until step 7a. */
+     ●'s ▾, where Catch and the metronome stood until step 7a. */
   .np .np-zones { --deck-w: clamp(320px, calc(100cqi - 642px), 768px); }
   .np .np-deck { gap: 4px; }
   .np .np-reel { display: block; width: 32px; height: 32px; }

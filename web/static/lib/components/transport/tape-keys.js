@@ -8,19 +8,18 @@
 // beside ●, never two. They are the bar's: drawn from the page's tape
 // (lib/models/tape.js snapshot()) and the page's phone recorder
 // (lib/phone/recorder.js snapshot()), and pressed on the tape's verbs
-// (record, punchOut, catch), and the click (#np-click, setClick). What is
-// the Studio's own -- which tracks are
+// (record, punchOut, catch). What is the Studio's own -- which tracks are
 // armed and what they record from, the body a verb sends (replace or
 // overdub, the jam-only sheet, "arm a track"), the words a verb's answer
 // gets (with the Studio's Undo), Catch's outline on the lanes, and whether
 // the tape plays on this phone -- the Studio lends the bar as its hands
-// (lend), the one way it reaches these keys. It never looks them up.
+// (lend), the one way it reaches these keys. It never looks them up. The
+// click is the Studio's (lib/tape/page.js: the tempo's panel and M).
 
 import { bindPress, ARM_PRESS } from '../../ui/press.js';
 import { splitKey, menuItem, menuDivider } from '../../ui/menu.js';
 import { catchState, CATCH_BARS } from '../../tape/catch.js';
 import { onWords, tracksWords, recTracksOf, recSources } from '../../rig/arm.js';
-import { editTape } from '../../tape/refusal.js';
 import { fmtClock } from '../../phone/recorder.js';
 import { partOf } from '../../bar/slots.js';
 
@@ -30,8 +29,8 @@ const busy = (phone) => phone.mode === 'recording' || phone.mode === 'saving';
  * faces is what ● says, from the tape's snapshot (`snap`: {tape, live}),
  * the recorder's (`phone`: {mode, seconds}), the armed tracks as the Studio
  * shows them (`armed`) and what each records from (`inputOf`). Pure, for
- * the tests: answers {rec, click, says}, `says` being catchState's
- * answer, which C and ●'s menu read.
+ * the tests: answers {rec, says}, `says` being catchState's answer, which
+ * C and ●'s menu read.
  */
 export function faces({ snap, phone = { mode: 'closed', seconds: 0 }, armed = [], inputOf = () => '' }) {
   const t = snap.tape, live = snap.live || null;
@@ -62,7 +61,6 @@ export function faces({ snap, phone = { mode: 'closed', seconds: 0 }, armed = []
       disabled: !rec && !phoneOut && !here && (!live || live.aligned === 'none' || !t.grid || mixing),
       dim: phoneOut,
     },
-    click: { pressed: !!t.click, disabled: !t.grid },
     says,
   };
 }
@@ -117,10 +115,9 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  *                        output strip says where it is moving to
  *   draw()               the keys again: the Studio's armed tracks or their
  *                        inputs changed
- *   press(name)          'rec', 'catch' or 'click', as a tap on ● (R), C
- *                        (which catches the last pass, or says why it
- *                        waits) or a tap on the click (M); nothing while
- *                        its key is disabled or with no hands
+ *   press(name)          'rec' or 'catch', as a tap on ● (R), or C, which
+ *                        catches the last pass, or says why it waits;
+ *                        nothing while ● is disabled or with no hands
  *   catch(what)          Catch `what` ({pass}, {bars}, {out}), as ●'s menu
  *                        does
  *   closeMenu()          ●'s menu shut
@@ -137,9 +134,9 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  */
 export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}, phoneKeys = null, phoneScreen = { matches: false } } = {}) {
   const $ = partOf(root);
-  const rec = $('rec'), more = $('rec-more'), panel = $('rec-menu'), click = $('click');
+  const rec = $('rec'), more = $('rec-more'), panel = $('rec-menu');
   const play = $('play'), tempoKey = $('tempo');
-  if (!tape || !rec || !more || !panel || !click) return null;
+  if (!tape || !rec || !more || !panel) return null;
   let hands = null;
   let recorder = null;
   let says = null; // catchState's, as ● was drawn last
@@ -163,8 +160,6 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
     rec.disabled = f.rec.disabled;
     setAttr(rec, 'aria-disabled', String(f.rec.dim));
     rec.classList.toggle('dim', f.rec.dim);
-    setAttr(click, 'aria-pressed', String(f.click.pressed));
-    click.disabled = f.click.disabled;
     setAttr(more, 'aria-label', withPhone() ? 'What to catch, or record from this phone' : 'What to catch');
   }
 
@@ -215,11 +210,6 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
     doCatch({ pass: 1 });
   }
 
-  const toggleClick = () => {
-    if (!hands || !snap().tape) return;
-    editTape(() => tape.setClick(!snap().tape.click), { toast, resync: () => tape.refresh(true) });
-  };
-
   // Pointing at The last pass outlines, on the record track's lane, the
   // pass it takes; the outline goes as the menu shuts.
   const hover = (on) => hands?.hover(on);
@@ -267,7 +257,6 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
       else if (menu && phoneKeys) phoneKeys.offer(menu);
     },
   });
-  click.addEventListener('click', toggleClick);
   // The recorder, once there is one: ● shows a recording from this
   // phone, wherever it was started.
   whenRecorder((r) => { recorder = r; r.onChange(draw); draw(); });
@@ -275,7 +264,7 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
 
   // C shuts ●'s menu as a pick does.
   const pressCatch = () => { onCatch(); if (menu?.isOpen()) menu.close('pick'); };
-  const keys = { rec: () => !rec.disabled && record(), catch: pressCatch, click: () => !click.disabled && toggleClick() };
+  const keys = { rec: () => !rec.disabled && record(), catch: pressCatch };
   return {
     lend(h) {
       hands = h;

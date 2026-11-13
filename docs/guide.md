@@ -109,8 +109,8 @@ you left.
 - **The bar,** along the foot of the page, is the one now-playing bar in
   both rooms, the same shape whatever it holds, with **▶** always in the
   same place: its reels and amber window, **|◂ ▶ ●** (or **↺ 5 s** in ●'s
-  place), in the Studio ●'s **▾**, which has **Catch**, then **⟲** and the
-  metronome, and what it holds as a strip to tap or drag. The window says what plays (**TAPE**, **FEED** or the
+  place), in the Studio ●'s **▾**, which has **Catch**, then **⟲**, and
+  what it holds as a strip to tap or drag. The window says what plays (**TAPE**, **FEED** or the
   take's name), its tempo and where it plays: tap the source to choose the
   tape, the live feed, one of the last few takes or the shelf. A take
   tapped in the Listening Room plays in it and keeps playing when you
@@ -697,8 +697,8 @@ From the top:
     it. Its lamp is ▶ playing, ■ stopped, or a red ● for a punch: steady
     while armed, blinking while recording. In the time's place, it says
     when it's mixing down or waiting for a tap to play here. Then three
-    keys on the window: the **tempo** (tap it for the bars the loop could
-    be), the **source** (*TAPE*: tap it for the live feed, a take or the
+    keys on the window: the **tempo** (tap it to change it, for the bars
+    the loop could be, and for the **Click**, the metronome), the **source** (*TAPE*: tap it for the live feed, a take or the
     shelf) and where it plays, **OUT** (*JAM ROOM*, *PHONE* or *BOTH*: tap
     it to choose, §8.10). On a wide screen they say it in full: *96 BPM · 4
     BARS*, *TAPE · Song sketch*.
@@ -717,7 +717,8 @@ From the top:
     recording.
   - **●'s ▾**, a key of its own beside it, is where **Catch** is, Record's
     after-the-fact twin: what to catch, and where it goes.
-  - **⟲ Loop** and the **metronome**.
+  - **⟲ Loop**. The metronome is the **Click** in the tempo's panel (tap
+    the tempo on the window), and **M**.
   - **The grabber** on the bar's top edge folds it to one row of keys,
     for the lanes' room: tap it, or drag it down; drag it up, or tap it
     again, to unfold.
@@ -827,7 +828,7 @@ From the top:
 - **Tap the mini player's window, or drag it up,** to pull up **the
   player**, a sheet over the page that follows your finger: the reels and
   the display large at the top, the overview under them, then **|◂ ▶ ●**
-  and ●'s **▾**, and **⟲ Loop** and the metronome low down, under your thumb, and
+  and ●'s **▾**, and **⟲ Loop** low down, under your thumb, and
   where it plays at the foot. **Swipe it down** by its grabber or its reels,
   tap the grabber, or Back or **Esc**, to put it away. A take or the
   feed in the bar has the same mini player and player, **▶** in the same
@@ -885,7 +886,8 @@ A track holds `TAPE_LENGTH_S` seconds, 20 minutes by default.
 
 **From a tempo.** On an empty tape, type a BPM and a number of bars and tap
 **Set**. The loop is that long and empty, ready to catch into, and the
-**♩ click** plays on every beat until the first catch. The BPM starts at the
+**♩ click** plays on every beat until the first catch (the **Click** in the
+tempo's panel, or **M**, turns it on or off). The BPM starts at the
 tempo you were last playing: the clipboard's or your newest take's, whichever
 is newer.
 
@@ -1732,7 +1734,7 @@ has no tip.
 | Pan | Where this track sits between left and right |
 | ● Record (tape) | Records the armed track (its ● lit) from its input. Stopped: it's ready (the key glows), then ▶ counts in a bar. Playing: records from the next bar, marked on its lane. Tap again to keep it. Key: R |
 | RECORDING | Shows only while a punch is recording onto the tape |
-| The metronome | A click on every beat, on bus A. On by itself only while the tape is empty. Key: M |
+| Click (the tempo’s panel) | The metronome: a click on every beat, on bus A. On by itself only while the tape is empty. Key: M |
 | Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
 | ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded. Key: L |
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |

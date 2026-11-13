@@ -51,11 +51,9 @@ test('faces: while this phone records, ● is pressed and says the time, whateve
   assert.equal(f.rec.said, 'Stop recording from this phone, 1:15');
 });
 
-test('faces: ●, the click and Catch’s state are all it says: Catch has no key to draw', () => {
+test('faces: ● and Catch’s state are all it says: the click is the Studio’s, and Catch has no key to draw', () => {
   const f = faces({ snap: { tape: aTape({ click: true }), live: playing() }, armed: [2] });
-  assert.deepEqual(Object.keys(f).sort(), ['click', 'rec', 'says']);
-  assert.deepEqual(f.click, { pressed: true, disabled: false });
-  assert.equal(faces({ snap: { tape: aTape({ grid: null }), live: null } }).click.disabled, true);
+  assert.deepEqual(Object.keys(f).sort(), ['rec', 'says']);
   assert.equal(f.says.ready, true);
   const waits = faces({ snap: { tape: aTape(), live: playing({ cycles: [] }) }, armed: [2] });
   assert.equal(waits.says.ready, false);
@@ -346,18 +344,12 @@ test('tapeKeys: the Studio’s own catches (a pass, the last bars) go through th
   assert.deepEqual(tape.calls[0], ['catch', { track: 2, source: 'IN 2', replace: false, bars: 2 }]);
 });
 
-test('tapeKeys: the click sends the tape’s setClick; not while it has no tempo, nor with no hands', async () => {
-  const { k, tape, doc } = keys({ tape: aTape({ click: false }), live: playing() });
-  k.press('click');
-  assert.deepEqual(tape.calls, [], 'no hands');
+test('tapeKeys: there is no click on the bar: press(click) does nothing (the click is the Studio’s, M and the tempo’s panel)', async () => {
+  const { k, tape } = keys({ tape: aTape({ click: false }), live: playing() });
   k.lend(hands());
-  click(doc.getElementById('np-click'));
-  await settle();
-  assert.deepEqual(tape.calls[0], ['setClick', true]);
-  tape.set({ tape: aTape({ grid: null }), live: playing() });
   k.press('click');
   await settle();
-  assert.equal(tape.calls.filter((c) => c[0] === 'setClick').length, 1, 'disabled: nothing');
+  assert.deepEqual(tape.calls, []);
 });
 
 test('tapeKeys: pointing at The last pass is the Studio’s outline, and it goes as the menu shuts', () => {

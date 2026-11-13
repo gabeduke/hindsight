@@ -3214,8 +3214,10 @@ a.chip, a.icon-btn { text-decoration: none; }
 .seg button:disabled { transform: none; }
 
 /* LEDs: a latched key says so with a light as well as by sitting low. */
-/* A lamp is a bulb: it lights at once and fades as it goes out. */
-#dur-seg button::before, .wave-page #snap::before, #be-seam::before {
+/* A lamp is a bulb: it lights at once and fades as it goes out. The
+   tempo's panel's Click (lib/tape/page.js renderTempo) takes the snap's
+   amber lamp, as the bar's metronome key had it before step 7a. */
+#dur-seg button::before, .wave-page #snap::before, #be-seam::before, #tempo-click::before {
   content: ''; display: inline-block; flex: none;
   width: 7px; height: 7px; margin-right: 6px; border-radius: 50%;
   background: var(--led-off); vertical-align: middle;
@@ -3223,7 +3225,7 @@ a.chip, a.icon-btn { text-decoration: none; }
   transition: background var(--t-move) var(--ease-out), box-shadow var(--t-move) var(--ease-out);
 }
 #dur-seg button[aria-pressed="true"]::before { background: var(--accent); box-shadow: 0 0 9px var(--accent-glow); transition-duration: var(--t-press); }
-.wave-page #snap[aria-pressed="true"]::before, #be-seam[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); transition-duration: var(--t-press); }
+.wave-page #snap[aria-pressed="true"]::before, #be-seam[aria-pressed="true"]::before, #tempo-click[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); transition-duration: var(--t-press); }
 
 /* The one main action: orange, lit from above. */
 .capture-btn, .icon-btn.primary {

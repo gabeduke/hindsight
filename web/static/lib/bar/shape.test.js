@@ -43,21 +43,21 @@ test('the bar is its zones, in the one order, on both pages that have it', () =>
   assert.equal(shell.querySelector('#np .np-foot').getAttribute('data-slot'), 'foot');
 });
 
-test('|◀ ▶ then ●, Record beside Play, with its ▾, and the phone’s ● ▾; ↺ 5 s in ●’s place; GRAB the verb; ⟲ then the metronome; ⏏ Open › ✎ at the end', () => {
+test('|◀ ▶ then ●, Record beside Play, with its ▾, and the phone’s ● ▾; ↺ 5 s in ●’s place; GRAB the verb; ⟲; ⏏ Open › ✎ at the end', () => {
   const ids = (slot) => slotOf(shell.getElementById('np'), slot).children.map((e) => e.id || e.className.split(' ')[1]);
   assert.deepEqual(ids('transport'), ['np-start', 'np-play', 'np-rec', 'np-rec-more', 'np-phone-rec', 'np-phone-more', 'np-back5']);
   assert.deepEqual(ids('foot'), ['np-out-foot']);
-  // Catch is on ●'s ▾ (the calm Studio, step 7a): no key of its own.
+  // Catch is on ●'s ▾, and the metronome in the tempo's panel (the calm
+  // Studio, step 7a): no key of either on the bar.
   assert.deepEqual(ids('verb'), ['np-feed-grab']);
-  assert.deepEqual(ids('modes'), ['np-loop', 'np-click']);
+  assert.deepEqual(ids('modes'), ['np-loop']);
   assert.deepEqual(ids('end'), ['np-eject', 'np-open', 'np-note']);
-  for (const gone of ['np-catch-pass', 'np-catch-more', 'np-catch-menu']) assert.equal(shell.getElementById(gone), null, gone);
+  for (const gone of ['np-catch-pass', 'np-catch-more', 'np-catch-menu', 'np-click']) assert.equal(shell.getElementById(gone), null, gone);
   // On Open, the same transport: ▶ second, where it is in the rooms.
   assert.deepEqual(slotOf(wave.getElementById('np'), 'transport').children.map((e) => e.id), ['to-start', 'play', 'back5']);
-  // ●, its ▾ and the metronome are pictures, not typed.
+  // ● and its ▾ are pictures, not typed.
   assert.ok(shell.getElementById('np-rec').querySelector('svg.i-rec'));
   assert.ok(shell.getElementById('np-rec-more').querySelector('svg.i-down'));
-  assert.ok(shell.getElementById('np-click').querySelector('svg.i-metro'));
 });
 
 test('each key says which sources it shows for, in the full bar and the mini player, by names the stylesheet knows', () => {

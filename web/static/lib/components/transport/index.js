@@ -42,8 +42,8 @@
 //                      (phone-key.js); with a take or the feed, or the
 //                      tape away from the Studio, ↺ 5 s in ●'s place
 //   the verb           the feed's GRAB
-//   the modes          ⟲ (Loop for the tape, Repeat for a take) and the
-//                      metronome
+//   the modes          ⟲ (Loop for the tape, Repeat for a take); the
+//                      metronome is the Studio's, in the tempo's panel
 //   the end            laid out first so nothing pushes it off: ⏏ back to
 //                      the tape, Open › and ✎
 //   the strip          the take or the feed, or the tape away from the
@@ -62,8 +62,8 @@ import { icon } from '../../ui/icons.js';
 import { dialogKey } from '../../ui/menu.js';
 
 /**
- * TAPE_KEYS are what the Studio presses of the bar's ● and its ▾, Catch's,
- * and the click (tape-keys.js), through the relay the surface hands the Transport as
+ * TAPE_KEYS are what the Studio presses of the bar's ● and its ▾, Catch's
+ * (tape-keys.js), through the relay the surface hands the Transport as
  * props.tapeKeys and the Studio as ctx.tapeKeys (lib/components/relay.js).
  */
 export const TAPE_KEYS = Object.freeze(['lend', 'draw', 'press', 'catch', 'closeMenu', 'focusPlay', 'tempo']);
@@ -116,7 +116,6 @@ export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="bu
     </div>
     <div class="np-zone np-modes" data-slot="modes" role="group" aria-label="Modes">
       <button data-part="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop" data-for="tape take feed"><span class="loop-face">${icon('repeat', { size: 16 })}<span class="loop-word">Loop</span></span></button>
-      <button data-part="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Metronome" aria-keyshortcuts="M" data-tip="tape-click" data-for="studio">${icon('metro')}</button>
     </div>
     <div class="np-zone np-end" data-slot="end">
       <button data-part="eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" data-for="take feed" hidden>${icon('eject')}</button>

@@ -450,15 +450,14 @@ test('Guardrail 18: the engine (lib/models/engine.js) makes the bar’s sources 
   assert.match(read('lib/shell/boot.js'), /mountComponent\(transportComponent, npRoot,/, 'the shell mounts the Transport on #np');
 });
 
-test('Guardrail 19: the Studio reaches the bar’s ●, its ▾ (Catch’s) and the click only through the hands it lends them, never by their ids', () => {
+test('Guardrail 19: the Studio reaches the bar’s ● and its ▾ (Catch’s) only through the hands it lends them, never by their ids', () => {
   // docs/architecture/bar.md, *The Studio's keys*: ● (#np-rec) and its ▾
-  // (#np-rec-more, #np-rec-menu), which Catch is on, and the click
-  // (#np-click) are the bar's keys
+  // (#np-rec-more, #np-rec-menu), which Catch is on, are the bar's keys
   // (lib/components/transport/tape-keys.js), drawn from the tape's snapshot and
   // pressed on its verbs. The Studio lends them its hands
   // (ctx.tapeKeys.lend) and presses them with ctx.tapeKeys.press; a look-up
   // by id, or a press of a helper that looks one up, wires them a second way.
-  const IDS = 'np-rec|np-rec-more|np-rec-menu|np-click';
+  const IDS = 'np-rec|np-rec-more|np-rec-menu';
   const lookups = [
     new RegExp(`(?<![\\w$])(\\$|getElementById)\\(\\s*['"\`](${IDS})['"\`]`),
     new RegExp(`querySelector(All)?\\(\\s*['"\`][^'"\`]*#(${IDS})(?![\\w-])`),
@@ -469,7 +468,7 @@ test('Guardrail 19: the Studio reaches the bar’s ●, its ▾ (Catch’s) and 
     const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
     for (const line of src.split('\n')) if (lookups.some((re) => re.test(line))) found.push(`${f}: ${line.trim()}`);
   }
-  assert.deepEqual(found, [], 'looks up the bar’s ●, its ▾ or the click: lend them the Studio’s hands (ctx.tapeKeys.lend), or press them (ctx.tapeKeys.press)');
+  assert.deepEqual(found, [], 'looks up the bar’s ● or its ▾: lend them the Studio’s hands (ctx.tapeKeys.lend), or press them (ctx.tapeKeys.press)');
 });
 
 /**

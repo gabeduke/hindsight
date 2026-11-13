@@ -174,7 +174,7 @@ export const TIPS = [
   { control: 'Pan', ids: ['track-pan'], tip: 'Where this track sits between left and right' },
   { control: '● Record (tape)', ids: ['tape-rec'], tip: 'Records the armed track (its ● lit) from its input. Stopped: it\'s ready (the key glows), then ▶ counts in a bar. Playing: records from the next bar, marked on its lane. Tap again to keep it. Key: R' },
   { control: 'RECORDING', ids: ['rec-sign'], tip: 'Shows only while a punch is recording onto the tape' },
-  { control: 'The metronome', ids: ['tape-click'], tip: 'A click on every beat, on bus A. On by itself only while the tape is empty. Key: M' },
+  { control: 'Click (the tempo’s panel)', ids: ['tape-click'], tip: 'The metronome: a click on every beat, on bus A. On by itself only while the tape is empty. Key: M' },
   { control: 'Tap (empty tape)', ids: ['tape-tap'], tip: 'Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it' },
   { control: '⟲ Loop (tape)', ids: ['tape-loop'], tip: 'Loop the bracket, or play on to the end of what’s recorded. Key: L' },
   { control: '1 bar, 2, 4', ids: ['catch-bars'], tip: 'Catch the last bars you played, ending on the last bar line, where they were played' },
