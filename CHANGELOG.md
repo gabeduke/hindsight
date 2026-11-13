@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.13.1 — 2026-11-13
+
+- → on the mark's key never moves a mark set close to now back a second (dd6cc6a6)
+- The live 4-track is a core flow (10 presses on the tablet, 14 on a phone); the flows that mark, flag and count the Studio turn to the feed's face first, and the docs say how the two faces are built (5b09f16c)
+- A drag of the mark's key moves the mark along the feed, KEEP's and GRAB's lengths following it; a tap on the key still takes it off, and ← and → move it a second at a time (e8f4630c)
+- The Studio shows one face at a time: the tape, with the feed a thin row over the lanes, or the feed, its ribbon as tall as the room, with the tape a thin row on top; a tap on the row turns to it (de468fb4)
+- Nothing changes on screen yet: the Studio can now remember on this device whether it shows the tape or the feed, the piece its two faces are built on (ac4dc49c)
+- Gabe's two journeys are flows: arranging parts from two takes is checked end to end, and the live 4-track waits for the two faces; the calm Studio's spec has his calls and how the faces are built (98e450fd)
+
+
 ## v2026.11.11.2 — 2026-11-11
 
 - The playhead glides on a phone playing the tape, instead of standing still and jumping a buffer at a time (f890008a)
