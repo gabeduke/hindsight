@@ -127,9 +127,11 @@
 
 /* ---------- the display ---------- */
 /* Amber on black in both schemes, like every counter here: where it is
-   (the lamp, BAR and the position, the time under them), then three keys,
-   each a value over its legend -- the tempo, the source and where it plays
-   -- ruled apart. A tap on one opens its menu (lib/components/transport/bar.js). */
+   (the lamp, BAR and the position, the time under them), then two keys,
+   each a value over its legend, ruled apart: the tempo over where it plays
+   (with no tempo, where it plays over OUT: the calm Studio's decision 5),
+   and the source. A tap on one opens its panel, its menu or the Output
+   sheet (lib/components/transport/bar.js). */
 .np .np-lcd {
   position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; height: auto;
   display: flex; flex-wrap: wrap; align-items: stretch; overflow: hidden;
@@ -178,7 +180,7 @@
   display: block; width: 3px; height: 100%; border-radius: 1px; transform-origin: bottom; transform: scaleY(.08);
   box-shadow: 0 0 5px currentColor; transition: transform .12s linear;
 }
-/* The three keys. */
+/* The two keys. */
 .np .np-lcd-key {
   flex: 1 1 0; min-width: 0; height: 40px; margin: 0; padding: 0 2px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
@@ -197,18 +199,20 @@
 .np .np-lcd-val {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
-  font: 600 12px/14px var(--mono);
+  font: 600 11px/14px var(--mono); letter-spacing: -.02em;
 }
-.np .np-source .np-lcd-val, .np .np-output .np-lcd-val { font-size: 11px; letter-spacing: -.02em; }
 .np .np-lcd-leg {
   display: flex; align-items: center; gap: 1px; max-width: 100%; overflow: hidden; white-space: nowrap;
   font: 700 9.5px/11px var(--label-font); letter-spacing: .14em;
   text-shadow: 0 0 5px color-mix(in srgb, var(--lcd-ink) 35%, transparent);
 }
 .np .np-lcd-chev { flex: none; } /* its stroke is a small icon's (styles.css, .i[width="8"]) */
-/* A value has a short form and a long one (96 / 96 BPM · 4 BARS): the
-   long where the display has the room, at its widest. */
-.np .np-long { display: none; }
+/* Where it plays, under the tempo, gives way before its chevron does. */
+.np .np-plays { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* A value has a short form and a long one (96 BPM / 96 BPM · 4 BARS): the
+   long where the display has the room, at its widest. The tempo alone,
+   over BPM, is the phone's player's, pulled up (below). */
+.np :is(.np-long, .np-alone) { display: none; }
 
 /* ---------- the keyboard's press ---------- */
 /* A press on the keyboard (lib/components/transport/press-note.js): its words over the
@@ -346,7 +350,7 @@
 
 /* ---------- the foot ---------- */
 /* Where it plays, at the foot of the phone's player pulled up (below):
-   nowhere else, where the display's OUT says it. */
+   nowhere else, where the display's tempo key says it. */
 .np .np-foot { display: none; }
 
 /* ---------- the strip ---------- */
@@ -371,14 +375,15 @@
   .np .np-end { justify-self: end; }
   .np .np-deck { height: 56px; padding: 0 4px; }
   /* The display is one row: where it is, then the keys, each its width --
-     the tempo's number is short, the source and where it plays are words
-     (THIS TABLET the longest); the position has the rest. */
+     the tempo's over where it plays as wide as THIS TABLET, the longest
+     word under it, and the source the rest of what the three keys had
+     (a take's name gets more of it); the position has the rest, as it
+     had. */
   .np .np-lcd { height: 48px; flex-wrap: nowrap; }
   .np .np-lcd-pos { flex: 1 1 92px; min-height: 0; }
   .np .np-lcd-key { height: 100%; border-top: 0; }
-  .np .np-tempo { flex: 0 0 42px; border-left: 1px solid var(--well-rule); }
-  .np .np-source { flex: 0 1 60px; }
-  .np .np-output { flex: 0 1 78px; }
+  .np .np-tempo { flex: 0 1 80px; border-left: 1px solid var(--well-rule); }
+  .np .np-source { flex: 0 1 100px; }
   .np .np-deck::after { left: 22px; right: 22px; }
   /* Narrower than a tablet on its side: the display alone, its reels gone. */
   .np .np-reel { display: none; }
@@ -589,7 +594,10 @@
   .np[data-open] .np-deck { height: 132px; touch-action: none; }
   .np[data-open] .np-reel { width: 76px; height: 76px; }
   .np[data-open] .np-transport .icon-btn { height: 64px; min-height: 64px; }
-  .np[data-open] .np-output { display: none; }
+  /* Where it plays is the foot's here: the display's tempo key is the
+     tempo alone, over BPM. */
+  .np[data-open] .np-tempo :is(.np-short, .np-plays) { display: none; }
+  .np[data-open] .np-tempo .np-alone { display: inline; }
   .np[data-open] .np-foot { grid-area: foot; display: flex; }
   .np[data-open] .np-out-foot { flex: 1 1 auto; flex-direction: row; height: 52px; justify-content: space-between; padding: 0 16px; gap: 10px; }
   .np .np-out-leg { font: 600 11px var(--label-font); letter-spacing: .14em; color: var(--ink-dim); }

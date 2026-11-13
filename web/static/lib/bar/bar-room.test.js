@@ -152,7 +152,7 @@ test('⟲ is Repeat for a take', async () => {
 
 test('everything the bar shows for a take has a tip, and says its tip by the same name', async () => {
   const p = await withTake();
-  for (const [id, tip] of [['np-open', 'np-open'], ['np-note', 'np-note'], ['np-loop', 'np-repeat'], ['np-source', 'np-source'], ['np-output', 'np-output']]) {
+  for (const [id, tip] of [['np-open', 'np-open'], ['np-note', 'np-note'], ['np-loop', 'np-repeat'], ['np-source', 'np-source'], ['np-tempo', 'np-tempo'], ['np-out-foot', 'np-out-foot']]) {
     assert.equal(p.$(id).dataset.tip, tip);
     assert.ok(tipFor(tip), `${tip} has a tip`);
   }

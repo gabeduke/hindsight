@@ -55,12 +55,14 @@ const store = (init = {}) => {
  * `tape` the page's tape model is made and handed to both, as the shell
  * does (and answered as `tape`). `tapes` is initNav's answer ({loaded: id} puts a tape on the Pi), and
  * `answer(url, init)` is what the Pi says to a fetch: undefined is a 404.
+ * With `output` the bar is handed the surface's way to the Output sheet,
+ * which counts its openings in `w.outputs`.
  */
-export async function barPage({ session = {}, tapes = null, answer = () => undefined, engine: whole = false, drawn = true, tape: withTape = false } = {}) {
+export async function barPage({ session = {}, tapes = null, answer = () => undefined, engine: whole = false, drawn = true, tape: withTape = false, output = false } = {}) {
   // The pages share one ticker: a page the last test left must not run in this one.
   ticker.stop();
   ticker.steps.clear();
-  const w = { navigated: [], windowListeners: {}, raf: [], toasts: [], fetched: [], sockets: [] };
+  const w = { navigated: [], windowListeners: {}, raf: [], toasts: [], fetched: [], sockets: [], outputs: 0 };
   // The Pi's sockets (the tape's changes, lib/tape/changes.js): made, and
   // never opened, as a Pi that is slow to answer leaves them.
   class FakeSocket {
@@ -133,6 +135,7 @@ export async function barPage({ session = {}, tapes = null, answer = () => undef
   // Help's titles, as the shell hands them (lib/help/help.js applyTitles).
   const { applyTitles } = await import('../help/help.js');
   const props = { layout: barLayout(doc), room: () => w.room, onRoom: (fn) => { rooms.add(fn); return () => rooms.delete(fn); }, tapeKeys, titles: applyTitles };
+  if (output) props.output = () => { w.outputs += 1; };
   const mounted = drawn ? mountComponent(transport, doc.getElementById('np'), models, ctx, props) : null;
   // The bar as a test drives it: its keys' relay (the Studio's ctx.tapeKeys),
   // and the shell's kick as the room switches (onRoom).

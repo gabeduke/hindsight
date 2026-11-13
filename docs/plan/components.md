@@ -498,8 +498,9 @@ the transport's `snapshot()` beside the takes', and a first component to
 prove the harness on: `display`, the display's three keys for the tape,
 mounted only by the harness. Guardrail 15 starts with it in
 `lib/components/`, not empty, so its rules are checked against something.
-The Transport's extraction mounts it in the bar in place of `#np-tempo`,
-`#np-source` and `#np-output`, or folds it into its own template.
+The Transport's extraction mounts it in the bar in place of `#np-tempo`
+and `#np-source` (two keys since the calm Studio's step 7b, which folded
+`#np-output` into the tempo's), or folds it into its own template.
 
 **Models**, each moving every caller of its routes and adding its route
 guardrail: `tape` and `transport` together (the bar's engine split from

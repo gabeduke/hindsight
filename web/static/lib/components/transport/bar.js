@@ -12,9 +12,10 @@
 // keys in the Studio, ● and its ▾ (Catch), on the tape's (tape-keys.js),
 // which the Studio lends its hands (tapeKeys.lend). Its shape is css/bar.css's: #np says what it holds (data-source) and
 // the stylesheet shows each key for the sources it is for (slots.js). The
-// display says where it is, then the tempo, the source and where it plays
-// (display.js), each a key: the tempo's menu is the Studio's, the source's
-// is source-menu.js, where it plays is the output sheet. With a take, Open ›
+// display says where it is, then two keys (display.js): the tempo over
+// where it plays, which opens the Studio's tempo panel in the Studio with
+// the tape and the Output sheet anywhere else (the calm Studio's decision
+// 5: tempoOpens), and the source, whose menu is source-menu.js. With a take, Open ›
 // and ✎ are at its end (take-keys.js), and ⟲ is Repeat. Across its top,
 // the output strip while the tape plays on this phone, and in the display
 // the clock-out lamp, drawn from the tape's snapshot and the engine's stream
@@ -35,7 +36,7 @@ import { tapeKeys } from './tape-keys.js';
 import { barPressNote } from './press-note.js';
 import { sizeCanvas } from '../../ui/canvas.js';
 import { outStrip, clockLamp } from './tape-status.js';
-import { syncState } from '../../bar/display.js';
+import { syncState, tempoLabel } from '../../bar/display.js';
 
 /**
  * NowPlaying draws the engine (createEngine's, lib/models/engine.js) on the
@@ -64,7 +65,8 @@ import { syncState } from '../../bar/display.js';
  * playerSheet in player.js: the surface's sheet, which the bar's ▣,
  * grabber and window open, put away and drag) and `output()`, which opens
  * the Output sheet, where the tape plays. Without a player there is none;
- * without output() where it plays is no key. It never names the document,
+ * without output() the tempo's key opens nothing away from the Studio, nor
+ * does the foot. It never names the document,
  * the window or globalThis.
  */
 export class NowPlaying {
@@ -111,7 +113,7 @@ export class NowPlaying {
     // With a take, Open › and ✎; with the feed, GRAB; ⟲ is Repeat for a
     // take (take-keys.js).
     this.keys = takeKeys({ root, onNote: () => bar.note(), onGrabFeed: () => bar.grabFeed() });
-    // The tempo's menu is the Studio's, and the tape's keys are a room's
+    // The tempo's panel is the Studio's, and the tape's keys are a room's
     // (data-room, for the stylesheet's studio and away keys): the surface
     // says which room is shown (room()), and kicks the bar as it switches.
     this.room = room;
@@ -213,9 +215,25 @@ export class NowPlaying {
     // Studio lends them its hands through its ctx (ctx.tapeKeys). On a
     // phone ●'s ▾ holds this phone's rows too, and a hold on ● offers them.
     this.tapeKeys = tapeKeys({ root, tape, toast: (m, k, o) => onToast?.(m, k, o), phoneKeys: phone, whenRecorder, phoneScreen });
-    // Where it plays (OUT on the display, and the player's foot) opens the
-    // surface's Output sheet.
-    for (const k of [$('output'), $('out-foot')]) k?.addEventListener('click', () => this.output?.());
+    // The display's tempo key is the tempo and where it plays: a press on
+    // it, a finger's or the keyboard's (a click; ↓ or ↑), opens what
+    // tempoOpens says now. Its one listener is the bar's, so the Studio's
+    // panel hears no press in another room.
+    const pressTempo = (e) => {
+      const opens = this.tempoOpens(bar.sourceKind);
+      if (opens?.panel) { opens.panel.press(e); return; }
+      if (!opens) return;
+      if (e.type === 'keydown') {
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+        e.preventDefault();
+      }
+      opens.output();
+    };
+    $('tempo').addEventListener('click', pressTempo);
+    $('tempo').addEventListener('keydown', pressTempo);
+    // Where it plays at the foot of the phone's player opens the surface's
+    // Output sheet.
+    $('out-foot')?.addEventListener('click', () => this.output?.());
     // The output strip's tap, for this phone's sound held back.
     $('out-strip-resume')?.addEventListener('click', () => bar.stream?.resume());
     // The lamp and the strip, from the tape's answers and the transport's
@@ -245,7 +263,8 @@ export class NowPlaying {
   /**
    * mountTape wires what the tape brings, once the engine has one: a press
    * on the keyboard, over the display for its second (press-note.js); and
-   * where it plays becomes a key (paintDisplay).
+   * the tempo's key opens where it plays away from the Studio
+   * (tempoOpens, paintDisplay).
    */
   mountTape() {
     this.tapeMounted = true;
@@ -399,35 +418,46 @@ export class NowPlaying {
   }
 
   /**
-   * paintDisplay writes the display's three keys for snapshot `s`: its
-   * tempo (a key in the Studio, with the tape, where the tempo's menu is),
-   * the source, and where it plays (a key once there is a tape to send).
+   * tempoOpens is what a press on the display's tempo key opens now, with
+   * the bar holding `kind` (the calm Studio's decision 5): in the Studio
+   * with the tape, the Studio's tempo panel, lent with its hands ({panel}:
+   * tapeKeys.panel()); anywhere else, or with no panel lent, the Output
+   * sheet ({output}), once the engine has a tape to send (the same test the
+   * shell's openOutput makes: lib/tape/out-switch.js outputSheet); else
+   * null, and the key is off.
+   */
+  tempoOpens(kind) {
+    const panel = kind === 'tape' && this.room() === 'studio' ? this.tapeKeys?.panel() : null;
+    if (panel) return { panel };
+    return this.bar.tapeSource && this.output ? { output: this.output } : null;
+  }
+
+  /**
+   * paintDisplay writes the display's two keys for snapshot `s`: the
+   * tempo's, its tempo over where it plays (the tempo alone, and its foot
+   * where it plays, in the phone's player pulled up), on while a press on
+   * it opens something (tempoOpens), and the source; and the foot.
    */
   paintDisplay(s) {
     const $ = this.$;
     const d = s.display;
     setText($('tempo-short'), d.tempo.short);
     setText($('tempo-long'), d.tempo.long);
+    setText($('tempo-alone'), d.tempo.alone);
+    setText($('tempo-leg'), d.tempo.leg);
     setText($('source-short'), d.source.short);
     setText($('source-long'), d.source.long);
-    setText($('output-val'), d.out);
-    const foot = $('out-foot');
-    if (foot) setText($('out-foot-val'), d.out);
     const tempo = $('tempo');
-    const tempoMenu = s.kind === 'tape' && this.room() === 'studio';
-    if (tempo.disabled !== !tempoMenu) tempo.disabled = !tempoMenu;
-    setAttr(tempo, 'aria-label', tempoMenu ? `${d.said.tempo}: change it` : d.said.tempo);
+    const opens = this.tempoOpens(s.kind);
+    if (tempo.disabled !== !opens) tempo.disabled = !opens;
+    setAttr(tempo, 'aria-label', tempoLabel(d, opens ? (opens.panel ? 'tempo' : 'output') : null));
     setAttr($('source'), 'aria-label', d.said.source);
-    const out = $('output');
-    // Once the engine has a tape to send: the same test the shell's
-    // openOutput makes (lib/tape/out-switch.js outputSheet).
+    const foot = $('out-foot');
+    if (!foot) return;
+    setText($('out-foot-val'), d.out);
     const sends = !!this.bar.tapeSource && !!this.output;
-    if (out.disabled !== !sends) out.disabled = !sends;
-    setAttr(out, 'aria-label', d.said.out);
-    if (foot) {
-      if (foot.disabled !== !sends) foot.disabled = !sends;
-      setAttr(foot, 'aria-label', d.said.out);
-    }
+    if (foot.disabled !== !sends) foot.disabled = !sends;
+    setAttr(foot, 'aria-label', d.said.out);
   }
 }
 

@@ -32,10 +32,12 @@
 //   the deck           ▣ (the phone's player, player.js), the reels and the
 //                      display: where it is (SYNC, how the tape lines up
 //                      while it plays in the jam room; the clock-out lamp),
-//                      then the tempo, the source and where it plays, each
-//                      a key that opens its menu; the keyboard's press over
-//                      it (press-note.js), a live region, shown by data-kb
-//                      and never hidden
+//                      then two keys: the tempo over where it plays, which
+//                      opens the Studio's tempo panel in the Studio and the
+//                      Output sheet anywhere else (the calm Studio's
+//                      decision 5), and the source, which opens its menu;
+//                      the keyboard's press over it (press-note.js), a live
+//                      region, shown by data-kb and never hidden
 //   the transport      |◀ ▶ and ●, Record beside Play, with its ▾ in the
 //                      Studio, Catch's (tape-keys.js, splitKey); the
 //                      phone's own ● ▾ in the mini player everywhere else
@@ -51,8 +53,8 @@
 //                      strip's start, the Studio's markup, put there
 //                      through its slot (ctx.barSlot, place 'strip')
 //   the foot           where it plays, under the thumb in the phone's
-//                      player pulled up (the display's OUT, which the
-//                      player hides)
+//                      player pulled up, where the display's tempo key is
+//                      the tempo alone
 //   the menus          ●'s (what to catch, and on a phone this phone's rows
 //                      after them), the display's source (what plays) and
 //                      the mini player's ▾ (record from this phone)
@@ -65,8 +67,9 @@ import { dialogKey } from '../../ui/menu.js';
  * TAPE_KEYS are what the Studio presses of the bar's ● and its ▾, Catch's
  * (tape-keys.js), through the relay the surface hands the Transport as
  * props.tapeKeys and the Studio as ctx.tapeKeys (lib/components/relay.js).
+ * Its tempo panel goes to the bar with its hands (lend: hands.tempo).
  */
-export const TAPE_KEYS = Object.freeze(['lend', 'draw', 'press', 'catch', 'closeMenu', 'focusPlay', 'tempo']);
+export const TAPE_KEYS = Object.freeze(['lend', 'draw', 'press', 'catch', 'closeMenu', 'focusPlay']);
 
 /** TEMPLATE is the bar's markup: its parts by data-part, its icons the sprite's. */
 export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="button" aria-expanded="true" aria-label="Fold the bar" data-tip="np-grabber"><span class="np-lip" aria-hidden="true"><span class="np-pill"></span></span></button>
@@ -95,9 +98,8 @@ export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="bu
             <span data-part="clock-out" class="np-clock" hidden data-tip="tape-clock"></span>
           </div>
         </div>
-        <button data-part="tempo" class="np-lcd-key np-tempo" type="button" aria-label="Tempo" data-tip="np-tempo"><span class="np-lcd-val"><span data-part="tempo-short" class="np-short">–</span><span data-part="tempo-long" class="np-long">–</span></span><span class="np-lcd-leg"><span class="np-short">BPM</span><span class="np-long">TEMPO</span>${icon('down', { size: 8, cls: 'np-lcd-chev' })}</span></button>
+        <button data-part="tempo" class="np-lcd-key np-tempo" type="button" aria-label="The tempo, and where it plays" data-tip="np-tempo"><span class="np-lcd-val"><span data-part="tempo-short" class="np-short">JAM ROOM</span><span data-part="tempo-long" class="np-long">JAM ROOM</span><span data-part="tempo-alone" class="np-alone">–</span></span><span class="np-lcd-leg"><span data-part="tempo-leg" class="np-plays">OUT</span><span class="np-alone">BPM</span>${icon('down', { size: 8, cls: 'np-lcd-chev' })}</span></button>
         <button data-part="source" class="np-lcd-key np-source" type="button" aria-label="Source" data-tip="np-source"><span class="np-lcd-val"><span data-part="source-short" class="np-short">TAPE</span><span data-part="source-long" class="np-long">TAPE</span></span><span class="np-lcd-leg">SOURCE${icon('down', { size: 8, cls: 'np-lcd-chev' })}</span></button>
-        <button data-part="output" class="np-lcd-key np-output" type="button" aria-label="Where it plays" data-tip="np-output"><span class="np-lcd-val"><span data-part="output-val">JAM ROOM</span></span><span class="np-lcd-leg">OUT${icon('down', { size: 8, cls: 'np-lcd-chev' })}</span></button>
         <div data-part="press" class="np-press" role="status" aria-atomic="true">${icon('keyboard', { size: 18, cls: 'np-press-mark' })}<span class="sr-only">The keyboard: </span><span data-part="press-words" class="np-press-words"></span></div>
       </div>
       <svg data-part="reel-r" class="np-reel" viewBox="0 0 160 160" aria-hidden="true"></svg>
@@ -128,7 +130,7 @@ export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="bu
   <canvas data-part="scrub" class="np-scrub" role="slider" tabindex="0" aria-label="Where it plays: tap or drag to move the playhead" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-tip="np-scrub" data-for="take feed away"></canvas>
 </div>
 <div class="np-row np-foot" data-slot="foot">
-  <button data-part="out-foot" class="icon-btn np-out-foot" type="button" aria-label="Where it plays" data-tip="np-output" data-for="tape take feed"><span class="np-out-leg">OUT</span><span data-part="out-foot-val" class="np-out-val">JAM ROOM</span>${icon('down', { size: 16 })}</button>
+  <button data-part="out-foot" class="icon-btn np-out-foot" type="button" aria-label="Where it plays" data-tip="np-out-foot" data-for="tape take feed"><span class="np-out-leg">OUT</span><span data-part="out-foot-val" class="np-out-val">JAM ROOM</span>${icon('down', { size: 16 })}</button>
 </div>
 <div data-part="rec-menu" class="menu np-rec-menu" role="menu" aria-label="What to catch" hidden></div>
 <div data-part="source-menu" class="menu np-source-menu" role="menu" aria-label="What plays" hidden></div>
@@ -138,16 +140,16 @@ export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="bu
  * fill draws the bar's template into `root` and names each part by
  * `id(part)` (a component's cx.id; by default the root's id and the part,
  * as cx.id names it), and says what is the root's own: the grabber controls
- * the root, and where it plays (OUT, and the foot's) opens a dialog, the
- * Output sheet (dialogKey). Answers `root`. The mount's, and the tests'
- * way to a bar.
+ * the root, and the tempo's key and the foot's open a dialog (dialogKey):
+ * the tempo's panel or the Output sheet, and the Output sheet. Answers
+ * `root`. The mount's, and the tests' way to a bar.
  */
 export function fill(root, id = (part) => `${root.id}-${part}`) {
   root.innerHTML = TEMPLATE;
   for (const el of root.querySelectorAll('[data-part]')) el.id = id(el.getAttribute('data-part'));
   const part = (name) => root.querySelector(`[data-part="${name}"]`);
   part('grabber').setAttribute('aria-controls', root.id);
-  dialogKey(part('output'));
+  dialogKey(part('tempo'));
   dialogKey(part('out-foot'));
   return root;
 }

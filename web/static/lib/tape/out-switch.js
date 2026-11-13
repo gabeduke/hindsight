@@ -1,7 +1,8 @@
 // web/static/lib/tape/out-switch.js
 // Where the tape plays, from any page that can play it: the Output sheet's
-// three choices, opened from OUT on the bar's display (it was a button in
-// the header once), and the switch a choice makes. The tape page adds its
+// three choices, opened from the bar's display (its tempo key, over where
+// it plays; in the Studio, its panel's last row; it was a button in the
+// header once), and the switch a choice makes. The tape page adds its
 // strip and banner (output-ui.js); the rooms use this as it is (lib/models/engine.js).
 
 import { rememberListener } from './listener.js';

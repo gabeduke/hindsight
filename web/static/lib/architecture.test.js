@@ -519,9 +519,10 @@ test('Guardrail 21: the overview is the Studio’s, put into the bar’s strip t
 test('Guardrail 22: the Studio and the rooms reach the bar through its verbs and callbacks, never by the ids inside #np', () => {
   // docs/architecture/bar.md, *The Transport's extraction*, step 5c; bar.md, *The Studio's
   // keys*: ▶ is the engine's verb (ctx.engine.bar.playPause()), and so is
-  // L (setLoop); focusing ▶ and wiring the tempo's menu on its key are
-  // calls on ctx.tapeKeys (focusPlay(), tempo(fn), which hands fn the key);
-  // OUT is ctx.openOutput(); SYNC is drawn by the bar; the doorway's grease
+  // L (setLoop); focusing ▶ is a call on ctx.tapeKeys (focusPlay()), and
+  // the tempo's panel goes to the bar with the Studio's hands (lend:
+  // hands.tempo(key), handed the key); where it plays is ctx.openOutput()
+  // (the tempo's panel's last row); SYNC is drawn by the bar; the doorway's grease
   // goes in the bar's strip through ctx.barSlot. A look-up by an id inside
   // the bar's root (its template's, once it is a component) reaches inside
   // it, and breaks the day those ids are cx.id's.

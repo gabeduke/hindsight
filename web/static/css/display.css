@@ -1,9 +1,10 @@
-/* The display's keys (lib/components/display): the tempo, what plays and
-   where it plays, each a value over its legend, amber on the LCD's black in
-   both schemes, ruled apart. A component's stylesheet: every rule starts at
-   its root (.lcd-keys), and it is laid out by its own width, never the
-   page's. The bar still draws its own three keys (css/bar.css, .np-lcd-key)
-   until the Transport's extraction mounts these in their place. */
+/* The display's keys (lib/components/display): the tempo over where it
+   plays, and what plays, each a value over its legend, amber on the LCD's
+   black in both schemes, ruled apart. A component's stylesheet: every rule
+   starts at its root (.lcd-keys), and it is laid out by its own width,
+   never the page's. The bar still draws its own two keys (css/bar.css,
+   .np-lcd-key) until the Transport's extraction mounts these in their
+   place. */
 .lcd-keys {
   container: lcd-keys / inline-size;
   display: flex; align-items: stretch; min-width: 0; height: 48px; overflow: hidden;
@@ -26,7 +27,7 @@
 .lcd-keys .lcd-val {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--lcd-ink); text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent);
-  font: 600 12px/14px var(--mono);
+  font: 600 11px/14px var(--mono); letter-spacing: -.02em;
 }
 .lcd-keys .lcd-leg {
   display: flex; align-items: center; gap: 1px; max-width: 100%; overflow: hidden; white-space: nowrap;
@@ -34,6 +35,8 @@
   text-shadow: 0 0 5px color-mix(in srgb, var(--lcd-ink) 35%, transparent);
 }
 .lcd-keys .lcd-chev { flex: none; stroke-width: 3.5; }
+/* Where it plays, under the tempo, gives way before its chevron does. */
+.lcd-keys .lcd-plays { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* A value's short form, and its long one where the keys have the room. */
 .lcd-keys .lcd-long { display: none; }
 @container lcd-keys (min-width: 420px) {

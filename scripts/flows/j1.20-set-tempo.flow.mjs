@@ -34,10 +34,15 @@ export default {
     const phone = await mini(page);
     if (phone) t.expect('the player comes up', await t.step('pull the player up', () => pullUp(t)));
     // The display has one key for the tempo and where it plays (step 7b): its
-    // value and legend say both, and the output's key of its own is gone.
+    // value and legend say both, and the output's key of its own is gone. In
+    // a phone's player pulled up the foot says where it plays, so the key
+    // there is the tempo alone.
     await t.poll(() => /96/.test(document.getElementById('np-tempo')?.textContent ?? ''));
     const key = await page.locator('#np-tempo').innerText();
-    t.expect('the tempo’s key says the tempo and where it plays', /96/.test(key) && /JAM ROOM/i.test(key), key);
+    if (phone) {
+      const foot = await page.locator('#np-out-foot').innerText();
+      t.expect('the tempo’s key says the tempo alone, and the foot where it plays', /96/.test(key) && !/JAM ROOM/i.test(key) && /JAM ROOM/i.test(foot), { key, foot });
+    } else t.expect('the tempo’s key says the tempo and where it plays', /96/.test(key) && /JAM ROOM/i.test(key), key);
     t.expect('and its label says both to a screen reader', await page.evaluate(() => { const l = document.getElementById('np-tempo')?.getAttribute('aria-label') ?? ''; return /96/.test(l) && /jam room/i.test(l); }),
       await page.locator('#np-tempo').getAttribute('aria-label'));
     t.expect('the bar has no key for the output of its own', await page.evaluate(() => !document.getElementById('np-output')));

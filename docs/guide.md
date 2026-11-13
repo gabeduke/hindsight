@@ -362,8 +362,8 @@ things added and a few taken away: §4.1 says which.
   In, or to the start), **↺ 5 s**, **▶ / ❚❚** and **⟲ Repeat**; then **IN**, **OUT** and
   **✎**. Under them, **the overview:** the whole take, its scrubber. Tap it to
   move the playhead there, drag its window to move along, double-tap to see
-  it all; with it focused, ← → move a second. **OUT · This device**: a take
-  plays here. On a phone it's the mini player above the tabs, with ▶; tap
+  it all; with it focused, ← → move a second. The window's tempo has
+  where it plays under it, **THIS TABLET** or the like: a take plays here. On a phone it's the mini player above the tabs, with ▶; tap
   its window for the whole bar (§8.2).
 - **MIDI ▸,** if the take has MIDI, folds out a lane per track (tap a
   lane's name for its menu: collapse, show as drums or as a piano roll, or
@@ -696,12 +696,14 @@ From the top:
     window says where the tape is, large, as bar.beat, with the time under
     it. Its lamp is ▶ playing, ■ stopped, or a red ● for a punch: steady
     while armed, blinking while recording. In the time's place, it says
-    when it's mixing down or waiting for a tap to play here. Then three
-    keys on the window: the **tempo** (tap it to change it, for the bars
-    the loop could be, and for the **Click**, the metronome), the **source** (*TAPE*: tap it for the live feed, a take or the
-    shelf) and where it plays, **OUT** (*JAM ROOM*, *PHONE* or *BOTH*: tap
-    it to choose, §8.10). On a wide screen they say it in full: *96 BPM · 4
-    BARS*, *TAPE · Song sketch*.
+    when it's mixing down or waiting for a tap to play here. Then two keys
+    on the window: the **tempo**, over where the tape plays (*96 BPM* over
+    *JAM ROOM*, *PHONE* or *BOTH*; with no tempo yet, where it plays over
+    *OUT*): tap it to change the tempo, for the bars the loop could be, for
+    the **Click**, the metronome, and last for where it plays (§8.10); and
+    the **source** (*TAPE*: tap it for the live feed, a take or the shelf).
+    On a wide screen they say it in full: *96 BPM · 4 BARS*, *TAPE · Song
+    sketch*.
   - **SYNC,** under where the tape is while it plays in the jam room, says
     how well its playback and the recording are lined up:
     - **Green:** to the sample. On the Pi, Hindsight listens for the tape in
@@ -1310,8 +1312,11 @@ machine.
 ### 8.10 Taking the tape upstairs
 
 The tape can play on your phone as a backing track, anywhere in the house.
-Tap **OUT** on the bar's window (it says *JAM ROOM* while the tape is in the
-jam room) and choose **This phone**: the jam room goes
+Tap the tempo on the bar's window (*JAM ROOM* is under it while the tape is
+in the jam room), then **Plays in the jam room**, the last row of its
+panel, and choose **This phone** (in the Listening Room the tempo opens
+the choice itself; on a phone's player pulled up, **OUT** at its foot
+does): the jam room goes
 silent, and the tape plays here about 0.8 s behind. Everything on the tape
 works as usual — play, locate, the loop, mute, solo, levels — and the
 playhead and meters are moved back to match what you hear, so a mute shows
@@ -1322,7 +1327,7 @@ would land off the beat. For an idea, use **Overdub on this device** (8.8);
 in This phone mode its Listen and Record stop the tape here, so you don't
 hear it twice (in Both they leave the jam room playing).
 When you're back downstairs, tap **Play in the jam room** on the laptop or the
-bench, or choose **Jam room** under **OUT**: the tape plays on from the same
+bench, or choose **Jam room** under where it plays: the tape plays on from the same
 spot. The bar is in the Listening Room too, so you can move the tape without
 opening the Studio.
 
@@ -1663,9 +1668,9 @@ has no tip.
 | ● on the mini player (phone) | Record from this phone, straight into Hindsight: its take goes on the shelf. Tap again to stop. In the Studio, ● is the tape’s: hold it to record from this phone instead |
 | ▾ beside ● (phone) | Recording from this phone: start or stop it, pick its input, or see its level first |
 | The grabber (bar) | Fold the bar to one row, or unfold it: a tap, or drag it down to fold and up to unfold. Gives the tape lanes room. On a phone, it puts the player away |
-| The tempo (the bar’s display) | The tempo of what’s in the bar. In the Studio a tap opens its panel: type, nudge or tap a tempo, or set its bars |
+| The tempo and where it plays (the bar’s display) | The tempo of what’s in the bar, over where it plays: the tape in the jam room, on a phone or both; a take or the feed on this device (OUT, with no tempo). In the Studio a tap opens the tempo’s panel: type, nudge or tap a tempo, set its bars, the Click, and last where the tape plays. Anywhere else a tap opens where the tape plays |
 | The source (the bar’s display) | What the bar plays: the tape, the take, or the live feed. A tap chooses another: the tape, the live feed, one of the last few takes, or the shelf |
-| Where it plays (the bar’s display) | Where what’s in the bar plays: the tape in the jam room, on a phone or both; a take or the feed on this device. A tap opens where the tape plays |
+| Where it plays (the phone’s player) | At the foot of the player pulled up: where the tape plays, in the jam room, on a phone or both. A tap opens where the tape plays |
 | GRAB (the feed, in the bar) | GRAB the bars around where the feed is onto the Studio’s cue lane, and go there |
 | ⟲ Repeat | Repeat the selection instead of playing straight through |
 | In | Start the selection at the playhead |
