@@ -422,8 +422,8 @@ and Reverse are a track's job. `GrabToCue` (`POST /api/tapes/cue/grab`)
 copies off the ring as `Grab` does, then takes the place of the lane's
 newest clip while that one is an untouched GRAB (`Source` "grab", never a
 take's or the buffer's; never trimmed, shaped,
-renamed or dropped, `Touched` in the state; never launched or kept,
-`Engine.cueUsed`, which isn't undone and starts empty), so a run of presses
+renamed or dropped, `Touched` in the state; never launched or put on the
+shelf, `Engine.cueUsed`, which isn't undone and starts empty), so a run of presses
 doesn't fill the lane, or else is added; the tape's Undo brings the one it
 replaced back, as a GRAB is one edit of its own. With `clip`, it takes that
 clip's span again from other inputs, its window and shape carrying on. The
@@ -438,7 +438,8 @@ handles and all, over what was there, and marks it touched in the same
 edit; a drag (`cue-to-track`) of a clip with lanes is a merged drop on the
 track it points at;
 `CueKeep` (`POST /api/tapes/cue/keep`) saves it as a take of its window
-summed; `CueAudio` (`GET /api/tapes/cue/audio`) is its Audition. All of
+summed (the drawer's To the shelf); `CueAudio` (`GET /api/tapes/cue/audio`)
+is its Audition. All of
 them read the clip as a board (`CueClip.boardOf`), so they are the buffer's
 own code, and none of them touches the clipboard, which is left to a
 range's Cut, Copy and Paste, unseen (`POST /api/clipboard` still takes the
@@ -497,14 +498,38 @@ note, the bar's feed) leaves the clip's id in sessionStorage
 
 **The drawer opens small** on a tablet or a computer (`data-trim="shut"` on
 the panel, `st.trim` in `buffer.js`): one row, the clip's window with IN and
-OUT, DROP, KEEP, Toss, then **Trim** and ✕. The lanes are not folded for it
-(`body.buffer-small`, `lib/buffer/fold.js` `setSmall`): they share the room
-over it, each head one row, its name and ●, so all four are in sight and can
-be pressed. **Trim** opens the bench (`data-trim="open"`): the inputs, the
-IN and OUT steps, gain, Normalize, Reverse, the fades, Audition, the snap,
-Unfold and Loop, with the lanes folded to strips (`body.buffer-fold`) as
-they always were. Another clip opens small again. A phone's sheet has no
-small state: its heights are its own.
+OUT, **DROP**, **Trim**, **Toss** and ✕, each a finger and a half tall
+(decision 6 of `plan/the-calm-studio.md`, built 2026-11-13 as its step 6a).
+The lanes are not folded for it (`body.buffer-small`, `lib/buffer/fold.js`
+`setSmall`): they share the room over it, each head one row, its name and
+●, so all four are in sight and can be pressed. **Trim** opens the rest
+(`data-trim="open"`) under that row, which stays as it was, so a second tap
+on Trim shuts it where it opened; the lanes fold to strips
+(`body.buffer-fold`), and shutting Trim is what gives them their height
+back. Trim is in the order Gabe reaches for it (the template's
+`.buffer-play`, then `.buffer-foot`, in `shell.html`): **Audition**,
+**Repeat**, **Reverse** and the fades in a row, with the clip's name, length
+and note beside them; then IN and OUT, the gain, **Normalize** and the
+clip's inputs; and last **To the shelf**. Every key there is a finger tall.
+Another clip opens small again. A phone's sheet has no small state: its
+heights are its own, and it holds the same keys in the same order, the
+name and ✕ at its top (the peek), then the window, DROP and Toss, then
+Trim's.
+
+**One word, one meaning** in the drawer (decision 7). KEEP is the feed's
+word, so the key that makes a take of the clip is **To the shelf** (`K`,
+`#buffer-keep`, `CueKeep`; it says how long, *To the shelf 4 BARS*, by
+`lib/rooms/keeplabel.js` `bufferKeepLength` and `shelfLabel`), and its
+toast says the clip is on the shelf. Loop is the bar's, the tape's loop, so
+the clip's own going round is **Repeat** (`#buffer-repeat`, the clip's
+`loop` on the Pi, `cue-set`): on, a launch from the cue lane goes round
+until it is tapped again; off, it plays once. Audition always goes round,
+on this device. The drawer has no snap of its own: IN and OUT step by
+their keys (and `[ ]`, `⇧[ ]`), and a drag of either in the window snaps
+(⇧ frees it), by the Studio's one snap, ⌗'s beside the ruler, which
+`lib/tape/page.js` says in each `hindsight:tape-state` (`snap`, `'off'`
+without a tempo) and the drawer reads from there (`snapPer`), never from
+the ruler's DOM.
 
 **On a phone** the drawer is a sheet at the inspector's heights (peek,
 half, full), docked above the mini player as the inspector is, so it never
