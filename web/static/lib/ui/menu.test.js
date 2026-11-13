@@ -329,6 +329,53 @@ test('menu: ↓ or ↑ on the button, or Enter (a click with no pointer), opens 
   assert.equal(p.doc.activeElement?.id, 'b', 'a tap leaves the focus be');
 });
 
+test('menu: bind: false leaves its button to its owner, who hands it the presses that are its own (press), and it says only that it is open, while it is', () => {
+  // The bar's tempo key (lib/components/transport/bar.js) opens the Studio's
+  // tempo panel in the Studio, and the Output sheet anywhere else: one
+  // owner for the press, which hands the panel the ones that are its.
+  const p = aPage();
+  const b = p.$('b'), panel = p.$('m');
+  dialogKey(b); // what it opens is the owner's to say
+  const m = menu(b, panel, { layers: p.layers, win: p.win, role: 'dialog', bind: false });
+  assert.equal(b.getAttribute('aria-haspopup'), 'dialog');
+  assert.equal(b.getAttribute('aria-controls'), null, 'shut, it names nothing on the button');
+  assert.equal(b.getAttribute('aria-expanded'), null);
+  b.dispatchEvent({ type: 'click', detail: 1 });
+  p.key('ArrowDown', b);
+  assert.ok(!m.isOpen(), 'it hears no press of the button itself');
+  assert.equal(m.press({ type: 'click', detail: 1 }), true, 'a click handed to it is its press');
+  assert.ok(m.isOpen());
+  assert.equal(b.getAttribute('aria-expanded'), 'true', 'open, the button says so');
+  assert.equal(b.getAttribute('aria-controls'), 'm', 'and what it opened');
+  p.press(b);
+  assert.ok(m.isOpen(), 'a press on its button is not a press outside: the owner hands it on');
+  m.press({ type: 'click', detail: 1 });
+  assert.ok(!m.isOpen(), 'a second shuts it');
+  assert.equal(b.getAttribute('aria-expanded'), null, 'shut, the button says nothing of it again');
+  assert.equal(b.getAttribute('aria-controls'), null);
+  // The keyboard's presses, as menu() hears them on a button of its own.
+  const down = { type: 'keydown', key: 'ArrowDown', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  assert.equal(m.press(down), true);
+  assert.ok(down.defaultPrevented);
+  assert.equal(p.doc.activeElement?.id, 'i1', '↓ opens it with the keyboard on its first item');
+  m.close();
+  m.press({ type: 'click', detail: 0 });
+  assert.equal(p.doc.activeElement?.id, 'i1', 'Enter (a click with no pointer) too');
+  m.close();
+  assert.equal(m.press({ type: 'keydown', key: 'a', preventDefault() {} }), false, 'any other key is not its press');
+  assert.ok(!m.isOpen());
+});
+
+test('menu: a button of its own hears its presses as press() does them', () => {
+  const p = aPage();
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win });
+  assert.equal(typeof m.press, 'function');
+  m.press({ type: 'click', detail: 1 });
+  assert.ok(m.isOpen());
+  p.$('b').dispatchEvent({ type: 'click', detail: 1 });
+  assert.ok(!m.isOpen(), 'its own click and a handed one are the one press');
+});
+
 test('menu: opened by a key, a panel puts the keyboard on what is chosen', () => {
   const p = aPage(`<button id="b"></button><div id="m" hidden>
     <button id="a" aria-pressed="false">30s</button><button id="c" aria-pressed="true">2m</button></div>`);
