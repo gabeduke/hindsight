@@ -170,6 +170,27 @@ one tap away, or gone.
   left it and the feed's row became a key, so `controls` stays 44. The
   feed's face holds 26 (27 at 1280×800): `feed: 27`.
 
+### The cue clip's panel and the words, as built (step 6a)
+
+Step 6 is two PRs: this one, which is the Studio's alone, and 6b,
+`inputs.md` (names for inputs and the strip, with a change on the Pi),
+which waits for Gabe to agree that spec.
+
+- **The small panel is the clip's window, DROP, Trim, Toss and ✕**
+  (decision 6). The drawer's KEEP leaves it.
+- **Trim opens on what Gabe reaches for** (his call, 2026-11-13): its
+  first row is Audition, the clip's repeat, Reverse and the fades; then IN
+  and OUT, the gain and Normalize, the clip's inputs, and last the key
+  that puts the clip on the shelf.
+- **A word has one meaning** (decision 7):
+  - KEEP is the feed's: the last of the jam, kept as a take. The drawer's
+    key, which makes a take of the clip, is **To the shelf** (its K stays).
+  - Loop is the bar's: the tape's loop. The drawer's key, which plays the
+    clip round while it is auditioned or launched, is **Repeat**.
+  - Bar is the Studio's snap, on ⌗. The drawer's own snap menu goes, and
+    IN and OUT step by the Studio's snap.
+- Catch's caption ("loop is off") is the bar's, and changes with step 7.
+
 ## Gabe's calls before the bar changes (answered 2026-11-13)
 
 - **The capture verbs on the surface are GRAB, KEEP and ●.** Catch comes
@@ -224,8 +245,9 @@ Done:
 Left, in order:
 
 6. **The cue clip's panel and the words** (decision 7; what is left of 6),
-   with `inputs.md`'s names for inputs and its strip, which is where the
-   head's input chip goes.
+   in two PRs: 6a, the panel and the words (*as built*, above); 6b,
+   `inputs.md`'s names for inputs and its strip, which is where the head's
+   input chip goes, once Gabe has agreed that spec.
 7. **The bar's display** (decision 5) and the capture verbs, as Gabe's
    calls above say: Catch on ●'s ▾, the click in the tempo's panel.
 8. **Rip out** what the steps left unused, and lower the budget.
