@@ -44,7 +44,7 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 
 - `barLayout`: the bar's layout (`lib/bar/layout.js`; `bar.md`, *It folds
   by its grabber*): `folded`, `open`, `docked` and `onChange(fn)`, shared.
-- `tapeKeys`: the bar's ●, Catch and the click (`lib/components/transport/tape-keys.js`;
+- `tapeKeys`: the bar's ● and its ▾, which Catch is on (`lib/components/transport/tape-keys.js`;
   `bar.md`, *The Studio's keys*), shared through a relay the Transport
   provides them to (`lib/components/relay.js`; `bar.md`, *The Transport*): the Studio lends them its hands
   (`lend(hands)`) and presses them (`press(name)`, `catch(what)`), focuses

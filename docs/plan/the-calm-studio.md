@@ -2,7 +2,8 @@
 
 **Status: direction agreed 2026-11-09 from a wireframe, and the order of
 what is left agreed 2026-11-10; decisions 1 to 4, 6, 7 and 9 are built
-(*Build order*), and 5, 8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
+(*Build order*), and Gabe's calls on Catch and the metronome (step 7a);
+5, 8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
 time, and it is "so damn cluttered": "it is hard to tell what buttons are
 useful to me."
 
@@ -198,7 +199,8 @@ change on the Pi), which waits for Gabe to agree that spec.
   - Bar is the Studio's snap, on ⌗. The drawer's own snap key went, and IN
     and OUT step by the Studio's snap, which the page already said to the
     drawer in `hindsight:tape-state`.
-- Catch's caption ("loop is off") is the bar's, and changes with step 7.
+- Catch's caption ("loop is off") was the bar's, and went with its key in
+  step 7a.
 
 ## Gabe's calls before the bar changes (answered 2026-11-13)
 
@@ -211,39 +213,50 @@ change on the Pi), which waits for Gabe to agree that spec.
   not under a fold of their own. His to correct at step 6's look.
 - **The metronome is in the tempo's panel**, not on the bar.
 
-## The capture verbs and the click, to build (step 7a)
+## The capture verbs and the click, as built (step 7a)
 
-Step 7 is two PRs. 7a is Gabe's two calls; 7b is decision 5's one key for
-tempo and output, which touches every room's bar and is pinned after 7a is
-looked at.
+Step 7 is two PRs. 7a is Gabe's two calls, built 2026-11-13; 7b is
+decision 5's one key for tempo and output, which touches every room's bar
+and is pinned after 7a is looked at. `architecture/bar.md`, *The Studio's
+keys*, has how it is built.
 
 - **● has a ▾ beside it** (`rec-more`, opening `rec-menu`; in the Studio
-  with the tape, in the bar and the phone's mini player), the pair a
-  `splitKey` as GRAB's and KEEP's are. Its menu is Catch's as it was: a
-  head saying where it lands ("Catch onto track 2", or that no track is
-  armed), then The last pass and The last 1, 2 and 4 bars, each saying why
-  when it can't go, and staying open on a tap that can't.
-- **One ▾ beside ●, never two.** A phone's mini player already has one
-  (`phone-more`: this phone's inputs). In the Studio with the tape it is
-  ●'s ▾ there, and its menu is Catch's rows, a line, then the phone's rows
-  as `phoneRows` gives them. Everywhere else the phone's ▾ is as it was.
-- **Catch's key, its ▾ and its menu leave the bar** (`catch-pass`,
-  `catch-more`, `catch-menu`, `.np-catch-split`, their rules, the mini
-  caption). C still catches the last pass, and says why when it waits, with
-  the last 4 bars on offer, as a tap on the key did. The outline on the
-  lanes shows while The last pass is pointed at or has the keyboard.
-- **The click's key leaves the bar.** The tempo's panel has a Click switch
-  (`tempo-click`, `aria-pressed`) under the tempo's row, off without a
-  grid. M still turns it. The click is the Studio's now: the page sets it
-  on the tape model, and `tapeKeys` has no click (its `press('click')` and
-  `faces().click` go).
+  with the tape, in the bar and the phone's mini player), a finger wide and
+  as tall as ●, the pair a `splitKey` as GRAB's and KEEP's are. Its menu is
+  Catch's as it was (`catchRows`): a head saying where it lands ("Catch
+  onto track 2", or that no track is armed), then The last pass and The
+  last 1, 2 and 4 bars, each saying why under it when it can't go, and
+  staying open on a tap that can't. A tap on ● records, and opens nothing.
+- **One ▾ beside ●, never two.** In the Studio with the tape the phone's
+  ▾ does not show; ●'s does, and on a phone its menu is Catch's rows, a
+  line, then the phone's rows (`phoneKey`'s `rows(panel)`, doing what they
+  do in its own ▾). A hold on ● on a phone opens that menu (`offer(host)`;
+  with the player pulled up, the recorder's sheet, as before). Everywhere
+  else the phone's ● and ▾ are as they were. In the mini player the tail
+  is empty for the tape, as it was away from the Studio, and gives up what
+  ●'s ▾ is wider than the phone's, so ▶ stands at one x.
+- **Catch's key, its ▾ and its menu left the bar**, with their rules, the
+  mini caption (`catchSub`, `catchMini`, and `catchState`'s `short`), and
+  the Catch tip, which is ●'s ▾'s now. C still catches the last pass, and
+  says why when it waits, with the last 4 bars on offer. The outline on the
+  lanes shows while The last pass is pointed at or has the keyboard, and
+  goes as the menu shuts.
+- **The click's key left the bar.** The tempo's panel has a Click switch
+  (`tempo-click`, `aria-pressed`, with the snap's amber lamp) under the
+  tempo's row, off without a grid; a tap leaves the panel open. M still
+  turns it. The click is the Studio's now (`lib/tape/page.js`
+  `toggleClick`, `paintClick`), and `tapeKeys` has no click.
 - **What it costs.** Catch from the screen is two presses (▾, the row)
   where it was one, so E1 on the tablet is 11, not 10. That number is meant
-  only to go down; it rises here because of Gabe's call, and the report
-  says so.
-- **What it saves.** Three keys off the bar for one on it:
-  `STUDIO_BUDGET.controls` goes to what the tablet measures after.
-- J1.4 has the story; E1, J1.5 and J4.4 press the new keys.
+  only to go down; it rose here because of Gabe's call.
+- **What it saved.** Three keys off the bar for one on it:
+  `STUDIO_BUDGET.controls` is 42 (41 at 1024×768 and upright, 42 at
+  1280×800; it was 43 and 44), and the feed's face 25 (it was 27).
+- **What it leaves.** The bar in the Studio is the deck, |◀ ▶ ● ▾ and ⟲,
+  with room at its right end where Catch and the metronome stood: ▶ stays
+  where it was, and the deck's width is 7b's to spend. ⟲ follows ●'s ▾
+  now, so it no longer stands at one x for the tape, a take and the feed.
+- J1.4 has the story; E1, J1.5, J1.20, J4.1 and J4.4 press the new keys.
 
 ## What comes out
 
@@ -291,15 +304,18 @@ Done:
    and the fades; To the shelf and Repeat for the drawer's KEEP and Loop;
    its snap key and Unfold out. J1.6 has the story. The tape's face at rest
    is as it was (the drawer is shut there), so `STUDIO_BUDGET` did not move.
+7. **7a, the capture verbs and the click** (Gabe's calls; 2026-11-13), as
+   *as built (step 7a)* says: Catch on ●'s ▾, one ▾ beside ● on a phone,
+   the click in the tempo's panel. `STUDIO_BUDGET.controls` went to 42 and
+   `feed` to 25. E1 rose to 11 presses on the tablet (13 on a phone).
 
 Left, in order:
 
 6. **6b, the inputs** (what is left of step 6): `inputs.md`'s names for
    inputs and its strip, which is where the head's input chip and the
    drawer's input chips go. It waits for Gabe to agree that spec.
-7. **7a, the capture verbs and the click**, as *to build (step 7a)* says:
-   Catch on ●'s ▾, the click in the tempo's panel. **7b, the bar's
-   display** (decision 5): one key for tempo and output.
+7. **7b, the bar's display** (decision 5): one key for tempo and output.
+   The room 7a left at the bar's right end is its to spend.
 8. **Rip out** what the steps left unused, and lower the budget.
 
 ## How it stays calm
