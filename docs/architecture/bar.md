@@ -375,7 +375,7 @@ up, taken back on destroy):
 
 | `tapeKeys` answers | |
 |---|---|
-| `lend(hands)` → off | the Studio's hands, until `off()`; the keys are drawn and pressed only while some are lent |
+| `lend(hands)` → off | the Studio's hands, until `off()`; the keys are drawn and pressed only while some are lent. Hands lent over hands still lent shut ●'s menu and drop the first hands' tempo panel, and the first `off()` then does nothing |
 | `draw()` | the keys again: the armed tracks or their inputs changed (the Studio's render) |
 | `press(name)` | `'rec'`, as a tap on ● (R), or `'catch'`, C: the last pass, or, while it waits, why, with *Last 4 bars* on offer; nothing while ● is disabled |
 | `catch(what)` | Catch `{pass}`, `{bars}` or `{out}`: ●'s menu's, and the Studio's passes and last-bars keys |

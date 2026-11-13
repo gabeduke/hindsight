@@ -104,7 +104,9 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  * without a tape.
  *
  * Answers:
- *   lend(hands) -> off   the Studio's hands, until off():
+ *   lend(hands) -> off   the Studio's hands, until off() (hands lent over
+ *                        others shut what the others opened, and the
+ *                        others' off does nothing):
  *       layers           the stack scope ●'s menu opens on (the first
  *                        lend's: the menu is made once)
  *       armed()          the armed tracks, as the Studio shows them
@@ -291,6 +293,14 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
   const keys = { rec: () => !rec.disabled && record(), catch: pressCatch };
   return {
     lend(h) {
+      // Hands lent over hands still lent: what the first opened is shut
+      // (●'s menu, while the first are still the ones its outline goes to)
+      // and their panel dropped; their off then does nothing.
+      if (hands && hands !== h) {
+        menu?.close();
+        tempoPanel?.close();
+        tempoPanel = null;
+      }
       hands = h;
       if (!menu) {
         // ● and its ▾ are a split key (lib/ui/menu.js), as GRAB's and

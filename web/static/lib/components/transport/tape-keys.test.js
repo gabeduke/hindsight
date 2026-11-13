@@ -449,6 +449,26 @@ test('tapeKeys: the bar hears the hands change, after a lend and after they are 
   assert.equal(heard.length, 2, 'a second off is nothing to hear');
 });
 
+test('tapeKeys: hands lent over hands still lent shut the first panel and ●’s menu; the first hands’ off then leaves the second be', () => {
+  const { k, more, panel: recMenu } = keys({ tape: aTape(), live: playing() });
+  const shut = [];
+  const first = { close: () => shut.push('first'), press() {} };
+  const second = { close: () => shut.push('second'), press() {} };
+  const offFirst = k.lend(hands({ tempo: () => first }));
+  click(more);
+  assert.equal(recMenu.hidden, false, '●’s menu open on the first hands');
+  const offSecond = k.lend(hands({ tempo: () => second }));
+  assert.deepEqual(shut, ['first'], 'the first panel is shut');
+  assert.equal(recMenu.hidden, true, 'and ●’s menu');
+  assert.equal(k.panel(), second, 'the bar has the second');
+  offFirst();
+  assert.equal(k.panel(), second, 'the first hands’ off takes nothing of the second');
+  assert.deepEqual(shut, ['first']);
+  offSecond();
+  assert.deepEqual(shut, ['first', 'second']);
+  assert.equal(k.panel(), null);
+});
+
 test('tapeKeys: a page without the keys, or without a tape, has none', () => {
   const bare = fakeDoc().createElement('section');
   bare.id = 'np';
