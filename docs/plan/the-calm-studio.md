@@ -211,6 +211,40 @@ change on the Pi), which waits for Gabe to agree that spec.
   not under a fold of their own. His to correct at step 6's look.
 - **The metronome is in the tempo's panel**, not on the bar.
 
+## The capture verbs and the click, to build (step 7a)
+
+Step 7 is two PRs. 7a is Gabe's two calls; 7b is decision 5's one key for
+tempo and output, which touches every room's bar and is pinned after 7a is
+looked at.
+
+- **● has a ▾ beside it** (`rec-more`, opening `rec-menu`; in the Studio
+  with the tape, in the bar and the phone's mini player), the pair a
+  `splitKey` as GRAB's and KEEP's are. Its menu is Catch's as it was: a
+  head saying where it lands ("Catch onto track 2", or that no track is
+  armed), then The last pass and The last 1, 2 and 4 bars, each saying why
+  when it can't go, and staying open on a tap that can't.
+- **One ▾ beside ●, never two.** A phone's mini player already has one
+  (`phone-more`: this phone's inputs). In the Studio with the tape it is
+  ●'s ▾ there, and its menu is Catch's rows, a line, then the phone's rows
+  as `phoneRows` gives them. Everywhere else the phone's ▾ is as it was.
+- **Catch's key, its ▾ and its menu leave the bar** (`catch-pass`,
+  `catch-more`, `catch-menu`, `.np-catch-split`, their rules, the mini
+  caption). C still catches the last pass, and says why when it waits, with
+  the last 4 bars on offer, as a tap on the key did. The outline on the
+  lanes shows while The last pass is pointed at or has the keyboard.
+- **The click's key leaves the bar.** The tempo's panel has a Click switch
+  (`tempo-click`, `aria-pressed`) under the tempo's row, off without a
+  grid. M still turns it. The click is the Studio's now: the page sets it
+  on the tape model, and `tapeKeys` has no click (its `press('click')` and
+  `faces().click` go).
+- **What it costs.** Catch from the screen is two presses (▾, the row)
+  where it was one, so E1 on the tablet is 11, not 10. That number is meant
+  only to go down; it rises here because of Gabe's call, and the report
+  says so.
+- **What it saves.** Three keys off the bar for one on it:
+  `STUDIO_BUDGET.controls` goes to what the tablet measures after.
+- J1.4 has the story; E1, J1.5 and J4.4 press the new keys.
+
 ## What comes out
 
 - The Studio's own mouse layout of the track head (M, S, level, input in
@@ -263,8 +297,9 @@ Left, in order:
 6. **6b, the inputs** (what is left of step 6): `inputs.md`'s names for
    inputs and its strip, which is where the head's input chip and the
    drawer's input chips go. It waits for Gabe to agree that spec.
-7. **The bar's display** (decision 5) and the capture verbs, as Gabe's
-   calls above say: Catch on ●'s ▾, the click in the tempo's panel.
+7. **7a, the capture verbs and the click**, as *to build (step 7a)* says:
+   Catch on ●'s ▾, the click in the tempo's panel. **7b, the bar's
+   display** (decision 5): one key for tempo and output.
 8. **Rip out** what the steps left unused, and lower the budget.
 
 ## How it stays calm
