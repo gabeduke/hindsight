@@ -627,9 +627,16 @@
      Capture's: the modules that drive them (ribbon.js, settings.js,
      update.js) find them by those. -->
 <template id="studio-feed-tpl">
-  <!-- A .panel, as Capture's are, for its surface. A strip
-       (docs/plan/the-studio-on-one-screen.md): the lamp and the meters, the
-       ribbon, then GRAB (the buffer puts it first), KEEP and Flag. How much
+  <!-- The Studio shows one face at a time, the tape's or the feed's
+       (lib/rooms/face.js, data-face on main#view-studio; no attribute is the
+       tape's), and the other as a thin row at the top: this is the tape's,
+       on the feed's face, the whole tape as the bar's overview draws it. A
+       tap turns back to the tape. -->
+  <button class="panel studio-face-tape" id="face-tape" type="button" aria-label="The tape: turn to it" data-tip="face-tape"><span class="studio-face-name" aria-hidden="true">Tape</span><canvas class="studio-face-canvas" id="face-tape-canvas" aria-hidden="true"></canvas></button>
+  <!-- A .panel, as Capture's are, for its surface. On the tape's face, one
+       thin row: the lamp, the ribbon, GRAB (the buffer puts it first) and
+       KEEP, small. On the feed's face, the ribbon as tall as the room leaves,
+       and under it the lamp and the level, GRAB, KEEP and Flag now. How much
        GRAB and KEEP take is on their ▾ (lib/ui/menu.js splitKey). -->
   <section class="panel studio-feed" aria-label="The feed">
     <div class="studio-feed-head">
@@ -644,6 +651,9 @@
       <div class="meters" id="meters"></div>
     </div>
     <div class="viz-wrap" id="viz-wrap" data-tip="ribbon"></div>
+    <!-- On the tape's face the ribbon takes no mark and no hold: it is one
+         key, over it, and a tap turns to the feed's face, where it does. -->
+    <button class="studio-face-feed" id="face-feed" type="button" aria-label="The feed: turn to it" data-tip="face-feed"></button>
     <div class="studio-keys">
       <span class="key-split studio-keep-split">
         <button class="icon-btn studio-keep" id="studio-keep" type="button" data-tip="capture"><span class="studio-keep-line"><span class="studio-keep-word" id="studio-keep-word">Keep</span><span class="studio-keep-len" id="studio-keep-len"></span></span><span class="studio-keep-sub" id="studio-keep-sub"></span></button>

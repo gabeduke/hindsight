@@ -1,10 +1,13 @@
 // web/static/lib/rooms/face.test.js
 // The Studio's face (lib/rooms/face.js): the tape's or the feed's, written
-// on the Studio's root and kept on this device.
+// on the Studio's root and kept on this device; and styles.css drawing the
+// tape's face from the first paint.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { createFace, FACES, KEY } from './face.js';
+import { cssOf, rules, decls } from '../stylesheets.js';
 
 /** A root that keeps its attributes, as main#view-studio does. */
 function fakeRoot() {
@@ -90,4 +93,39 @@ test('an off stops the telling', () => {
   off();
   face.set('tape');
   assert.deepEqual(heard, ['feed']);
+});
+
+// ---- the first paint: the faces in the stylesheets ----------------------
+// The face is written on main#view-studio as the Studio mounts, and no
+// attribute is the tape's: so styles.css draws the tape's face with no
+// attribute at all, and the feed's face only by [data-face="feed"], never
+// by a class a script adds later (AGENTS.md, frame-zero hiding).
+const all = rules(cssOf());
+const display = (r) => decls(r.body).find((d) => d.prop === 'display')?.value;
+/** hidden: the selectors that hide something with display: none. */
+const hidden = all.filter((r) => display(r) === 'none').flatMap((r) => r.sel);
+const FEED = 'main#view-studio[data-face="feed"]';
+const TAPE = 'main#view-studio:not([data-face="feed"])';
+
+test('no rule waits for data-face="tape": with no attribute the face is the tape’s', () => {
+  const keyed = all.flatMap((r) => r.sel).filter((s) => /data-face/.test(s));
+  assert.ok(keyed.length > 0, 'the faces are drawn by the attribute');
+  const wrong = keyed.filter((s) => /\[data-face="tape"\]/.test(s.replace(/:not\(\[data-face="feed"\]\)/g, '')));
+  assert.deepEqual(wrong, [], 'these miss the first paint, which has no attribute');
+});
+
+test('the feed’s face hides the lanes, the ruler, the sections and an empty tape’s hint, by the attribute', () => {
+  for (const what of ['#lanes', '.tape-ruler-row', '#tape-empty', '.studio-face-feed']) {
+    assert.ok(hidden.some((s) => s.includes(FEED) && s.endsWith(what)), `${what} is hidden on the feed’s face`);
+  }
+  // The sections' row is a .tape-ruler-row too.
+  assert.match(readFileSync(new URL('../../shell.html', import.meta.url), 'utf8'), /class="tape-ruler-row tape-sections-row"/);
+});
+
+test('the tape’s row is hidden before any attribute, and the feed’s face’s own keys on the tape’s face', () => {
+  assert.ok(all.some((r) => r.sel.includes('.studio-face-tape') && display(r) === 'none' && !r.media), '#face-tape is out with no attribute');
+  assert.ok(all.some((r) => r.sel.includes(`${FEED} .studio-face-tape`) && display(r) && display(r) !== 'none'), 'and in on the feed’s face');
+  for (const what of ['.studio-keys > .mark-btn', '.studio-feed-head > .meters', '.studio-feed > .rb-sel', '.studio-feed .rb-mark-clear']) {
+    assert.ok(hidden.includes(`${TAPE} ${what}`), `${what} is the feed’s face’s`);
+  }
 });

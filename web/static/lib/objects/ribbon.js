@@ -19,10 +19,12 @@
 // that span (POST /api/trigger?from=&to=, absolute ring frames), not the last
 // N minutes. A hold released without a drag selects from there to now; where
 // the page asks (tapMarks, the Studio), a tap does too: the mark, "from here".
-// A tap at the right edge, which is now, takes the mark off. A
+// A tap at the right edge, which is now, takes the mark off, as a tap on the
+// mark's own key does. A
 // selection is kept in absolute frames, so it slides left as time passes,
 // like the audio it names. Tapping a flag opens its sheet: Save from here to
-// now, or delete it.
+// now, or delete it. A page can make the ribbon take no touch at all
+// (setPressable): the Studio's tape face shows it as a key of its own.
 //
 // The tape itself is a scene object (lib/scene): each poll and each touch
 // sets the ribbon's state, the ribbon model (lib/scene/ribbon.js) works out
@@ -76,6 +78,7 @@ export class Ribbon {
     this.selBar = selBar || null;
     this.flagSheet = flagSheet || null;
     this.tapMarks = !!tapMarks; // a tap sets the mark: from there to now
+    this.pressable = true; // a touch marks, selects or opens a flag (setPressable)
     this.onSel = onSel || null; // (info | null): what is selected, each time it is drawn
     this.sel = null;   // {from, to}: absolute ring frames; to null means "now"
     this.press = null; // the pointer gesture in progress
@@ -162,11 +165,26 @@ export class Ribbon {
     return frameAt(ageAt(pct, ax.A, ax.T), ax.total, ax.sr);
   }
 
+  /**
+   * setPressable says whether a touch on the ribbon does anything: the mark,
+   * a hold, a flag's sheet, the mark's key. Off, the ribbon is only drawn:
+   * the Studio's tape face makes it one key of its own, over it
+   * (#face-feed), and its own keys leave the keyboard's way with it (inert).
+   */
+  setPressable(on) {
+    this.pressable = !!on;
+    this.wrap.inert = !this.pressable;
+    if (!this.pressable && this.press) {
+      clearTimeout(this.press.timer);
+      this.press = null;
+    }
+  }
+
   wireSelect() {
     const w = this.wrap;
     w.addEventListener('pointerdown', (e) => {
       this.held = false; // a new press: its click may be a tap
-      if (!e.isPrimary || e.button > 0 || e.target.closest('.rb-flag') || e.target.closest('.rb-mark-clear') || !this.axis()) return;
+      if (!this.pressable || !e.isPrimary || e.button > 0 || e.target.closest('.rb-flag') || e.target.closest('.rb-mark-clear') || !this.axis()) return;
       if (this.press) clearTimeout(this.press.timer);
       const p = { id: e.pointerId, x: e.clientX, y: e.clientY, armed: false, anchor: null, end: null };
       p.timer = setTimeout(() => {
@@ -207,7 +225,7 @@ export class Ribbon {
     // lift: the mark's own key is drawn under the finger, and a click that
     // came after the mark would land on it and take the mark off again.
     w.addEventListener('click', (e) => {
-      if (!this.tapMarks || this.held || e.button > 0 || !this.axis()) return;
+      if (!this.tapMarks || !this.pressable || this.held || e.button > 0 || !this.axis()) return;
       if (e.target.closest('.rb-flag') || e.target.closest('.rb-mark-clear')) return;
       const from = this.frameAtX(e.clientX);
       this.setSel(from == null ? null : { from, to: null });
