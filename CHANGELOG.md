@@ -5,6 +5,21 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.13.3 — 2026-11-13
+
+- M says Click on or Click off when the tempo's panel is shut (9d76390c)
+- ●'s menu keeps up while it is open: The last pass lets go as a pass goes round, and the head names the tracks armed now (7cc72a70)
+- A menu filled again while it is open keeps the keyboard on the row it was on (98b7b2f8)
+- The bar's architecture says ●'s ▾ has Catch, and the click is the tempo panel's; the calm Studio's step 7a is built (185350a1)
+- The Studio holds 42 controls at rest on the tablet, from 44, with Catch and the click off the bar (85cdf9d5)
+- J1.5 taps The last pass while it waits, which Playwright took for a key it can't press (67819255)
+- The metronome is the Click in the tempo's panel, and its key leaves the bar (9623941c)
+- Catch moves onto ●'s ▾: the bar's capture keys are GRAB, KEEP and ● (42b00925)
+- A hold on a key that opens its own menu no longer shuts that menu as the finger lifts (6a2c5cc5)
+- The flows press Catch on Record's ▾ and the click in the tempo's panel (bfcf8186)
+- The calm Studio's spec says how Catch goes onto Record's menu and the click into the tempo's panel, and what that costs in presses (6388ed71)
+
+
 ## v2026.11.13.2 — 2026-11-13
 
 - The rules name the cue clip's keys as they are now: Drop, Trim and Toss, with the rest in Trim (fda125cd)
