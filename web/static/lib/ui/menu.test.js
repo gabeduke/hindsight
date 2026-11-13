@@ -227,6 +227,23 @@ test('menu: it closes only through its layer: a press outside, Escape or Back, a
   assert.ok(m.isOpen(), 'and it opens again after');
 });
 
+test('menu: onClose hears it put away, once each time, and why, however it closed', () => {
+  const p = aPage();
+  const why = [];
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win, onClose: (r) => why.push(r) });
+  m.open();
+  assert.deepEqual(why, [], 'not as it opens');
+  p.press(p.$('elsewhere'));
+  m.open();
+  p.request();
+  m.open();
+  p.$('m').dispatchEvent({ type: 'click', target: p.$('i1') });
+  m.open();
+  m.close();
+  m.close();
+  assert.deepEqual(why, ['outside', 'back', 'pick', 'program'], 'a close request is Back here: the page’s CloseWatcher');
+});
+
 test('menu: a pick says how it closed: a link leaves the history to the page it loads', () => {
   const p = aPage();
   const why = [];
@@ -495,6 +512,20 @@ test('splitKey: a press on the verb, elsewhere, or Escape shuts it; a choice in 
   $('more').dispatchEvent({ type: 'click' });
   request();
   assert.ok(!m.isOpen());
+});
+
+// ●'s ▾ (lib/components/transport/tape-keys.js): a hold on ● opens ●'s
+// menu on a phone, and the click the hold's lift sends, which ●'s press
+// swallows, shut it again at once.
+test('splitKey: a click the verb’s own press swallowed (a hold’s lift) leaves it open', () => {
+  const { $, m } = aPair();
+  m.open();
+  const lift = { type: 'click', detail: 1, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  lift.preventDefault(); // the verb's pressMachine, bound first, swallowed it
+  $('key').dispatchEvent(lift);
+  assert.ok(m.isOpen(), 'the lift is no press of the verb');
+  $('key').dispatchEvent({ type: 'click', detail: 1, defaultPrevented: false, preventDefault() {} });
+  assert.ok(!m.isOpen(), 'a tap on the verb still shuts it');
 });
 
 test('splitKey: ↓ on the ▾ opens it with the focus on its first choice', () => {
