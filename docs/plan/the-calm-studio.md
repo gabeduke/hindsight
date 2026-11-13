@@ -258,6 +258,44 @@ keys*, has how it is built.
   now, so it no longer stands at one x for the tape, a take and the feed.
 - J1.4 has the story; E1, J1.5, J1.20, J4.1 and J4.4 press the new keys.
 
+## One key for tempo and output, to build (step 7b)
+
+Decision 5. The display has two keys, not three: what plays, and how.
+
+- **The tempo's key and the output's are one key** (the `tempo` part keeps
+  its name and id; the `output` part goes). Its value is the tempo and its
+  legend is where it plays: `96 BPM` over `JAM ROOM ▾` (the long form
+  keeps the bars). With no tempo (a take without one, the feed, an empty
+  tape) the value is where it plays and the legend is `OUT`. It says both
+  to a screen reader.
+- **What it opens.** In the Studio with the tape it opens the tempo's
+  panel, as now, and the panel's last row, under a line, is where it plays
+  (`tempo-out`: "Plays in the jam room", with ›), which shuts the panel
+  and opens the Output sheet. Anywhere else there is no tempo to set, so
+  the key opens the Output sheet itself, and is off when there is no tape
+  to send, as the output's key was.
+- **One owner for the press.** The bar decides which of the two a press
+  opens; the Studio hands it the panel through its hands, and never leaves
+  a listener on the key that opens the panel in another room.
+- **The source's key stays everywhere.** Its menu always has a choice (the
+  tape, the feed, the last takes, the shelf), so decision 5's "only where
+  there is a choice to make" takes nothing off yet. Whether the Studio
+  needs it at all is step 8's question, with Gabe.
+- **The deck keeps its width**, so ▶ stands where it does today. The room
+  the output's key leaves goes to the merged key and to the source's
+  value (a take's title gets more of it).
+- **A phone.** The mini player shows none of the display's keys, as now.
+  The player pulled up keeps its foot key for where it plays
+  (`out-foot`); the merged key there shows the tempo alone.
+- **Open** (`wave.html`, its own bar until Open's pass) draws the same
+  two cells, as it draws three today; they are not keys there.
+- **What it costs.** Changing where the tape plays from the Studio is two
+  presses (the key, the row) where it was one. No journey counts it.
+- **What it saves.** One key on every room's bar:
+  `STUDIO_BUDGET.controls` and `feed` go to what the tablet measures.
+- J1.20 has the tempo's story; the flows that press `#np-output` press the
+  new route, and one says the Output sheet opens from the panel's row.
+
 ## What comes out
 
 - The Studio's own mouse layout of the track head (M, S, level, input in
