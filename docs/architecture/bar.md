@@ -46,7 +46,8 @@ sideways scroll).
   (`--deck-w`, from `100cqi`), so ▶ stands at one x whatever the bar
   holds: from 600 px the zones are one row (the reels go under 960), from
   960 the deck is 352 at 1024 and grows to 768, and from 1180 the display
-  says everything in full. The verb and the modes are as wide as what they
+  says everything in full (a take's long name giving way before the tempo
+  and where it plays do). The verb and the modes are as wide as what they
   hold, so in the Studio ⟲ follows ●'s ▾. Under 600 (the phone's player
   pulled up) the zones stack. The phone's mini player is
   `data-size="mini"`: its window, |◀ ▶ ● ▾, and a tail one width for every

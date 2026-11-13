@@ -402,6 +402,9 @@
      its name), and the position has room for its time. */
   .np .np-lcd-pos { flex: 0 0 132px; }
   .np .np-lcd-key { flex: 1 1 auto; }
+  /* A take's long name gives way before the tempo and where it plays do:
+     THIS TABLET stays whole beside it at 1280. */
+  .np .np-tempo { flex-shrink: 0; }
   .np .np-reel { width: 36px; height: 36px; }
   .np .np-levels { display: flex; }
   .np .np-short { display: none; }

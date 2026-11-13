@@ -292,7 +292,8 @@ plays*, has how it is built.
   1024×768, 688 at 1280×800, 846 at 1440×900 and 378 upright at 800,
   before and after. The 78 px the output's key had went to the merged key
   (80, from 42) and the source (100, from 60: a take's name gets more of
-  it); from 1180 px both take what they need.
+  it); from 1180 px both take what they need, and a take's long name
+  gives way before the tempo and where it plays do.
 - **A phone.** The mini player shows none of the display's keys, as
   before. The player pulled up keeps its foot key for where it plays
   (`out-foot`), and the merged key there shows the tempo alone, over BPM.
