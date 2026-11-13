@@ -575,6 +575,12 @@ them to the trash, with Undo. **Done** or Escape stops selecting.
 
 *Today.*
 
+**Tap the ribbon,** on the Studio's feed face, to mark "from here": KEEP
+and GRAB then say how long it is to now (*KEEP 1m24s*) and keep or grab
+just that. The mark has its own key at its start: a tap takes it off, and
+a drag moves it (from a keyboard, ← and →). A tap at the right edge, which
+is now, takes it off too. Turning back to the tape keeps it.
+
 **Hold, then drag, across the ribbon** to select any stretch of the last 15
 minutes, not just the last N, then tap **Save as take** in the bar that
 appears under it. The bar says how long the span is and how long ago
@@ -1585,6 +1591,7 @@ has no tip.
 | Feed (lamp) | The feed's lamp: green while it records, amber or red when something wants a look. It opens the feed's readouts, its input channels and the way to the rig |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
 | Ribbon | The last 15 minutes, recent end stretched. In the Studio, on the feed's face, a tap marks “from here”, and KEEP keeps from the mark to now (a tap at the right edge takes it off). Hold and drag to select a span; tap a flag for its options |
+| The mark (ribbon) | Your mark, “from here”: a tap takes it off, and a drag, or ← and →, moves it. KEEP and GRAB say how long it is to now |
 | The feed (Studio) | On the tape's face the feed is one thin row over the lanes: a tap turns the Studio to the feed's face, the ribbon as tall as the room leaves, where a tap marks “from here”. GRAB and KEEP are on both |
 | The tape (Studio) | On the feed's face the whole tape is one thin row at the top: a tap turns the Studio back to the tape. The cue lane is on both |
 | Save as take (ribbon) | Save exactly the span you selected on the ribbon as a take |
