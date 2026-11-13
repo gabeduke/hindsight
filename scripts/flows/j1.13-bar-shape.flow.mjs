@@ -21,6 +21,10 @@ const look = () => {
   return {
     source: np.dataset.source, path: location.pathname,
     play: Math.round(play.left),
+    // The display's keys are two, the source and the tempo (which says where
+    // it plays, step 7b); the output's of its own is gone.
+    display: ['np-source', 'np-tempo'].filter((id) => document.getElementById(id)),
+    output: !!document.getElementById('np-output'),
     W, scrollW: document.scrollingElement.scrollWidth,
     past: keys.filter((k) => k.right > W).map((k) => `${k.id} ends at ${k.right}`),
   };
@@ -41,6 +45,7 @@ export default {
       const l = await page.evaluate(look);
       seen.push({ where, ...l });
       t.expect(`${where}: no sideways scroll, and every key on the screen`, l.scrollW <= l.W && !l.past.length, l);
+      t.expect(`${where}: the display has two keys, the source and the tempo’s, and none for the output`, l.display.length === 2 && !l.output, l);
       t.expect(`${where}: ▶ is where it was`, Math.abs(l.play - seen[0].play) <= 2, { first: seen[0].where, at: seen[0].play, now: l.play });
     };
     const source = page.locator('#np-source');

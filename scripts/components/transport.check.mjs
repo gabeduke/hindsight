@@ -44,9 +44,15 @@ export default {
       const open = await page.evaluate(() => document.getElementById('np-source-menu').matches(':popover-open'));
       out.push({ name: 'SOURCE opens what plays, in the top layer', ok: open, detail: open });
       await page.keyboard.press('Escape');
-      await tap(page.locator('#np-output'));
-      const pressed = await page.evaluate(() => window.__harness.pressed.slice());
-      out.push({ name: 'OUT opens what the surface handed it', ok: pressed.includes('output'), detail: pressed });
+      // One key for the tempo and where it plays (step 7b): away from the
+      // Studio it opens the Output sheet itself, which the surface handed
+      // it; in the Studio it opens the tempo's panel, the Studio's own.
+      out.push({ name: 'there is no key for the output of its own', ok: await page.evaluate(() => !document.getElementById('np-output')), detail: null });
+      if (!studio) {
+        await tap(page.locator('#np-tempo'));
+        const pressed = await page.evaluate(() => window.__harness.pressed.slice());
+        out.push({ name: 'the tempo’s key opens what the surface handed it for OUT, away from the Studio', ok: pressed.includes('output'), detail: pressed });
+      }
     }
     return out;
   },

@@ -33,6 +33,14 @@ export default {
     // On a phone the tempo is in the player pulled up, not on the mini player.
     const phone = await mini(page);
     if (phone) t.expect('the player comes up', await t.step('pull the player up', () => pullUp(t)));
+    // The display has one key for the tempo and where it plays (step 7b): its
+    // value and legend say both, and the output's key of its own is gone.
+    await t.poll(() => /96/.test(document.getElementById('np-tempo')?.textContent ?? ''));
+    const key = await page.locator('#np-tempo').innerText();
+    t.expect('the tempo’s key says the tempo and where it plays', /96/.test(key) && /JAM ROOM/i.test(key), key);
+    t.expect('and its label says both to a screen reader', await page.evaluate(() => { const l = document.getElementById('np-tempo')?.getAttribute('aria-label') ?? ''; return /96/.test(l) && /jam room/i.test(l); }),
+      await page.locator('#np-tempo').getAttribute('aria-label'));
+    t.expect('the bar has no key for the output of its own', await page.evaluate(() => !document.getElementById('np-output')));
     await t.step('tap the tempo on the bar’s display', () => t.tap(page.locator('#np-tempo')));
     const field = page.locator('#tempo-bpm');
     t.expect('its panel opens with the tempo to type', await t.poll(() => {
@@ -79,6 +87,25 @@ export default {
     const clickToasts = () => [...document.querySelectorAll('#toasts .toast')].map((e) => e.textContent.trim()).filter((w) => /^Click (on|off)$/.test(w));
     t.expect('a tap on the switch in the open panel says nothing in a toast', (await page.evaluate(clickToasts)).length === 0, await page.evaluate(clickToasts));
 
+    // Where it plays is the panel's last row, under a line: a tap on it shuts
+    // the panel and opens the Output sheet (the jam room is where it plays).
+    const last = await page.evaluate(() => {
+      const m = document.getElementById('tempo-menu');
+      const kids = m ? [...m.querySelectorAll('.menu-item, [role="separator"]')] : [];
+      const out = document.getElementById('tempo-out');
+      const at = kids.indexOf(out);
+      return { id: kids.at(-1)?.id ?? null, text: out?.textContent.trim() ?? null, afterLine: at > 0 && kids[at - 1].getAttribute('role') === 'separator' };
+    });
+    t.expect('the panel’s last row is where it plays, under a line', last.id === 'tempo-out' && last.afterLine, last);
+    t.expect('and it says the tape plays in the jam room', /jam room/i.test(last.text ?? ''), last);
+    await t.step('tap where it plays', () => t.tap(page.locator('#tempo-out')));
+    t.expect('the panel shuts', await t.poll(() => document.getElementById('tempo-menu')?.hidden));
+    t.expect('and the Output sheet opens', await t.poll(() => document.getElementById('out-sheet')?.open));
+    await t.step('press Done on the Output sheet', () => t.tap(page.locator('#out-close')));
+    t.expect('the sheet closes', await t.poll(() => !document.getElementById('out-sheet')?.open));
+    // The panel again, for Escape and M below.
+    await t.step('tap the tempo again', () => t.tap(page.locator('#np-tempo')));
+    t.expect('its panel opens again', await t.poll(() => document.getElementById('tempo-menu') && !document.getElementById('tempo-menu').hidden));
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('Escape shuts the panel', await t.poll(() => document.getElementById('tempo-menu')?.hidden));
     // M still turns it, from the keyboard (a desktop's), and with the panel
