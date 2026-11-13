@@ -293,7 +293,8 @@ since. ■ during a punch stops the tape before the catch is written.
 
 **The click** is rendered into bus A by the mix: a 25 ms sine blip on each
 beat line, higher on the bar. It's on for a new tape and goes off with the
-first audio; the count-in clicks whatever the setting.
+first audio; the count-in clicks whatever the setting. In the Studio it is
+the Click in the tempo's panel, and M (`bar.md`, *The Studio's keys*).
 
 **Free loops** (`tap.go`). A tap is timed when it reaches the Pi, and the
 capture's clock bridge turns that into a ring frame. The second snaps both
@@ -396,9 +397,11 @@ overtakes is dropped, and the tape its answer carries is shown at once;
 the transport's verbs and the Studio's edits go through it. Its own verbs
 are `record(body)`, `punchOut()`, `cancelRecord()` (●), `catch(body)`
 (Catch) and `setClick(on)`, each answering the Pi's answer or throwing a
-`Refusal`. The bar's ●, Catch and click press them (`lib/components/transport/tape-keys.js`,
-`bar.md`, *The Studio's keys*), with the body and the words the Studio
-lends them as its hands (`studioHands`). The Studio asks it every 200 ms from its `ctx.socket`, which
+`Refusal`. The bar's ● and its ▾, which Catch is on, press the first four
+(`lib/components/transport/tape-keys.js`, `bar.md`, *The Studio's keys*),
+with the body and the words the Studio lends them as its hands
+(`studioHands`); the click is the Studio's own, the Click in the tempo's
+panel and M (`lib/tape/page.js` `toggleClick`). The Studio asks it every 200 ms from its `ctx.socket`, which
 opens on every visit (a first one after a prewarm included, which skips
 the view's `show()`) and closes on hide. It shows the tape's answers while
 shown, and on show what it heard while hidden (`heardTape`, which says the `hindsight:tape-state` the

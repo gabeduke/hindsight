@@ -1,15 +1,17 @@
 // J4.4 The Studio on a phone: the bar is a mini player above the tabs (its
-// window, with the bar number, |◀, ▶, a big red ● with the phone's ▾, and
-// Catch with its ▾ beside it); |◀ goes back to the loop's start; a tap on
-// the window pulls the player up, a sheet that slides up and settles: the
-// reels and the display at its top, the strip, then the transport, Rec
-// and Catch low, under the thumb, and where it plays at its foot; Catch's ▾
-// opens over the pair there; Back closes that menu, then puts the player
-// away and stays in the Studio. A drag up from the mini player pulls the
+// window, with the bar number, |◀, ▶ and a big red ● with one ▾ beside it:
+// in the Studio that is ●'s own, whose menu is Catch's rows, a line, then
+// the phone's rows; Catch has no key of its own); |◀ goes back to the
+// loop's start; a tap on the window pulls the player up, a sheet that
+// slides up and settles: the reels and the display at its top, the strip,
+// then the transport and Rec low, under the thumb, and where it plays at
+// its foot; ●'s ▾ opens over the pair there; Back closes that menu, then
+// puts the player away and stays in the Studio. A drag up from the mini player pulls the
 // player up under the finger, and a swipe down on its reels puts it away. A tapped clip's bar floats just above the
 // player, and Insert asks before it moves the tape. The ruler's keys are one
 // key, ⌗. In the Listening Room a take's mini player keeps the window and
-// ▶ where the tape's are, |◀ beside it, and Open › and ✎ in Catch's place.
+// ▶ where the tape's are, |◀ beside it, and Open › and ✎ on its right, with
+// the phone's own ▾ beside ● as before.
 // The header is one row: the tape's name, ↶ and ☰, and the rooms are tabs
 // along the bottom, each with its own picture.
 //
@@ -22,7 +24,7 @@
 const look = () => {
   const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth; };
   const tabs = document.querySelector('.appnav')?.getBoundingClientRect();
-  const c = document.getElementById('np-catch-pass')?.getBoundingClientRect();
+  const c = document.getElementById('np-rec-more')?.getBoundingClientRect();
   // |◀ beside ▶: on its row, just to its left, and a thumb wide.
   const s = document.getElementById('np-start')?.getBoundingClientRect();
   const p = document.getElementById('np-play')?.getBoundingClientRect();
@@ -31,9 +33,9 @@ const look = () => {
   // Catch beside it).
   const pos = document.getElementById('np-position')?.getBoundingClientRect();
   return {
-    window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#np-rec'), catch: on('#np-catch-pass'),
+    window: on('#np-expand'), start: on('#np-start'), play: on('#np-play'), loop: on('#np-loop'), rec: on('#np-rec'), recMore: on('#np-rec-more'), catchKey: !!document.getElementById('np-catch-pass'),
     phoneRec: on('#np-phone-rec'), phoneMore: on('#np-phone-more'), foot: on('#np-out-foot'),
-    more: on('#np-catch-more'), bar: !!pos && pos.width >= 10,
+    bar: !!pos && pos.width >= 10,
     openKey: on('#np-open'), note: on('#np-note'), beside,
     playX: Math.round(p?.left ?? -1),
     open: document.body.classList.contains('player-open'),
@@ -49,7 +51,7 @@ export default {
   id: 'J4.4',
   title: 'The Studio’s bar on a phone',
   profiles: ['phone'],
-  checksMenus: ['#ruler-menu', '#np-catch-menu'], // the layout checks see them open
+  checksMenus: ['#ruler-menu', '#np-rec-menu'], // the layout checks see them open
   async run(t) {
     const { page, api } = t;
     // A 4-bar tape with the first 4 bars of a take on track 1.
@@ -86,8 +88,8 @@ export default {
       && head.name >= 44 && head.header <= 60, head);
     t.expect('the Listening Room’s tab has its own picture, its spines', head.room === 'shelf', head);
     const mini = await page.evaluate(look);
-    t.expect('the mini player shows its window, |◀, ▶ and Catch with its ▾, not the rest of the transport', mini.window && mini.start && mini.play && mini.catch && mini.more && !mini.loop, mini);
-    t.expect('and a big red ●, the tape’s in the Studio, with the phone’s ▾ beside it', mini.rec && mini.phoneMore && !mini.phoneRec, mini);
+    t.expect('the mini player shows its window, |◀, ▶ and a big red ● with its ▾, not the rest of the transport', mini.window && mini.start && mini.play && mini.rec && mini.recMore && !mini.loop, mini);
+    t.expect('● is the tape’s in the Studio, with one ▾ beside it, ●’s own: the phone’s ▾ does not show, and Catch has no key', !mini.phoneRec && !mini.phoneMore && !mini.catchKey, mini);
     t.expect('the window still shows the bar number', mini.bar, mini);
     t.expect('|◀ sits beside ▶, a thumb wide', mini.beside, mini);
     t.expect('the mini player sits above the tabs', mini.aboveTabs, mini);
@@ -110,30 +112,43 @@ export default {
     // It slides up, and settles.
     const settled = await t.poll(() => getComputedStyle(document.getElementById('np-dock')).transform === 'none');
     const big = await page.evaluate(look);
-    t.expect('the player slides up and settles, with ▶, Loop, Rec and Catch on screen', opened && settled && big.play && big.loop && big.rec && big.catch, big);
+    t.expect('the player slides up and settles, with ▶, Loop, Rec and its ▾ on screen', opened && settled && big.play && big.loop && big.rec && big.recMore && !big.catchKey && !big.phoneMore, big);
     // Its order: the art at the top, the strip, the keys low, where it plays at the foot.
     const order = await page.evaluate(() => {
       const top = (s) => Math.round(document.querySelector(s).getBoundingClientRect().top);
       const foot = document.getElementById('np-out-foot').getBoundingClientRect();
-      return { deck: top('.np-deck'), strip: top('.np-row-2'), play: top('#np-play'), catch: top('#np-catch-pass'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), out: getComputedStyle(document.getElementById('np-output')).display };
+      return { deck: top('.np-deck'), strip: top('.np-row-2'), play: top('#np-play'), rec: top('#np-rec-more'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), out: getComputedStyle(document.getElementById('np-output')).display };
     });
-    t.expect('the reels and display on top, the strip under them, the transport and Catch in the lower half, where it plays at the foot',
-      order.deck < order.strip && order.strip < order.play && order.play > 844 / 2 && order.play < order.catch && order.catch < order.foot && order.bottom <= 48 && order.out === 'none', order);
+    t.expect('the reels and display on top, the strip under them, the transport and ● in the lower half, where it plays at the foot',
+      order.deck < order.strip && order.strip < order.play && order.play > 844 / 2 && order.rec > 844 / 2 && order.rec < order.foot && order.bottom <= 48 && order.out === 'none', order);
 
-    // Catch's ▾ in the player: the pair is in the thumb's half, so its menu
-    // opens over it, and Back closes it before it puts the player away.
-    await t.step('tap Catch’s ▾ in the player', () => t.tap(page.locator('#np-catch-more')));
+    // ●'s ▾ in the player: the pair is in the thumb's half, so its menu
+    // opens over it, and Back closes it before it puts the player away. It
+    // is the one ▾ beside ● here: its menu is Catch's rows, a line, then the
+    // phone's (Record from this phone, the inputs, the level and input).
+    await t.step('tap ●’s ▾ in the player', () => t.tap(page.locator('#np-rec-more')));
     const under = await t.poll(() => {
-      const m = document.getElementById('np-catch-menu');
+      const m = document.getElementById('np-rec-menu');
       if (!m || m.hidden) return null;
-      const more = document.getElementById('np-catch-more').getBoundingClientRect();
+      const more = document.getElementById('np-rec-more').getBoundingClientRect();
       const r = m.getBoundingClientRect();
       // Over the ▾, and across it (as wide as the screen lets it be here).
-      return { over: r.bottom <= more.top && more.top - r.bottom <= 12 && r.left <= more.left && r.right >= more.right - 1, on: r.top >= 0 && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };
+      const kids = [...m.children];
+      const rule = kids.findIndex((k) => k.getAttribute('role') === 'separator');
+      const words = (els) => els.filter((k) => k.classList.contains('menu-item')).map((k) => k.querySelector('.menu-word').textContent);
+      return {
+        over: r.bottom <= more.top && more.top - r.bottom <= 12 && r.left <= more.left && r.right >= more.right - 1,
+        on: r.top >= 0 && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+        catchRows: rule > 0 ? words(kids.slice(0, rule)) : [],
+        phoneRows: rule > 0 ? words(kids.slice(rule + 1)) : [],
+      };
     });
     t.expect('its menu opens over the pair, on the screen', under?.over && under.on, under);
+    t.expect('it holds Catch’s rows, a line, then the phone’s: Record from this phone, the inputs, the level and input',
+      JSON.stringify(under?.catchRows) === JSON.stringify(['The last pass', 'The last 1 bar', 'The last 2 bars', 'The last 4 bars'])
+      && under.phoneRows[0] === 'Record from this phone' && under.phoneRows.at(-1) === 'The level and input…' && under.phoneRows.length >= 3, under);
     await t.step('Back, with the menu over the player', () => page.keyboard.press('Escape'));
-    t.expect('Back closes the menu and leaves the player up', await t.poll(() => document.getElementById('np-catch-menu').hidden
+    t.expect('Back closes the menu and leaves the player up', await t.poll(() => document.getElementById('np-rec-menu').hidden
       && document.body.classList.contains('player-open')));
 
     await t.step('Back (a close request: Escape, in Chromium)', () => page.keyboard.press('Escape'));
@@ -276,7 +291,7 @@ export default {
     t.expect('the key says a drag snaps to beats now, and its menu has shut', snapped === 'Beat' && menuShut, { snapped, menuShut });
 
     // A take in the bar: the same mini player, its window and ▶ where the
-    // tape's were, and the take's own keys in Catch's place.
+    // tape's were, and the take's own keys, Open › and ✎, on its right.
     await t.step('go to the Listening Room', () => t.tap(page.locator('.appnav a[data-tab="room"]')));
     // A phone's library is the List (docs/architecture/rooms.md, "The library"): a take is a row of it.
     const row = page.locator('#takes .take.spine:not(.folded)').first();
@@ -286,7 +301,7 @@ export default {
     const room = await page.evaluate(look);
     t.expect('the take plays in the mini player', heard, room);
     t.expect('|◀ sits beside ▶, a thumb wide', room.start && room.beside, room);
-    t.expect('● here is this phone’s, with its ▾', room.phoneRec && room.phoneMore && !room.rec, room);
+    t.expect('● here is this phone’s, with its ▾ (not the tape’s, which has Catch’s)', room.phoneRec && room.phoneMore && !room.rec && !room.recMore, room);
     t.expect('▶ is where it was with the tape: the window keeps its width', room.window && Math.abs(room.playX - mini.playX) <= 2, { tape: mini.playX, take: room.playX });
     t.expect('Open › and ✎ are on the screen too', room.openKey && room.note, room);
     await t.wait(1500);

@@ -227,6 +227,23 @@ test('menu: it closes only through its layer: a press outside, Escape or Back, a
   assert.ok(m.isOpen(), 'and it opens again after');
 });
 
+test('menu: onClose hears it put away, once each time, and why, however it closed', () => {
+  const p = aPage();
+  const why = [];
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win, onClose: (r) => why.push(r) });
+  m.open();
+  assert.deepEqual(why, [], 'not as it opens');
+  p.press(p.$('elsewhere'));
+  m.open();
+  p.request();
+  m.open();
+  p.$('m').dispatchEvent({ type: 'click', target: p.$('i1') });
+  m.open();
+  m.close();
+  m.close();
+  assert.deepEqual(why, ['outside', 'back', 'pick', 'program'], 'a close request is Back here: the page’s CloseWatcher');
+});
+
 test('menu: a pick says how it closed: a link leaves the history to the page it loads', () => {
   const p = aPage();
   const why = [];
@@ -441,6 +458,42 @@ test('menu: buttons that share a panel show it for one at a time', () => {
   assert.ok(two.isOpen() && !p.$('im').hidden);
 });
 
+test('menu: onOpen hears each opening, however it was opened, and not a refresh', () => {
+  const p = aPage();
+  let opened = 0;
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win, onOpen: () => { opened++; assert.ok(m.isOpen(), 'filled and shown first'); } });
+  p.$('b').dispatchEvent({ type: 'click', detail: 1 });
+  assert.equal(opened, 1, 'a press');
+  m.refresh();
+  m.open();
+  assert.equal(opened, 1, 'a refresh, or an open() while open, is no opening');
+  m.close();
+  p.key('ArrowDown', p.$('b'));
+  assert.equal(opened, 2, '↓ on its button');
+  m.close();
+  m.open();
+  assert.equal(opened, 3, 'its owner’s open()');
+});
+
+test('menu: refresh keeps the keyboard on the row it was on, by its word, else in its place', () => {
+  const p = aPage('<button id="b">▾</button><div id="m" hidden></div>');
+  let words = ['One', 'Two', 'Three'];
+  const render = (panel) => panel.replaceChildren(...words.map((w) => menuItem(panel, { word: w })));
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win, render });
+  m.open();
+  const row = (w) => p.$('m').children.find((r) => r.querySelector('.menu-word').textContent === w);
+  row('Two').focus();
+  words = ['Zero', 'One', 'Two', 'Three'];
+  m.refresh();
+  assert.equal(p.doc.activeElement, row('Two'), 'the same row, though it moved');
+  words = ['Zero', 'One', 'Deux', 'Three'];
+  m.refresh();
+  assert.equal(p.doc.activeElement, row('Deux'), 'its word changed: the row in its place');
+  p.$('b').focus();
+  m.refresh();
+  assert.equal(p.doc.activeElement, p.$('b'), 'the keyboard elsewhere stays there');
+});
+
 test('menu: refresh fills it again and places it; refresh({ render: false }) only places it', () => {
   const p = aPage();
   let fills = 0;
@@ -495,6 +548,20 @@ test('splitKey: a press on the verb, elsewhere, or Escape shuts it; a choice in 
   $('more').dispatchEvent({ type: 'click' });
   request();
   assert.ok(!m.isOpen());
+});
+
+// ●'s ▾ (lib/components/transport/tape-keys.js): a hold on ● opens ●'s
+// menu on a phone, and the click the hold's lift sends, which ●'s press
+// swallows, shut it again at once.
+test('splitKey: a click the verb’s own press swallowed (a hold’s lift) leaves it open', () => {
+  const { $, m } = aPair();
+  m.open();
+  const lift = { type: 'click', detail: 1, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  lift.preventDefault(); // the verb's pressMachine, bound first, swallowed it
+  $('key').dispatchEvent(lift);
+  assert.ok(m.isOpen(), 'the lift is no press of the verb');
+  $('key').dispatchEvent({ type: 'click', detail: 1, defaultPrevented: false, preventDefault() {} });
+  assert.ok(!m.isOpen(), 'a tap on the verb still shuts it');
 });
 
 test('splitKey: ↓ on the ▾ opens it with the focus on its first choice', () => {

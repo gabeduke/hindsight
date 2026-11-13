@@ -11,7 +11,7 @@ const keys = () => {
   const on = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return !!b && b.width > 0 && b.top >= 0 && b.bottom <= innerHeight; };
   const rec = document.getElementById('np-phone-rec');
   return {
-    rec: on('#np-phone-rec'), more: on('#np-phone-more'), tapeRec: on('#np-rec'),
+    rec: on('#np-phone-rec'), more: on('#np-phone-more'), tapeRec: on('#np-rec'), recMore: on('#np-rec-more'),
     pressed: rec?.getAttribute('aria-pressed'), said: rec?.getAttribute('aria-label'),
     red: rec ? getComputedStyle(rec).color : '',
   };
@@ -64,7 +64,8 @@ export default {
       return r.getAttribute('aria-pressed') === 'true' && /^Stop recording from this phone/.test(r.getAttribute('aria-label') ?? '') && r.getAttribute('aria-label');
     });
     const studio = await page.evaluate(keys);
-    t.expect('there ● is the tape’s, with the phone’s ▾ beside it, and it shows this phone recording', !!there && studio.tapeRec && studio.more && !studio.rec, { there, studio });
+    // One ▾ beside ● there, ●'s own (step 7a): its menu holds the phone's rows after Catch's.
+    t.expect('there ● is the tape’s, with one ▾ beside it, ●’s own, and it shows this phone recording', !!there && studio.tapeRec && studio.recMore && !studio.more && !studio.rec, { there, studio });
 
     await t.step('tap ● there', () => t.tap(page.locator('#np-rec')));
     const take = await api.until(async () => (await api.takes()).find((x) => !before.has(x.name)), 'the phone’s take on the shelf', 15_000).catch(() => null);
@@ -74,11 +75,12 @@ export default {
     const record = (await api.get(`/api/tapes/state?id=${encodeURIComponent(loaded)}`)).live?.record ?? null;
     t.expect('● is up again, and the tape recorded nothing', stopped && !record, { rec: await page.locator('#np-rec').getAttribute('aria-label'), record });
 
-    // A hold on the tape's ● offers this phone, on the ▾.
+    // A hold on the tape's ● offers this phone, on the ▾ (●'s own in the
+    // Studio, whose menu holds the phone's rows after Catch's).
     await t.step('hold ●', () => t.hold(page.locator('#np-rec')));
     const offered = await t.poll(() => {
-      const m = document.getElementById('np-phone-menu');
-      return m?.dataset.state === 'open' && m.querySelector('.menu-word')?.textContent;
+      const m = document.getElementById('np-rec-menu');
+      return m?.dataset.state === 'open' && [...m.querySelectorAll('.menu-word')].map((w) => w.textContent).find((w) => w === 'Record from this phone');
     });
     t.expect('a hold on it offers Record from this phone', offered === 'Record from this phone', offered);
     await t.step('Back', () => page.keyboard.press('Escape'));

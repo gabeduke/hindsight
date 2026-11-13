@@ -49,8 +49,8 @@ components are quiet only while the document is hidden.
 
 **Reaching a component.** `mountComponent` answers `{show, hide, unmount,
 shown}` and nothing of the component's own. When the rest of the page has
-to press what a component draws (the Studio pressing the Transport's ●,
-Catch and click), the surface makes a relay and hands it in `props`:
+to press what a component draws (the Studio pressing the Transport's ●
+and Catch, on ●'s ▾), the surface makes a relay and hands it in `props`:
 `relay(names)` (`lib/components/relay.js`) answers `{api, provide(impl)}`;
 the component provides its own to it as it mounts (and takes it back on
 unmount, with `provide`'s off), and the surface hands `api`, each name a

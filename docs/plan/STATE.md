@@ -155,7 +155,11 @@ and still looks it:
   the mark moves it. Not done from step 3: a GRAB from the mark snapped to
   the bar, which needs a Go change (the spec's step 5 says what). His
   three calls are answered in the spec (Catch on ●'s ▾, the click in the
-  tempo's panel, Reverse, the fades and Loop first in Trim). Step 6a is
+  tempo's panel, Reverse, the fades and Loop first in Trim), and step 7a
+  builds the first two (2026-11-13; `architecture/bar.md`, *The Studio's
+  keys*): ●'s ▾ is Catch's menu, and on a phone the one ▾ beside ●, with
+  this phone's rows after a line; the tempo's panel has the Click; the
+  Studio holds 42 controls at rest, and E1 takes 11 presses. Step 6a is
   built (2026-11-13; `architecture/tape.md`, *The cue lane*): a cue clip's
   drawer opens small as its window, DROP, Trim, Toss and ✕; Trim opens on
   Audition, Repeat, Reverse and the fades, then IN and OUT, the gain,

@@ -8,11 +8,14 @@ sideways scroll).
 
 - **Five zones in a row, and the strip under them**, each a named slot in
   the markup (`data-slot`; `lib/bar/slots.js` `SLOTS`): the **deck** (the
-  reels and the display), the **transport** (|◀ ▶ ●, with ↺ 5 s in ●'s
-  place for a take, the feed, or the tape away from the Studio), the
-  **verb** (Catch and its ▾ for the tape in the Studio; GRAB for the feed),
-  the **modes** (⟲ Loop or Repeat, the metronome) and the **end** (⏏,
-  Open ›, ✎ for a take), laid out first so nothing pushes it off. Every key
+  reels and the display), the **transport** (|◀ ▶ ●, and ●'s ▾ for the
+  tape in the Studio, which Catch is on; ↺ 5 s in ●'s place for a take,
+  the feed, or the tape away from the Studio), the **verb** (GRAB for the
+  feed), the **modes** (⟲ Loop or Repeat) and the **end** (⏏, Open ›, ✎
+  for a take), laid out first so nothing pushes it off. Catch's own key and
+  the metronome left the bar in the calm Studio's step 7a (Gabe's calls,
+  2026-11-13): Catch is on ●'s ▾, the metronome the Click in the tempo's
+  panel. Every key
   is in the markup, in its slot (in the rooms, the Transport's template:
   *The Transport*, below); a script that adds to the bar puts it in a slot
   by name (`putIn(root, name, node)`, inside the bar's root), never after
@@ -29,8 +32,8 @@ sideways scroll).
 - **Every id inside the shell's `#np` is `np-<name>`**, `cx.id(name)`'s
   (`components.md`, *The contract*): the Transport's template writes no
   id, but names each part by `data-part`, and `fill()` gives it its id
-  (`#np-position`, the display's big line; `#np-rec`, `#np-catch-pass`,
-  `#np-catch-more` and `#np-click`, `tape-keys.js`'s; `#np-clock-out`
+  (`#np-position`, the display's big line; `#np-rec`, `#np-rec-more` and
+  `#np-rec-menu`, `tape-keys.js`'s; `#np-clock-out`
   and `#np-out-strip` with its `-led`, `-text`, `-right` and `-resume`,
   from `tape-status.js`). Guardrail 20 fails on an id in the template,
   and on the shell's `#np` holding anything but the empty root. Open's own `#np` (`wave.html`) keeps its ids
@@ -43,23 +46,30 @@ sideways scroll).
   (`--deck-w`, from `100cqi`), so ▶ stands at one x whatever the bar
   holds: from 600 px the zones are one row (the reels go under 960), from
   960 the deck is 352 at 1024 and grows to 768, and from 1180 the display
-  says everything in full. Under 600 (the phone's player pulled up) the
-  zones stack. The phone's mini player is `data-size="mini"`: its window,
-  |◀ ▶ ● ▾, and a tail one width for every source. Under 480 px its window
+  says everything in full. The verb and the modes are as wide as what they
+  hold, so in the Studio ⟲ follows ●'s ▾. Under 600 (the phone's player
+  pulled up) the zones stack. The phone's mini player is
+  `data-size="mini"`: its window, |◀ ▶ ● ▾, and a tail one width for every
+  source (empty for the tape; in the Studio it gives up the 22 px ●'s ▾ is
+  wider than the phone's, so ▶ stands at one x). Under 480 px its window
   is the display alone, without its reels.
 - **A key of the mini player alone** says only `data-mini`: the phone's ●
-  (`#np-phone-rec`, for a take, the feed and the tape away from the Studio)
-  and its ▾ (`#np-phone-more`, for every source). In the Studio with the
-  tape, the mini player's ● is the tape's own (`#np-rec`, `data-mini="studio"`):
-  a tap records the jam room, a hold (`ARM_PRESS`, as a track's ●) offers
-  this phone on the ▾ (`phoneKey`'s `offer()`), and with the tape playing
-  on this phone a tap records here (the recorder's `quick()`). While this
-  phone records, wherever it was started, that ● is pressed, says so, and
-  a tap stops it (*The Studio's keys*, below). The ▾'s menu
-  (`lib/components/transport/phone-key.js`, `#np-phone-menu`, over the mini player) says what
-  ● does now, lists the phone's inputs and opens the recorder's sheet with
-  its meter. Both are the page's one recorder's (`shell.md`, *Recording
-  from this phone*).
+  (`#np-phone-rec`) and its ▾ (`#np-phone-more`), for a take, the feed and
+  the tape away from the Studio. **One ▾ beside ●, never two**: in the
+  Studio with the tape, the mini player's ● is the tape's own (`#np-rec`,
+  `data-mini="studio"`) and its ▾ is ●'s (`#np-rec-more`), whose menu on a
+  phone is Catch's rows, a line (`role="separator"`, a child of
+  `#np-rec-menu`), then the phone's (`phoneKey`'s `rows(panel)`: what ●
+  does now, the inputs, the level and input). A tap on ● records the jam
+  room, a hold (`ARM_PRESS`, as a track's ●) opens that menu (`phoneKey`'s
+  `offer(host)`; with the player pulled up, the recorder's sheet), and with
+  the tape playing on this phone a tap records here (the recorder's
+  `quick()`). While this phone records, wherever it was started, that ● is
+  pressed, says so, and a tap stops it (*The Studio's keys*, below). The
+  phone's own ▾'s menu (`lib/components/transport/phone-key.js`,
+  `#np-phone-menu`, over the mini player) says what ● does now, lists the
+  phone's inputs and opens the recorder's sheet with its meter. All are the
+  page's one recorder's (`shell.md`, *Recording from this phone*).
 - **The foot** (`data-slot="foot"`, `#np-out-foot`) is where it plays, at the
   foot of the phone's player pulled up, under the thumb; the display's OUT
   is hidden there. Both open the shell's Output sheet (`NowPlaying`'s
@@ -77,7 +87,8 @@ sideways scroll).
   three keys on the LCD, each a value over its legend: the tempo (in the
   Studio, with the tape, the tempo's panel, `renderTempo`: a dialog with
   the tempo to type, −1 and +1, TAP (`tappedBpm`, `SLOWEST_BEAT_MS` in
-  `lib/tape/geometry.js`) and the grid's bars counted half or twice;
+  `lib/tape/geometry.js`), the Click under them (the metronome, *The
+  Studio's keys*) and the grid's bars counted half or twice;
   elsewhere a readout), the source
   (TAPE, FEED or the take's name; `source-menu.js`: the tape, the live
   feed, the last few takes, Go to the shelf) and where it plays (JAM ROOM,
@@ -150,7 +161,7 @@ sideways scroll).
   `--well-sh`). Its five viewport
   `@media` blocks stay (D1): a container query can't ask a height, an
   orientation or a preference, nor style the root itself.
-- **Its menus are inside it** (step 5e): Catch's ▾ (`#np-catch-menu`,
+- **Its menus are inside it** (step 5e): ●'s ▾ (`#np-rec-menu`,
   `lib/components/transport/tape-keys.js`), the source's (`#np-source-menu`,
   `lib/components/transport/source-menu.js`) and the phone's (`#np-phone-menu`,
   `lib/components/transport/phone-key.js`) are the last children of `#np`, and open in the
@@ -193,9 +204,9 @@ sideways scroll).
   `.np-zones` are `display: contents` there): the reels and the display as
   its art at the top, the strip, a space, then the transport, the verb and
   the modes in the thumb's reach, and the foot. On its side it keeps the
-  stacked zones. The bar's menus (Catch's, the tempo's, the source's) open
+  stacked zones. The bar's menus (●'s, the tempo's, the source's) open
   over it (`css/bar.css`): the source's once opened under it, where no tap
-  reached it.
+  reached it. Its transport row is |◀ ▶ ● and ●'s ▾, a ▾'s width (56).
 - **The flows hold the phone's bar to its shape** (`scripts/flows/layout.mjs`,
   `bar-*`; `docs/flows.md`, *Layout checks*), on every screen where it
   shows: the mini player one row, its full width, no key over another, a
@@ -217,7 +228,7 @@ aria-label="Now playing" data-size="full" hidden></section>`, so
 |---|---|
 | `TEMPLATE` | the bar's markup: its zones, keys and menus, each part named by `data-part`, its icons `icon()`'s; no id, and no `aria-haspopup` (Guardrails 15, 20 and 13) |
 | `fill(root, id)` | the template drawn into `root`, each part's id `id(part)` (the mount's `cx.id`; by default the root's id and the part), the grabber's `aria-controls` the root, and OUT and the foot's OUT `dialogKey`s. The tests fill a bar the same way |
-| `TAPE_KEYS` | what the Studio presses of ●, Catch and the click: `lend`, `draw`, `press`, `catch`, `closeMenu`, `focusPlay`, `tempo` |
+| `TAPE_KEYS` | what the Studio presses of ● and its ▾ (Catch): `lend`, `draw`, `press`, `catch`, `closeMenu`, `focusPlay`, `tempo` |
 | default | the component. Its mount fills the root, puts help's titles on it (`props.titles`), makes `NowPlaying(root, models, cx)`, provides its `tapeKeys` to `props.tapeKeys` and hears `props.onRoom`; its `unmount` takes those back and `NowPlaying.destroy()`s (its models' subscriptions, its strip's observer, the keyboard note's timer) |
 
 Its models (`needs`) are `bar` (the engine's: what plays, its
@@ -247,7 +258,8 @@ change), `media(query)` (the phone, the finger, less motion, the scheme:
 `layers` (its menus, and `covered()` for J), `floor`, `visible()` (in
 place of `document.hidden`) and `toast`. It hands its modules the same:
 `initFold(root, {layout, phone, reduced})`, `takeKeys({root, …})`,
-`phoneKey({root, layers, floor, …})`, `tapeKeys({root, phoneScreen, …})`,
+`phoneKey({root, layers, floor, …})`, `tapeKeys({root, phoneKeys,
+phoneScreen, …})` (`phoneKeys` is `phoneKey`'s answer),
 `sourceMenu({button, panel, layers, …})`, `barPressNote(root)`,
 `playerKeys(root, {phone, on, …})` and `deviceOf(cx.media)`.
 
@@ -270,9 +282,9 @@ The harness checks it alone (`node scripts/components.mjs transport`;
 schemes, on the fixtures' bar, transport, tape, takes and recorder, with
 the shell's props made in the page by its surface module
 (`transport.surface.js`): the tape held, the mini player on a phone and
-the full bar wider, the room on its root, ● and Catch in the Studio
-alone, the source's menu in the top layer, OUT to the surface. It never
-presses ▶.
+the full bar wider, the room on its root, ● and its ▾ in the Studio
+alone and no Catch key, the source's menu in the top layer, OUT to the
+surface. It never presses ▶.
 
 **Open keeps its own bar** until Open's pass: `wave.html`'s `#np`, its
 own markup and ids (`#position`, `#play`), drawn by `lib/wave/page.js`
@@ -281,20 +293,47 @@ root class). A key Open shows goes in both.
 
 ## The Studio's keys
 
-●, Catch and its ▾, and the click are the bar's keys for the tape in the
-Studio (`lib/components/transport/tape-keys.js` `tapeKeys`, made by
-`NowPlaying` with the page's tape model, `tape`). The shell hands every
-view a relay of them as `ctx.tapeKeys` (`TAPE_KEYS`, below), which the
-Transport provides them to as it mounts (*The Transport*).
-They are drawn from the tape's `snapshot()` (`{tape, live}`: what records,
-the count-in, the alignment, a mixdown, the click, where it plays, the
+● and its ▾ are the bar's keys for the tape in the Studio
+(`lib/components/transport/tape-keys.js` `tapeKeys`, made by `NowPlaying`
+with the page's tape model, `tape`, and the mini player's own keys,
+`phoneKeys`). Catch is on the ▾ (the calm Studio's step 7a, Gabe's call:
+the capture verbs on the bar are GRAB, KEEP and ●): ● and its ▾ are a
+`splitKey` (`lib/ui/menu.js`), as GRAB's and KEEP's are, and its menu,
+`#np-rec-menu`, is `catchRows({says, armed})` (pure): a head saying where
+a catch lands (*Catch onto track 2*, or *Catch: no track is armed*), then
+The last pass and The last 1, 2 and 4 bars; a row that can't go is
+`aria-disabled="true"` with its reason under it, and a tap on it says why
+and leaves the menu open. Pointing at The last pass with a mouse, or the
+keyboard on it, outlines its pass on the lanes (`hover`), until the menu
+shuts (`menu()`'s `onClose`). Open, it follows the tape: as `draw()` runs
+(the tape's answers, the recorder's, the Studio's armed tracks), the menu
+is filled again when Catch's rows have changed (a pass gone round lets The
+last pass go, another track armed renames the head), by `menu()`'s
+`refresh()`, which keeps the keyboard on its row, the same path the
+phone's rows take as the recorder changes. On a phone (`phoneScreen`) the
+menu has a line and then the phone's rows after Catch's
+(`phoneKeys.rows(panel)`), and each time it opens, by the ▾, the keyboard
+or a hold, its `onOpen` says so (`phoneKeys.opened(menu)`, which asks for
+the inputs); a hold on ● opens it (`phoneKeys.offer(menu)`). ●'s press is bound before the split
+key, which leaves alone the click a hold's lift sends (`splitKey`). The
+shell hands every view a relay of them as `ctx.tapeKeys` (`TAPE_KEYS`,
+below), which the Transport provides them to as it mounts (*The
+Transport*). They are drawn from the tape's `snapshot()` (`{tape, live}`:
+what records, the count-in, the alignment, a mixdown, where it plays, the
 passes) and the phone recorder's (`{mode, seconds}`), as either changes and
 as the Studio asks, and a press is one of the tape's verbs: `record(body)`,
-`punchOut()`, `catch(body)`, `setClick(on)` (`tape.md`, *The tape model*),
-then `refresh()`. `faces({snap, phone, armed, inputOf, catchTip})` is what
-they say, pure: ●'s label, pressed, armed, counting, disabled and dim;
-Catch's waits, jam-only, second line, the mini player's shorter one, tip and
-label; the click's pressed and disabled.
+`punchOut()`, `catch(body)` (`tape.md`, *The tape model*), then
+`refresh()`. `faces({snap, phone, armed, inputOf})` is what ● says, pure:
+its label, pressed, armed, counting, disabled and dim, and `says`
+(`catchState`'s), which C and the menu read.
+
+**The click is the Studio's** (step 7a): the Click switch in the tempo's
+panel (`#tempo-click`, `aria-pressed`, disabled without a grid;
+`lib/tape/page.js` `renderTempo`) and M press `toggleClick()`, the tape's
+`setClick(on)` through `editTape`, and `paintClick()` draws the switch from
+the tape as the Studio renders. With the panel shut (M), where the lamp
+isn't, a passing toast says *Click on* or *Click off*. The bar has no key
+for it.
 
 What is the Studio's own reaches them only as the hands it lends, the one
 interface between them (`lib/tape/page.js` `studioHands`, lent as it wires
@@ -304,27 +343,27 @@ up, taken back on destroy):
 |---|---|
 | `lend(hands)` → off | the Studio's hands, until `off()`; the keys are drawn and pressed only while some are lent |
 | `draw()` | the keys again: the armed tracks or their inputs changed (the Studio's render) |
-| `press(name)` | `'rec'`, `'catch'` or `'click'`, as a tap (R, C, M); nothing while it is disabled |
-| `catch(what)` | Catch `{pass}`, `{bars}` or `{out}`: its ▾'s, and the Studio's passes and last-bars keys |
-| `closeMenu()` | Catch's ▾ shut (the Studio's `closeMenus`) |
+| `press(name)` | `'rec'`, as a tap on ● (R), or `'catch'`, C: the last pass, or, while it waits, why, with *Last 4 bars* on offer; nothing while ● is disabled |
+| `catch(what)` | Catch `{pass}`, `{bars}` or `{out}`: ●'s menu's, and the Studio's passes and last-bars keys |
+| `closeMenu()` | ●'s menu shut (the Studio's `closeMenus`) |
 | `focusPlay()` | the keyboard's focus to ▶ (the Studio's, as the clip editor it was in goes) |
 | `tempo(fn)` | `fn(key)` with the display's tempo key, on which the Studio wires its tempo menu; answers what `fn` made, or null on a bar without the key |
 
 | `hands` | |
 |---|---|
-| `layers` | the scope Catch's ▾ opens on (the Studio's, so a switch of rooms closes it) |
+| `layers` | the scope ●'s menu opens on (the Studio's, so a switch of rooms closes it) |
 | `armed()`, `inputOf(n)` | the armed tracks as the Studio shows them, and what each records from |
 | `playsHere()` | the tape plays on this phone: ● records from this phone |
 | `body(what)` | a record's or a catch's body (`recordBody`, replace or overdub), or null when the Studio refused it and said why (the jam-only sheet, *arm a track*) |
 | `said(verb, answer, {before, what, body})` | the words for `record`'s, `punchOut`'s or `catch`'s answer, with the Studio's Undo or Cancel |
-| `hover(on)` | Catch pointed at: its outline on the record track's lane |
+| `hover(on)` | The last pass pointed at, or the keyboard on it: its outline on the record track's lane |
 | `ghost()` | a locate the Studio sent that this phone has not heard yet (`{pos, until}`), or null: the output strip says where it is moving to (`tapeKeys.ghost()` answers it, null with no hands lent) |
 
-The bar says the rest itself: why Catch waits (with *Last 4 bars*), why an
-item of its ▾ can't go, and *Could not record* or *Could not catch*.
-Guardrail 19 fails on `lib/tape/page.js` or `lib/rooms/studio.js` looking
-up `#np-rec`, `#np-catch-pass`, `#np-catch-more`, `#np-catch-menu` or
-`#np-click` by the usual spellings (`$('np-rec')`, `getElementById`, a
+The bar says the rest itself: why C can't catch yet (with *Last 4 bars*),
+why a row of ●'s menu can't go, and *Could not record* or *Could not
+catch*. Guardrail 19 fails on `lib/tape/page.js` or `lib/rooms/studio.js`
+looking up `#np-rec`, `#np-rec-more` or `#np-rec-menu` by the usual
+spellings (`$('np-rec')`, `getElementById`, a
 `querySelector` on `#np-rec`): a guard against the old wiring coming back,
 not a proof; an id held in a variable, or another module of the Studio's,
 gets past it.
@@ -502,8 +541,9 @@ D1 to D6 taken as recommended, 2026-11-02):
 - **3. The surface says the room** (`props.room()`, `props.onRoom`), and
   the Studio hears the fold through `ctx.barLayout`: no page-wide event,
   no `MutationObserver` on `<body>`.
-- **4. ●, Catch and the click are the bar's keys on the tape's verbs**
-  (*The Studio's keys*); the overview is the Studio's, in the strip's slot
+- **4. ●, Catch and the click were the bar's keys on the tape's verbs**
+  (*The Studio's keys*; since step 7a of the calm Studio, ● and its ▾,
+  with Catch on it, and the click the Studio's); the overview is the Studio's, in the strip's slot
   (*The Studio's part of the bar*); the clock-out lamp and the output strip
   are the bar's, from the models, in every room ((b), 2026-11-02).
 - **5. The window through `cx`**: `cx.media(query)` for every screen query

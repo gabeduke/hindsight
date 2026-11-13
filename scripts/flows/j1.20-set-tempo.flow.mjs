@@ -65,8 +65,34 @@ export default {
     t.expect('the part on track 1 has not moved or changed', JSON.stringify(after.tracks[0].clips) === clip, { before: clip, after: after.tracks[0].clips });
     t.expect('the loop has not moved', JSON.stringify(after.loop) === loop, { before: loop, after: after.loop });
 
+    // The click is a switch in this panel (the bar has no key for it, step
+    // 7a): it flips what the Pi has, and says so by aria-pressed.
+    const clickOn = async () => !!(await api.tapeState()).click;
+    const was = await clickOn();
+    await t.step('tap Click', () => t.tap(page.locator('#tempo-click')));
+    t.expect('Click flips, on the Pi and on its switch', await api.until(async () => (await clickOn()) === !was, 'the click to flip', 5000).catch(() => false)
+      && await t.poll((on) => document.getElementById('tempo-click')?.getAttribute('aria-pressed') === String(on), !was), { was, now: await clickOn() });
+    await t.step('tap Click again', () => t.tap(page.locator('#tempo-click')));
+    t.expect('and flips back', await api.until(async () => (await clickOn()) === was, 'the click to flip back', 5000).catch(() => false)
+      && await t.poll((on) => document.getElementById('tempo-click')?.getAttribute('aria-pressed') === String(on), was), { was, now: await clickOn() });
+    // Its lamp says so in the panel: no toast for a tap there.
+    const clickToasts = () => [...document.querySelectorAll('#toasts .toast')].map((e) => e.textContent.trim()).filter((w) => /^Click (on|off)$/.test(w));
+    t.expect('a tap on the switch in the open panel says nothing in a toast', (await page.evaluate(clickToasts)).length === 0, await page.evaluate(clickToasts));
+
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('Escape shuts the panel', await t.poll(() => document.getElementById('tempo-menu')?.hidden));
+    // M still turns it, from the keyboard (a desktop's), and with the panel
+    // shut, where its lamp isn't, a toast says which way it went.
+    if (t.profile.startsWith('desktop')) {
+      const said = (word) => page.locator('#toasts .toast').filter({ hasText: new RegExp(`^\\s*${word}\\s*$`) }).first().waitFor({ timeout: 3000 }).then(() => true, () => false);
+      const word = (on) => (on ? 'Click on' : 'Click off');
+      await t.step('press M', () => page.keyboard.press('m'));
+      t.expect('M turns the click, on the Pi', await api.until(async () => (await clickOn()) === !was, 'the click to flip by M', 5000).catch(() => false));
+      t.expect(`a toast says “${word(!was)}”`, await said(word(!was)));
+      await t.step('press M again', () => page.keyboard.press('m'));
+      t.expect('and back', await api.until(async () => (await clickOn()) === was, 'the click to flip back by M', 5000).catch(() => false));
+      t.expect(`a toast says “${word(was)}”`, await said(word(was)));
+    }
     if (phone) t.expect('the player goes down', await t.step('put the player away', () => putAway(t)));
   },
 };

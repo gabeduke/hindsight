@@ -29,7 +29,7 @@ export default {
       const seen = (id) => { const el = document.getElementById(id); return !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden'; };
       return {
         hidden: root.hidden, source: root.dataset.source, size: root.dataset.size, room: root.dataset.room ?? null,
-        play: seen('np-play'), rec: seen('np-rec'), catch: seen('np-catch-pass'),
+        play: seen('np-play'), rec: seen('np-rec'), recMore: seen('np-rec-more'), catchKey: !!document.getElementById('np-catch-pass'),
       };
     });
     out.push({ name: 'it holds the tape', ok: !at.hidden && at.source === 'tape', detail: at });
@@ -38,7 +38,7 @@ export default {
     const room = await page.evaluate(() => document.getElementById('np').dataset.room ?? null);
     const studio = room === 'studio';
     out.push({ name: 'it says the room on its root', ok: room === 'studio' || room === 'room', detail: room });
-    out.push({ name: studio ? '● and Catch in the Studio' : 'no ● nor Catch away from the Studio', ok: at.rec === studio && (phone || at.catch === studio), detail: at });
+    out.push({ name: studio ? '● and its ▾ in the Studio, and no Catch key' : 'no ● nor its ▾ away from the Studio', ok: at.rec === studio && at.recMore === studio && !at.catchKey, detail: at });
     if (!phone) {
       await tap(page.locator('#np-source'));
       const open = await page.evaluate(() => document.getElementById('np-source-menu').matches(':popover-open'));

@@ -109,8 +109,8 @@ you left.
 - **The bar,** along the foot of the page, is the one now-playing bar in
   both rooms, the same shape whatever it holds, with **▶** always in the
   same place: its reels and amber window, **|◂ ▶ ●** (or **↺ 5 s** in ●'s
-  place), **Catch**, **⟲** and the metronome, and what it holds as a strip
-  to tap or drag. The window says what plays (**TAPE**, **FEED** or the
+  place), in the Studio ●'s **▾**, which has **Catch**, then **⟲**, and
+  what it holds as a strip to tap or drag. The window says what plays (**TAPE**, **FEED** or the
   take's name), its tempo and where it plays: tap the source to choose the
   tape, the live feed, one of the last few takes or the shelf. A take
   tapped in the Listening Room plays in it and keeps playing when you
@@ -619,7 +619,9 @@ clipboard, to drop onto a tape.
    room as on the tablet, and a **hold** on it offers this phone instead
    (with the tape playing on this phone, a tap records here).
 3. The **▾** beside **●** picks the input: the mic, or one plugged into the
-   phone (the Orchid through a USB-C adapter, say). A cable beats the mic for
+   phone (the Orchid through a USB-C adapter, say). In the Studio it is
+   ●'s own ▾, with Catch on it, and these after a line; a hold on ● opens
+   it too. A cable beats the mic for
    anything you mean to keep. **The level and input…** there, or the tape's
    name → **Record from this phone…**, opens the recorder with its meter, so
    you can check the level first; tap **Record**, play, then **Stop**.
@@ -695,8 +697,8 @@ From the top:
     it. Its lamp is ▶ playing, ■ stopped, or a red ● for a punch: steady
     while armed, blinking while recording. In the time's place, it says
     when it's mixing down or waiting for a tap to play here. Then three
-    keys on the window: the **tempo** (tap it for the bars the loop could
-    be), the **source** (*TAPE*: tap it for the live feed, a take or the
+    keys on the window: the **tempo** (tap it to change it, for the bars
+    the loop could be, and for the **Click**, the metronome), the **source** (*TAPE*: tap it for the live feed, a take or the
     shelf) and where it plays, **OUT** (*JAM ROOM*, *PHONE* or *BOTH*: tap
     it to choose, §8.10). On a wide screen they say it in full: *96 BPM · 4
     BARS*, *TAPE · Song sketch*.
@@ -713,9 +715,10 @@ From the top:
     off, to the top of the tape), **▶ / ■**, and **●**, Record, beside it as
     in any DAW: always red, and its key glows while it's ready or
     recording.
-  - **Catch**, orange, beside them, Record's after-the-fact twin, with its
-    **▾** of what to catch.
-  - **⟲ Loop** and the **metronome**.
+  - **●'s ▾**, a key of its own beside it, is where **Catch** is, Record's
+    after-the-fact twin: what to catch, and where it goes.
+  - **⟲ Loop**. The metronome is the **Click** in the tempo's panel (tap
+    the tempo on the window), and **M**.
   - **The grabber** on the bar's top edge folds it to one row of keys,
     for the lanes' room: tap it, or drag it down; drag it up, or tap it
     again, to unfold.
@@ -803,28 +806,29 @@ From the top:
   amber and reads *it's silent: nothing came in* (digital silence) or *it's
   very quiet (peak −62 dB)*, with Undo. The clip's inspector says it too, and so
   does dropping or copying a silent stretch from the ribbon.
-- **Catch** (in the bar) catches the last pass, and **Catch the last: 1 bar /
-  2 / 4** catch the last bars, onto the record track, from its input.
-  Pointing at it outlines, on that track's lane, the pass it would take. It
-  catches after one whole pass of the loop; until then its second line says
-  why (*after one pass*), and pressing it says why in full (and offers the
-  last 4 bars, which don't wait). The **▾** beside it, a key of its own,
-  opens the same choice: the last pass, or the last 1, 2 or 4 bars. The key says what it
-  catches (*last pass → 2*, or *→ 2, 3* with two armed). The phone's mini player says it
-  shorter (*→ 2*, *→ 1–4* with all four armed, *in 1 pass*, *arm track*). While the tape plays, a small
-  red ▾ on the record track's lane marks the next bar line: where ● Rec
-  would start.
+- **Catch** is on **●'s ▾** in the bar: its menu says where a catch goes
+  (*Catch onto track 2*, or that no track is armed), then **The last
+  pass** and **The last 1 bar / 2 bars / 4 bars**, onto the record track,
+  from its input. Pointing at The last pass outlines, on that track's lane,
+  the pass it would take. It catches after one whole pass of the loop;
+  until then it says why under it, and a tap on it says why again and
+  leaves the menu open (the last bars don't wait). **C** on a keyboard
+  catches the last pass, and while it waits says why, with the last 4 bars
+  on offer. **Catch the last: 1 bar / 2 / 4** in the track's inspector do
+  the same. While the tape plays, a small red ▾ on the record track's lane
+  marks the next bar line: where ● Rec would start.
 - **Passes** keeps the last six times round the loop; −1 is the newest.
 - **On a phone,** upright or on its side, the bar is a **mini player**
   above the tabs: the reel window with where the tape is, **|◂**, **▶**, a
-  big red **●** with the phone's **▾** (§7), and **Catch** with its **▾**, and a line along its top as far as the tape has
-  got. A catch never waits for a scroll. Playing on this phone, its strip
+  big red **●** with its **▾**, which has Catch and, after a line,
+  recording from this phone (§7), and a line along its top as far as the
+  tape has got. Holding ● opens that menu too. A catch never waits for a scroll. Playing on this phone, its strip
   (and *Tap to play here*) sits on top. Where it plays is on the player's
   window: pull the player up.
 - **Tap the mini player's window, or drag it up,** to pull up **the
   player**, a sheet over the page that follows your finger: the reels and
-  the display large at the top, the overview under them, then **|◂ ▶ ●**,
-  **Catch**, **⟲ Loop** and the metronome low down, under your thumb, and
+  the display large at the top, the overview under them, then **|◂ ▶ ●**
+  and ●'s **▾**, and **⟲ Loop** low down, under your thumb, and
   where it plays at the foot. **Swipe it down** by its grabber or its reels,
   tap the grabber, or Back or **Esc**, to put it away. A take or the
   feed in the bar has the same mini player and player, **▶** in the same
@@ -882,7 +886,8 @@ A track holds `TAPE_LENGTH_S` seconds, 20 minutes by default.
 
 **From a tempo.** On an empty tape, type a BPM and a number of bars and tap
 **Set**. The loop is that long and empty, ready to catch into, and the
-**♩ click** plays on every beat until the first catch. The BPM starts at the
+**♩ click** plays on every beat until the first catch (the **Click** in the
+tempo's panel, or **M**, turns it on or off). The BPM starts at the
 tempo you were last playing: the clipboard's or your newest take's, whichever
 is newer.
 
@@ -1729,7 +1734,7 @@ has no tip.
 | Pan | Where this track sits between left and right |
 | ● Record (tape) | Records the armed track (its ● lit) from its input. Stopped: it's ready (the key glows), then ▶ counts in a bar. Playing: records from the next bar, marked on its lane. Tap again to keep it. Key: R |
 | RECORDING | Shows only while a punch is recording onto the tape |
-| The metronome | A click on every beat, on bus A. On by itself only while the tape is empty. Key: M |
+| Click (the tempo’s panel) | The metronome: a click on every beat, on bus A. On by itself only while the tape is empty. Key: M |
 | Tap (empty tape) | Tap where the loop starts, then where it comes round: each tap snaps to the strongest attack near it |
 | ⟲ Loop (tape) | Loop the bracket, or play on to the end of what’s recorded. Key: L |
 | 1 bar, 2, 4 | Catch the last bars you played, ending on the last bar line, where they were played |
@@ -1769,8 +1774,7 @@ has no tip.
 | Hit → Grid | Move the clip so its first hit lands on the nearest line of the Snap setting, or the nearest beat with Snap off |
 | Track picker | Choose the track to line this clip up against |
 | Hit → Track | Move the clip so its hit lands on the nearest hit of the chosen track |
-| Catch | Catch the last time round the loop onto the record track, from its input; pointing at it outlines the pass on its lane. It lights after one whole pass of the loop: until then a press says why. The last 1, 2 or 4 bars are in the track's inspector and under its ▾. Key: C |
-| ▾ (Catch) | What Catch takes: the last pass, or the last 1, 2 or 4 bars, onto the armed tracks. One that can't go yet says why |
+| ▾ (●, Catch) | Catch, what you just played: the last time round the loop, or the last 1, 2 or 4 bars, onto the armed tracks, from their inputs. Pointing at The last pass outlines it on its lane; it can go after one whole pass of the loop, and one that can't go yet says why. On a phone, recording from this phone is on it too. Key: C catches the last pass |
 | Passes | Every time round the loop, kept. Tap one to put it on the record track |
 | Join | Join this clip and the half that was split from it back into one |
 | ×2 | Double the loop, copying what's in it over what follows. On the action bar while the range is the loop |

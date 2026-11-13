@@ -369,15 +369,15 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
   });
   if (buffer) onMark = () => buffer.render();
 
-  // The Studio's verbs: CATCH presses the bar's Catch, KEEP keeps the feed.
+  // The Studio's verbs: CATCH catches the last pass, KEEP keeps the feed.
   // They come as `hindsight:verb` from the keys below, which leave a key the
   // buffer's own took first (its K, while it's open: lib/buffer/keys.js).
   onDoc('hindsight:verb', (e) => {
     if (e.defaultPrevented) return;
     const v = e.detail?.verb;
     if (v === 'catch') {
-      // The bar's Catch (lib/components/transport/tape-keys.js): pressed while it waits
-      // for a pass, it says why.
+      // The bar's Catch, on ●'s ▾ (lib/components/transport/tape-keys.js):
+      // C while it waits for a pass says why.
       ctx?.tapeKeys?.press('catch');
     } else if (v === 'keep' && !el.keep.disabled) {
       keep();

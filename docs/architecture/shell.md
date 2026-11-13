@@ -44,7 +44,7 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 
 - `barLayout`: the bar's layout (`lib/bar/layout.js`; `bar.md`, *It folds
   by its grabber*): `folded`, `open`, `docked` and `onChange(fn)`, shared.
-- `tapeKeys`: the bar's ●, Catch and the click (`lib/components/transport/tape-keys.js`;
+- `tapeKeys`: the bar's ● and its ▾, which Catch is on (`lib/components/transport/tape-keys.js`;
   `bar.md`, *The Studio's keys*), shared through a relay the Transport
   provides them to (`lib/components/relay.js`; `bar.md`, *The Transport*): the Studio lends them its hands
   (`lend(hands)`) and presses them (`press(name)`, `catch(what)`), focuses
@@ -268,9 +268,16 @@ close request: it switches rooms, with the menus closed on the way.
 
 **Menus** (`lib/ui/menu.js`). A menu, or a ▾'s panel beside its key, is
 `menu(button, panel, {layers, role, side, align, floor, render, focus,
-popover})` on that stack: the button says what it opens (`aria-haspopup`,
+popover, onOpen, onClose})` on that stack: the button says what it opens (`aria-haspopup`,
 `aria-expanded`, `aria-controls`), ↑ ↓ Home End move along it, Tab closes it
-and goes on from the button, and it closes only through its layer. `place`
+and goes on from the button, and it closes only through its layer.
+`onOpen()` hears each opening, however it was opened (a press, ↓ or ↑,
+Enter, the owner's `open()`), once it is filled and shown, and
+`onClose(reason)` each closing: ●'s menu asks for this phone's inputs by
+the one and takes its outline off the lanes by the other. `refresh()`
+fills it again with the keyboard on the row it was on (the same word, else
+the same place), so an owner can fill an open menu as what it shows
+changes. `place`
 is where it goes (pure: below its key or above it, its right or left edge
 on the key's, moved in from the screen's sides and kept off the bar at the
 foot by `floor`), fixed, so no panel's overflow clips it. It grows from its
@@ -281,10 +288,12 @@ inside a parent with a z-index or a transform of its own opens in the top
 layer with `popover: true` (a manual popover, shown and hidden by `menu()`
 as it opens and closes, so the stack still closes it; `styles.css` keeps
 it there while it fades, `overlay`, and `.menu[popover]` drops a popover's
-own margin and colour): the bar's three, Catch's ▾, the source's and the
+own margin and colour): the bar's three, ●'s ▾, the source's and the
 phone's, inside `#np` (`bar.md`, *Its menus are inside it*), and no other
 yet. `splitKey(verb, more, panel)` is a key with a ▾ of
-its own (KEEP ▾, GRAB ▾). Its rows are `menuItem`s, the one style (☰'s, 48
+its own (KEEP ▾, GRAB ▾, ● ▾); a press on the verb shuts the panel, but
+not a click the verb's own press swallowed (the lift of a hold on ●, which
+opens ●'s menu on a phone), so the verb's `bindPress` is bound first. Its rows are `menuItem`s, the one style (☰'s, 48
 px, a line under the word), with `menuRows` putting a divider between
 groups and anything that destroys last; they, `menuDivider` and
 `menuGroup` take the document to make them in, a node of it (the panel),
@@ -293,8 +302,8 @@ document. A key that opens a dialog rather than a menu (where it plays)
 says so with `dialogKey(button, dialog)`, the one other place a button
 gets `aria-haspopup`. Several buttons may share one
 panel (the Studio's four input chips, one input menu): it shows for one at
-a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, Catch ▾
-(a key of its own beside Catch), the tape's name, the tempo on the bar's
+a time. ☰ and every menu in the Studio are on it: KEEP ▾, GRAB ▾, ●'s ▾
+(a key of its own beside ●, with Catch on it), the tape's name, the tempo on the bar's
 display, the ruler's ⌗ (the View menu) and a track's input chip; on Open,
 the take's name and More. Open's lane menus are still their own
 (`OWN_MENUS`).

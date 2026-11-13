@@ -4,8 +4,8 @@
 // contract (lib/components/mount.js). The shell's boot mounts it on #np,
 // in its dock (lib/shell/boot.js); NowPlaying (bar.js) is its mount, and
 // the modules beside it are its keys: the fold (fold.js), the mini player's
-// ● (phone-key.js), the source's menu (source-menu.js), the Studio's ●,
-// Catch and the click (tape-keys.js), a take's and the feed's keys
+// ● (phone-key.js), the source's menu (source-menu.js), the Studio's ●
+// and its ▾, with Catch on it (tape-keys.js), a take's and the feed's keys
 // (take-keys.js), the keyboard's press over the display (press-note.js)
 // and the lamp's and the strip's words (tape-status.js). What it shares
 // with Open stays where both import it (lib/bar/: slots.js, player.js,
@@ -36,14 +36,14 @@
 //                      a key that opens its menu; the keyboard's press over
 //                      it (press-note.js), a live region, shown by data-kb
 //                      and never hidden
-//   the transport      |◀ ▶ and ●, Record beside Play; the phone's own ● ▾
-//                      in the mini player (phone-key.js); with a take or
-//                      the feed, or the tape away from the Studio, ↺ 5 s
-//                      in ●'s place
-//   the verb           the tape's Catch and its ▾ (tape-keys.js, splitKey);
-//                      the feed's GRAB
-//   the modes          ⟲ (Loop for the tape, Repeat for a take) and the
-//                      metronome
+//   the transport      |◀ ▶ and ●, Record beside Play, with its ▾ in the
+//                      Studio, Catch's (tape-keys.js, splitKey); the
+//                      phone's own ● ▾ in the mini player everywhere else
+//                      (phone-key.js); with a take or the feed, or the
+//                      tape away from the Studio, ↺ 5 s in ●'s place
+//   the verb           the feed's GRAB
+//   the modes          ⟲ (Loop for the tape, Repeat for a take); the
+//                      metronome is the Studio's, in the tempo's panel
 //   the end            laid out first so nothing pushes it off: ⏏ back to
 //                      the tape, Open › and ✎
 //   the strip          the take or the feed, or the tape away from the
@@ -53,16 +53,16 @@
 //   the foot           where it plays, under the thumb in the phone's
 //                      player pulled up (the display's OUT, which the
 //                      player hides)
-//   the menus          Catch's (what to catch), the display's source (what
-//                      plays) and the mini player's ▾ (record from this
-//                      phone)
+//   the menus          ●'s (what to catch, and on a phone this phone's rows
+//                      after them), the display's source (what plays) and
+//                      the mini player's ▾ (record from this phone)
 
 import { NowPlaying } from './bar.js';
 import { icon } from '../../ui/icons.js';
 import { dialogKey } from '../../ui/menu.js';
 
 /**
- * TAPE_KEYS are what the Studio presses of the bar's ●, Catch and click
+ * TAPE_KEYS are what the Studio presses of the bar's ● and its ▾, Catch's
  * (tape-keys.js), through the relay the surface hands the Transport as
  * props.tapeKeys and the Studio as ctx.tapeKeys (lib/components/relay.js).
  */
@@ -106,20 +106,16 @@ export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="bu
       <button data-part="start" class="icon-btn np-start" type="button" aria-label="Back to the loop’s start" data-tip="to-start" data-for="tape take feed" data-mini="tape take feed">${icon('prev')}</button>
       <button data-part="play" class="icon-btn tb-play" type="button" aria-label="Play" aria-keyshortcuts="Space" data-gives-enter data-tip="tape-play" data-for="tape take feed" data-mini="tape take feed">${icon('play', { size: 22 })}</button>
       <button data-part="rec" class="icon-btn tb-rec" type="button" aria-pressed="false" aria-label="Record" aria-keyshortcuts="R" data-tip="tape-rec" data-for="studio" data-mini="studio">${icon('rec')}</button>
+      <button data-part="rec-more" class="icon-btn key-more np-rec-more" type="button" aria-label="What to catch" data-tip="np-rec-more" data-for="studio" data-mini="studio">${icon('down', { size: 18 })}</button>
       <button data-part="phone-rec" class="icon-btn tb-rec np-phone-rec" type="button" aria-pressed="false" aria-label="Record from this phone" data-tip="np-phone-rec" data-mini="take feed away">${icon('rec')}</button>
-      <button data-part="phone-more" class="icon-btn key-more np-phone-more" type="button" aria-label="Record from this phone: the input" data-tip="np-phone-more" data-mini="tape take feed">${icon('down', { size: 16 })}</button>
+      <button data-part="phone-more" class="icon-btn key-more np-phone-more" type="button" aria-label="Record from this phone: the input" data-tip="np-phone-more" data-mini="take feed away">${icon('down', { size: 16 })}</button>
       <button data-part="back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5" data-for="take feed away">${icon('back5')}</button>
     </div>
     <div class="np-zone np-verb" data-slot="verb">
-      <span class="key-split np-catch-split" data-for="studio" data-mini="studio">
-        <button data-part="catch-pass" class="icon-btn primary np-catch" type="button" aria-keyshortcuts="C" data-tip="catch"><span class="np-catch-word">Catch</span><span class="np-catch-sub">the last pass</span><span class="np-catch-mini" aria-hidden="true"></span></button>
-        <button data-part="catch-more" class="icon-btn key-more np-catch-more" type="button" aria-label="What to catch" data-tip="np-catch-more">${icon('down', { size: 18 })}</button>
-      </span>
       <button data-part="feed-grab" class="icon-btn np-feed-grab" type="button" aria-label="GRAB from the live feed onto the Studio’s cue lane" data-tip="np-feed-grab" data-for="feed" data-mini="feed"><span class="np-grab-word">GRAB</span><span class="np-grab-sub">from the feed</span></button>
     </div>
     <div class="np-zone np-modes" data-slot="modes" role="group" aria-label="Modes">
       <button data-part="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop" data-for="tape take feed"><span class="loop-face">${icon('repeat', { size: 16 })}<span class="loop-word">Loop</span></span></button>
-      <button data-part="click" class="icon-btn tb-click" type="button" aria-pressed="false" aria-label="Metronome" aria-keyshortcuts="M" data-tip="tape-click" data-for="studio">${icon('metro')}</button>
     </div>
     <div class="np-zone np-end" data-slot="end">
       <button data-part="eject" class="icon-btn np-eject" type="button" aria-label="Back to the tape" data-tip="np-eject" data-for="take feed" hidden>${icon('eject')}</button>
@@ -134,7 +130,7 @@ export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="bu
 <div class="np-row np-foot" data-slot="foot">
   <button data-part="out-foot" class="icon-btn np-out-foot" type="button" aria-label="Where it plays" data-tip="np-output" data-for="tape take feed"><span class="np-out-leg">OUT</span><span data-part="out-foot-val" class="np-out-val">JAM ROOM</span>${icon('down', { size: 16 })}</button>
 </div>
-<div data-part="catch-menu" class="menu np-catch-menu" role="menu" aria-label="What to catch" hidden></div>
+<div data-part="rec-menu" class="menu np-rec-menu" role="menu" aria-label="What to catch" hidden></div>
 <div data-part="source-menu" class="menu np-source-menu" role="menu" aria-label="What plays" hidden></div>
 <div data-part="phone-menu" class="menu np-phone-menu" role="menu" aria-label="Record from this phone" hidden></div>`;
 
@@ -166,7 +162,7 @@ export function fill(root, id = (part) => `${root.id}-${part}`) {
  * `output()` (the Output sheet), `room()` (the room shown) and
  * `onRoom(fn)` (fn as the room shown changes), `titles(root)` (help's
  * titles, put on the filled template before the bar draws), and `tapeKeys`, a relay
- * (lib/components/relay.js) the Transport provides its ●, Catch and click
+ * (lib/components/relay.js) the Transport provides its ● and ▾ (Catch's)
  * to, which the surface hands the Studio (ctx.tapeKeys; decision D4).
  */
 export default {

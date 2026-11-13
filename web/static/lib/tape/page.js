@@ -170,7 +170,7 @@ let viewCtx = null;
 // which holds it: out of the page while another room is, so never looked up.
 let overviewCv = null;
 let cueLane = null;
-// The bar's keys for the tape here, ●, Catch and its ▾ and the click
+// The bar's keys for the tape here, ● and its ▾, which Catch is on
 // (lib/components/transport/tape-keys.js, ctx.tapeKeys): the Studio lends them its hands
 // (studioHands, below) and never looks them up.
 let tapeKeys = null;
@@ -336,7 +336,7 @@ const change = (send) => tapeModel.change(send);
 const barHands = {
   around: (name, args, run) => sentHere(name, args, run),
 };
-// What the Studio lends the bar's ●, Catch and click (ctx.tapeKeys.lend,
+// What the Studio lends the bar's ● and its ▾, Catch's (ctx.tapeKeys.lend,
 // lib/components/transport/tape-keys.js), for as long as it is mounted: what is armed here
 // and what it records from, the body a verb sends (replace or overdub; the
 // jam-only sheet and "arm a track" refuse it), the words for its answer
@@ -700,9 +700,11 @@ function render() {
   setIf(overviewCv, 'aria-valuemax', String(t.length));
   setIf(overviewCv, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
   setIf(overviewCv, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
-  // ●, Catch and the click are the bar's (lib/components/transport/tape-keys.js), drawn
+  // ● and its ▾ (Catch) are the bar's (lib/components/transport/tape-keys.js), drawn
   // from the tape and the Studio's hands (studioHands): the armed tracks.
   tapeKeys?.draw();
+  // The click is the Studio's: the tempo's panel's Click, while it is open.
+  paintClick();
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
   $('tap').classList.toggle('second', !!(live && live.tapped));
 
@@ -4060,9 +4062,24 @@ function renderTempo(panel) {
       return r;
     });
   };
-  // What follows the row is the bar counts', put back after each change.
+  // Under the tempo's row, the Click: the metronome, the Studio's since it
+  // left the bar (the calm Studio, step 7a), a switch here as M is on the
+  // keyboard. A tap leaves the panel open; the tape's answer repaints it
+  // (paintClick, from render). Its row and key are the tempo row's styling,
+  // reused (styles.css, .tape-tempo-row and .icon-btn, whose
+  // [aria-pressed="true"] draws it down while it is on), and its lamp the
+  // snap's (styles.css, "LEDs"): no rule of its own.
+  const clickRow = doc.createElement('div');
+  clickRow.className = 'tape-tempo-row';
+  const click = key('', 'Click (the metronome)', () => toggleClick(), 'tempo-click');
+  click.dataset.tip = 'tape-click';
+  click.setAttribute('aria-keyshortcuts', 'M');
+  click.innerHTML = `${icon('metro')}<span>Click</span>`;
+  clickRow.append(click);
+  paintClick(click);
+  // What follows the Click is the bar counts', put back after each change.
   const showBars = () => {
-    while (row.nextSibling) row.nextSibling.remove();
+    while (clickRow.nextSibling) clickRow.nextSibling.remove();
     const rows = bars();
     if (rows.length) panel.append(menuDivider(doc), menuGroup(doc, 'Count the bars'), ...rows);
   };
@@ -4097,8 +4114,31 @@ function renderTempo(panel) {
     key('+1', 'Faster by one BPM', () => set(Number(field.value) + 1), 'tempo-up'),
     tapKey,
   );
-  panel.replaceChildren(row);
+  panel.replaceChildren(row, clickRow);
   showBars();
+}
+
+// toggleClick turns the click (the metronome) on or off, on the tape's
+// setClick: the Click in the tempo's panel and M. Nothing without a tempo.
+// With the panel shut (M), its lamp is nowhere on the screen: a toast says
+// which way it went, passing, as a key's word does.
+async function toggleClick() {
+  const t = state.tape;
+  if (!t || !t.grid) return;
+  const on = !t.click;
+  const unseen = !menus.tempoBar?.isOpen();
+  const done = await editTape(() => tapeModel.setClick(on), { toast, resync: () => poll(true) });
+  if (done && unseen) toast(on ? 'Click on' : 'Click off', 'ok', { ms: 2000 })?.classList.add('toast-passive');
+}
+
+// paintClick draws the tempo's panel's Click from the tape: pressed while
+// it's on, and no key without a tempo. Its key is the panel's while it is
+// open (renderTempo makes it), else nothing is drawn.
+function paintClick(key = $('tempo-click')) {
+  if (!key) return;
+  const t = state.tape;
+  setIf(key, 'aria-pressed', String(!!t?.click));
+  key.disabled = !t?.grid;
 }
 
 function laneTap(lane, e) {
@@ -4459,7 +4499,7 @@ function mountMenus() {
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
 }
 
-// closeMenus closes the Studio's menus: those above, Catch's, and a track's
+// closeMenus closes the Studio's menus: those above, ●'s (Catch's), and a track's
 // input menu.
 function closeMenus() {
   for (const m of Object.values(menus)) m.close();
@@ -4807,7 +4847,8 @@ function wire() {
     // By physical key, so they work on any keyboard layout.
     if (!state.tape || menusOpen()) return;
     const press = (id) => { if (!e.repeat && !$(id).disabled) $(id).click(); };
-    // ● and the click are the bar's keys (lib/components/transport/tape-keys.js).
+    // ● is the bar's key (lib/components/transport/tape-keys.js); the click
+    // is the Studio's (toggleClick, the tempo's panel's Click).
     const pressKey = (name) => { if (!e.repeat) tapeKeys?.press(name); };
     // 1–4 and ↑ ↓: the record track, and the selected one with it.
     const pick = (n) => {
@@ -4820,7 +4861,7 @@ function wire() {
       case 'KeyR': pressKey('rec'); break;
       // L is ⟲, the bar's: its verb, which does nothing while ⟲ is unlit.
       case 'KeyL': if (!e.repeat && engine) engine.bar.setLoop(!engine.bar.snapshot().loop); break;
-      case CLICK_KEY: pressKey('click'); break;
+      case CLICK_KEY: if (!e.repeat) toggleClick(); break;
       // S splits the one selected clip, as the action bar's Split does; with
       // none, the selected track at the playhead.
       case 'KeyS':

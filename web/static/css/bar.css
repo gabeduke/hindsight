@@ -6,8 +6,9 @@
    and !important, and ran off a tablet's right edge.
 
    Its shape: a row of five zones -- the deck (the reels and the display),
-   the transport (|◀ ▶ ●), the verb (Catch ▾), the modes (⟲ and the
-   metronome) and the end (⏏ Open › ✎) -- and the strip under them. Each zone
+   the transport (|◀ ▶ ● and, in the Studio, ●'s ▾, which Catch is on), the
+   verb (the feed's GRAB), the modes (⟲) and the end (⏏ Open › ✎) -- and
+   the strip under them. Each zone
    is a named slot in the markup (data-slot); the zones keep their place in
    every room and for every source, and ▶ never moves.
 
@@ -29,7 +30,7 @@
    (the player's sheet, --dock-b) is styles.css's. The viewport @media
    blocks stay (decision D1): a container query can't ask a height, an
    orientation or a preference, nor style the root itself. The menus'
-   panels (Catch's ▾, the source's, the phone's) are inside the root too,
+   panels (●'s ▾, the source's, the phone's) are inside the root too,
    and open in the top layer (lib/ui/menu.js, popover). */
 
 /* ---------- the bar ---------- */
@@ -245,8 +246,8 @@
 
 /* ---------- the keys ---------- */
 /* Raised, an LED over the ones that latch, a picture from the sprite. The
-   big ones (▶ ● Catch) travel 2 px as a plastic transport key does; the
-   rest 1 px. A press shows within a frame (lib/ui/keys.js adds .down). */
+   big ones (▶ ●) travel 2 px as a plastic transport key does; the rest
+   1 px. A press shows within a frame (lib/ui/keys.js adds .down). */
 .np .icon-btn {
   flex: none; height: 56px; min-height: 56px; width: 48px; min-width: 0; margin: 0; padding: 0;
   flex-direction: column; align-items: center; justify-content: center; gap: 4px;
@@ -271,13 +272,13 @@
 .np .icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* LEDs: a latched key says so with a light as well as by sitting low. A
    lamp is a bulb: it lights at once and fades as it goes out. */
-.np .tb-play::before, .np .tb-loop::before, .np .tb-click::before {
+.np .tb-play::before, .np .tb-loop::before {
   content: ''; display: block; flex: none; width: 7px; height: 7px; border-radius: 50%;
   background: var(--led-off); box-shadow: inset 0 1px 1px rgba(0,0,0,.35);
   transition: background var(--t-move) var(--ease-out), box-shadow var(--t-move) var(--ease-out);
 }
 .np .tb-play.playing::before { background: var(--go); box-shadow: 0 0 0 2px color-mix(in srgb, var(--go) 22%, transparent), 0 0 9px var(--go-glow); transition-duration: var(--t-press); }
-.np :is(.tb-loop, .tb-click)[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); transition-duration: var(--t-press); }
+.np .tb-loop[aria-pressed="true"]::before { background: var(--warn); box-shadow: 0 0 9px var(--warn-glow); transition-duration: var(--t-press); }
 /* ▶: 56 wide. */
 .np .tb-play { width: 56px; }
 .np .tb-play.playing { color: var(--go); }
@@ -302,7 +303,6 @@
 .np .tb-loop { width: 60px; gap: 3px; }
 .np .loop-face { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .np .loop-word { font: 600 11px/12px var(--font); }
-.np .tb-click { gap: 4px; }
 /* Open ›: its word and the chevron. */
 .np .np-open { width: 66px; flex-direction: row; gap: 2px; padding: 0 0 0 6px; white-space: nowrap; }
 /* Open's own keys at the end: In, Out and ✎. */
@@ -310,45 +310,25 @@
 .np .tb-note { color: var(--flag); }
 .np .tb-point.pending { border-color: var(--accent); color: var(--accent); }
 
-/* ---------- the verb: Catch and its ▾; the feed's GRAB ---------- */
-/* Two keys with a seam (lib/ui/menu.js splitKey), as GRAB's and KEEP's, so
-   a tap meant for one is never the other: Catch 104 wide, its ▾ a finger. */
-.np .np-catch-split { align-items: stretch; gap: 2px; }
-.np .np-catch {
-  width: auto; min-width: 104px; padding: 0 8px; gap: 1px;
-  border-top-right-radius: 4px; border-bottom-right-radius: 4px;
-}
-.np .np-catch-more { width: 44px; border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
-.np .np-catch-more .i { stroke-width: 2.25; }
-.np .np-catch-word { font-size: 15.5px; font-weight: 700; }
-.np .np-catch-sub { font: 500 10.5px var(--mono); opacity: .88; white-space: nowrap; }
-.np .np-catch-mini { display: none; } /* the phone's mini player shows it (below) */
-/* Catch is the page's one main action: the orange key, lit from above --
-   unless the tape is on a phone, when it says it needs the jam room. */
-.np :is(#np-catch-pass, #np-catch-more) {
-  background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo)); color: var(--on-accent);
-  border-color: var(--accent-edge); text-shadow: 0 1px 0 rgba(0,0,0,.18);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
-}
-.np .icon-btn.np-catch:active, .np .icon-btn.np-catch.down { transform: translateY(2px); filter: brightness(.92); }
-/* Its ▾ goes down with a key's 1 px, and darkens as Catch does. */
-.np .icon-btn.np-catch-more:active, .np .icon-btn.np-catch-more.down { filter: brightness(.92); }
-/* Waiting for a pass: pressable, so a tap can say why, and up -- dimmed, its ▾ with it. */
-.np :is(#np-catch-pass, #np-catch-more).waits {
-  background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink-dim);
-  border-color: var(--line); text-shadow: none; opacity: .7;
-  box-shadow: inset 0 1px 0 var(--hl), 0 1px 0 var(--key-edge);
-}
-/* The tape on a phone: Catch needs the jam room. */
-.np :is(#np-catch-pass, #np-catch-more).jam-only { background: none; color: var(--ink-dim); border: 1px solid var(--line); box-shadow: none; }
-/* Its menu (lib/components/transport/tape-keys.js renderMenu): menu.js's rows; why one can't go yet wraps under it.
-   The bar's three menus open in the top layer (menu.js's popover), so they
-   are over the phone's player pulled up, where Catch and the display are,
-   with no z-index of their own. */
-.np .np-catch-menu { min-width: 230px; max-width: calc(100vw - 16px); }
-.np .np-catch-menu > .catch-menu-head { padding: 6px 12px 8px; }
-.np .np-catch-menu > .menu-item > .menu-sub { white-space: normal; }
-.np .np-catch-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
+/* ---------- ●'s ▾: Catch, and on a phone this phone too ---------- */
+/* A key of its own beside ● (lib/ui/menu.js splitKey, as GRAB's and
+   KEEP's), a finger wide and as tall as ●, so a tap meant for one is never
+   the other. Its styling is Catch's ▾'s, which it took over when Catch
+   left the bar (the calm Studio, step 7a): a key's 1 px down, as any. */
+.np .np-rec-more { width: 44px; }
+.np .np-rec-more .i { stroke-width: 2.25; }
+/* Its menu (lib/components/transport/tape-keys.js renderMenu): Catch's
+   rows as its own ▾ had them, menu.js's, why one can't go yet wrapping
+   under it; on a phone a line, then this phone's rows (phone-key.js). The
+   bar's three menus open in the top layer (menu.js's popover), so they are
+   over the phone's player pulled up, where ● and the display are, with no
+   z-index of their own. A reason wraps at 360 px, not across a tablet. */
+.np .np-rec-menu { min-width: 250px; max-width: min(360px, calc(100vw - 16px)); }
+.np .np-rec-menu > .catch-menu-head { padding: 6px 12px 8px; }
+.np .np-rec-menu > .menu-item > .menu-sub { white-space: normal; }
+.np .np-rec-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
+
+/* ---------- the verb: the feed's GRAB ---------- */
 /* The feed's GRAB: the feed into the Studio's buffer, a paper key with GRAB's ring. */
 .np .np-feed-grab {
   width: auto; min-width: 104px; padding: 0 10px; gap: 0;
@@ -405,12 +385,10 @@
 }
 @container bar (min-width: 960px) {
   /* A tablet on its side and wider: the deck as the kit draws it, 352 at
-     1024, growing with the bar to 768; the verb's and the modes' widths
-     kept, so ⟲ stands where it did when Catch is not there. */
-  .np .np-zones {
-    grid-template-columns: var(--deck-w) auto minmax(150px, auto) minmax(114px, auto) minmax(0, 1fr);
-    --deck-w: clamp(320px, calc(100cqi - 642px), 768px);
-  }
+     1024, growing with the bar to 768 (▶ where it always stood). The verb
+     and the modes are as wide as what they hold: in the Studio ⟲ follows
+     ●'s ▾, where Catch and the metronome stood until step 7a. */
+  .np .np-zones { --deck-w: clamp(320px, calc(100cqi - 642px), 768px); }
   .np .np-deck { gap: 4px; }
   .np .np-reel { display: block; width: 32px; height: 32px; }
 }
@@ -474,7 +452,6 @@
   .np[data-fold][data-size="full"] .np-lcd-sub { display: none; }
   .np[data-fold][data-size="full"] .np-pos { font-size: 16px; }
   .np[data-fold][data-size="full"] .icon-btn { height: 44px; min-height: 44px; flex-direction: row; gap: 5px; }
-  .np[data-fold][data-size="full"] .np-catch-sub { display: none; }
   .np[data-fold][data-size="full"] .loop-face { flex-direction: row; gap: 3px; }
   .np[data-fold][data-size="full"] .tb-loop { width: auto; padding: 0 8px; }
   .np[data-fold][data-size="full"] .np-grab-sub { display: none; }
@@ -483,9 +460,9 @@
 /* ---------- the phone ---------- */
 /* On a phone -- upright, or on its side and short -- the bar is a mini
    player above the tabs: the reel window (a tap on it pulls the player up),
-   |◀ and ▶, then the source's own keys: Catch and its ▾ for the tape in the
-   Studio, ✎ and Open › for a take, GRAB for the feed. Its tail is one width
-   for each, so ▶ stands at one x. A hairline along its top is how far along
+   |◀ and ▶, ● and its ▾, then the source's own keys: ✎ and Open › for a
+   take, GRAB for the feed, none for the tape. Its tail is one width for
+   each, so ▶ stands at one x. A hairline along its top is how far along
    it is. The player pulled up is the whole bar, large, over the page, and on
    the tape page its drawers under it (lib/bar/player.js); its grabber, Back
    or Escape puts it away. Where the page keeps clear of it (--dock-b, its
@@ -535,17 +512,17 @@
   .np[data-size="mini"] .np-pos { font-size: 17px; }
   .np[data-size="mini"] .icon-btn { height: 50px; min-height: 50px; width: 44px; }
   .np[data-size="mini"] .tb-play { width: 50px; }
-  /* The big red ●, and its ▾ (the phone's input) joined to it: the tape's
-     ● in the Studio, this phone's everywhere else (lib/components/transport/phone-key.js). */
+  /* The big red ●, and its ▾: the tape's ● in the Studio, whose ▾ is its
+     own, a finger wide (Catch's, and this phone's rows); this phone's ●
+     everywhere else, its ▾ (the phone's input) joined to it
+     (lib/components/transport/phone-key.js). */
   .np[data-size="mini"] .tb-rec { width: 46px; }
   .np[data-size="mini"] .tb-rec .i { width: 24px; height: 24px; }
   .np[data-size="mini"] .np-phone-more { width: 26px; margin-left: -4px; padding: 0; }
-  .np[data-size="mini"] .np-catch { min-width: 64px; padding: 0 6px; flex: 1 1 auto; }
-  .np[data-size="mini"] .np-catch-sub { display: none; }
-  /* Catch's own short second line down here (.np-catch-mini, lib/components/transport/tape-keys.js): "→ 2",
-     "in 1 pass" say what it catches and why it waits. */
-  .np[data-size="mini"] .np-catch .np-catch-mini { display: block; font: 500 9px/1.1 var(--mono); opacity: .88; white-space: nowrap; }
-  .np[data-size="mini"] .np-catch-more { width: 28px; }
+  /* The tail is empty for the tape, and in the Studio gives up what ●'s ▾
+     is wider than the phone's (44 against 26, with the 4 px the phone's
+     takes back from the gap): ▶ stands where it does for a take. */
+  .np[data-size="mini"][data-room="studio"][data-source="tape"] .np-zones { grid-template-columns: minmax(0, 1fr) auto 78px; }
   .np[data-size="mini"] .np-open { width: 50px; }
   .np[data-size="mini"] .np-feed-grab { min-width: 0; width: 100px; }
   /* The window is the player's handle. */
@@ -564,10 +541,10 @@
   .np[data-open] .np-scrub { height: 52px; }
   .np[data-open] .np-levels { display: flex; }
   .np[data-open] .np-pos { font-size: 26px; line-height: 30px; }
-  .np[data-open] .np-catch-more { flex: 0 0 56px; }
   .np[data-open] .np-lcd-top { height: 30px; }
   .np[data-open] .np-zone > * { flex: 1 1 0; width: auto; }
-  .np[data-open] .np-catch-split > * { flex: 1 1 0; }
+  /* ●'s ▾ keeps to a ▾'s width beside the transport's three. */
+  .np[data-open] .np-zone > .np-rec-more { flex: 0 0 56px; }
   /* Its grabber, at the top of the sheet, puts it away. */
   .np[data-open] .np-grabber {
     display: flex; position: fixed; top: env(safe-area-inset-top); left: 50%; z-index: 51;

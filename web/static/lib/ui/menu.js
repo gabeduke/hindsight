@@ -108,6 +108,15 @@ const showing = new WeakMap();
  *            whose z-index would cover it or whose transform would move
  *            its fixed place (the bar's three, inside #np). A browser with
  *            no popover shows it where it is held.
+ *   onOpen() called each time it opens, however it was opened (a press,
+ *            ↓ or ↑, Enter, its owner's open()), once it is filled and
+ *            shown: for what its owner asks for as it opens (●'s menu asks
+ *            for this phone's inputs)
+ *   onClose(reason)
+ *            called once it is put away, however it closed (layers.js's
+ *            reasons): for what its owner shows only while it is open (the
+ *            outline ●'s menu draws on the lanes while The last pass is
+ *            pointed at)
  *
  * The button says what it opens (aria-haspopup, aria-expanded,
  * aria-controls). A press on it opens or closes the panel; ↓ or ↑ on it
@@ -115,9 +124,10 @@ const showing = new WeakMap();
  * do. While it is open, ↑ ↓ Home End move along it (← → too, in a panel),
  * Tab closes it and moves on from the button, and it follows its anchor
  * when the page scrolls or the window changes size. Answers { open, close,
- * toggle, refresh, isOpen }: refresh() fills it again and places it;
- * refresh({ render: false }) places it again, after its owner changed what
- * it holds.
+ * toggle, refresh, isOpen }: refresh() fills it again and places it,
+ * the keyboard staying on the row it was on (the row with the same word,
+ * else the one in the same place); refresh({ render: false }) places it
+ * again, after its owner changed what it holds.
  *
  * Several buttons may share one panel, each with a menu() of it: opening it
  * from one closes it from another, and only the one showing it shuts it.
@@ -134,6 +144,8 @@ export function menu(button, panel, {
   render,
   focus = 'first',
   popover = false,
+  onOpen = null,
+  onClose = null,
   doc = button.ownerDocument || globalThis.document,
   win = doc?.defaultView || globalThis,
 } = {}) {
@@ -263,6 +275,7 @@ export function menu(button, panel, {
     const had = !!doc.activeElement && panel.contains(doc.activeElement);
     show(false);
     if (had && reason !== 'outside' && reason !== 'navigate') button.focus?.({ preventScroll: true });
+    onClose?.(reason);
   }
 
   function open({ byKey = false, last = false } = {}) {
@@ -279,6 +292,7 @@ export function menu(button, panel, {
       listen(true);
     }
     if (byKey) focusIn(last);
+    onOpen?.();
   }
 
   function close(reason = 'program') {
@@ -288,9 +302,20 @@ export function menu(button, panel, {
 
   const toggle = (opts) => (isOpen() ? close() : open(opts));
 
+  // A row is known again after a fill by its word (menuItem's), else its text.
+  const wordOf = (el) => (el.querySelector?.('.menu-word') || el).textContent;
   function refresh({ render: fill = true } = {}) {
     if (!isOpen()) return;
-    if (fill) render?.(panel);
+    if (fill) {
+      const was = items();
+      const at = was.indexOf(doc.activeElement);
+      const word = at >= 0 ? wordOf(was[at]) : null;
+      render?.(panel);
+      if (at >= 0) {
+        const now = items();
+        (now.find((el) => wordOf(el) === word) || now[Math.min(at, now.length - 1)])?.focus?.({ preventScroll: true });
+      }
+    }
     placeNow();
   }
 
@@ -325,12 +350,15 @@ export function menu(button, panel, {
  * does what the key says with what was chosen last, and `more` opens
  * `panel`, the choices, under the pair. Two targets, so a tap on the verb
  * is never read as the ▾. The verb closes the panel (a press on it is a
- * press outside, and Enter on it a pick). Takes menu's options; answers
- * its menu.
+ * press outside, and Enter on it a pick); a click the verb's own press
+ * swallowed is no press of it (a pressMachine's hold, lib/ui/press.js,
+ * preventDefault()s the click its lift sends: the hold on ● that opens ●'s
+ * menu on a phone, which that lift would shut again). So the verb's press
+ * is bound before this. Takes menu's options; answers its menu.
  */
 export function splitKey(verb, more, panel, opts = {}) {
   const m = menu(more, panel, { role: 'dialog', anchor: more.parentElement || more, ...opts });
-  verb.addEventListener('click', () => { if (m.isOpen()) m.close('pick'); });
+  verb.addEventListener('click', (e) => { if (!e?.defaultPrevented && m.isOpen()) m.close('pick'); });
   return m;
 }
 

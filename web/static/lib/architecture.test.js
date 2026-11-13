@@ -450,14 +450,14 @@ test('Guardrail 18: the engine (lib/models/engine.js) makes the bar’s sources 
   assert.match(read('lib/shell/boot.js'), /mountComponent\(transportComponent, npRoot,/, 'the shell mounts the Transport on #np');
 });
 
-test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only through the hands it lends them, never by their ids', () => {
-  // docs/architecture/bar.md, *The Studio's keys*: ● (#np-rec), Catch and its
-  // ▾ (#np-catch-pass, #np-catch-more, #np-catch-menu) and the click (#np-click) are the
-  // bar's keys (lib/components/transport/tape-keys.js), drawn from the tape's snapshot and
+test('Guardrail 19: the Studio reaches the bar’s ● and its ▾ (Catch’s) only through the hands it lends them, never by their ids', () => {
+  // docs/architecture/bar.md, *The Studio's keys*: ● (#np-rec) and its ▾
+  // (#np-rec-more, #np-rec-menu), which Catch is on, are the bar's keys
+  // (lib/components/transport/tape-keys.js), drawn from the tape's snapshot and
   // pressed on its verbs. The Studio lends them its hands
   // (ctx.tapeKeys.lend) and presses them with ctx.tapeKeys.press; a look-up
   // by id, or a press of a helper that looks one up, wires them a second way.
-  const IDS = 'np-rec|np-catch-pass|np-catch-more|np-catch-menu|np-click';
+  const IDS = 'np-rec|np-rec-more|np-rec-menu';
   const lookups = [
     new RegExp(`(?<![\\w$])(\\$|getElementById)\\(\\s*['"\`](${IDS})['"\`]`),
     new RegExp(`querySelector(All)?\\(\\s*['"\`][^'"\`]*#(${IDS})(?![\\w-])`),
@@ -468,7 +468,7 @@ test('Guardrail 19: the Studio reaches the bar’s ●, Catch and the click only
     const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
     for (const line of src.split('\n')) if (lookups.some((re) => re.test(line))) found.push(`${f}: ${line.trim()}`);
   }
-  assert.deepEqual(found, [], 'looks up the bar’s ●, Catch or the click: lend them the Studio’s hands (ctx.tapeKeys.lend), or press them (ctx.tapeKeys.press)');
+  assert.deepEqual(found, [], 'looks up the bar’s ● or its ▾: lend them the Studio’s hands (ctx.tapeKeys.lend), or press them (ctx.tapeKeys.press)');
 });
 
 /**
@@ -814,17 +814,17 @@ test('Guardrail 15: css/bar.css starts every selector at .np, the bar’s root',
 test('the bar’s guardrail reads a selector that starts outside .np, beside it, on <body>, or on a menu panel of its own', () => {
   const sheet = (css) => rootedProblems('css/bar.css', 'np', css).length;
   for (const bad of ['.np-reel { x: 1 }', 'body.np-fold .np .x { x: 1 }', '#np [hidden] { x: 1 }', '.np + .x { x: 1 }', '.np-dock > .np .x { x: 1 }',
-    ':is(.np-press, .kb-lit) { x: 1 }', '.tempo-menu { z-index: 60 }', '.np-catch-menu > .menu-item { x: 1 }',
-    ':is(.np-catch-menu, .np-source-menu) { z-index: 60 }', '.app-menu .np-catch-menu { x: 1 }'])
+    ':is(.np-press, .kb-lit) { x: 1 }', '.tempo-menu { z-index: 60 }', '.np-rec-menu > .menu-item { x: 1 }',
+    ':is(.np-rec-menu, .np-source-menu) { z-index: 60 }', '.app-menu .np-rec-menu { x: 1 }'])
     assert.equal(sheet(bad), 1, `caught: ${bad}`);
   for (const fine of ['.np .np-reel { x: 1 }', '.np[data-fold][data-size="full"] .x { x: 1 }', '.np [hidden] { x: 1 }', '.np:is([data-room="room"]) .x { x: 1 }',
-    '.np .np-catch-menu > .menu-item { x: 1 }', '.np :is(.np-catch-menu, .np-source-menu) { x: 1 }'])
+    '.np .np-rec-menu > .menu-item { x: 1 }', '.np :is(.np-rec-menu, .np-source-menu) { x: 1 }'])
     assert.equal(sheet(fine), 0, `let be: ${fine}`);
 });
 
 test('the bar’s menus are inside #np, and open in the top layer', () => {
   const np = npMarkup();
-  for (const part of ['catch-menu', 'source-menu', 'phone-menu']) {
+  for (const part of ['rec-menu', 'source-menu', 'phone-menu']) {
     assert.match(np, new RegExp(`<div data-part="${part}" class="menu np-${part}"`), `#np-${part} is inside #np`);
     assert.doesNotMatch(read('shell.html'), new RegExp(`id="np-${part}"`), `and only there`);
   }
