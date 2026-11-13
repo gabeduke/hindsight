@@ -372,7 +372,7 @@ export const findingKey = (f) => {
 // the feed's face's, measured then: 26, and 27 at 1280×800. The calm
 // Studio's step 7a (2026-11-13) took Catch's key, its ▾ and the click off
 // the bar for ●'s ▾: 41 at 1024×768 and upright, 42 at 1280×800, and the
-// feed's face 24 and 25 (the bar is on both). Its step 7b (2026-11-14)
+// feed's face 24 and 25 (the bar is on both). Its step 7b (2026-11-13)
 // made the tempo and where it plays one key on the bar's display: 40 at
 // 1024×768 and upright, 41 at 1280×800, and the feed's face 23 and 24.
 // Like layout-known.json these only go down: lower one when a change

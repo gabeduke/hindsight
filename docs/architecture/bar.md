@@ -341,7 +341,7 @@ isn't, a passing toast says *Click on* or *Click off*. The bar has no key
 for it.
 
 **One key for the tempo and where it plays** (the calm Studio's decision
-5, step 7b, 2026-11-14). The display's tempo key (`#np-tempo`) is the
+5, step 7b, 2026-11-13). The display's tempo key (`#np-tempo`) is the
 bar's, and the bar is the one owner of its press: `NowPlaying`'s
 `tempoOpens(kind)` says what a press opens now. In the Studio with the
 tape it is the Studio's tempo panel (`{panel}`), lent with its hands

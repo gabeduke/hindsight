@@ -18,7 +18,7 @@ that template, in its slot, named by `data-part` (the component gives it
 its id through `cx.id`), and in `wave.html` too while Open keeps its own
 bar.
 
-**Amended 2026-11-14** (the calm Studio's decision 5, built as its step
+**Amended 2026-11-13** (the calm Studio's decision 5, built as its step
 7b): the display has two keys, not three: what plays (the source), and
 how, its tempo over where it plays. The output's key of its own went: in
 the Studio with the tape the tempo's key opens the tempo's panel, whose

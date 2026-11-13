@@ -160,7 +160,7 @@ and still looks it:
   keys*): ●'s ▾ is Catch's menu, and on a phone the one ▾ beside ●, with
   this phone's rows after a line; the tempo's panel has the Click; the
   Studio holds 42 controls at rest, and E1 takes 11 presses. Step 7b is
-  built (2026-11-14; `architecture/bar.md`, *One key for the tempo and
+  built (2026-11-13; `architecture/bar.md`, *One key for the tempo and
   where it plays*): the bar's display has two keys, the source and the
   tempo over where it plays, which opens the tempo's panel in the Studio
   (its last row, *Plays in the jam room*, opens the Output sheet) and the

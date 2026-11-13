@@ -217,7 +217,7 @@ change on the Pi), which waits for Gabe to agree that spec.
 
 Step 7 is two PRs. 7a is Gabe's two calls, built 2026-11-13; 7b is
 decision 5's one key for tempo and output, which touches every room's bar,
-built 2026-11-14 (below). `architecture/bar.md`, *The Studio's
+built 2026-11-13 (below). `architecture/bar.md`, *The Studio's
 keys*, has how it is built.
 
 - **● has a ▾ beside it** (`rec-more`, opening `rec-menu`; in the Studio
@@ -260,7 +260,7 @@ keys*, has how it is built.
 
 ## One key for tempo and output, as built (step 7b)
 
-Decision 5, built 2026-11-14. The display has two keys, not three: what
+Decision 5, built 2026-11-13. The display has two keys, not three: what
 plays, and how. `architecture/bar.md`, *One key for the tempo and where it
 plays*, has how it is built.
 
@@ -359,7 +359,7 @@ Done:
    *as built (step 7a)* says: Catch on ●'s ▾, one ▾ beside ● on a phone,
    the click in the tempo's panel. `STUDIO_BUDGET.controls` went to 42 and
    `feed` to 25. E1 rose to 11 presses on the tablet (13 on a phone).
-8. **7b, the bar's display** (decision 5; 2026-11-14), as *as built (step
+8. **7b, the bar's display** (decision 5; 2026-11-13), as *as built (step
    7b)* says: one key for the tempo and where it plays, which opens the
    tempo's panel in the Studio (its last row opens the Output sheet) and
    the Output sheet anywhere else, owned by the bar. `STUDIO_BUDGET.controls`
