@@ -847,9 +847,9 @@ From the top:
   **⌘V / Ctrl-V** pastes, on the range or at the playhead. **Esc** lets go.
   **Shift** with a click picks several. Holding a key doesn't repeat it, and
   none of them fire while you're typing or a sheet is open.
-- **The Studio's verbs** (§8.12): **K** keeps the feed as a take (the cue
-  part, while its drawer is open), **C** catches, **G** grabs, and **↵** drops
-  the open cue part.
+- **The Studio's verbs** (§8.12): **K** keeps the feed as a take (with a cue
+  part's drawer open, it puts the part on the shelf), **C** catches, **G**
+  grabs, and **↵** drops the open cue part.
 - **After a sleep.** Lock a tablet and wake it, and the page asks the Pi
   again at once: no refresh. If the Pi doesn't answer, a small
   **Reconnecting…** note shows at the top (not for a blink) and goes when it
@@ -1363,8 +1363,8 @@ is something to jam with and to work on before it goes on the tape.
   peeled off the feed, and its drawer opens above the bar.
 - A selection on the feed has two verbs: **GRAB** (onto the cue lane) and
   **KEEP** (a take, on the shelf). Every KEEP says what it keeps: *KEEP 2m*
-  on the feed's key, *KEEP 41s* on a selection, and *KEEP 4 BARS* in a
-  part's drawer.
+  on the feed's key, *KEEP 41s* on a selection. A part's drawer says where
+  its take goes instead: *To the shelf 4 BARS*.
 - On a take, **GRAB** is the same key: the selection, or the last N bars
   before the playhead (at the take's tempo; twice N seconds without one),
   with N starting at the loop's length. In the Listening Room it is on
@@ -1380,14 +1380,17 @@ is something to jam with and to work on before it goes on the tape.
   goes into a bounce.
 - **Hold a part** (or right-click it) to open its **drawer**, above the bar,
   and Escape, Back or ✕ closes it. It opens small: the part, **Drop**,
-  **Keep** and **Toss**, with every track still there to press. **Trim**
-  opens the rest, and the lanes fold to strips to make room (**Unfold**
-  gives them their height back). Pick the inputs it holds -- two
-  make two lanes, dropped on neighbouring tracks -- and drag **IN** and
-  **OUT** into the bar either side, or move them with **[ ]** and **⇧[ ⇧]**
-  a step of the snap (⌗) at a time. **Audition** loops it here, never
-  through the Pi; **Loop** says whether a launch goes round or plays once.
-  Each change is one undo of the tape's.
+  **Trim**, **Toss** and ✕, with every track still there to press. **Trim**
+  opens the rest, and the lanes fold to strips to make room; tap it again
+  to give them their height back. First how it plays: **Audition** plays it
+  round here, never through the Pi; **Repeat** says whether a launch goes
+  round or plays once; **Reverse**, and the fades' curve. Then drag **IN**
+  and **OUT** into the bar either side, or move them with **[ ]** and
+  **⇧[ ⇧]** a step of the Studio's snap (⌗, beside the ruler) at a time; the
+  gain and **Normalize**; and the inputs it holds -- two make two lanes,
+  dropped on neighbouring tracks. Last is **To the shelf**. Each change is
+  one undo of the tape's. On a phone the drawer is a sheet with all of
+  them, in the same order.
 - **DROP ON TRACK N** (or **↵**) lays it on the armed track at the next bar
   line inside the loop, wrapping round to the loop's start when the part
   wouldn't fit before its end, **over what is there**, with its handles, so
@@ -1406,12 +1409,13 @@ is something to jam with and to work on before it goes on the tape.
   is moved back to the latest bar line where it fits, and the key and toast
   say *moved back to fit the tape*; only one longer than the tape is
   refused.
-- **KEEP** (**K**) saves it on the Listening Room's shelf, at the
-  tape's tempo. **TOSS** (**⌫**) takes it off the cue lane, with Undo.
+- **TO THE SHELF** (**K**) makes a take of it on the Listening Room's
+  shelf, at the tape's tempo. **TOSS** (**⌫**) takes it off the cue lane,
+  with Undo.
 - **A grab can be undone.** A GRAB takes the place of the last part on the
   lane while that one is a grab you never used -- never launched, dropped,
-  kept, trimmed or renamed -- so a run of presses doesn't fill the lane; it
-  says so — *in place of “main”, which you hadn’t used* — with **Undo**,
+  put on the shelf, trimmed or renamed -- so a run of presses doesn't fill
+  the lane; it says so — *in place of “main”, which you hadn’t used* — with **Undo**,
   the tape's, which puts that part back. Otherwise it is added after it.
   Only the newest Undo stays on screen.
 - A range's **Cut** and **Copy** keep what they took to themselves, unseen,
@@ -1492,7 +1496,7 @@ rooms, which is how parts of this guide still name it.
 | **Rig** | Your devices and the cables between them, from the menu (☰) in the header | unchanged |
 | **Feed** | Everything coming in, always recording; the last 15 minutes are kept in memory. The Studio draws it at the top, and Settings sets its length | the ring, the ribbon, Buffer length |
 | **Take** | Anything you kept: a KEEP, a bounce, a phone recording or a selection of another take | jam |
-| **KEEP** | Makes a take, and nothing else. Its key says how much: *KEEP 30s*, *KEEP 4 BARS* | Capture, Save as take, cutting a take |
+| **KEEP** | Makes a take, and nothing else. Its key says how much: *KEEP 30s*, *KEEP 41s*. A cue part's drawer makes one with **To the shelf** | Capture, Save as take, cutting a take |
 | **GRAB** | Puts a part on the cue lane: the last bars of the feed or of a take, a selection, or a note's stretch | Copy on the feed, Send to → Tape, Send to → Clipboard, Keep as clip |
 | **Cue lane** | The pads above track 1 that GRAB fills: a tap launches one, a hold opens its drawer above the bar | the buffer, the clipboard |
 | **DROP** | A cue part onto the armed track, at the next bar line inside the loop; its key says where. A range's Paste and Insert keep their names | Paste |
@@ -1502,7 +1506,7 @@ rooms, which is how parts of this guide still name it.
 | **Note** | A moment in a take, with words or without. **✎** makes one | flag, ⚑, Flag now |
 | **The bar** | Along the foot of the Studio, the Listening Room and Open: the only way to play. It holds a take or the tape | the player, the dock, the deck |
 | **Open** | A take's page (§4.1), from **Open ›** on the bar; the tape opens in the Studio | the take page, SIT DOWN |
-| **Repeat** | The bar's ⟲ for a take: its selection, or the whole take. For the tape it is still **Loop** | Loop |
+| **Repeat** | The bar's ⟲ for a take: its selection, or the whole take; and in a cue part's drawer, whether a launch goes round. For the tape it is still **Loop** | Loop |
 | **Tag** | A take's one tag: a name and a colour | unchanged |
 | **FX** | The held effects a controller plays (§8.13) | Punch-in FX |
 | **● Rec** | Records onto the armed track | a punch |
@@ -1796,22 +1800,21 @@ has no tip.
 | Feed source | Which input Grab takes from |
 | Grab (ribbon) | Put exactly the span you selected on the ribbon onto the cue lane |
 | Drawer grip | Pull the drawer up or down. Hold it, then drag onto a lane, to drop it there |
-| Inputs (cue) | Which inputs the clip holds, a lane each, all over the same span: tap one to take it again with or without that input. They drop on neighbouring tracks |
-| Audition | Loop the clip on this device, never through the Pi, so the jam goes on |
-| Trim | Open the bench: the clip’s inputs, IN and OUT, its gain, Normalize, Reverse and the fades. The lanes fold to strips while it is open |
-| Unfold | Give the lanes their height back, and leave the drawer open |
-| Loop (cue) | Whether a launch from the cue lane plays the clip round and round until it is tapped again, or once |
-| ✕ (cue) | Close the drawer. The clip stays on the cue lane: hold it there to open it again |
-| Drag to a lane | Drag the clip onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
 | The clip's window | What was grabbed, a bar either side. Drag IN or OUT, or the squares on its top corners for fades |
+| Drag to a lane | Drag the clip onto a lane: that lane opens, and a ghost shows where it lands, on the grid |
 | Drop on track | Lay the clip on the armed track (with several armed, the first) at the next bar line inside the loop, over what is there, with its handles: the key says where, and "replaces" when it will. Never refused for room. One undo. The clip stays on the cue lane. Stopped, ↵ again lands in the same place and replaces its own copy; playing, the next bar line has moved on. ↵ |
-| KEEP (cue) | Save the clip as a take on the Listening Room's shelf, its lanes summed, at the tape's tempo; the key says how long it is. K |
+| Trim | Open the rest: how it plays (Audition, Repeat, Reverse, the fades), then IN and OUT, its gain, Normalize, its inputs, and To the shelf. The lanes fold to strips while it is open, and shutting it gives them their height back |
 | Toss | Take the clip off the cue lane; Undo brings it back. ⌫ |
-| In ◂ ▸ / Out ◂ ▸ | Move IN or OUT a step of the snap (⌗): [ and ] for IN, ⇧[ and ⇧] for OUT |
-| Gain (cue) | The clip's level, on every lane |
-| Normalize (cue) | Bring the loudest lane's loudest moment to just under full scale, the lanes kept in balance |
+| ✕ (cue) | Close the drawer. The clip stays on the cue lane: hold it there to open it again |
+| Audition | Play the clip round and round on this device, never through the Pi, so the jam goes on |
+| Repeat (cue) | Whether a tap on the clip on the cue lane plays it round and round until it is tapped again, or once. Audition always goes round |
 | Reverse (cue) | Play the clip backwards, or forwards again |
 | Fades (cue) | The fades' curve: equal power, linear, S-curve or exponential. Drag the corners for their length |
+| In ◂ ▸ / Out ◂ ▸ | Move IN or OUT a step of the Studio's snap (⌗, beside the ruler): [ and ] for IN, ⇧[ and ⇧] for OUT |
+| Gain (cue) | The clip's level, on every lane |
+| Normalize (cue) | Bring the loudest lane's loudest moment to just under full scale, the lanes kept in balance |
+| Inputs (cue) | Which inputs the clip holds, a lane each, all over the same span: tap one to take it again with or without that input. They drop on neighbouring tracks |
+| To the shelf | Make a take of the clip, on the Listening Room's shelf: its lanes summed, at the tape's tempo; the key says how long it is. K |
 | Studio (rig) | Back to the Studio |
 | Socket | Drag from it to another socket to plug a cable in, or choose it and then where it goes. A pull on a plug unplugs it. Choose it to see what it carries |
 | Plug it into | Plug a cable from the chosen socket into this one: it writes the setting the cable is |

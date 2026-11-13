@@ -12,7 +12,7 @@ take or a tape (a note, a tag, a star; a part, a section, the loop).
 
 | Verb | Does | From |
 |---|---|---|
-| **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), a cue part's drawer, a take's selection |
+| **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), a take's selection; a cue part's drawer makes one too, and says **To the shelf** (`the-calm-studio.md`, decision 7) |
 | **BOUNCE** | makes a take from a tape, by playing it through the mixer | the tape's name's menu |
 | **Download the mix** · **Share the mix…** | a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3`. Download saves it as it arrives; Share offers it on a toast (a phone shares only from a tap), Download beside it. Share only where the browser can share files, in `exportWays`' order (`lib/wave/share.js`) | the tape's name's menu; Bounce's refusal (offers it) |
 | **GRAB** | puts a part on the cue lane, with a lane per input and its handles | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
@@ -28,8 +28,9 @@ unseen, a range's Cut, Copy and Paste's alone (what GRAB fills is the **cue
 lane**); the ring is the **feed** (*Feed length* in Settings); a flag is a
 **note**; a bounced *record* is just a take; Capture, Save as take and Cut
 are **KEEP**; Copy from the feed is **GRAB**; Paste is **DROP**; Mix down and
-Cut a record are **BOUNCE**; the bar's ⟲ is **Repeat**; the crate is not on
-screen. `lib/rooms/words.test.js` enforces the retired list.
+Cut a record are **BOUNCE**; the bar's ⟲ for a take, and a cue part's going
+round when it is launched, are **Repeat** (Loop is the tape's); the crate is
+not on screen. `lib/rooms/words.test.js` enforces the retired list.
 
 A tap on a take plays it in the bar, wherever you are; holding selects; the
 bar is the only transport; **Open** (`wave.html`) is the one page to dig in,

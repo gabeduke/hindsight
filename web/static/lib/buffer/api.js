@@ -40,7 +40,7 @@ export const trim = (tapeId, clip, inF, outF, o) => call(`/api/tapes/cue/clip${q
 /** shape sets a cue clip's gain_db, fades and their curves, normalize or reverse. The tape's state. */
 export const shape = (tapeId, clip, fields, o) => call(`/api/tapes/cue/clip${q(tapeId)}`, { ...o, method: 'PATCH', body: { ...fields, clip } });
 
-/** keep is a cue clip's KEEP, as a take: {name, label, seconds}. */
+/** keep is a cue clip's To the shelf: a take of it, {name, label, seconds}. */
 export const keep = (tapeId, clip, o) => call(`/api/tapes/cue/keep${q(tapeId)}`, { ...o, method: 'POST', body: { clip } });
 
 /** drop lays a cue clip on the tape, {track, at}, a lane a track: one undo. */

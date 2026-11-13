@@ -155,7 +155,13 @@ and still looks it:
   the mark moves it. Not done from step 3: a GRAB from the mark snapped to
   the bar, which needs a Go change (the spec's step 5 says what). His
   three calls are answered in the spec (Catch on ●'s ▾, the click in the
-  tempo's panel, Reverse, the fades and Loop first in Trim). Next, in the
+  tempo's panel, Reverse, the fades and Loop first in Trim). Step 6a is
+  built (2026-11-13; `architecture/tape.md`, *The cue lane*): a cue clip's
+  drawer opens small as its window, DROP, Trim, Toss and ✕; Trim opens on
+  Audition, Repeat, Reverse and the fades, then IN and OUT, the gain,
+  Normalize, the inputs and To the shelf; the drawer's KEEP is To the
+  shelf, its Loop Repeat, and its snap key and Unfold are gone (IN and OUT
+  step by ⌗'s snap). Step 6b, `inputs.md`, waits for Gabe's yes. Next, in the
   order proposed to him on 2026-11-13: lift and drop
   (decision 10, with the shelf and a track as sources for the cue lane),
   then hearing the feed (`backlog.md`'s output switch).

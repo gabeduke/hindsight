@@ -960,11 +960,9 @@ function renderRulerKeys() {
   setIf($('rm-lock'), 'aria-checked', String(state.loopLock));
 }
 
-// nextSnap steps the snap on: bar, beat, eighth, off, and round again.
-function nextSnap() {
-  const ids = SNAPS.map((s) => s.id);
-  setSnap(ids[(ids.indexOf(state.snap) + 1) % ids.length]);
-}
+// setSnap sets the Studio's one snap, which ⌗'s View menu picks: a cue
+// clip's drawer steps IN and OUT by it too (lib/buffer reads it in
+// hindsight:tape-state).
 function setSnap(id) {
   state.snap = id;
   writePref('tape.snap', state.snap);
@@ -4671,9 +4669,7 @@ function wire() {
     b.addEventListener('click', () => { state.mode = b.dataset.mode; writePref('tape.mode', state.mode); renderMode(); });
   }
   // ⌗ beside the ruler, the View menu (mountMenus): the snap, the loop's
-  // lock, Fit, the fold and Ask before. The buffer's snap key steps the
-  // same snap on (lib/buffer/buffer.js).
-  document.addEventListener('hindsight:snap-next', () => { if (viewActive() && state.tape?.grid) nextSnap(); });
+  // lock, Fit, the fold and Ask before.
   for (const b of $('ruler-menu').querySelectorAll('[data-snap]')) {
     b.addEventListener('click', () => setSnap(b.dataset.snap));
   }

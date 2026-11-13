@@ -3,11 +3,15 @@
 // the-studio-on-one-screen.md, step 5). GRAB on the feed copies the last N
 // bars (or a span dragged across the feed) off the ring onto the cue lane,
 // as a clip with a lane per input and its handles; the drawer opens on it
-// in the dock above the bar -- a sheet over the lanes on a phone -- and the
-// lanes fold to strips to make room. Holding a clip on the lane opens it
-// too. There it's trimmed, auditioned on this device, then dropped on a
-// lane (dragged there, or ↵ at the next free span on the armed track), kept
-// as a take, or tossed. A tap on the clip still launches it.
+// in the dock above the bar -- a sheet over the lanes on a phone -- small,
+// so the lanes keep their height: its window, DROP, Trim, Toss and ✕.
+// Holding a clip on the lane opens it too. Trim opens the rest, in the
+// order it is reached for (docs/plan/the-calm-studio.md, step 6a): how it
+// plays (Audition, Repeat, Reverse, the fades), then IN and OUT, its gain,
+// Normalize and its inputs, and last To the shelf, which makes a take of
+// it. Dropped on a lane (dragged there, or ↵ at the next free span on the
+// armed track), put on the shelf, or tossed. A tap on the clip still
+// launches it.
 //
 // The Studio (lib/rooms/studio.js) mounts it, so it exists only with the
 // two rooms on. It knows the tape from the page's `hindsight:tape-state`
@@ -42,7 +46,7 @@ import { followLoop, readPick, writePick, readSource, writeSource } from '../roo
 import { splitKey, barTop } from '../ui/menu.js';
 import { layersOf } from '../ui/layers.js';
 import { revealAbove } from '../ui/reveal.js';
-import { keepLabel, bufferKeepLength, lengthWords } from '../rooms/keeplabel.js';
+import { shelfLabel, bufferKeepLength, lengthWords } from '../rooms/keeplabel.js';
 import { recallNote, raiseUndo } from './replaced.js';
 import { GESTURE } from '../ui/press.js';
 
@@ -86,9 +90,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     note: $('buffer-note'),
     sources: $('buffer-sources'),
     audition: $('buffer-audition'),
-    snap: $('buffer-snap'),
-    snapName: $('buffer-snap-name'),
-    unfold: $('buffer-unfold'),
     trim: $('buffer-trim'),
     close: $('buffer-close'),
     grip: $('buffer-grip'),
@@ -98,7 +99,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     dropWord: $('buffer-drop-word'),
     dropSub: $('buffer-drop-sub'),
     keep: $('buffer-keep'),
-    loop: $('buffer-loop'),
+    repeat: $('buffer-repeat'),
     keepLen: $('buffer-keep-len'),
     toss: $('buffer-toss'),
     gain: $('buffer-gain'),
@@ -142,8 +143,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     open: false,      // the buffer is showing
     dropped: '',      // a buffer just dropped (its created): ↵ drops it again further on, for a moment
     droppedAt: 0,     // when
-    unfolded: false,  // UNFOLD: the lanes have their height back, the buffer stays
-    trim: false,      // TRIM: the bench is open (the inputs, IN/OUT, gain, the shapes); a clip opens with it shut
+    trim: false,      // TRIM: the rest is open (how it plays, IN/OUT, gain, its inputs, To the shelf); a clip opens with it shut
     n: readPick() ?? 4,    // the feed's 1 / 2 / 4 / 8: it starts at the tape's loop in bars (rooms/grab.js)
     loopBars: null,   // the loop N last followed
     chosen: null,     // the sources picked by hand; null follows the armed track's input
@@ -350,7 +350,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   };
   const firstClip = () => st.board.tracks.flat()[0] || {};
 
-  // moveEdge steps IN or OUT one step of the snap, ahead of the Pi's answer.
+  // moveEdge steps IN or OUT one step of the Studio's snap (⌗'s, which the
+  // page says in hindsight:tape-state), ahead of the Pi's answer.
   function moveEdge(edge, dir) {
     const g = grabOf();
     if (!g) return;
@@ -436,24 +437,28 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     else render();
   }
 
-  // --- Loop ---------------------------------------------------------------------------
+  // --- Repeat -------------------------------------------------------------------------
 
-  // Loop: whether a launch plays the clip round and round, or once. cue-set
-  // writes every field it's given: the clip goes whole.
-  function loop() {
+  // Repeat: whether a launch from the cue lane plays the clip round and
+  // round until it is tapped again, or once (the clip's `loop` on the Pi;
+  // Loop is the tape's word). Audition always goes round. cue-set writes
+  // every field it's given: the clip goes whole.
+  function repeat() {
     const c = st.clip;
     if (!c) return;
     send(() => api.edit(tapeId(), 'cue-set', { cue_clip: { ...c, loop: !c.loop } }))
       .catch((e) => toast(`Could not change it: ${e.message}`, 'bad'));
   }
 
-  // --- KEEP and TOSS ----------------------------------------------------------------
+  // --- To the shelf and TOSS -----------------------------------------------------------
 
-  function keepTake() {
+  // toShelf makes a take of the clip, its lanes summed (K): KEEP is the
+  // feed's word, so the key and its toast say where it went.
+  function toShelf() {
     if (!st.board) return;
     send(() => api.keep(tapeId(), st.sel))
       .then((k) => {
-        toast(`Kept “${named(k.label)}” as a take: it’s on the Listening Room’s shelf`, 'ok', {
+        toast(`“${named(k.label)}” is on the Listening Room’s shelf, as a take`, 'ok', {
           actions: [
             { label: 'Name it', run: () => {
               const url = `/takes.html?take=${encodeURIComponent(k.name)}`;
@@ -464,7 +469,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
           ],
         });
       })
-      .catch((e) => toast(`Could not keep it: ${e.message}`, 'bad'));
+      .catch((e) => toast(`Could not put it on the shelf: ${e.message}`, 'bad'));
   }
 
   async function untake(name, label) {
@@ -601,12 +606,12 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     const opening = active && open && !shown;
     shown = active && open;
     setOpen(body, shown);
-    // The lanes fold only for the bench: small, the drawer leaves them their
+    // The lanes fold only for Trim: small, the drawer leaves them their
     // height. A phone's sheet has no small state (its heights are its own).
     const bench = st.trim || sheetMode();
     el.panel.dataset.trim = bench ? 'open' : 'shut';
     el.trim.setAttribute('aria-expanded', String(st.trim));
-    setFold(body, active && open && bench && !st.unfolded);
+    setFold(body, active && open && bench);
     setSmall(body, active && open && !bench);
     // Docked above the bar (lib/shell/view.js showDocked).
     showDocked(ctx, el.panel, open);
@@ -695,13 +700,13 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     el.dropSub.textContent = dk.sub;
     el.drop.disabled = !dk.can || st.grabbing;
     el.keep.disabled = !g || st.grabbing;
-    // KEEP names what it keeps: the window, in bars when there is a tempo.
+    // To the shelf names what goes there: the window, in bars when there is a tempo.
     const keepLen = g ? bufferKeepLength({ frames: windowFrames(st), barFrames: g.bar_frames, sampleRate: sr() }) : '';
     el.keepLen.textContent = keepLen;
-    el.keep.setAttribute('aria-label', keepLabel(keepLen));
+    el.keep.setAttribute('aria-label', shelfLabel(keepLen));
     el.toss.disabled = !g || st.grabbing;
-    el.loop.setAttribute('aria-pressed', String(!!st.clip?.loop));
-    el.loop.disabled = !st.clip || st.grabbing;
+    el.repeat.setAttribute('aria-pressed', String(!!st.clip?.loop));
+    el.repeat.disabled = !st.clip || st.grabbing;
     for (const id of ['in-back', 'in-on', 'out-back', 'out-on']) $(`buffer-${id}`).disabled = !g || st.grabbing;
     const c = g ? firstClip() : {};
     if (!el.gain.dataset.held) el.gain.value = String(c.gain_db || 0);
@@ -709,12 +714,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     el.reverse.setAttribute('aria-pressed', String(!!g?.reversed));
     el.fadesShape.textContent = (FADE_SHAPES.find((f) => f.id === (c.fade_in_shape || '')) || FADE_SHAPES[0]).label.toLowerCase();
     for (const x of [el.gain, el.normalize, el.reverse, el.fades]) x.disabled = !g || st.grabbing;
-    const snap = SNAPS.find((s) => s.id === (d?.snap || 'bar')) || SNAPS[0];
-    el.snapName.textContent = snap.label;
-    el.snap.disabled = !hasGrid;
-    el.unfold.setAttribute('aria-pressed', String(st.unfolded));
-    el.unfold.lastChild.textContent = st.unfolded ? ' ▴' : ' ▾';
-    el.unfold.firstChild.textContent = st.unfolded ? 'Fold' : 'Unfold';
     el.audition.setAttribute('aria-pressed', String(audition.playing));
     el.audition.disabled = !g || st.grabbing;
     draw();
@@ -917,19 +916,15 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); writePick(st.n); render(); });
   }
   el.close.addEventListener('click', close);
-  el.unfold.addEventListener('click', () => { st.unfolded = !st.unfolded; render(); });
   el.trim.addEventListener('click', () => { st.trim = !st.trim; render(); });
   // A tablet turned to a phone's shape, or back, with the drawer open: the
   // sheet has no small state, so the lanes' classes follow the turn.
   if (typeof sheetQuery?.addEventListener === 'function') {
     if (ctx) ctx.on(sheetQuery, 'change', render); else sheetQuery.addEventListener('change', render);
   }
-  // The ruler's own snap, stepped on by the Studio (lib/tape/page.js), which
-  // says it back in the detail: ⌗'s View menu sets the same one.
-  el.snap.addEventListener('click', () => doc.dispatchEvent(new CustomEvent('hindsight:snap-next')));
   el.drop.addEventListener('click', drop);
-  el.keep.addEventListener('click', keepTake);
-  el.loop.addEventListener('click', loop);
+  el.keep.addEventListener('click', toShelf);
+  el.repeat.addEventListener('click', repeat);
   el.toss.addEventListener('click', toss);
   $('buffer-in-back').addEventListener('click', () => moveEdge('in', -1));
   $('buffer-in-on').addEventListener('click', () => moveEdge('in', 1));
@@ -976,7 +971,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
         case 'out-back': moveEdge('out', -1); break;
         case 'out-on': moveEdge('out', 1); break;
         case 'drop': drop(); break;
-        case 'keep': keepTake(); break;
+        case 'keep': toShelf(); break;
         case 'toss': toss(); break;
         default:
       }

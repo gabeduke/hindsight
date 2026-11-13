@@ -282,9 +282,9 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
 - **GRAB lands on the cue lane**, as a clip with a lane per input and its
   handles (`docs/architecture/tape.md`, *The cue lane*). A clip there is a
   pad: a tap launches it, a hold opens its drawer, docked above the bar,
-  where everything that acts on it is (IN/OUT, its inputs, gain, Loop,
-  DROP, KEEP, Toss); a new key for a cue clip goes in the drawer, never on
-  the pad. The clipboard is a range's Cut, Copy and Paste's, and nothing
+  where everything that acts on it is (DROP, Trim and Toss; in Trim,
+  Audition, Repeat, IN/OUT, its inputs, gain and To the shelf); a new key
+  for a cue clip goes in Trim, never on the pad or the small panel. The clipboard is a range's Cut, Copy and Paste's, and nothing
   shows it. ([0061](docs/decisions/0061-grab-lands-on-the-cue-lane.md))
 - **A take is named by `takeTitle`** (`lib/rooms/takename.js`), wherever a
   person reads it: its name, or the time on its spine. Never a take's file

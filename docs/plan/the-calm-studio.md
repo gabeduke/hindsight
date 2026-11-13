@@ -1,8 +1,8 @@
 # The calm Studio: what is on screen, and when
 
 **Status: direction agreed 2026-11-09 from a wireframe, and the order of
-what is left agreed 2026-11-10; decisions 1 to 4 and 9 are built (*Build
-order*), and 5 to 8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
+what is left agreed 2026-11-10; decisions 1 to 4, 6, 7 and 9 are built
+(*Build order*), and 5, 8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
 time, and it is "so damn cluttered": "it is hard to tell what buttons are
 useful to me."
 
@@ -170,6 +170,36 @@ one tap away, or gone.
   left it and the feed's row became a key, so `controls` stays 44. The
   feed's face holds 26 (27 at 1280×800): `feed: 27`.
 
+### The cue clip's panel and the words, as built (step 6a)
+
+Step 6 is two PRs: this one, which is the Studio's alone (built
+2026-11-13), and 6b, `inputs.md` (names for inputs and the strip, with a
+change on the Pi), which waits for Gabe to agree that spec.
+`architecture/tape.md`, *The cue lane*, has how it is built.
+
+- **The small panel is the clip's window, DROP, Trim, Toss and ✕**
+  (decision 6), each a finger and a half tall. The drawer's KEEP left it.
+- **Trim opens on what Gabe reaches for** (his call, 2026-11-13): its
+  first row is Audition, the clip's repeat, Reverse and the fades, with the
+  clip's name and length beside them; then IN and OUT, the gain and
+  Normalize, the clip's inputs, and last the key that puts the clip on the
+  shelf. It opens under the small panel's row, which stays as it was, so
+  Trim shuts where it opened. Every key in it is a finger tall. A phone's
+  sheet has no small state, and holds the same keys in the same order.
+- **Unfold went**: shutting Trim is what gives the lanes their height back.
+- **A word has one meaning** (decision 7):
+  - KEEP is the feed's: the last of the jam, kept as a take. The drawer's
+    key, which makes a take of the clip, is **To the shelf** (its K stays),
+    and its toast says the clip is on the shelf.
+  - Loop is the bar's: the tape's loop. The drawer's key, which says
+    whether a launch plays the clip round until it is tapped again or
+    once, is **Repeat**, the word the bar already uses for a take's ⟲.
+    Audition always goes round.
+  - Bar is the Studio's snap, on ⌗. The drawer's own snap key went, and IN
+    and OUT step by the Studio's snap, which the page already said to the
+    drawer in `hindsight:tape-state`.
+- Catch's caption ("loop is off") is the bar's, and changes with step 7.
+
 ## Gabe's calls before the bar changes (answered 2026-11-13)
 
 - **The capture verbs on the surface are GRAB, KEEP and ●.** Catch comes
@@ -186,7 +216,8 @@ one tap away, or gone.
 - The Studio's own mouse layout of the track head (M, S, level, input in
   the head).
 - The feed's VU pair and readouts as always-on parts.
-- The second snap menu, and the input chips repeated in the drawer.
+- The second snap menu (gone, step 6a), and the input chips repeated in
+  the drawer (step 6b).
 - Catch's key and ▾ on the bar (it goes on ●'s ▾), and the click's key
   there (it goes in the tempo's panel).
 - The dead buffer routes on the Pi (`STATE.md`), with this pass.
@@ -220,12 +251,18 @@ Done:
    lines fall, `grabRing`'s `downbeatAt`): a `snap` on the ring's grab
    request, in Go, and the key saying so. And the budget did not drop: the
    tape's face holds what the Studio held, so the cut is step 8's.
+6. **6a, the cue clip's panel and the words** (decisions 6 and 7;
+   2026-11-13), as *as built (step 6a)* says: the small panel is the
+   window, DROP, Trim, Toss and ✕; Trim opens on Audition, Repeat, Reverse
+   and the fades; To the shelf and Repeat for the drawer's KEEP and Loop;
+   its snap key and Unfold out. J1.6 has the story. The tape's face at rest
+   is as it was (the drawer is shut there), so `STUDIO_BUDGET` did not move.
 
 Left, in order:
 
-6. **The cue clip's panel and the words** (decision 7; what is left of 6),
-   with `inputs.md`'s names for inputs and its strip, which is where the
-   head's input chip goes.
+6. **6b, the inputs** (what is left of step 6): `inputs.md`'s names for
+   inputs and its strip, which is where the head's input chip and the
+   drawer's input chips go. It waits for Gabe to agree that spec.
 7. **The bar's display** (decision 5) and the capture verbs, as Gabe's
    calls above say: Catch on ●'s ▾, the click in the tempo's panel.
 8. **Rip out** what the steps left unused, and lower the budget.

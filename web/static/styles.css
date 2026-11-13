@@ -3829,43 +3829,45 @@ body.tape-page.tracks-fold #lanes { display: none; }
 }
 
 /* A cue clip's drawer: docked above the bar like the clip editor (the dock,
-   above), so the lanes move up for it rather than under the bar. */
+   above), so the lanes move up for it rather than under the bar. With Trim
+   open (the-calm-studio.md, step 6a): the small panel's row, then how it
+   plays with what it is beside it, then IN and OUT, the gain, Normalize,
+   its inputs and To the shelf. Its keys are a finger tall. */
 .buffer-panel {
   flex: none; position: relative; margin: 0 12px; padding: 10px 14px 10px;
-  display: grid; gap: 8px;
+  display: grid; gap: 8px; grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "body body" "play head" "foot foot";
   border-bottom: 0; border-radius: 12px 12px 0 0;
   box-shadow: inset 0 1px 0 var(--hl), 0 -14px 28px -18px var(--sh-strong);
 }
 .buffer-panel[hidden] { display: none; }
 .buffer-sheet-grip { display: none; }
-.buffer-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
+/* What it is, at the right of Trim's first row: its note shortens rather
+   than wraps. */
+.buffer-head { grid-area: head; align-self: center; display: flex; align-items: baseline; justify-content: flex-end; gap: 4px 10px; min-width: 0; overflow: hidden; white-space: nowrap; }
 .buffer-panel .buffer-title { margin: 0; font: 700 15px var(--label-font); letter-spacing: .2em; text-transform: uppercase; color: var(--ink); }
 .buffer-panel .buffer-title::after { content: none; }
 .buffer-meta { font: 500 12px var(--mono); color: var(--ink-dim); white-space: nowrap; }
 .buffer-meta-short { display: none; }
 .buffer-sources { display: flex; gap: 4px; flex-wrap: wrap; }
-.chip.buffer-source { min-height: 30px; padding: 0 10px; font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+.chip.buffer-source { min-height: 44px; padding: 0 10px; font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
 .buffer-source-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip.buffer-source[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 1px 0 var(--hl), 0 0 0 1px var(--accent); color: var(--ink); }
 .buffer-source-led { width: 7px; height: 7px; border-radius: 50%; background: var(--led-off); }
 .chip.buffer-source.signal .buffer-source-led { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
-.buffer-note { font: 500 12px var(--font); color: var(--warn-ink); }
+.buffer-note { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 500 12px var(--font); color: var(--warn-ink); }
 .buffer-note[hidden] { display: none; }
-.buffer-spacer { flex: 1 1 0; }
-.icon-btn.buffer-audition, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .icon-btn.buffer-loop, .icon-btn.buffer-trim, .icon-btn.buffer-close { min-height: 34px; padding: 0 11px; font: 700 12px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
-.icon-btn.buffer-snap { font-family: var(--mono); letter-spacing: 0; text-transform: none; }
-/* Its ⌗ takes the room the glyph took: the drawn one's blank sides come off. */
-.icon-btn.buffer-snap .i { margin: 0 -1px; }
+/* Trim's first row: Audition, Repeat, Reverse and the fades, keys of the
+   clip's shape (.buffer-shape, below), lit while they are on. */
+.buffer-play { grid-area: play; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .buffer-led { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); }
 .icon-btn.buffer-audition[aria-pressed="true"] .buffer-led { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
-.icon-btn.buffer-unfold[aria-pressed="true"], .icon-btn.buffer-trim[aria-expanded="true"] { border-color: var(--ink-dim); }
-/* Loop is the pad's ⟲ that was: lit while a launch goes round. */
-.icon-btn.buffer-loop[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.icon-btn.buffer-trim[aria-expanded="true"] { border-color: var(--ink-dim); }
 
-.buffer-body { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(220px, 260px); gap: 10px; align-items: stretch; min-width: 0; }
+.buffer-body { grid-area: body; display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-width: 0; }
 .buffer-grip {
   appearance: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  padding: 8px 0; border: 1px dashed var(--rule); border-radius: 8px; background: transparent; color: var(--ink-dim);
+  align-self: stretch; padding: 8px 0; border: 1px dashed var(--rule); border-radius: 8px; background: transparent; color: var(--ink-dim);
   cursor: grab; touch-action: none;
 }
 .buffer-grip:active { cursor: grabbing; }
@@ -3874,9 +3876,13 @@ body.tape-page.tracks-fold #lanes { display: none; }
 .buffer-window { position: relative; height: 112px; min-width: 0; border-radius: 6px; overflow: hidden; background: var(--oxide-edge); box-shadow: inset 0 2px 0 rgba(0, 0, 0, .35); }
 .buffer-canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
 .buffer-canvas.buffer-at-mark, body.buffer-holding .buffer-canvas { cursor: ew-resize; }
-.buffer-acts { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; min-width: 0; }
+.buffer-acts { display: flex; gap: 8px; min-width: 0; }
+/* DROP, Trim, Toss and ✕: a row of keys a finger and a half tall, the same
+   with Trim open or shut, so Trim shuts where it opened. */
+.buffer-acts > .icon-btn { min-height: 56px; font: 700 13.5px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
+.icon-btn.buffer-close { min-width: 56px; }
 .icon-btn.buffer-drop {
-  flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; padding: 10px 16px; min-height: 64px;
+  flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; padding: 8px 16px;
   background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo)); color: var(--on-accent); border-color: var(--accent-edge);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 1px 0 var(--accent-edge), 0 8px 18px -10px var(--accent-glow);
   text-align: left;
@@ -3884,25 +3890,25 @@ body.tape-page.tracks-fold #lanes { display: none; }
 .buffer-drop-word { font: 700 20px var(--label-font); letter-spacing: .12em; text-transform: uppercase; line-height: 1.05; }
 .buffer-drop-sub { font: 500 11.5px var(--mono); opacity: .9; }
 .icon-btn.buffer-drop:disabled { background: linear-gradient(180deg, var(--key-hi), var(--key-lo)); color: var(--ink-dim); border-color: var(--edge); box-shadow: none; opacity: 1; }
-.buffer-acts-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 8px; }
-.buffer-acts-row > .icon-btn { min-height: 44px; font: 700 13.5px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
-.icon-btn.buffer-keep {
-  background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
-  color: var(--paper-ink); border-color: var(--paper-rule);
-}
-/* KEEP names what it keeps: "KEEP 4 BARS" (bars in capitals, seconds as 3.6s). */
-.buffer-keep-len { letter-spacing: .06em; text-transform: none; } /* the key's own gap sets it off KEEP */
-.buffer-keep-len:empty { display: none; }
-.buffer-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.buffer-foot { grid-area: foot; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .buffer-edge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 10px; background: var(--track); }
 .buffer-edge-name { font: 700 11.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); margin-right: 2px; }
-.icon-btn.buffer-step { min-width: 36px; min-height: 32px; padding: 0 8px; }
+.icon-btn.buffer-step { min-width: 44px; min-height: 44px; padding: 0 8px; }
 .buffer-gain { display: inline-flex; align-items: center; gap: 6px; font: 700 11.5px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
 .buffer-gain input { width: 110px; }
 .buffer-gain-val { font: 500 12px var(--mono); color: var(--ink); letter-spacing: 0; text-transform: none; min-width: 5.5em; }
-.icon-btn.buffer-shape { min-height: 32px; padding: 0 10px; font-size: 12.5px; }
+.icon-btn.buffer-shape { min-height: 44px; padding: 0 12px; font-size: 12.5px; }
 .icon-btn.buffer-shape[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); }
-.buffer-hint { margin-left: auto; font-size: 12px; color: var(--ink-faint); text-align: right; max-width: 34em; }
+/* To the shelf, last in Trim, at the end of its row: a take of the clip,
+   on paper as the takes are. KEEP is the feed's word (decision 7). */
+.icon-btn.buffer-keep {
+  margin-left: auto; min-height: 44px; font: 700 13.5px var(--label-font); letter-spacing: .12em; text-transform: uppercase;
+  background: linear-gradient(180deg, var(--paper-hi), var(--paper-lo));
+  color: var(--paper-ink); border-color: var(--paper-rule);
+}
+/* It names what goes there: "4 BARS" (bars in capitals, seconds as 3.6s). */
+.buffer-keep-len { letter-spacing: .06em; text-transform: none; } /* the key's own gap sets it off the words */
+.buffer-keep-len:empty { display: none; }
 
 /* The lanes fold to strips while the buffer is open: heights only, so a
    lane's x -- its playhead and its clips -- never moves. The one under a
@@ -3935,25 +3941,14 @@ body.buffer-lifting, body.buffer-lifting * { cursor: grabbing !important; user-s
 /* Nobody trims mid-drag: on a laptop the bench's foot gives the lanes its
    room while the buffer is carried to one. */
 @media (min-width: 700px) and (min-height: 441px) {
-  body.buffer-lifting .buffer-foot { display: none; }
-  /* Docked above the bar, the drawer keeps to a head row, the window and a
-     foot row, so the lanes over it keep a strip each: its note shortens
-     rather than wraps, and the hint, which says what GRAB does, goes. */
-  .buffer-head, .buffer-foot { flex-wrap: nowrap; }
-  .buffer-note { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.buffer-lifting :is(.buffer-head, .buffer-play, .buffer-foot) { display: none; }
   .buffer-window { height: 96px; }
-  .buffer-hint { display: none; }
   /* Small, as it opens (data-trim="shut"; buffer.js): one row, the clip,
-     Drop, Keep, Toss, then Trim and the close, so the lanes keep their
-     height. Trim opens the bench. Its name is on its pad on the cue lane,
-     and what it holds is on KEEP and DROP. */
-  .buffer-panel[data-trim="shut"] { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-  .buffer-panel[data-trim="shut"] :is(.buffer-foot, .buffer-title, .buffer-meta, .buffer-note, .buffer-spacer, .buffer-sources, .buffer-audition, .buffer-snap, .buffer-unfold, .buffer-loop, .buffer-grip-word) { display: none; }
-  .buffer-panel[data-trim="shut"] .buffer-head { grid-area: 1 / 2; }
-  .buffer-panel[data-trim="shut"] .buffer-body { grid-area: 1 / 1; grid-template-columns: 52px minmax(0, 1fr) auto; }
+     DROP, Trim, Toss and the close, so the lanes keep their height. Its
+     name is on its pad on the cue lane, and where it lands on DROP. */
+  .buffer-panel[data-trim="shut"] { grid-template-areas: "body"; grid-template-columns: minmax(0, 1fr); }
+  .buffer-panel[data-trim="shut"] :is(.buffer-head, .buffer-play, .buffer-foot, .buffer-grip-word) { display: none; }
   .buffer-panel[data-trim="shut"] .buffer-window { height: 56px; }
-  .buffer-panel[data-trim="shut"] :is(.buffer-acts, .buffer-acts-row) { display: flex; }
-  .buffer-panel[data-trim="shut"] .icon-btn.buffer-drop { min-height: 56px; }
 }
 
 /* While it's open the tape's face gives the lanes room: no sections row
@@ -3977,29 +3972,36 @@ body.buffer-open .tape-sections-row { display: none; }
   .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - 8px); }
   body:not(.player-open) .buffer-panel { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px)); }
   body:not(.player-open) .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - var(--np-h, 0px) - 8px); }
-  .buffer-grip, .buffer-hint, .buffer-panel .buffer-kbd, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .icon-btn.buffer-trim, .buffer-meta-full { display: none; }
+  .buffer-grip, .buffer-panel .buffer-kbd, .icon-btn.buffer-trim, .buffer-meta-full { display: none; }
   .buffer-meta-short { display: inline; }
   .buffer-panel .buffer-title { letter-spacing: .14em; }
-  .icon-btn.buffer-audition, .icon-btn.buffer-loop, .icon-btn.buffer-close { min-height: 38px; }
   .buffer-sheet-grip {
     display: block; position: sticky; top: 0; z-index: 1; flex: 0 0 calc(100% + 24px); height: 26px; margin: 0 -12px -6px;
     padding: 0; border: 0; background: linear-gradient(180deg, var(--panel-hi), var(--panel-hi) 70%, transparent);
     cursor: grab; touch-action: none;
   }
   .buffer-sheet-grip::before { content: ''; display: block; width: 44px; height: 5px; margin: 6px auto 0; border-radius: 3px; background: var(--rule); }
-  .buffer-head { order: 1; flex: 1 0 100%; }
-  .buffer-sources { order: 2; flex: 1 0 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .chip.buffer-source { justify-content: center; min-height: 38px; border-radius: 10px; }
+  /* In the small panel's order, then Trim's: what it is and ✕; the
+     window; DROP and Toss; how it plays; IN and OUT, the gain and
+     Normalize, its inputs; To the shelf. The peek is what it is. */
+  .buffer-body, .buffer-acts { display: contents; }
+  .buffer-head { order: 1; flex: 1 1 0; flex-wrap: wrap; justify-content: flex-start; align-self: center; white-space: normal; }
+  .buffer-note { flex: 1 0 100%; white-space: normal; }
+  .icon-btn.buffer-close { order: 1; flex: none; min-height: 44px; min-width: 44px; }
+  .buffer-window { order: 2; flex: 1 0 100%; height: 120px; }
+  .icon-btn.buffer-drop { order: 3; flex: 1 1 0; align-items: center; text-align: center; min-height: 64px; }
+  .icon-btn.buffer-toss { order: 3; flex: none; min-height: 64px; }
+  .buffer-play { order: 4; flex: 1 0 100%; flex-wrap: wrap; }
+  .buffer-play > .icon-btn { flex: 1 1 40%; white-space: nowrap; }
+  .buffer-foot { order: 5; flex: 1 0 100%; }
+  .buffer-edge { flex: 1 1 40%; justify-content: space-between; }
+  .buffer-gain { flex: 1 1 50%; }
+  .buffer-gain input { flex: 1 1 auto; width: auto; min-width: 0; }
+  .buffer-sources { flex: 1 0 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .chip.buffer-source { justify-content: center; border-radius: 10px; }
   /* A take's chip is the only one, and its time is longer than a quarter. */
   .chip.buffer-source[data-name^="take:"] { grid-column: 1 / -1; }
-  .buffer-body, .buffer-foot { display: contents; }
-  .buffer-window { order: 2; flex: 1 0 100%; height: 120px; }
-  .buffer-edge { order: 3; flex: 1 1 40%; justify-content: space-between; }
-  .buffer-acts { order: 4; flex: 1 0 100%; display: flex; flex-direction: column; }
-  .buffer-gain { order: 5; flex: 1 0 100%; }
-  .buffer-gain input { flex: 1 1 auto; width: auto; }
-  .icon-btn.buffer-shape { order: 6; flex: 1 1 auto; min-height: 38px; white-space: nowrap; }
-  .icon-btn.buffer-drop { align-items: center; text-align: center; min-height: 64px; }
+  .icon-btn.buffer-keep { flex: 1 0 100%; margin-left: 0; }
   /* The page scrolls the lanes clear of it. By #np, as the inspector's: as
      body.tape-page.buffer-open it tied with css/bar.css's padding for the
      mini player, which comes later and won, so nothing could scroll. */

@@ -1,11 +1,11 @@
 // web/static/lib/rooms/keeplabel.test.js
 // Every KEEP names what it keeps (docs/architecture/rooms.md,
-// Vocabulary): KEEP 2m on the feed's key, KEEP 4
-// BARS on the buffer's, KEEP 30s on the instrument's pad.
+// Vocabulary): KEEP 2m on the feed's key, KEEP 30s on the instrument's pad;
+// a cue clip's drawer says To the shelf 4 BARS.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { lengthWords, keepLabel, feedKeepLength, bufferKeepLength, selectionKeepLength, keepAria } from './keeplabel.js';
+import { lengthWords, keepLabel, feedKeepLength, bufferKeepLength, selectionKeepLength, keepAria, shelfLabel } from './keeplabel.js';
 
 test('a length reads short: seconds, then minutes', () => {
   assert.equal(lengthWords(30), '30s');
@@ -61,7 +61,7 @@ test('the feed keeps the last 30s, 2m, 7m, or all the ring when the length is 0'
   assert.equal(feedKeepLength(30, 0), '30s');
 });
 
-test('the buffer keeps its window: in bars with a tempo, else seconds', () => {
+test('a cue clip goes to the shelf as its window: in bars with a tempo, else seconds', () => {
   const sampleRate = 48000;
   const barFrames = 96000; // 120 BPM
   assert.equal(bufferKeepLength({ frames: 4 * barFrames, barFrames, sampleRate }), '4 BARS');
@@ -71,6 +71,13 @@ test('the buffer keeps its window: in bars with a tempo, else seconds', () => {
   assert.equal(bufferKeepLength({ frames: 4 * sampleRate, barFrames: 0, sampleRate }), '4.0s', 'no tempo: seconds');
   assert.equal(bufferKeepLength({ frames: 17 * sampleRate, sampleRate }), '17s');
   assert.equal(bufferKeepLength({ frames: 0, barFrames, sampleRate }), '');
+});
+
+test('a cue clip’s key is To the shelf and its length, never KEEP (KEEP is the feed’s word)', () => {
+  assert.equal(shelfLabel('4 BARS'), 'To the shelf 4 BARS');
+  assert.equal(shelfLabel('3.6s'), 'To the shelf 3.6s');
+  assert.equal(shelfLabel(''), 'To the shelf', 'nothing to name: the bare words');
+  assert.doesNotMatch(shelfLabel('4 BARS'), /keep/i);
 });
 
 test('a selection of the feed keeps its own length', () => {

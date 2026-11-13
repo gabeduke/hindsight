@@ -141,7 +141,7 @@ const DRAWN = {
   'shell.html': ['tape-undo', 'tape-redo', 'tape-name',
     'np-start', 'np-play', 'np-rec', 'np-back5', 'np-catch-more', 'np-loop', 'np-click', 'np-eject', 'np-open', 'np-note',
     'np-tempo', 'np-source', 'np-output',
-    'ruler-more', 'buffer-snap'],
+    'ruler-more'],
   'wave.html': ['take-undo', 'take-name', 'take-star', 'to-start', 'back5', 'play', 'loop'],
 };
 const GLYPHS = /[↶↷⋯☰▾▴▸▶❚■⟲↺⏏✎⌗]/;
@@ -171,7 +171,6 @@ test('the header’s, the bar’s and the ruler’s keys are drawn from the spri
 // drawn yet, by file. A count may only go down, and when a region is drawn
 // its number here goes down with it.
 const TYPED = {
-  'lib/buffer/buffer.js': 1, // the unfold key's ▾/▴
   'lib/shell/views/room.js': 1, // ▶ Play all / ■ Stop
   'lib/tape/away-sheet.js': 2, // ▶ Listen / ■ Stop, ■ Stop and keep
   'lib/tape/page.js': 1, // the clip editor's ▶/❚❚
