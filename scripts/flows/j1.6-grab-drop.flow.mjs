@@ -1,8 +1,42 @@
 // J1.6 Lift a moment: GRAB the last bars of the jam onto the cue lane, its
 // drawer open above the bar, then DROP them on the armed track. How many bars is on GRAB's ▾, whose bars
-// open under it (lib/ui/menu.js splitKey).
+// open under it (lib/ui/menu.js splitKey). The drawer opens small, and Trim
+// opens the rest in the order Gabe reaches for it (docs/plan/the-calm-studio.md,
+// step 6a).
 // docs/flows.md#j16
 const parts = (s) => (s.tracks ?? []).reduce((n, tr) => n + (tr.clips?.length ?? 0), 0);
+
+// In the page: the drawer's keys a person can see, in the order they are in it.
+function shownKeys() {
+  return [...document.querySelectorAll('#buffer button')]
+    .filter((k) => k.getClientRects().length && getComputedStyle(k).visibility !== 'hidden')
+    .map((k) => k.id || [...k.classList].find((c) => c.startsWith('buffer-')));
+}
+
+// In the page: Trim's order as a person reads it (the-calm-studio.md, step
+// 6a), by where each part is, top to bottom and then left to right: under
+// DROP, Audition, Repeat, Reverse and the fades (`first`: one row, but on a
+// phone two); then IN, OUT, the gain, Normalize, the inputs and last To the
+// shelf (`rest`). `short` names the keys under a finger's 44 px. Null until
+// they are all laid out.
+function trimOrder() {
+  const box = (id) => document.getElementById(id)?.getBoundingClientRect();
+  const drop = box('buffer-drop');
+  const play = ['buffer-audition', 'buffer-repeat', 'buffer-reverse', 'buffer-fades'].map(box);
+  const rest = ['buffer-in-back', 'buffer-out-back', 'buffer-gain', 'buffer-normalize', 'buffer-sources', 'buffer-keep'].map(box);
+  if (![drop, ...play, ...rest].every((r) => r && r.width > 0 && r.height > 0)) return null;
+  const mid = (r) => (r.top + r.bottom) / 2;
+  const before = (a, b) => mid(a) < mid(b) - 4 || (Math.abs(mid(a) - mid(b)) <= 4 && a.left < b.left);
+  const inOrder = (rs) => rs.every((r, i) => !i || before(rs[i - 1], r));
+  const phone = innerWidth < 700;
+  const oneRow = play.every((r) => Math.abs(mid(r) - mid(play[0])) <= 4);
+  const keys = [...document.querySelectorAll('#buffer button')].filter((k) => k.getClientRects().length && getComputedStyle(k).visibility !== 'hidden');
+  return {
+    first: play[0].top >= drop.bottom - 1 && inOrder(play) && (phone || oneRow),
+    rest: inOrder([play.at(-1), ...rest]) && keys.at(-1)?.id === 'buffer-keep',
+    short: keys.filter((k) => k.getBoundingClientRect().height < 44 && !k.classList.contains('buffer-sheet-grip')).map((k) => k.id || k.className),
+  };
+}
 
 export default {
   id: 'J1.6',
@@ -64,7 +98,27 @@ export default {
       t.expect('each track is a finger tall: the drawer opens small', await t.poll(() =>
         [...document.querySelectorAll('#lanes > .tape-track')].every((r) => r.getBoundingClientRect().height >= 44), null, 3000),
       await page.evaluate(() => [...document.querySelectorAll('#lanes > .tape-track')].map((r) => Math.round(r.getBoundingClientRect().height)).join(' ')));
+      // Small, it is the clip, DROP, Trim, Toss and ✕ (the calm Studio,
+      // decision 6): KEEP is the feed's word, and the rest is Trim's.
+      const small = await page.evaluate(shownKeys);
+      t.expect('the small panel is the clip, DROP, Trim, Toss and ✕', small.join(' ') === 'buffer-grip buffer-drop buffer-trim buffer-toss buffer-close', small);
+      await t.step('tap Trim', () => t.tap(page.locator('#buffer-trim')));
+      const trim = await t.poll(trimOrder, null, 3000);
+      t.expect('Trim opens on Audition, Repeat, Reverse and the fades, in a row under the clip', !!trim?.first, trim);
+      t.expect('then IN and OUT, the gain, Normalize and its inputs, and last To the shelf', !!trim?.rest, trim);
+      if (t.profile !== 'desktop') {
+        t.expect('its keys are a finger tall', trim?.short.length === 0, trim?.short);
+      }
+      await t.step('tap Trim again', () => t.tap(page.locator('#buffer-trim')));
+      t.expect('it shuts, and the tracks are a finger tall again', await t.poll(() => document.getElementById('buffer').dataset.trim === 'shut'
+        && [...document.querySelectorAll('#lanes > .tape-track')].every((r) => r.getBoundingClientRect().height >= 44), null, 3000));
     } else {
+      // A phone's sheet has no small state: it holds the small panel's keys,
+      // then Trim's, in that order, a pull of its grip away.
+      const order = await page.evaluate(trimOrder);
+      t.expect('the sheet is the clip, DROP and Toss, then Audition, Repeat, Reverse and the fades', !!order?.first, order);
+      t.expect('then IN and OUT, the gain, Normalize and its inputs, and last To the shelf', !!order?.rest, order);
+      t.expect('its keys are a finger tall', order?.short.length === 0, order?.short);
       const armed = (await api.tapeState()).rec_track;
       t.expect('the cue lane and the armed track are in sight above the drawer, under the header', await t.poll((n) => {
         const top = document.getElementById('buffer').getBoundingClientRect().top;

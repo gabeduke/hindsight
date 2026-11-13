@@ -1,8 +1,10 @@
 // web/static/lib/rooms/keeplabel.js
 // KEEP says what it keeps (docs/architecture/rooms.md,
-// Vocabulary): KEEP 2m on the feed's key, KEEP 4
-// BARS on the buffer's, KEEP 30s on the instrument's pad, and the length of
-// a span held on the ribbon. Pure: the words, and nothing that draws them.
+// Vocabulary): KEEP 2m on the feed's key, KEEP 30s on the instrument's pad,
+// and the length of a span held on the ribbon. A cue clip's drawer says To
+// the shelf, and its length: KEEP is the feed's word
+// (docs/plan/the-calm-studio.md, decision 7). Pure: the words, and nothing
+// that draws them.
 
 import { barsText } from '../buffer/model.js';
 
@@ -42,14 +44,21 @@ export function feedKeepLength(seconds, ringSeconds) {
 }
 
 /**
- * bufferKeepLength is what the buffer's KEEP keeps: its window, as 4 BARS
- * when the tape has a tempo (barFrames the bar's length), else in seconds.
+ * bufferKeepLength is what a cue clip's To the shelf puts there: its window,
+ * as 4 BARS when the tape has a tempo (barFrames the bar's length), else in
+ * seconds.
  */
 export function bufferKeepLength({ frames, barFrames = 0, sampleRate = 48000 }) {
   if (!(frames > 0)) return '';
   if (barFrames > 0) return barsText(frames, barFrames).toUpperCase();
   return lengthWords(frames / sampleRate);
 }
+
+/**
+ * shelfLabel is the accessible name of a cue clip's To the shelf: what is
+ * written on it (the words and its length), so the name contains the label.
+ */
+export const shelfLabel = (length) => (length ? `To the shelf ${length}` : 'To the shelf');
 
 /** selectionKeepLength is what KEEP keeps of a span held on the ribbon. */
 export const selectionKeepLength = (seconds) => lengthWords(seconds);

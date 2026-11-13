@@ -28,7 +28,7 @@ export default {
     await grab.waitFor({ state: 'visible' });
     await t.step('tap GRAB', () => t.tap(grab));
     const lane = await api.until(async () => (await api.tapeState()).cue?.clips?.[0], 'a clip on the cue lane', 8000).catch(() => null);
-    t.expect('GRAB lands on the cue lane, looping, with a lane per input and its handles',
+    t.expect('GRAB lands on the cue lane, set to repeat, with a lane per input and its handles',
       lane?.loop && lane.lanes?.length >= 1 && lane.grab?.before > 0, JSON.stringify(lane));
     if (!lane) return;
     const chip = page.locator(`#cue-row .cue-clip-chip[data-id="${lane.id}"]`);

@@ -1,8 +1,8 @@
 // web/static/lib/buffer/keys.js
 // The buffer's keys, as their own small table (docs/superpowers/specs/2026-10-15-studio-buffer-design.md).
 // G grabs whenever the Studio is up; the rest mean something only while the
-// buffer is open -- [ ] move IN, ⇧[ ⇧] move OUT, K keeps it as a take, ⌫
-// tosses it -- and ↵ drops it while it's open, or again further on just
+// buffer is open -- [ ] move IN, ⇧[ ⇧] move OUT, K puts it on the shelf as
+// a take, ⌫ tosses it -- and ↵ drops it while it's open, or again further on just
 // after a drop. The table is the control bus's (lib/play/controls.js, the
 // one list of actions), and bindBufferKeys listens for it.
 //
@@ -42,7 +42,7 @@ export function typingInto(el) {
 // Where ↵ belongs to what has the focus, however it got there: a link, a
 // menu's item, anything in a sheet or a menu, and the buffer's own keys.
 const OWN_ENTER = 'a[href], [role="menuitem"], [role="option"], [role="menu"], dialog, .buffer-panel, .buffer-grab';
-// And a button -- a toast's Undo, Loop -- but only one the keyboard brought
+// And a button -- a toast's Undo, Repeat -- but only one the keyboard brought
 // the focus to. Chrome focuses a button that's clicked: arm a track with its
 // ●, press ↵ for DROP, and the ↵ went to the ●, which disarmed it. ▶ never
 // keeps it: ↵ there would stop the tape mid-jam (the bar marks it

@@ -40,12 +40,13 @@ test('`/` with the tape off offers Save as take on a selection, and nothing for 
   assert.match(capture, /id="cap-word"/);
 });
 
-test('the feed’s KEEP key carries its length, the buffer’s its own', () => {
+test('the feed’s KEEP key carries its length; a cue clip’s drawer says To the shelf, and its own', () => {
   assert.match(tape, /id="studio-keep-word">Keep<\/span><span class="studio-keep-len" id="studio-keep-len"><\/span>/);
-  const keep = /<button[^>]*id="buffer-keep"[\s\S]*?<\/button>/.exec(tape)[0];
-  assert.doesNotMatch(keep, /Keep as take/, 'the buffer’s KEEP is not "as take"');
-  assert.match(keep, /id="buffer-keep-word">Keep</);
-  assert.match(keep, /id="buffer-keep-len"/);
+  const shelf = /<button[^>]*id="buffer-keep"[\s\S]*?<\/button>/.exec(tape)[0];
+  // One KEEP on the screen, the feed's (the-calm-studio.md, decision 7).
+  assert.doesNotMatch(shelf, />[^<]*\bkeep/i, 'the drawer’s key does not say KEEP');
+  assert.match(shelf, /id="buffer-keep-word">To the shelf</);
+  assert.match(shelf, /id="buffer-keep-len"/);
 });
 
 test('the feed’s KEEP names the mark or the selection, told by the ribbon; a tap marks only where the page asks', () => {
