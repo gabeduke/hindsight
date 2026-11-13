@@ -5,6 +5,15 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.13.2 — 2026-11-13
+
+- The rules name the cue clip's keys as they are now: Drop, Trim and Toss, with the rest in Trim (fda125cd)
+- The calm Studio's step 6a is built: the architecture says how a cue clip's drawer is laid out and what its words mean, and the inputs strip still waits for Gabe's yes (1b2ba38a)
+- A cue clip's drawer opens as its window, DROP, Trim, Toss and ✕, and Trim opens on Audition, Repeat, Reverse and the fades; its Keep is To the shelf and its Loop is Repeat (30de6ae8)
+- A cue clip's drawer has no snap key of its own: IN and OUT step by the Studio's snap, on ⌗ beside the ruler (3a5076ea)
+- The calm Studio's spec says how the cue clip's panel and its words are built, and that the inputs strip waits for Gabe's yes (c9d06713)
+
+
 ## v2026.11.13.1 — 2026-11-13
 
 - → on the mark's key never moves a mark set close to now back a second (dd6cc6a6)
