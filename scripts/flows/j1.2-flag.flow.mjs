@@ -1,5 +1,6 @@
-// J1.2 Flag a moment now: Flag now in the Studio drops a flag on the feed,
-// and the next KEEP carries it, at the moment it was pressed. docs/flows.md#j12
+// J1.2 Flag a moment now: Flag now, on the Studio's feed face, drops a flag
+// on the feed, and the next KEEP carries it, at the moment it was pressed.
+// docs/flows.md#j12
 export default {
   id: 'J1.2',
   title: 'Flag now; the flag rides into the next take',
@@ -9,6 +10,9 @@ export default {
     const before = new Set((await api.takes()).map((x) => x.name));
 
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
+    // Flag now is the feed's face's: on the tape's the feed is a thin row.
+    t.expect('Flag now is not on the tape’s face', await page.locator('#face-feed').waitFor({ state: 'visible' }).then(() => page.locator('#mark-btn').isHidden()));
+    await t.step('tap the feed’s strip, to turn to the feed', () => t.tap(page.locator('#face-feed')));
     const mark = page.locator('#mark-btn');
     await mark.waitFor({ state: 'visible' });
     await t.poll(() => !document.getElementById('mark-btn')?.disabled);

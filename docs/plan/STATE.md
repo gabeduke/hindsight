@@ -147,11 +147,16 @@ and still looks it:
   tap away, and makes the feed and the tape two faces of one room. Built
   (#278 to #282): the cue clip's drawer opens small, the feed's mark (a
   tap on the ribbon, KEEP and GRAB from it, one KEEP, the VU needles out),
-  and one track head with a mouse and on touch. Next, in a fresh session:
-  the two faces, with Gabe's two journeys as flows (Gabe, 2026-11-13: lead
-  with it). His three calls are answered in the spec (Catch on ●'s ▾, the
-  click in the tempo's panel, Reverse, the fades and Loop first in Trim).
-  After it, in the order proposed to him on 2026-11-13: lift and drop
+  and one track head with a mouse and on touch. Then (2026-11-13) the two
+  faces (`lib/rooms/face.js`, `architecture/tape.md`, *The two faces*):
+  the tape's, the feed a thin row over the lanes, and the feed's, the
+  ribbon as tall as the room, the tape a thin row over it; Gabe's two
+  journeys are core flows (E1 10 presses on the tablet, E2), and a drag of
+  the mark moves it. Not done from step 3: a GRAB from the mark snapped to
+  the bar, which needs a Go change (the spec's step 5 says what). His
+  three calls are answered in the spec (Catch on ●'s ▾, the click in the
+  tempo's panel, Reverse, the fades and Loop first in Trim). Next, in the
+  order proposed to him on 2026-11-13: lift and drop
   (decision 10, with the shelf and a track as sources for the cue lane),
   then hearing the feed (`backlog.md`'s output switch).
   `inputs.md` (proposed) folds into its step 6. This comes before the

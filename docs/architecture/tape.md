@@ -511,8 +511,10 @@ half, full), docked above the mini player as the inspector is, so it never
 covers ▶. Opening, it brings the cue lane (its clip) and the armed track
 (where DROP lands) into sight above it, under the header
 (`lib/ui/reveal.js` `revealAbove`, which the clip bar's and the inspector's
-reveal use too); the other tracks are a scroll away, the page keeping the
-drawer's height clear at its end. A folded track's head there is its name
+reveal use too, and which leaves out what isn't laid out: on the feed's
+face the lanes aren't, and the cue lane alone comes up; the buffer's
+`reveal()` asks again when the Studio turns); the other tracks are a
+scroll away, the page keeping the drawer's height clear at its end. A folded track's head there is its name
 alone, a label: a 22 px strip has no room for ● at a finger's 44 px
 (decision 0059), and ● is back as the lanes unfold. The hold on a pad that
 opens it lets go without pressing what came up under the finger
@@ -520,21 +522,53 @@ opens it lets go without pressing what came up under the finger
 full height). Decided 2026-10-30 with the day's calls handed over (J1.6's
 story on a phone changed with it); Gabe may overrule any of it.
 
-**The feed strip** in the Studio is the ribbon with GRAB, KEEP and Flag in
-one row. A tap on GRAB or KEEP takes the last length and its ▾ picks
-another (1, 2, 4 or 8 bars for GRAB; 30 s, 2 m or the whole feed for KEEP);
+**The two faces.** The Studio shows one face at a time, the tape's or the
+feed's, and the other as a thin row at the top (decision 9 of
+`plan/the-calm-studio.md`, built 2026-11-13). The face is the Studio's
+state, per device: `lib/rooms/face.js`, `createFace({ root, storage })`,
+answering `get()` (`'tape'` or `'feed'`), `set(face)` and `onChange(fn)`
+(`FACES`, and `KEY`, `studio.face`, the localStorage key it keeps it under,
+a per-device switch kept as `lib/device-prefs.js`'s are, though Settings
+doesn't draw it). It writes `data-face` on `main#view-studio`, which
+`styles.css` lays both faces out by; no attribute is the tape's, so the
+first paint is the tape's and nothing waits for a script (`face.test.js`
+reads the stylesheets for it). Its one caller is `lib/rooms/studio.js`
+(`mountStudio`, whose handle carries it as `face`), which makes it on the
+Studio's root, turns it from the two keys, and tells what acts differently
+through `onChange`, never by reading the attribute back: the ribbon (`Ribbon.setPressable`: on the tape's face
+it takes no touch and is inert, one key, `#face-feed`, laid over it), the
+tape's row (`tapeStrip`, which paints `#face-tape`'s canvas with the
+engine's tape source, `paint`, the bar overview's `paintTapeOverview`, on
+the shared ticker while the tape plays and only on the feed's face), and a
+cue clip's drawer (the buffer's `reveal()`, which on a phone brings what it
+covers on the new face into sight; `lib/ui/reveal.js` leaves out what isn't
+laid out). The tape's face is the lanes, the ruler, the sections and the cue
+lane, with the feed one row over them: its lamp, the ribbon 28 px tall and
+live, GRAB and KEEP, small (on a phone GRAB and KEEP take a row under the
+lamp and the ribbon). The feed's face is the ribbon across the room as tall
+as it leaves, the mark and a span on it, and under it the lamp and the
+level, GRAB, KEEP and Flag now; the tape is `#face-tape` over it, the whole
+tape as the bar's overview draws it. The cue lane, and a cue clip's
+drawer, are on both, so a GRAB on the feed's face lands where it can be
+seen and the Studio never turns under the hand; leaving the feed's face
+keeps the mark, which the strip still draws and GRAB and KEEP still follow.
+
+**The feed strip** in the Studio is the ribbon with GRAB and KEEP, and on
+the feed's face Flag now. A tap on GRAB or KEEP takes the last length and
+its ▾ picks another (1, 2, 4 or 8 bars for GRAB; 30 s, 2 m or the whole feed for KEEP);
 the input follows the armed track's, with an override in GRAB's ▾. The
 readouts (free disk, dropped buffers, the MIDI tempo, *Input channels*)
 are in a sheet behind the strip's lamp, which lights when something is
 wrong, with a link to the Rig. ● Phone shows on the strip only while it
-records. The lamp has the level beside it as two bars; the VU needles left
-the Studio on 2026-11-10 and their width is the ribbon's, which lines up
-with nothing under it (its time is the ring's, not the lanes').
+records. The lamp has the level beside it as two bars, on the feed's face;
+the VU needles left the Studio on 2026-11-10 and their width is the
+ribbon's, which lines up with nothing under it (its time is the ring's, not
+the lanes').
 
-**The mark.** A tap on the Studio's ribbon is "from here": a selection
-from that moment to now (`lib/objects/ribbon.js`, `tapMarks`, which only
-the Studio asks for; Capture keeps the hold). A hold and a drag still
-selects a span in the middle. The ribbon says what is selected each time
+**The mark.** A tap on the Studio's ribbon, on the feed's face, is "from
+here": a selection from that moment to now (`lib/objects/ribbon.js`,
+`tapMarks`, which only the Studio asks for; Capture keeps the hold). A
+hold and a drag still selects a span in the middle. The ribbon says what is selected each time
 it draws it (`onSel`, `selInfo`: its seconds, whether it runs to now), and
 **the feed's own KEEP keeps it** (`lib/rooms/studio.js`, `marked`): the key
 reads its length and "from your mark to now", and with nothing selected
@@ -543,10 +577,14 @@ keeps the length on its ▾ as before. **GRAB follows it too**
 "from your mark", and a press grabs that span. A mark has no bar, so the
 lanes stay where they are: it carries its own key on the ribbon, at its
 start (`.rb-mark-clear`), and a tap on that, or at the ribbon's right edge,
-which is now, takes it off. The mark is set on the tap's click, not its
-lift: the key is drawn under the finger, and a click arriving after the
+which is now, takes it off; a drag of the key moves the mark, and ← and →
+on it move it a second (⇧, ten). The mark is set on the tap's click, not
+its lift: the key is drawn under the finger, and a click arriving after the
 mark would land on it. A span in the middle keeps its bar: what it is, ×
-and GRAB, and no Keep of its own. One KEEP on the screen.
+and GRAB, and no Keep of its own. One KEEP on the screen. A GRAB from the
+mark takes the mark's own frames, not snapped to the bar: snapping it needs
+the Pi, which alone knows where the ring's bar lines fall (`grabRing`'s
+`downbeatAt`), and is not built.
 
 **The track heads** (`lib/tape/page.js` `buildLanes`; `styles.css`, *The
 heads*) are each track's name, ● a finger wide (44 px), its
@@ -560,9 +598,10 @@ key still says so. The inspector moves to the record track when the arm moves
 (`sheetRec`), not on every render: it once went back to the armed track
 under a finger that had opened another's. On a tablet the Studio holds a
 budget at rest, checked by J1.16 (`scripts/flows/layout.mjs`,
-`STUDIO_BUDGET`): at most 44 controls on the screen (43 at 1024×768, and
-the brand at 1280), 1 under 32 px (the sections' strip), every ● 44 px or
-more, and all four tracks above the bar. The review of 2026-10-22 counted
+`STUDIO_BUDGET`), on the tape's face: at most 44 controls on the screen (43
+at 1024×768, and the brand at 1280), 1 under 32 px (the sections' strip),
+every ● 44 px or more, and all four tracks above the bar; the feed's face
+at most 27 (26, and the brand). The review of 2026-10-22 counted
 65, 30 and 1½; just before the heads it was 51 and 27. The budget's numbers only go down.
 
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five

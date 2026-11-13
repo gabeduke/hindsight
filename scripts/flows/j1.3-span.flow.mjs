@@ -1,6 +1,7 @@
-// J1.3 Tap the feed where the jam began and KEEP from there to now; or hold
-// on the ribbon and drag to select a span, then KEEP just that as a take, or
-// GRAB it onto the cue lane. docs/flows.md#j13
+// J1.3 Turn the Studio to the feed's face, tap the feed where the jam began
+// and KEEP from there to now, dragging the mark to move it; or hold on the
+// ribbon and drag to select a span, then KEEP just that as a take, or GRAB
+// it onto the cue lane. docs/flows.md#j13
 
 // tapAt is one tap on the ribbon, a part of the way along it: a finger on a
 // touch profile, the mouse otherwise.
@@ -38,6 +39,29 @@ async function holdDrag(t, locator, fromPct, toPct) {
   await page.mouse.up();
 }
 
+// dragKey drags a key on the ribbon to a part of the way along it: a finger
+// on a touch profile (its own touch events, no hold first), the mouse
+// otherwise.
+async function dragKey(t, key, ribbon, pct) {
+  const { page } = t;
+  const k = await key.boundingBox();
+  const r = await ribbon.boundingBox();
+  const x0 = k.x + k.width / 2, y = k.y + k.height / 2, x1 = r.x + r.width * pct;
+  const steps = 8;
+  if (!t.profile.startsWith('desktop')) {
+    const cdp = await t.cdp();
+    const touch = (type, x) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: x == null ? [] : [{ x, y }] });
+    await touch('touchStart', x0);
+    for (let i = 1; i <= steps; i++) { await touch('touchMove', x0 + ((x1 - x0) * i) / steps); await page.waitForTimeout(16); }
+    await touch('touchEnd');
+    return;
+  }
+  await page.mouse.move(x0, y);
+  await page.mouse.down();
+  await page.mouse.move(x1, y, { steps });
+  await page.mouse.up();
+}
+
 // A key's length, "28s" or "1m5s" (lib/rooms/keeplabel.js lengthWords), in seconds.
 const wordsSeconds = (w) => {
   const m = /(?:(\d+)m)?(?:([\d.]+)s)?/.exec((w || '').trim());
@@ -52,7 +76,7 @@ const selSeconds = (text) => {
 
 export default {
   id: 'J1.3',
-  title: 'Select a span of the feed; KEEP or GRAB just that',
+  title: 'On the feed’s face, mark or select a span of the feed; KEEP or GRAB just that',
   async run(t) {
     const { page, api } = t;
     await t.given('a fresh tape', () => api.tape('Span'));
@@ -67,6 +91,12 @@ export default {
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     const ribbon = page.locator('#viz-wrap');
     await ribbon.waitFor({ state: 'visible' });
+    // The Studio opens on the tape's face, where the feed is a thin row and
+    // its ribbon one key: the mark and the span are the feed's face's.
+    await t.step('tap the feed’s strip, to turn to the feed', () => t.tap(page.locator('#face-feed')));
+    t.expect('the Studio is on the feed’s face, the ribbon taller than the strip was', await t.poll(() => document.getElementById('view-studio')?.dataset.face === 'feed'
+      && document.getElementById('viz-wrap').getBoundingClientRect().height > 80, null, 3000),
+    await page.evaluate(() => ({ face: document.getElementById('view-studio')?.dataset.face, h: Math.round(document.getElementById('viz-wrap').getBoundingClientRect().height) })));
     await t.poll(() => document.querySelector('#viz-wrap .rb-tick'), null, 8000); // drawn: it can name frames
     const bar = page.locator('#rb-sel');
 
@@ -80,6 +110,19 @@ export default {
     t.expect('and GRAB that it grabs from it', await t.poll(() => /mark/.test(document.querySelector('.buffer-grab')?.textContent || '')),
       await page.locator('.buffer-grab').innerText());
     const marked = wordsSeconds(await page.locator('#studio-keep-len').innerText());
+    // A drag of the mark's key moves the mark: later along the ribbon is
+    // nearer now, so KEEP and GRAB name a shorter stretch.
+    const markKey = page.locator('#viz-wrap .rb-mark-clear:not([hidden])');
+    const keyAt = async () => Math.round((await markKey.boundingBox()).x);
+    const x0 = await keyAt();
+    await t.step('drag the mark’s key later along the ribbon', () => dragKey(t, markKey, ribbon, 0.75));
+    const moved = await t.poll((was) => {
+      const k = document.querySelector('#viz-wrap .rb-mark-clear:not([hidden])');
+      const len = document.getElementById('studio-keep-len')?.textContent || '';
+      return !!k && k.getBoundingClientRect().x > was + 20 && /mark/.test(document.getElementById('studio-keep-sub')?.textContent || '') && len;
+    }, x0, 3000);
+    t.expect('the mark moves with it, and KEEP names the shorter stretch from it', !!moved && wordsSeconds(moved) < marked - 1,
+      { was: marked, now: moved, key: [x0, await keyAt().catch(() => null)] });
     await t.step('tap the mark’s key', () => t.tap(page.locator('#viz-wrap .rb-mark-clear:not([hidden])')));
     t.expect('the mark is off, and KEEP is its length again', await t.poll(() => !document.querySelector('#viz-wrap .rb-mark-clear:not([hidden])') && !/mark/.test(document.getElementById('studio-keep-sub')?.textContent || '')));
     await t.step('mark again', () => tapAt(t, ribbon, 0.45));

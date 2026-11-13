@@ -1,8 +1,8 @@
 # The calm Studio: what is on screen, and when
 
 **Status: direction agreed 2026-11-09 from a wireframe, and the order of
-what is left agreed 2026-11-10; decisions 1 to 4 are built (*Build order*),
-and 5 to 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
+what is left agreed 2026-11-10; decisions 1 to 4 and 9 are built (*Build
+order*), and 5 to 8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
 time, and it is "so damn cluttered": "it is hard to tell what buttons are
 useful to me."
 
@@ -165,7 +165,10 @@ one tap away, or gone.
 - **A phone has the same two faces**; its feed's face is what gives the
   ribbon a height to read.
 - `STUDIO_BUDGET` is measured on the tape's face and lowered to what it
-  finds; the feed's face gets a count of its own, lower.
+  finds; the feed's face gets a count of its own, lower. As built: the
+  tape's face holds what the Studio held (43, and 44 at 1280×800): Flag now
+  left it and the feed's row became a key, so `controls` stays 44. The
+  feed's face holds 26 (27 at 1280×800): `feed: 27`.
 
 ## Gabe's calls before the bar changes (answered 2026-11-13)
 
@@ -207,14 +210,19 @@ Done:
    to the bar.
 4. **The track heads** (decision 3; #282): one head with a mouse and on
    touch. The input chip is still in it.
+5. **The two faces** (decision 9; 2026-11-13), as *The two faces, as
+   built* says (`architecture/tape.md`, *The two faces*), with the two
+   journeys as flows: E2 (arrange parts from two takes) landed first, and
+   E1 (a live 4-track: mark, GRAB, DROP, loop, play, Catch over it) is core
+   with them, 10 presses on the tablet and 14 on a phone. Step 3's drag of
+   the mark came with it (J1.3 drags it). Not done: snapping a GRAB from the
+   mark to the bar, which needs the Pi (only it knows where the ring's bar
+   lines fall, `grabRing`'s `downbeatAt`): a `snap` on the ring's grab
+   request, in Go, and the key saying so. And the budget did not drop: the
+   tape's face holds what the Studio held, so the cut is step 8's.
 
 Left, in order:
 
-5. **The two faces** (decision 9), with **the two journeys as flows**
-   (catch a jam from a mark, loop it, play over it; cut and arrange parts
-   from two takes), `todo` first, each recording its count of presses. This
-   is what gives the ribbon its width: today GRAB, KEEP and Note on its
-   right take it.
 6. **The cue clip's panel and the words** (decision 7; what is left of 6),
    with `inputs.md`'s names for inputs and its strip, which is where the
    head's input chip goes.

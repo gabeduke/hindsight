@@ -6,14 +6,13 @@
 // track experience").
 // docs/flows.md#e1
 //
-// `todo` until the two faces are built (the-calm-studio.md, step 5). The
-// contract the build follows, which this flow presses:
+// The two faces it presses (the-calm-studio.md, step 5; lib/rooms/face.js):
 //  - main#view-studio carries data-face="tape" or "feed" (absent: the tape's).
 //  - In the tape's face the feed is a thin strip whose key is #face-feed (a
 //    tap turns to the feed's face); in the feed's face the tape is a thin
 //    strip whose key is #face-tape.
 //  - On the feed's face the ribbon (#viz-wrap), GRAB and KEEP (#studio-keep)
-//    work as they do today.
+//    work as they do on the tape's, and the ribbon takes the mark.
 //  - A GRAB on the feed's face does not turn the Studio: the cue lane and its
 //    drawer are on both faces. The flow turns back with #face-tape before it
 //    works on the lanes.
@@ -33,7 +32,6 @@ const parts = (s) => (s.tracks ?? []).reduce((n, tr) => n + (tr.clips?.length ??
 export default {
   id: 'E1',
   title: 'A live 4-track: mark the jam, GRAB, DROP, loop, play, CATCH over it',
-  status: 'todo', // the faces are not built
   async run(t) {
     const { page, api } = t;
     let presses = 0;
