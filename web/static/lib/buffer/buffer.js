@@ -86,8 +86,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     note: $('buffer-note'),
     sources: $('buffer-sources'),
     audition: $('buffer-audition'),
-    snap: $('buffer-snap'),
-    snapName: $('buffer-snap-name'),
     unfold: $('buffer-unfold'),
     trim: $('buffer-trim'),
     close: $('buffer-close'),
@@ -350,7 +348,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   };
   const firstClip = () => st.board.tracks.flat()[0] || {};
 
-  // moveEdge steps IN or OUT one step of the snap, ahead of the Pi's answer.
+  // moveEdge steps IN or OUT one step of the Studio's snap (⌗'s, which the
+  // page says in hindsight:tape-state), ahead of the Pi's answer.
   function moveEdge(edge, dir) {
     const g = grabOf();
     if (!g) return;
@@ -709,9 +708,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     el.reverse.setAttribute('aria-pressed', String(!!g?.reversed));
     el.fadesShape.textContent = (FADE_SHAPES.find((f) => f.id === (c.fade_in_shape || '')) || FADE_SHAPES[0]).label.toLowerCase();
     for (const x of [el.gain, el.normalize, el.reverse, el.fades]) x.disabled = !g || st.grabbing;
-    const snap = SNAPS.find((s) => s.id === (d?.snap || 'bar')) || SNAPS[0];
-    el.snapName.textContent = snap.label;
-    el.snap.disabled = !hasGrid;
     el.unfold.setAttribute('aria-pressed', String(st.unfolded));
     el.unfold.lastChild.textContent = st.unfolded ? ' ▴' : ' ▾';
     el.unfold.firstChild.textContent = st.unfolded ? 'Fold' : 'Unfold';
@@ -924,9 +920,6 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   if (typeof sheetQuery?.addEventListener === 'function') {
     if (ctx) ctx.on(sheetQuery, 'change', render); else sheetQuery.addEventListener('change', render);
   }
-  // The ruler's own snap, stepped on by the Studio (lib/tape/page.js), which
-  // says it back in the detail: ⌗'s View menu sets the same one.
-  el.snap.addEventListener('click', () => doc.dispatchEvent(new CustomEvent('hindsight:snap-next')));
   el.drop.addEventListener('click', drop);
   el.keep.addEventListener('click', keepTake);
   el.loop.addEventListener('click', loop);

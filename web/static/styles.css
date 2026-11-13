@@ -3852,10 +3852,7 @@ body.tape-page.tracks-fold #lanes { display: none; }
 .buffer-note { font: 500 12px var(--font); color: var(--warn-ink); }
 .buffer-note[hidden] { display: none; }
 .buffer-spacer { flex: 1 1 0; }
-.icon-btn.buffer-audition, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .icon-btn.buffer-loop, .icon-btn.buffer-trim, .icon-btn.buffer-close { min-height: 34px; padding: 0 11px; font: 700 12px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
-.icon-btn.buffer-snap { font-family: var(--mono); letter-spacing: 0; text-transform: none; }
-/* Its ⌗ takes the room the glyph took: the drawn one's blank sides come off. */
-.icon-btn.buffer-snap .i { margin: 0 -1px; }
+.icon-btn.buffer-audition, .icon-btn.buffer-unfold, .icon-btn.buffer-loop, .icon-btn.buffer-trim, .icon-btn.buffer-close { min-height: 34px; padding: 0 11px; font: 700 12px var(--label-font); letter-spacing: .12em; text-transform: uppercase; }
 .buffer-led { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); }
 .icon-btn.buffer-audition[aria-pressed="true"] .buffer-led { background: var(--go); box-shadow: 0 0 6px var(--go-glow); }
 .icon-btn.buffer-unfold[aria-pressed="true"], .icon-btn.buffer-trim[aria-expanded="true"] { border-color: var(--ink-dim); }
@@ -3948,7 +3945,7 @@ body.buffer-lifting, body.buffer-lifting * { cursor: grabbing !important; user-s
      height. Trim opens the bench. Its name is on its pad on the cue lane,
      and what it holds is on KEEP and DROP. */
   .buffer-panel[data-trim="shut"] { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-  .buffer-panel[data-trim="shut"] :is(.buffer-foot, .buffer-title, .buffer-meta, .buffer-note, .buffer-spacer, .buffer-sources, .buffer-audition, .buffer-snap, .buffer-unfold, .buffer-loop, .buffer-grip-word) { display: none; }
+  .buffer-panel[data-trim="shut"] :is(.buffer-foot, .buffer-title, .buffer-meta, .buffer-note, .buffer-spacer, .buffer-sources, .buffer-audition, .buffer-unfold, .buffer-loop, .buffer-grip-word) { display: none; }
   .buffer-panel[data-trim="shut"] .buffer-head { grid-area: 1 / 2; }
   .buffer-panel[data-trim="shut"] .buffer-body { grid-area: 1 / 1; grid-template-columns: 52px minmax(0, 1fr) auto; }
   .buffer-panel[data-trim="shut"] .buffer-window { height: 56px; }
@@ -3977,7 +3974,7 @@ body.buffer-open .tape-sections-row { display: none; }
   .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - 8px); }
   body:not(.player-open) .buffer-panel { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px)); }
   body:not(.player-open) .buffer-panel[data-height="full"] { height: calc(100svh - var(--topbar-h) - var(--dock-b, 0px) - var(--np-h, 0px) - 8px); }
-  .buffer-grip, .buffer-hint, .buffer-panel .buffer-kbd, .icon-btn.buffer-snap, .icon-btn.buffer-unfold, .icon-btn.buffer-trim, .buffer-meta-full { display: none; }
+  .buffer-grip, .buffer-hint, .buffer-panel .buffer-kbd, .icon-btn.buffer-unfold, .icon-btn.buffer-trim, .buffer-meta-full { display: none; }
   .buffer-meta-short { display: inline; }
   .buffer-panel .buffer-title { letter-spacing: .14em; }
   .icon-btn.buffer-audition, .icon-btn.buffer-loop, .icon-btn.buffer-close { min-height: 38px; }

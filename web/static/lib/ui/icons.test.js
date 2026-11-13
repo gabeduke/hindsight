@@ -141,7 +141,7 @@ const DRAWN = {
   'shell.html': ['tape-undo', 'tape-redo', 'tape-name',
     'np-start', 'np-play', 'np-rec', 'np-back5', 'np-catch-more', 'np-loop', 'np-click', 'np-eject', 'np-open', 'np-note',
     'np-tempo', 'np-source', 'np-output',
-    'ruler-more', 'buffer-snap'],
+    'ruler-more'],
   'wave.html': ['take-undo', 'take-name', 'take-star', 'to-start', 'back5', 'play', 'loop'],
 };
 const GLYPHS = /[↶↷⋯☰▾▴▸▶❚■⟲↺⏏✎⌗]/;

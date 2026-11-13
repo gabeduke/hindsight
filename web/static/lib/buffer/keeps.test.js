@@ -1,7 +1,7 @@
 // web/static/lib/buffer/keeps.test.js
-// The drawer's KEEP names what it keeps (F1 of the flow spec). The real
-// drawer, built from shell.html's own templates on a stand-in document,
-// opened on a cue clip.
+// The drawer's KEEP names what it keeps (F1 of the flow spec); IN and OUT
+// step by the Studio's snap. The real drawer, built from shell.html's own
+// templates on a stand-in document, opened on a cue clip.
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -21,9 +21,13 @@ const clip = (bars, id = 'c1') => ({
 
 const flush = async () => { for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
 
-async function withBuffer(lane, fn) {
+async function withBuffer(lane, fn, { snap = 'bar' } = {}) {
   const saved = { fetch: globalThis.fetch, localStorage: globalThis.localStorage };
-  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({}) });
+  const log = [];
+  globalThis.fetch = async (url, o = {}) => {
+    log.push({ url, method: o.method || 'GET', body: o.body ? JSON.parse(o.body) : null });
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
   globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
   mock.timers.enable({ apis: ['setInterval'] });
   try {
@@ -49,11 +53,12 @@ async function withBuffer(lane, fn) {
         tracks: [1, 2, 3, 4].map(() => ({ clips: [] })),
         cue: { clips },
       },
-      rec_track: 1, rec_tracks: [1], rec_input: 'main', sources: [{ name: 'main' }], snap: 'bar', pos: 0, view: {},
+      rec_track: 1, rec_tracks: [1], rec_input: 'main', sources: [{ name: 'main' }], snap, pos: 0, view: {},
     } }));
     tapeState();
     const open = (id) => doc.dispatchEvent(new CustomEvent('hindsight:cue-select', { detail: { id } }));
-    await fn({ doc, tapeState, open, set: (c) => { clips = c; }, poll: async () => { tapeState(); await flush(); } });
+    const press = async (id) => { doc.getElementById(id).dispatchEvent(new CustomEvent('click')); await flush(); };
+    await fn({ doc, tapeState, open, log, press, set: (c) => { clips = c; }, poll: async () => { tapeState(); await flush(); } });
   } finally {
     mock.timers.reset();
     Object.assign(globalThis, saved);
@@ -69,6 +74,23 @@ test('the drawer’s KEEP says its length', async () => {
     assert.match(doc.getElementById('buffer-keep').getAttribute('aria-label'), /^KEEP 4 BARS/);
   });
 });
+
+// The drawer has no snap of its own: IN and OUT step by the one on ⌗, which
+// the page says in hindsight:tape-state (lib/tape/page.js heardTape).
+for (const [snap, frames] of [['bar', BAR], ['beat', BAR / 4]]) {
+  test(`IN and OUT step by the Studio’s snap: a ${snap}`, async () => {
+    const wide = { ...clip(4), grab: { ...clip(4).grab, before: BAR, after: BAR, downbeat: 0 } };
+    await withBuffer([wide], async ({ doc, open, press, log }) => {
+      open('c1');
+      await flush();
+      assert.equal(doc.getElementById('buffer-snap'), null, 'and no snap key of its own');
+      await press('buffer-in-on');
+      const trims = log.filter((r) => r.url.startsWith('/api/tapes/cue/clip') && r.method === 'PATCH').map((r) => r.body);
+      assert.equal(trims.length, 1);
+      assert.equal(trims[0].in, frames, `IN moved on a ${snap}`);
+    }, { snap });
+  });
+}
 
 test('with no clip open, KEEP names nothing', async () => {
   await withBuffer([clip(4)], async ({ doc }) => {
