@@ -67,7 +67,9 @@ export default {
     const waiting = await peek();
     t.expect('its head names both armed tracks', /\b1\b/.test(waiting?.head ?? '') && /\b3\b/.test(waiting?.head ?? ''), waiting);
     t.expect('with no pass yet, The last pass waits and says why', waiting?.disabled && waiting.why.trim().length > 0, waiting);
-    await t.step('tap The last pass while it waits', () => t.tap(row));
+    // Forced: Playwright's actionability takes aria-disabled="true" for a
+    // key that can't be pressed, and waits; a finger's tap reaches it.
+    await t.step('tap The last pass while it waits', () => t.tap(row, { force: true }));
     t.expect('the menu stays open', !!await peek());
     await t.step('press Escape', () => page.keyboard.press('Escape'));
     t.expect('Escape shuts it', await t.poll(() => document.getElementById('np-rec-menu')?.hidden));

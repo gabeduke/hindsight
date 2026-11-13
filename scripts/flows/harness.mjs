@@ -403,8 +403,10 @@ export async function runFlow(browser, flow, profileName, { base, api, shots, st
         await page.mouse.up();
       }
     },
-    // tap is a finger's tap on a touch profile, a click otherwise.
-    tap: (locator) => (profile.hasTouch ? locator.tap() : locator.click()),
+    // tap is a finger's tap on a touch profile, a click otherwise; opts are
+    // Playwright's ({ force: true } for a key a finger reaches though
+    // Playwright takes it for disabled: aria-disabled="true").
+    tap: (locator, opts) => (profile.hasTouch ? locator.tap(opts) : locator.click(opts)),
     // poll re-evaluates fn in the page until it is truthy or the time runs out.
     async poll(fn, arg, timeout = 5000) {
       const end = Date.now() + timeout;
