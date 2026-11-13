@@ -98,7 +98,10 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  * after Catch's (rows, and opened as it opens), and a hold on ● offers
  * them (offer);
  * `phoneScreen` is a MediaQueryList for one (a component's
- * cx.media(PHONE)). Null on a bar without the keys or a page without a tape.
+ * cx.media(PHONE)). `onHands()` is called after hands are lent and after
+ * they are taken back, so the bar draws again what hangs on them (its
+ * tempo key, bar.js tempoOpens). Null on a bar without the keys or a page
+ * without a tape.
  *
  * Answers:
  *   lend(hands) -> off   the Studio's hands, until off():
@@ -141,7 +144,7 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  * With no hands lent the keys are not drawn and do nothing: they show in
  * the Studio alone (data-for="studio").
  */
-export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}, phoneKeys = null, phoneScreen = { matches: false } } = {}) {
+export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}, phoneKeys = null, phoneScreen = { matches: false }, onHands = () => {} } = {}) {
   const $ = partOf(root);
   const rec = $('rec'), more = $('rec-more'), panel = $('rec-menu');
   const play = $('play'), tempoKey = $('tempo');
@@ -306,12 +309,14 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
       // as long as its hands are lent.
       tempoPanel = tempoKey && typeof h.tempo === 'function' ? h.tempo(tempoKey) : null;
       draw();
+      onHands();
       return () => {
         if (hands !== h) return;
         menu?.close();
         tempoPanel?.close();
         tempoPanel = null;
         hands = null;
+        onHands();
       };
     },
     draw,

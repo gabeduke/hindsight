@@ -214,7 +214,10 @@ export class NowPlaying {
     // (tape-keys.js), on the page's tape (`tape`, the tape model): the
     // Studio lends them its hands through its ctx (ctx.tapeKeys). On a
     // phone ●'s ▾ holds this phone's rows too, and a hold on ● offers them.
-    this.tapeKeys = tapeKeys({ root, tape, toast: (m, k, o) => onToast?.(m, k, o), phoneKeys: phone, whenRecorder, phoneScreen });
+    // As the Studio's hands come and go, so does its tempo panel: the
+    // display's tempo key is drawn again at once (tempoOpens), whatever
+    // the bar holds and whether or not it plays.
+    this.tapeKeys = tapeKeys({ root, tape, toast: (m, k, o) => onToast?.(m, k, o), phoneKeys: phone, whenRecorder, phoneScreen, onHands: () => this.kick() });
     // The display's tempo key is the tempo and where it plays: a press on
     // it, a finger's or the keyboard's (a click; ↓ or ↑), opens what
     // tempoOpens says now. Its one listener is the bar's, so the Studio's

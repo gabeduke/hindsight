@@ -346,7 +346,9 @@ bar's, and the bar is the one owner of its press: `NowPlaying`'s
 `tempoOpens(kind)` says what a press opens now. In the Studio with the
 tape it is the Studio's tempo panel (`{panel}`), lent with its hands
 (`hands.tempo(key)` makes it as they are lent; `tapeKeys.panel()` answers
-it); anywhere else, or with no panel lent, the Output sheet (`{output}`,
+it; `tapeKeys({onHands})`, which the bar hands its `kick()`, says after a
+lend and after its off that the hands changed, so the key is drawn again
+at once, even with the bar still); anywhere else, or with no panel lent, the Output sheet (`{output}`,
 the surface's `output()`), once the engine has a tape to send; else
 nothing, and the key is off. The key has one listener of each kind, the
 bar's (a click, and ↓ or ↑ from the keyboard: Enter and Space are a

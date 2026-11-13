@@ -484,6 +484,25 @@ test('the tempo’s key is off where it opens nothing: no Output sheet handed, a
   off();
 });
 
+test('the tempo’s key follows the Studio’s hands as they are lent and taken back, with the bar idle', async () => {
+  // The Studio's first mount lends its hands to a bar that is drawn and
+  // still: nothing else moves to draw it again, so the lend has to.
+  const { w, $ } = await open();
+  w.room = 'studio';
+  page.np.kick();
+  page.frames();
+  const key = $('np-tempo');
+  assert.equal(key.disabled, true, 'no panel yet, and nowhere to send the tape');
+  const off = page.np.tapeKeys.lend(studioHands(() => ({ press() {}, close() {} })));
+  page.frames();
+  assert.equal(key.disabled, false, 'the panel lent: the key is on at the next frame');
+  assert.match(key.getAttribute('aria-label'), /: change the tempo, or where it plays$/);
+  off();
+  page.frames();
+  assert.equal(key.disabled, true, 'the hands taken back: off again');
+  assert.doesNotMatch(key.getAttribute('aria-label'), /change the tempo/);
+});
+
 test('the tempo’s key says the tempo over where it plays, and the tempo alone for the phone’s player pulled up', async () => {
   const { $ } = await open();
   page.frames();

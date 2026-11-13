@@ -435,6 +435,20 @@ test('tapeKeys: the Studio’s tempo panel comes with its hands, made on the dis
   assert.equal(k.panel(), null, 'hands with no panel lend none');
 });
 
+test('tapeKeys: the bar hears the hands change, after a lend and after they are taken back, so its tempo key says what a press opens now', () => {
+  const heard = [];
+  const held = {};
+  const { k } = keys({ tape: aTape(), live: playing() }, { onHands: () => heard.push(held.k.panel()) });
+  held.k = k;
+  const panel = { close() {}, press() {} };
+  const off = k.lend(hands({ tempo: () => panel }));
+  assert.deepEqual(heard, [panel], 'once the hands and their panel are in');
+  off();
+  assert.deepEqual(heard, [panel, null], 'and once they are out');
+  off();
+  assert.equal(heard.length, 2, 'a second off is nothing to hear');
+});
+
 test('tapeKeys: a page without the keys, or without a tape, has none', () => {
   const bare = fakeDoc().createElement('section');
   bare.id = 'np';
