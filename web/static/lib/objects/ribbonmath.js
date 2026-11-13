@@ -37,3 +37,14 @@ export function fmtAge(s) {
   const ss = String(s % 60).padStart(2, '0');
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
+
+/**
+ * nudgedMark is where the mark's key moves it: `step` frames from `from`,
+ * no older than the ring's oldest frame and no nearer now than a second
+ * (`sampleRate` frames before `total`). A mark already nearer now than that
+ * stays where it is on a step toward now: → never moves it back.
+ */
+export function nudgedMark(from, step, oldest, total, sampleRate) {
+  if (step > 0) return Math.max(from, Math.min(total - sampleRate, from + step));
+  return Math.max(oldest, from + step);
+}

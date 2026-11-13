@@ -35,7 +35,7 @@ import { say } from '../rooms/words.js';
 import { Scene } from '../scene/scene.js';
 import { SceneObject } from '../scene/object.js';
 import { DomRenderer } from '../scene/dom.js';
-import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge } from './ribbonmath.js';
+import { leftPct as axisPct, ageAt, frameAt, ageOf, fmtAge, nudgedMark } from './ribbonmath.js';
 import { ribbonLevels, tierPills, rulerTicks, ribbonColors, drawRibbon } from './ribbon-draw.js';
 import { token } from '../theme.js';
 import { GESTURE } from '../ui/press.js';
@@ -285,7 +285,7 @@ export class Ribbon {
       const ax = this.axis();
       const oldest = ax.total - Math.floor((this.data?.buffered_seconds ?? 0) * ax.sr);
       const step = (e.shiftKey ? 10 : 1) * ax.sr * (e.key === 'ArrowLeft' ? -1 : 1);
-      this.setSel({ from: Math.max(oldest, Math.min(ax.total - ax.sr, this.sel.from + step)), to: null });
+      this.setSel({ from: nudgedMark(this.sel.from, step, oldest, ax.total, ax.sr), to: null });
     });
   }
 
