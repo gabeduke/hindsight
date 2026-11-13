@@ -43,17 +43,20 @@ test('the bar is its zones, in the one order, on both pages that have it', () =>
   assert.equal(shell.querySelector('#np .np-foot').getAttribute('data-slot'), 'foot');
 });
 
-test('|◀ ▶ then ●, Record beside Play, and the phone’s ● ▾; ↺ 5 s in ●’s place; Catch the verb; ⟲ then the metronome; ⏏ Open › ✎ at the end', () => {
+test('|◀ ▶ then ●, Record beside Play, with its ▾, and the phone’s ● ▾; ↺ 5 s in ●’s place; GRAB the verb; ⟲ then the metronome; ⏏ Open › ✎ at the end', () => {
   const ids = (slot) => slotOf(shell.getElementById('np'), slot).children.map((e) => e.id || e.className.split(' ')[1]);
-  assert.deepEqual(ids('transport'), ['np-start', 'np-play', 'np-rec', 'np-phone-rec', 'np-phone-more', 'np-back5']);
+  assert.deepEqual(ids('transport'), ['np-start', 'np-play', 'np-rec', 'np-rec-more', 'np-phone-rec', 'np-phone-more', 'np-back5']);
   assert.deepEqual(ids('foot'), ['np-out-foot']);
-  assert.deepEqual(ids('verb'), ['np-catch-split', 'np-feed-grab']);
+  // Catch is on ●'s ▾ (the calm Studio, step 7a): no key of its own.
+  assert.deepEqual(ids('verb'), ['np-feed-grab']);
   assert.deepEqual(ids('modes'), ['np-loop', 'np-click']);
   assert.deepEqual(ids('end'), ['np-eject', 'np-open', 'np-note']);
+  for (const gone of ['np-catch-pass', 'np-catch-more', 'np-catch-menu']) assert.equal(shell.getElementById(gone), null, gone);
   // On Open, the same transport: ▶ second, where it is in the rooms.
   assert.deepEqual(slotOf(wave.getElementById('np'), 'transport').children.map((e) => e.id), ['to-start', 'play', 'back5']);
-  // ● and the metronome are pictures, not typed.
+  // ●, its ▾ and the metronome are pictures, not typed.
   assert.ok(shell.getElementById('np-rec').querySelector('svg.i-rec'));
+  assert.ok(shell.getElementById('np-rec-more').querySelector('svg.i-down'));
   assert.ok(shell.getElementById('np-click').querySelector('svg.i-metro'));
 });
 
@@ -70,21 +73,24 @@ test('each key says which sources it shows for, in the full bar and the mini pla
       }
     }
   }
-  // The mini player keeps |◀ ▶ for each, Catch and its ▾ in the Studio, ✎
-  // and Open › for a take, and GRAB for the feed.
+  // The mini player keeps |◀ ▶ for each, ✎ and Open › for a take, and GRAB
+  // for the feed.
   const mini = (id) => shell.getElementById(id).getAttribute('data-mini') || '';
   assert.equal(mini('np-start'), 'tape take feed');
   assert.equal(mini('np-play'), 'tape take feed');
-  assert.equal(shell.querySelector('.np-catch-split').getAttribute('data-mini'), 'studio');
   assert.equal(mini('np-open'), 'take');
   assert.equal(mini('np-note'), 'take');
   assert.equal(mini('np-feed-grab'), 'feed');
-  // ● in the mini player for every source: the tape's own in the Studio,
-  // the phone's elsewhere, and the phone's ▾ beside either, so ▶ stands
-  // still. Neither of the phone's is in the full bar.
+  // ● and one ▾ beside it in the mini player for every source: the tape's
+  // own pair in the Studio (its ▾ Catch's, with the phone's rows after
+  // them), the phone's elsewhere, never both, so there is one ▾ and ▶
+  // stands still. Neither of the phone's is in the full bar; the tape's
+  // pair is, in the Studio.
   assert.equal(mini('np-rec'), 'studio');
+  assert.equal(mini('np-rec-more'), 'studio');
+  assert.equal(shell.getElementById('np-rec-more').getAttribute('data-for'), 'studio');
   assert.equal(mini('np-phone-rec'), 'take feed away');
-  assert.equal(mini('np-phone-more'), 'tape take feed');
+  assert.equal(mini('np-phone-more'), 'take feed away');
   for (const id of ['np-phone-rec', 'np-phone-more']) assert.equal(shell.getElementById(id).getAttribute('data-for'), null, id);
 });
 
@@ -191,7 +197,7 @@ test('partOf finds a part inside the root it is given, by its name, and nowhere 
   const doc = page('shell.html');
   const part = partOf(doc.getElementById('np'));
   assert.equal(part('play'), doc.getElementById('np-play'));
-  assert.equal(part('catch-menu'), doc.getElementById('np-catch-menu'));
+  assert.equal(part('rec-menu'), doc.getElementById('np-rec-menu'));
   // A part outside the root, though the document has it, is not the bar's.
   const elsewhere = doc.createElement('button');
   elsewhere.id = 'np-elsewhere';

@@ -4,8 +4,10 @@
 // ● that records from this phone, and its input on a ▾ beside it. In the
 // Studio with the tape, the mini player's ● is the tape's own (#np-rec,
 // tape-keys.js: a tap records the jam room, a hold offers this phone's
-// (offer), and with the tape playing on this phone a tap records here);
-// everywhere else it is this one. The ▾ is the same for both.
+// (offer), and with the tape playing on this phone a tap records here),
+// and its ▾ is ●'s own (#np-rec-more), whose menu holds Catch's rows and
+// then these (rows, opened): one ▾ beside ●, never two. Everywhere else ●
+// and the ▾ are these.
 //
 // Both keys are the page's markup, in the transport, shown in the mini
 // player alone (data-mini). The recording is the page's one recorder
@@ -55,9 +57,19 @@ export function said(state) {
  * now), so the keys show a recording started anywhere. `layers` and `floor` are the stack the ▾ opens on
  * and where it stops above the bar (a component's cx.layers and cx.floor).
  * `playerUp()` is whether the phone's player is pulled up (its sheet's
- * isOpen), where the ▾ isn't. Answers { menu, paint(state), offer() }, or
- * null on a bar without the keys: offer() opens the ▾ (or, with the player
- * up, the sheet), which the Studio's ● asks for on a hold (tape-keys.js).
+ * isOpen). Answers, or null on a bar without the keys:
+ *
+ *   menu            the ▾'s menu (lib/ui/menu.js menu)
+ *   paint(state)    ● and the ▾ drawn for the recorder's state
+ *   rows(panel)     appends this ▾'s rows to `panel`, another menu's (●'s
+ *                   ▾ in the Studio, tape-keys.js), each doing what it does
+ *                   here: what ● does now, the inputs, the level and input
+ *   opened(host)    `host` (menu()'s answer) has opened holding them: the
+ *                   inputs are asked for, and it is filled again as they
+ *                   come and as the recorder changes while it is open
+ *   offer(host)     a hold on the Studio's ● (tape-keys.js): `host` opened
+ *                   (and opened(host)), or with the player up, where the
+ *                   mini player's ▾ isn't, the recorder's sheet
  */
 export function phoneKey({ root, recorder, layers, floor, whenRecorder = (fn) => { const r = recorder(); if (r) fn(r); }, playerUp = () => false }) {
   const part = partOf(root);
@@ -67,6 +79,10 @@ export function phoneKey({ root, recorder, layers, floor, whenRecorder = (fn) =>
   if (!rec || !more || !panel) return null;
   let inputs = [];
   let listening = null;
+  // The other menu holding these rows (●'s, in the Studio), as it opened
+  // last: filled again with this one.
+  let host = null;
+  const refresh = () => { for (const x of [m, host]) if (x?.isOpen()) x.refresh(); };
 
   const paint = (state) => {
     const busy = state.mode === 'recording' || state.mode === 'saving';
@@ -79,13 +95,18 @@ export function phoneKey({ root, recorder, layers, floor, whenRecorder = (fn) =>
   const listen = (r) => {
     if (!r || listening === r) return r;
     listening = r;
-    r.onChange((s) => { paint(s); if (m.isOpen()) m.refresh(); });
+    r.onChange((s) => { paint(s); refresh(); });
     paint(r.state());
     return r;
   };
   const hear = () => listen(recorder());
+  // Its inputs are asked for as a menu with its rows opens; it shows the
+  // last answer until the new one comes.
+  const ask = () => { hear()?.inputs().then((list) => { inputs = list; refresh(); }, () => {}); };
 
-  const render = (p) => {
+  // The rows, made in the panel they go in (this ▾'s, or the host's), each
+  // doing what it does here.
+  const rowsIn = (p) => {
     const r = hear();
     const rows = phoneRows({ state: r ? r.state() : undefined, inputs, input: r ? r.input() : '' });
     const item = (row, role = 'menuitem') => {
@@ -94,12 +115,13 @@ export function phoneKey({ root, recorder, layers, floor, whenRecorder = (fn) =>
       else el.addEventListener('click', () => pick(row.id));
       return el;
     };
-    p.replaceChildren(...menuRows(p, [
+    return menuRows(p, [
       [item(rows.now)],
       { label: 'Input', rows: rows.inputs.map((r) => item(r, 'menuitemradio')) },
       [item(rows.sheet)],
-    ]));
+    ]);
   };
+  const render = (p) => p.replaceChildren(...rowsIn(p));
   // Over the mini player, clear of its top edge (the ▾ is 7 px in from it).
   const m = menu(more, panel, { layers, side: 'above', gap: 10, floor, render, focus: 'first', popover: true });
 
@@ -112,19 +134,15 @@ export function phoneKey({ root, recorder, layers, floor, whenRecorder = (fn) =>
   }
 
   rec.addEventListener('click', () => { hear()?.quick(); });
-  // Its inputs are asked for as it opens; it shows the last answer until
-  // the new one comes.
-  more.addEventListener('click', () => {
-    if (!m.isOpen()) return;
-    hear()?.inputs().then((list) => { inputs = list; if (m.isOpen()) m.refresh(); }, () => {});
-  });
-  const offer = () => {
-    if (m.isOpen()) return;
+  more.addEventListener('click', () => { if (m.isOpen()) ask(); });
+  const opened = (h) => { host = h; ask(); };
+  const offer = (h) => {
+    if (h.isOpen()) return;
     // The ▾ is the mini player's; with the player up, the sheet offers it.
     if (playerUp()) { hear()?.open(); return; }
-    m.open();
-    hear()?.inputs().then((list) => { inputs = list; if (m.isOpen()) m.refresh(); }, () => {});
+    h.open();
+    opened(h);
   };
   whenRecorder(listen);
-  return { menu: m, paint, offer };
+  return { menu: m, paint, rows: (p) => { p.append(...rowsIn(p)); }, opened, offer };
 }

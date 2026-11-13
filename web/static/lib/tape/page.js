@@ -170,8 +170,8 @@ let viewCtx = null;
 // which holds it: out of the page while another room is, so never looked up.
 let overviewCv = null;
 let cueLane = null;
-// The bar's keys for the tape here, ●, Catch and its ▾ and the click
-// (lib/components/transport/tape-keys.js, ctx.tapeKeys): the Studio lends them its hands
+// The bar's keys for the tape here, ● and its ▾, which Catch is on, and
+// the click (lib/components/transport/tape-keys.js, ctx.tapeKeys): the Studio lends them its hands
 // (studioHands, below) and never looks them up.
 let tapeKeys = null;
 const viewActive = () => !viewCtx || viewCtx.active();
@@ -336,7 +336,7 @@ const change = (send) => tapeModel.change(send);
 const barHands = {
   around: (name, args, run) => sentHere(name, args, run),
 };
-// What the Studio lends the bar's ●, Catch and click (ctx.tapeKeys.lend,
+// What the Studio lends the bar's ●, its ▾ (Catch's) and the click (ctx.tapeKeys.lend,
 // lib/components/transport/tape-keys.js), for as long as it is mounted: what is armed here
 // and what it records from, the body a verb sends (replace or overdub; the
 // jam-only sheet and "arm a track" refuse it), the words for its answer
@@ -700,7 +700,7 @@ function render() {
   setIf(overviewCv, 'aria-valuemax', String(t.length));
   setIf(overviewCv, 'aria-valuenow', String(live ? Math.round(live.heard) : 0));
   setIf(overviewCv, 'aria-valuetext', live ? `${t.grid ? `bar ${barBeat(live.heard, t.grid)}, ` : ''}${fmtSecs(live.heard, sr)}` : '');
-  // ●, Catch and the click are the bar's (lib/components/transport/tape-keys.js), drawn
+  // ●, its ▾ (Catch) and the click are the bar's (lib/components/transport/tape-keys.js), drawn
   // from the tape and the Studio's hands (studioHands): the armed tracks.
   tapeKeys?.draw();
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
@@ -4459,7 +4459,7 @@ function mountMenus() {
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
 }
 
-// closeMenus closes the Studio's menus: those above, Catch's, and a track's
+// closeMenus closes the Studio's menus: those above, ●'s (Catch's), and a track's
 // input menu.
 function closeMenus() {
   for (const m of Object.values(menus)) m.close();

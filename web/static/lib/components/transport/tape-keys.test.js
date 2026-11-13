@@ -1,14 +1,17 @@
 // web/static/lib/components/transport/tape-keys.test.js
-// The bar's ●, Catch and the click in the Studio (tape-keys.js): what they
-// say, drawn from the tape's snapshot, the recorder's and the Studio's
-// hands, and what a press sends, on the tape's verbs.
+// The bar's ● and its ▾ in the Studio (tape-keys.js), which Catch is on
+// since the calm Studio's step 7a: what ● says, drawn from the tape's
+// snapshot, the recorder's and the Studio's hands; what ●'s menu holds (and
+// on a phone, this phone's rows after Catch's); and what a press sends, on
+// the tape's verbs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fakeDoc, parseHTML } from '../../play/fake-dom.js';
 import { createLayers } from '../../ui/layers.js';
+import { catchState } from '../../tape/catch.js';
 import { fill } from './index.js';
-import { faces, tapeKeys } from './tape-keys.js';
+import { faces, catchRows, tapeKeys } from './tape-keys.js';
 import { phoneKey } from './phone-key.js';
 
 const GRID = { frames: 192000, bars: 4 };
@@ -37,8 +40,8 @@ test('faces: ● can’t record before the tape is lined up or has a tempo, nor 
   const phone = faces({ snap: { tape: aTape(), live: playing({ aligned: 'none', output_mode: 'phone' }) } });
   assert.equal(phone.rec.disabled, false);
   assert.equal(phone.rec.dim, true);
-  assert.equal(phone.catch.jamOnly, true);
-  assert.equal(phone.catch.said, 'Catch: needs the jam room');
+  assert.equal(phone.says.ready, true, 'the last pass stays pressable: the jam-only sheet explains');
+  assert.equal(phone.says.bars, false);
 });
 
 test('faces: while this phone records, ● is pressed and says the time, whatever the tape does', () => {
@@ -48,18 +51,36 @@ test('faces: while this phone records, ● is pressed and says the time, whateve
   assert.equal(f.rec.said, 'Stop recording from this phone, 1:15');
 });
 
-test('faces: Catch says where the last pass goes, or why it waits; the click is the tape’s', () => {
-  const f = faces({ snap: { tape: aTape({ click: true }), live: playing() }, armed: [2], catchTip: 'TIP' });
-  assert.equal(f.catch.waits, false);
-  assert.equal(f.catch.sub, 'last pass → 2');
-  assert.equal(f.catch.mini, '→ 2');
-  assert.equal(f.catch.title, 'TIP');
-  assert.equal(f.catch.said, 'Catch the last pass onto track 2');
+test('faces: ●, the click and Catch’s state are all it says: Catch has no key to draw', () => {
+  const f = faces({ snap: { tape: aTape({ click: true }), live: playing() }, armed: [2] });
+  assert.deepEqual(Object.keys(f).sort(), ['click', 'rec', 'says']);
   assert.deepEqual(f.click, { pressed: true, disabled: false });
-  const waits = faces({ snap: { tape: aTape(), live: playing({ cycles: [] }) }, armed: [2] });
-  assert.equal(waits.catch.waits, true);
-  assert.equal(waits.catch.title, waits.says.why);
   assert.equal(faces({ snap: { tape: aTape({ grid: null }), live: null } }).click.disabled, true);
+  assert.equal(f.says.ready, true);
+  const waits = faces({ snap: { tape: aTape(), live: playing({ cycles: [] }) }, armed: [2] });
+  assert.equal(waits.says.ready, false);
+  assert.match(waits.says.why, /whole pass/);
+});
+
+test('catchRows: its head says where a catch lands, then the last pass and the last 1, 2 and 4 bars', () => {
+  const ready = catchState({ live: playing(), tape: aTape(), armed: true });
+  const one = catchRows({ says: ready, armed: [2] });
+  assert.equal(one.head, 'Catch onto track 2');
+  assert.deepEqual(one.rows.map((r) => r.word), ['The last pass', 'The last 1 bar', 'The last 2 bars', 'The last 4 bars']);
+  assert.deepEqual(one.rows.map((r) => r.what), [{ pass: 1 }, { bars: 1 }, { bars: 2 }, { bars: 4 }]);
+  assert.ok(one.rows.every((r) => r.ok));
+  assert.equal(catchRows({ says: ready, armed: [1, 3] }).head, 'Catch onto tracks 1, 3');
+  assert.equal(catchRows({ says: ready, armed: [] }).head, 'Catch: no track is armed');
+});
+
+test('catchRows: a row that can’t go says why: the last pass waits for one, the bars for the tape to line up', () => {
+  const waits = catchState({ live: playing({ cycles: [] }), tape: aTape(), armed: true });
+  const r = catchRows({ says: waits, armed: [2] }).rows;
+  assert.equal(r[0].ok, false);
+  assert.equal(r[0].why, waits.why);
+  assert.ok(r.slice(1).every((x) => x.ok), 'the last bars don’t wait for a pass');
+  const unlined = catchState({ live: playing({ aligned: 'none', cycles: [] }), tape: aTape(), armed: true });
+  assert.ok(catchRows({ says: unlined, armed: [2] }).rows.every((x) => !x.ok && x.why));
 });
 
 function aTapeModel(snap) {
@@ -88,8 +109,9 @@ function aRecorder() {
     set(x) { s = x; for (const f of fns) f(x); },
     quick() { calls.push('quick'); },
     open() { calls.push('open'); },
+    setInput(id) { calls.push(`input:${id}`); },
     input: () => '',
-    inputs: async () => [],
+    inputs: async () => { calls.push('inputs'); return [{ id: 'mic', label: 'Pixel’s microphone' }]; },
     state: () => s,
     snapshot: () => s,
     onChange(f) { fns.push(f); return () => { fns = fns.filter((x) => x !== f); }; },
@@ -122,31 +144,43 @@ function hands(over = {}) {
 
 const settle = () => new Promise((r) => setImmediate(r));
 const click = (el) => el.dispatchEvent({ type: 'click', detail: 0 });
+// A tap on a row of an open menu: the menu's own pick first (on the panel,
+// as a browser's capture), then the row's.
+const pick = (panel, row) => {
+  panel.dispatchEvent({ type: 'click', target: row });
+  row.dispatchEvent({ type: 'click', target: row, detail: 1 });
+};
+const rowsOf = (panel) => panel.children.filter((k) => k.classList.contains('menu-item'));
+const wordOf = (row) => row.querySelector('.menu-word').textContent;
 
-function keys(snap, extra = {}) {
+// keys: the bar's keys on a tape (a tablet unless `phone`), with this
+// phone's keys (phone-key.js) beside them as the bar makes them.
+function keys(snap, { phone = false, playerUp = false, ...extra } = {}) {
   const { doc, layers } = shell();
+  const root = doc.getElementById('np');
   const tape = aTapeModel(snap);
   const toasts = [];
   const r = aRecorder();
-  const k = tapeKeys({ root: doc.getElementById('np'), tape, whenRecorder: (fn) => fn(r), toast: (m, kind) => { toasts.push([m, kind]); return { classList: { add() {} } }; }, phoneScreen: { matches: false }, ...extra });
-  return { doc, layers, tape, toasts, r, k };
+  const toast = (m, kind, opts) => { toasts.push([m, kind, opts]); return { classList: { add() {} } }; };
+  const pk = phoneKey({ root, layers, recorder: () => r, playerUp: () => playerUp });
+  const k = tapeKeys({ root, tape, whenRecorder: (fn) => fn(r), toast, phoneKeys: pk, phoneScreen: { matches: phone }, ...extra });
+  return { doc, layers, tape, toasts, r, k, pk, panel: doc.getElementById('np-rec-menu'), more: doc.getElementById('np-rec-more'), rec: doc.getElementById('np-rec') };
 }
 
 test('tapeKeys: drawn only once the Studio lends its hands, from the tape and them', () => {
-  const { doc, k, tape } = keys({ tape: aTape({ click: true }), live: playing() });
+  const { doc, k, tape } = keys({ tape: aTape(), live: playing() });
   const rec = doc.getElementById('np-rec');
   const label = rec.getAttribute('aria-label');
   assert.equal(label, 'Record', 'no hands: the markup as it is');
   const off = k.lend(hands());
   assert.equal(rec.getAttribute('aria-label'), 'Record from IN 2');
-  assert.equal(doc.getElementById('np-click').getAttribute('aria-pressed'), 'true');
-  assert.equal(doc.getElementById('np-catch-pass').querySelector('.np-catch-sub').textContent, 'last pass → 2');
-  assert.equal(doc.getElementById('np-catch-pass').querySelector('.np-catch-mini').textContent, '→ 2');
-  tape.set({ tape: aTape({ click: false }), live: playing() });
-  assert.equal(doc.getElementById('np-click').getAttribute('aria-pressed'), 'false', 'the tape’s change, drawn');
+  assert.equal(doc.getElementById('np-rec-more').getAttribute('aria-label'), 'What to catch');
+  const on = { state: 'on', track: 2, source: 'IN 2' };
+  tape.set({ tape: aTape(), live: playing({ record: on }) });
+  assert.equal(rec.getAttribute('aria-pressed'), 'true', 'the tape’s change, drawn');
   off();
-  tape.set({ tape: aTape({ click: true }), live: playing() });
-  assert.equal(doc.getElementById('np-click').getAttribute('aria-pressed'), 'false', 'hands back: no longer drawn');
+  tape.set({ tape: aTape(), live: playing() });
+  assert.equal(rec.getAttribute('aria-pressed'), 'true', 'hands back: no longer drawn');
 });
 
 test('tapeKeys: ● sends the Studio’s body on the tape’s record, and the Studio says the answer', async () => {
@@ -188,26 +222,104 @@ test('tapeKeys: ● with the tape on this phone, or while it records, is this ph
   assert.deepEqual(tape.calls, []);
 });
 
-test('tapeKeys: a hold on ● on a phone offers this phone’s ▾', () => {
-  const { doc, layers } = shell();
-  const tape = aTapeModel({ tape: aTape(), live: playing() });
-  const phone = phoneKey({ root: doc.getElementById('np'), layers, recorder: () => aRecorder() });
-  let offered = 0;
-  const k = tapeKeys({ root: doc.getElementById('np'), tape, whenRecorder: () => {}, offer: () => { offered++; phone.offer(); }, phoneScreen: { matches: true } });
+test('tapeKeys: a tap on ● records, and opens no menu', async () => {
+  const { k, tape, rec, panel } = keys({ tape: aTape(), live: playing() }, { phone: true });
   k.lend(hands());
-  const rec = doc.getElementById('np-rec');
-  // ARM_PRESS's hold: a pointer held past it.
-  rec.dispatchEvent({ type: 'pointerdown', button: 0, pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0, timeStamp: 0 });
-  return new Promise((done) => setTimeout(() => {
-    rec.dispatchEvent({ type: 'pointerup', pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 });
-    assert.equal(offered, 1);
-    assert.ok(phone.menu.isOpen(), 'the mini player’s ▾ opens');
-    assert.deepEqual(tape.calls, [], 'nothing recorded');
-    done();
-  }, 700));
+  rec.dispatchEvent({ type: 'pointerdown', button: 0, pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 });
+  rec.dispatchEvent({ type: 'pointerup', pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 });
+  rec.dispatchEvent({ type: 'click', detail: 1, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });
+  await settle();
+  assert.deepEqual(tape.calls[0], ['record', { track: 2, source: 'IN 2', replace: false }]);
+  assert.equal(panel.hidden, true);
 });
 
-test('tapeKeys: Catch waiting for a pass says why and catches nothing; ready, it catches the last pass', async () => {
+// A hold on ● on a phone offers this phone, in ●'s own menu (one ▾ beside
+// ●): the hold opens it, and the click its lift sends, which ●'s press
+// swallows, must not shut it again (lib/ui/menu.js splitKey).
+test('tapeKeys: a hold on ● on a phone opens ●’s menu, with this phone’s rows, and its lift leaves it open', async () => {
+  const { k, tape, r, rec, panel, pk } = keys({ tape: aTape(), live: playing() }, { phone: true });
+  k.lend(hands());
+  // ARM_PRESS's hold: a pointer held past it.
+  rec.dispatchEvent({ type: 'pointerdown', button: 0, pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0, timeStamp: 0 });
+  await new Promise((done) => setTimeout(done, 700));
+  rec.dispatchEvent({ type: 'pointerup', pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 });
+  rec.dispatchEvent({ type: 'click', detail: 1, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });
+  await settle();
+  assert.equal(panel.hidden, false, '●’s menu is open, and stays open as the finger lifts');
+  assert.ok(!pk.menu.isOpen(), 'the phone’s own ▾ is not the one');
+  assert.ok(rowsOf(panel).some((row) => wordOf(row) === 'Record from this phone'));
+  assert.ok(r.calls.includes('inputs'), 'this phone’s inputs are asked for');
+  assert.deepEqual(tape.calls, [], 'nothing recorded');
+});
+
+test('tapeKeys: a hold on ● with the phone’s player pulled up opens the recorder’s sheet, as it did', async () => {
+  const { k, r, rec, panel } = keys({ tape: aTape(), live: playing() }, { phone: true, playerUp: true });
+  k.lend(hands());
+  rec.dispatchEvent({ type: 'pointerdown', button: 0, pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0, timeStamp: 0 });
+  await new Promise((done) => setTimeout(done, 700));
+  rec.dispatchEvent({ type: 'pointerup', pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 });
+  assert.ok(r.calls.includes('open'));
+  assert.equal(panel.hidden, true);
+});
+
+test('tapeKeys: ●’s ▾ on a tablet is Catch’s rows: its head, then the last pass and the last bars', async () => {
+  const { k, tape, more, panel } = keys({ tape: aTape(), live: playing() });
+  k.lend(hands());
+  click(more);
+  assert.equal(panel.hidden, false, 'the ▾ opens its menu');
+  assert.equal(panel.children[0].textContent, 'Catch onto track 2');
+  assert.deepEqual(rowsOf(panel).map(wordOf), ['The last pass', 'The last 1 bar', 'The last 2 bars', 'The last 4 bars']);
+  assert.ok(!panel.children.some((x) => x.getAttribute('role') === 'separator'), 'nothing of the phone’s');
+  pick(panel, rowsOf(panel)[0]);
+  await settle();
+  assert.deepEqual(tape.calls[0], ['catch', { track: 2, source: 'IN 2', replace: false, pass: 1 }]);
+  assert.equal(panel.hidden, true, 'a pick shuts it');
+});
+
+test('tapeKeys: a row of ●’s menu that can’t go says why under it, and a tap says it again and leaves the menu open', async () => {
+  const { k, tape, toasts, more, panel } = keys({ tape: aTape(), live: playing({ cycles: [] }) });
+  k.lend(hands());
+  click(more);
+  const pass = rowsOf(panel)[0];
+  assert.equal(pass.getAttribute('aria-disabled'), 'true');
+  assert.match(pass.querySelector('.menu-sub').textContent, /whole pass/);
+  assert.equal(rowsOf(panel)[1].getAttribute('aria-disabled'), 'false', 'the last bars don’t wait');
+  pick(panel, pass);
+  await settle();
+  assert.deepEqual(tape.calls, []);
+  assert.equal(toasts[0][1], 'warn');
+  assert.match(toasts[0][0], /whole pass/);
+  assert.equal(panel.hidden, false, 'it stays open');
+});
+
+test('tapeKeys: ●’s ▾ on a phone is Catch’s rows, a line, then this phone’s, which do what they do in its own ▾', async () => {
+  const { k, r, more, panel } = keys({ tape: aTape(), live: playing() }, { phone: true });
+  k.lend(hands());
+  click(more);
+  await settle(); // the inputs come
+  assert.equal(more.getAttribute('aria-label'), 'What to catch, or record from this phone');
+  const kids = panel.children;
+  const line = kids.findIndex((x) => x.getAttribute('role') === 'separator');
+  assert.ok(line > 0, 'a line, a child of the menu itself');
+  const words = (els) => els.filter((x) => x.classList.contains('menu-item')).map(wordOf);
+  assert.deepEqual(words(kids.slice(0, line)), ['The last pass', 'The last 1 bar', 'The last 2 bars', 'The last 4 bars']);
+  const phone = words(kids.slice(line + 1));
+  assert.deepEqual(phone, ['Record from this phone', 'Pixel’s microphone', 'The level and input…']);
+  const row = (w) => rowsOf(panel).find((x) => wordOf(x) === w);
+  pick(panel, row('The level and input…'));
+  assert.ok(r.calls.includes('open'), 'the level and input: the recorder’s sheet');
+  click(more);
+  await settle();
+  pick(panel, row('Record from this phone'));
+  assert.ok(r.calls.includes('quick'), 'Record from this phone records');
+  // While it records, the rows say so, the menu filled again as it changes.
+  click(more);
+  await settle();
+  r.set({ mode: 'recording', seconds: 4 });
+  assert.equal(wordOf(row('Stop recording')), 'Stop recording');
+});
+
+test('tapeKeys: C waiting for a pass says why, with the last 4 bars on offer, and catches nothing; ready, it catches the last pass', async () => {
   const { k, tape, toasts } = keys({ tape: aTape(), live: playing({ cycles: [] }) });
   const h = hands();
   k.lend(h);
@@ -215,11 +327,15 @@ test('tapeKeys: Catch waiting for a pass says why and catches nothing; ready, it
   await settle();
   assert.deepEqual(tape.calls, []);
   assert.equal(toasts[0][1], 'warn');
+  assert.deepEqual(toasts[0][2].actions.map((a) => a.label), ['Last 4 bars']);
+  toasts[0][2].actions[0].run();
+  await settle();
+  assert.deepEqual(tape.calls[0], ['catch', { track: 2, source: 'IN 2', replace: false, bars: 4 }]);
   tape.set({ tape: aTape(), live: playing() });
   k.press('catch');
   await settle();
-  assert.deepEqual(tape.calls[0], ['catch', { track: 2, source: 'IN 2', replace: false, pass: 1 }]);
-  assert.deepEqual(h.log[0][2].what, { pass: 1 });
+  assert.deepEqual(tape.calls.filter((c) => c[0] === 'catch')[1], ['catch', { track: 2, source: 'IN 2', replace: false, pass: 1 }]);
+  assert.deepEqual(h.log.at(-1)[2].what, { pass: 1 });
 });
 
 test('tapeKeys: the Studio’s own catches (a pass, the last bars) go through the same verb', async () => {
@@ -244,14 +360,26 @@ test('tapeKeys: the click sends the tape’s setClick; not while it has no tempo
   assert.equal(tape.calls.filter((c) => c[0] === 'setClick').length, 1, 'disabled: nothing');
 });
 
-test('tapeKeys: pointing at Catch is the Studio’s outline', () => {
-  const { k, doc } = keys({ tape: aTape(), live: playing() });
+test('tapeKeys: pointing at The last pass is the Studio’s outline, and it goes as the menu shuts', () => {
+  const { k, more, panel } = keys({ tape: aTape(), live: playing() });
   const seen = [];
   k.lend(hands({ hover: (on) => seen.push(on) }));
-  const pass = doc.getElementById('np-catch-pass');
+  click(more);
+  const pass = rowsOf(panel)[0];
   pass.dispatchEvent({ type: 'pointerenter', pointerType: 'mouse' });
   pass.dispatchEvent({ type: 'pointerleave', pointerType: 'mouse' });
   assert.deepEqual(seen, [true, false]);
+  pass.dispatchEvent({ type: 'pointerenter', pointerType: 'touch' });
+  assert.deepEqual(seen, [true, false], 'a finger points at nothing');
+  pass.dispatchEvent({ type: 'focus' });
+  assert.deepEqual(seen, [true, false], 'a finger’s tap focuses it: no outline');
+  pass.matches = (sel) => sel === ':focus-visible';
+  pass.dispatchEvent({ type: 'focus' });
+  assert.deepEqual(seen, [true, false, true], 'the keyboard on it');
+  k.closeMenu();
+  assert.deepEqual(seen, [true, false, true, false], 'the menu shut');
+  rowsOf(panel)[1].dispatchEvent({ type: 'pointerenter', pointerType: 'mouse' });
+  assert.equal(seen.length, 4, 'the last bars outline nothing');
 });
 
 test('tapeKeys: the Studio focuses ▶ and wires its tempo menu on the bar’s key through it, never by their ids (step 5c)', () => {
@@ -271,13 +399,13 @@ test('tapeKeys: a page without the keys, or without a tape, has none', () => {
   assert.equal(tapeKeys({ root: shell().doc.getElementById('np'), tape: null }), null);
 });
 
-test('tapeKeys: C with Catch’s ▾ open catches and shuts it, as a tap on Catch does', async () => {
-  const { k, doc } = keys({ tape: aTape(), live: playing() });
+test('tapeKeys: C with ●’s ▾ open catches and shuts it, as a pick does', async () => {
+  const { k, more, panel, tape } = keys({ tape: aTape(), live: playing() });
   k.lend(hands());
-  const panel = doc.getElementById('np-catch-menu');
-  click(doc.getElementById('np-catch-more'));
+  click(more);
   assert.equal(panel.hidden, false, 'the ▾ opens its menu');
   k.press('catch');
   await settle();
   assert.equal(panel.hidden, true, 'C shuts it');
+  assert.deepEqual(tape.calls[0], ['catch', { track: 2, source: 'IN 2', replace: false, pass: 1 }]);
 });

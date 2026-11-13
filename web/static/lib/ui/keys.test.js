@@ -227,7 +227,7 @@ test('every key’s :active rule draws .down too, in the same rule', () => {
       if (!/:active$/.test(sel)) continue;
       const base = sel.replace(/:active$/, '');
       // Only the keys this presses: a selector ending on one of KEYS (a
-      // more particular key, .np-catch, included).
+      // more particular key, .icon-btn.studio-keep, included).
       if (!KEYS.split(', ').some((k) => base.endsWith(k) || base.split(/[\s>]+/).pop().startsWith(k))) continue;
       if (!r.sel.includes(twin(sel))) missing.push(`${r.line}: ${sel}`);
     }

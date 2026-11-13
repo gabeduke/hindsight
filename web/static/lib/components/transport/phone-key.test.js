@@ -86,6 +86,49 @@ test('phoneKey: a recording started before ● was pressed (Capture’s ● Phon
   assert.equal(doc.getElementById('np-phone-rec').getAttribute('aria-pressed'), 'true');
 });
 
+// ●'s ▾ in the Studio holds these rows after Catch's (tape-keys.js): one
+// ▾ beside ●, never two. Its rows are this ▾'s, made by it, doing what they
+// do here.
+test('phoneKey: rows(panel) puts its rows in another menu, each doing what it does in its own', () => {
+  const { doc, layers } = shell();
+  const r = aRecorder();
+  const k = phoneKey({ root: doc.getElementById('np'), layers, recorder: () => r });
+  const panel = doc.createElement('div');
+  const head = doc.createElement('p');
+  panel.append(head);
+  k.rows(panel);
+  assert.equal(panel.children[0], head, 'after what the menu had');
+  const rows = panel.children.filter((x) => x.classList.contains('menu-item'));
+  const words = rows.map((x) => x.querySelector('.menu-word').textContent);
+  assert.deepEqual(words, ['Record from this phone', 'This phone’s microphone', 'The level and input…']);
+  for (const row of rows) row.dispatchEvent({ type: 'click' });
+  assert.deepEqual(r.calls, ['quick', 'input:', 'open']);
+});
+
+test('phoneKey: offer(host) opens the host and asks for the inputs, filling it again as they come; with the player up, the sheet', async () => {
+  const { doc, layers } = shell();
+  const r = aRecorder();
+  r.inputs = async () => { r.calls.push('inputs'); return [{ id: 'usb', label: 'USB interface' }]; };
+  let up = false;
+  const k = phoneKey({ root: doc.getElementById('np'), layers, recorder: () => r, playerUp: () => up });
+  const panel = doc.createElement('div');
+  let open = false;
+  const host = { isOpen: () => open, open: () => { open = true; host.refresh(); }, refresh: () => { panel.replaceChildren(); k.rows(panel); } };
+  k.offer(host);
+  assert.ok(open, 'the host opens');
+  await new Promise((done) => setImmediate(done));
+  assert.ok(panel.children.some((x) => x.textContent.includes('USB interface')), 'filled again with the inputs');
+  r.set({ mode: 'recording', seconds: 2 });
+  assert.ok(panel.children.some((x) => x.textContent.includes('Stop recording')), 'and as the recorder changes');
+  open = false;
+  up = true;
+  r.calls.length = 0;
+  k.offer(host);
+  assert.deepEqual(r.calls, ['open'], 'the player up: the recorder’s sheet');
+  assert.ok(!open);
+  assert.ok(!k.menu.isOpen(), 'never its own ▾, which the Studio doesn’t show');
+});
+
 test('phoneKey: a page without the keys (Open) has none', () => {
   const np = fakeDoc().createElement('section');
   np.id = 'np';

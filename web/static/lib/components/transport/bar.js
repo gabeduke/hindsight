@@ -9,7 +9,7 @@
 // it (⏏ is its eject). The source menu and ● on the phone's mini player are
 // wired here too, on the engine's verbs (the output sheet, the phone's
 // player and the recorder are the surface's, handed in), and the tape's
-// keys in the Studio, ●, Catch and the click, on the tape's (tape-keys.js),
+// keys in the Studio, ● and its ▾ (Catch), on the tape's (tape-keys.js),
 // which the Studio lends its hands (tapeKeys.lend). Its shape is css/bar.css's: #np says what it holds (data-source) and
 // the stylesheet shows each key for the sources it is for (slots.js). The
 // display says where it is, then the tempo, the source and where it plays
@@ -208,11 +208,11 @@ export class NowPlaying {
     // The recorder is the page's, made at boot (lib/phone/recorder.js).
     const whenRecorder = (fn) => { if (recorder) fn(recorder); };
     const phone = phoneKey({ root, layers: cx.layers, floor: cx.floor, playerUp: () => !!this.player?.isOpen, recorder: () => recorder, whenRecorder });
-    // The tape's keys in the Studio, ●, Catch and its ▾ and the click
+    // The tape's keys in the Studio, ● and its ▾, with Catch on it
     // (tape-keys.js), on the page's tape (`tape`, the tape model): the
-    // Studio lends them its hands through its ctx (ctx.tapeKeys). A hold
-    // on ● on a phone offers this phone's ▾.
-    this.tapeKeys = tapeKeys({ root, tape, toast: (m, k, o) => onToast?.(m, k, o), offer: () => phone?.offer(), whenRecorder, phoneScreen });
+    // Studio lends them its hands through its ctx (ctx.tapeKeys). On a
+    // phone ●'s ▾ holds this phone's rows too, and a hold on ● offers them.
+    this.tapeKeys = tapeKeys({ root, tape, toast: (m, k, o) => onToast?.(m, k, o), phoneKeys: phone, whenRecorder, phoneScreen });
     // Where it plays (OUT on the display, and the player's foot) opens the
     // surface's Output sheet.
     for (const k of [$('output'), $('out-foot')]) k?.addEventListener('click', () => this.output?.());
