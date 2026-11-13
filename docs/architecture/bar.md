@@ -305,10 +305,16 @@ The last pass and The last 1, 2 and 4 bars; a row that can't go is
 `aria-disabled="true"` with its reason under it, and a tap on it says why
 and leaves the menu open. Pointing at The last pass with a mouse, or the
 keyboard on it, outlines its pass on the lanes (`hover`), until the menu
-shuts (`menu()`'s `onClose`). On a phone (`phoneScreen`) the menu has a
-line and then the phone's rows after Catch's (`phoneKeys.rows(panel)`,
-`opened(menu)` as it opens, which asks for the inputs), and a hold on ●
-opens it (`phoneKeys.offer(menu)`). ●'s press is bound before the split
+shuts (`menu()`'s `onClose`). Open, it follows the tape: as `draw()` runs
+(the tape's answers, the recorder's, the Studio's armed tracks), the menu
+is filled again when Catch's rows have changed (a pass gone round lets The
+last pass go, another track armed renames the head), by `menu()`'s
+`refresh()`, which keeps the keyboard on its row, the same path the
+phone's rows take as the recorder changes. On a phone (`phoneScreen`) the
+menu has a line and then the phone's rows after Catch's
+(`phoneKeys.rows(panel)`), and each time it opens, by the ▾, the keyboard
+or a hold, its `onOpen` says so (`phoneKeys.opened(menu)`, which asks for
+the inputs); a hold on ● opens it (`phoneKeys.offer(menu)`). ●'s press is bound before the split
 key, which leaves alone the click a hold's lift sends (`splitKey`). The
 shell hands every view a relay of them as `ctx.tapeKeys` (`TAPE_KEYS`,
 below), which the Transport provides them to as it mounts (*The

@@ -91,7 +91,8 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  * which hands it over once there is one: the shell makes it at boot).
  * `toast` is the page's; `phoneKeys` is the mini player's own ● and ▾
  * (phone-key.js's answer, or null): on a phone ●'s menu holds its rows
- * after Catch's (rows, opened), and a hold on ● offers them (offer);
+ * after Catch's (rows, and opened as it opens), and a hold on ● offers
+ * them (offer);
  * `phoneScreen` is a MediaQueryList for one (a component's
  * cx.media(PHONE)). Null on a bar without the keys or a page without a tape.
  *
@@ -145,6 +146,14 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
   const phone = () => (recorder ? recorder.snapshot() : { mode: 'closed', seconds: 0 });
   // On a phone ●'s menu holds this phone's rows too.
   const withPhone = () => !!phoneKeys && !!phoneScreen.matches;
+  // Catch's rows as they are now, and as ●'s menu drew them last: the open
+  // menu is filled again (menu()'s refresh, which keeps the keyboard on its
+  // row) when they change, as the phone's rows' changes fill it again.
+  const catchNow = () => {
+    const s = snap();
+    return catchRows({ says: says || catchState({ live: s.live, tape: s.tape }), armed: hands ? hands.armed() : [] });
+  };
+  let drawn = '';
 
   function draw() {
     const s = snap();
@@ -161,6 +170,9 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
     setAttr(rec, 'aria-disabled', String(f.rec.dim));
     rec.classList.toggle('dim', f.rec.dim);
     setAttr(more, 'aria-label', withPhone() ? 'What to catch, or record from this phone' : 'What to catch');
+    // Open, ●'s menu follows the tape and the armed tracks: a pass going
+    // round lets The last pass go, another track armed renames the head.
+    if (menu?.isOpen() && JSON.stringify(catchNow()) !== drawn) menu.refresh();
   }
 
   // ●: arms or punches in onto the armed tracks, or ends the punch and keeps
@@ -218,9 +230,9 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
   // can't go, why (a tap on one that can't says it again, and leaves the
   // menu open); on a phone a line, then this phone's rows (phone-key.js).
   function renderMenu(m) {
-    const s = snap();
-    const cs = says || catchState({ live: s.live, tape: s.tape });
-    const { head, rows } = catchRows({ says: cs, armed: hands ? hands.armed() : [] });
+    const now = catchNow();
+    drawn = JSON.stringify(now);
+    const { head, rows } = now;
     // Its head is drawn in the panel, from markup: the bar names no document.
     m.innerHTML = '<div class="menu-sub catch-menu-head"></div>';
     m.children[0].textContent = head;
@@ -273,11 +285,13 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
         // KEEP's: the menu opens over the ▾ in the bar (under it in the
         // phone's pulled-up player), its right edge on the ▾'s, and ●, a
         // pick, a press elsewhere, Escape or Back shuts it.
+        // On a phone, this phone's inputs are asked for each time it opens
+        // with its rows, by the ▾, the keyboard or a hold on ●.
         menu = splitKey(rec, more, panel, {
-          layers: h.layers || undefined, role: 'menu', anchor: more, render: renderMenu, popover: true, onClose: () => hover(false),
+          layers: h.layers || undefined, role: 'menu', anchor: more, render: renderMenu, popover: true,
+          onOpen: () => { if (withPhone()) phoneKeys.opened(menu); },
+          onClose: () => hover(false),
         });
-        // This phone's inputs, asked for as it opens with its rows.
-        more.addEventListener('click', () => { if (menu.isOpen() && withPhone()) phoneKeys.opened(menu); });
       }
       draw();
       return () => { if (hands === h) { menu?.close(); hands = null; } };

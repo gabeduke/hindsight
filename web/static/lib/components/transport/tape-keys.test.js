@@ -290,6 +290,44 @@ test('tapeKeys: a row of ●’s menu that can’t go says why under it, and a t
   assert.equal(panel.hidden, false, 'it stays open');
 });
 
+// ●'s menu open while the loop plays went stale: The last pass stayed
+// waiting after the pass had gone round, and the head named the tracks
+// armed as it opened (review of step 7a).
+test('tapeKeys: ●’s menu, open, follows the tape and the armed tracks, the keyboard staying on its row', () => {
+  const { k, tape, more, panel } = keys({ tape: aTape(), live: playing({ cycles: [] }) });
+  let armed = [2];
+  k.lend(hands({ armed: () => armed }));
+  click(more);
+  const row = (w) => rowsOf(panel).find((x) => wordOf(x) === w);
+  assert.equal(row('The last pass').getAttribute('aria-disabled'), 'true', 'no pass yet');
+  row('The last 2 bars').focus();
+  tape.set({ tape: aTape(), live: playing() }); // a pass has gone round
+  assert.equal(panel.hidden, false, 'still open');
+  assert.equal(row('The last pass').getAttribute('aria-disabled'), 'false', 'The last pass can go now');
+  assert.equal(row('The last pass').querySelector('.menu-sub'), null, 'and says no reason');
+  // (=== , not assert.equal: a failing diff of two fake elements runs out of memory)
+  assert.ok(panel.ownerDocument.activeElement === row('The last 2 bars'), 'the keyboard is where it was');
+  armed = [2, 3];
+  k.draw(); // the Studio armed another track
+  assert.equal(panel.children[0].textContent, 'Catch onto tracks 2, 3');
+  const before = rowsOf(panel)[0];
+  tape.set({ tape: aTape(), live: playing({ heard: 1234 }) });
+  assert.ok(rowsOf(panel)[0] === before, 'nothing it shows changed: the rows are left be');
+});
+
+test('tapeKeys: on a phone, ●’s menu asks for this phone’s inputs however it opens: the ▾, the keyboard', async () => {
+  const { k, r, more, panel } = keys({ tape: aTape(), live: playing() }, { phone: true });
+  k.lend(hands());
+  more.dispatchEvent({ type: 'keydown', key: 'ArrowDown', preventDefault() {} });
+  assert.equal(panel.hidden, false, '↓ on the ▾ opens it');
+  assert.deepEqual(r.calls.filter((c) => c === 'inputs'), ['inputs'], 'and asks for the inputs');
+  await settle();
+  assert.ok(rowsOf(panel).some((x) => wordOf(x) === 'Pixel’s microphone'), 'which fill it as they come');
+  k.closeMenu();
+  click(more);
+  assert.deepEqual(r.calls.filter((c) => c === 'inputs'), ['inputs', 'inputs'], 'the ▾ asks too, once');
+});
+
 test('tapeKeys: ●’s ▾ on a phone is Catch’s rows, a line, then this phone’s, which do what they do in its own ▾', async () => {
   const { k, r, more, panel } = keys({ tape: aTape(), live: playing() }, { phone: true });
   k.lend(hands());

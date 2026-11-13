@@ -64,12 +64,14 @@ export function said(state) {
  *   rows(panel)     appends this ▾'s rows to `panel`, another menu's (●'s
  *                   ▾ in the Studio, tape-keys.js), each doing what it does
  *                   here: what ● does now, the inputs, the level and input
- *   opened(host)    `host` (menu()'s answer) has opened holding them: the
- *                   inputs are asked for, and it is filled again as they
- *                   come and as the recorder changes while it is open
- *   offer(host)     a hold on the Studio's ● (tape-keys.js): `host` opened
- *                   (and opened(host)), or with the player up, where the
- *                   mini player's ▾ isn't, the recorder's sheet
+ *   opened(host)    `host` (menu()'s answer) has opened holding them, as it
+ *                   says each time it opens (its onOpen, however it was
+ *                   opened): the inputs are asked for, and it is filled
+ *                   again as they come and as the recorder changes while it
+ *                   is open
+ *   offer(host)     a hold on the Studio's ● (tape-keys.js): `host` opened,
+ *                   or with the player up, where the mini player's ▾
+ *                   isn't, the recorder's sheet
  */
 export function phoneKey({ root, recorder, layers, floor, whenRecorder = (fn) => { const r = recorder(); if (r) fn(r); }, playerUp = () => false }) {
   const part = partOf(root);
@@ -141,7 +143,6 @@ export function phoneKey({ root, recorder, layers, floor, whenRecorder = (fn) =>
     // The ▾ is the mini player's; with the player up, the sheet offers it.
     if (playerUp()) { hear()?.open(); return; }
     h.open();
-    opened(h);
   };
   whenRecorder(listen);
   return { menu: m, paint, rows: (p) => { p.append(...rowsIn(p)); }, opened, offer };

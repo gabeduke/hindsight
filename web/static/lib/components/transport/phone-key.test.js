@@ -105,7 +105,7 @@ test('phoneKey: rows(panel) puts its rows in another menu, each doing what it do
   assert.deepEqual(r.calls, ['quick', 'input:', 'open']);
 });
 
-test('phoneKey: offer(host) opens the host and asks for the inputs, filling it again as they come; with the player up, the sheet', async () => {
+test('phoneKey: offer(host) opens the host, which says so (opened), and the inputs are asked for, filling it again as they come; with the player up, the sheet', async () => {
   const { doc, layers } = shell();
   const r = aRecorder();
   r.inputs = async () => { r.calls.push('inputs'); return [{ id: 'usb', label: 'USB interface' }]; };
@@ -113,7 +113,8 @@ test('phoneKey: offer(host) opens the host and asks for the inputs, filling it a
   const k = phoneKey({ root: doc.getElementById('np'), layers, recorder: () => r, playerUp: () => up });
   const panel = doc.createElement('div');
   let open = false;
-  const host = { isOpen: () => open, open: () => { open = true; host.refresh(); }, refresh: () => { panel.replaceChildren(); k.rows(panel); } };
+  // The host as menu() is one: filled as it opens, then its onOpen says so.
+  const host = { isOpen: () => open, open: () => { open = true; host.refresh(); k.opened(host); }, refresh: () => { panel.replaceChildren(); k.rows(panel); } };
   k.offer(host);
   assert.ok(open, 'the host opens');
   await new Promise((done) => setImmediate(done));
