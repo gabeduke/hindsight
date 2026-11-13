@@ -18,6 +18,18 @@ that template, in its slot, named by `data-part` (the component gives it
 its id through `cx.id`), and in `wave.html` too while Open keeps its own
 bar.
 
+**Amended 2026-11-14** (the calm Studio's decision 5, built as its step
+7b): the display has two keys, not three: what plays (the source), and
+how, its tempo over where it plays. The output's key of its own went: in
+the Studio with the tape the tempo's key opens the tempo's panel, whose
+last row opens the Output sheet, and anywhere else it opens the Output
+sheet itself. The bar is the one owner of that key's press. Why: Gabe
+called the Studio "so damn cluttered", and the calm Studio counts every
+key at rest (its decision 1 puts the tempo and where it plays one tap away,
+not always there); no journey of his counts where the tape plays, so in
+the Studio it can be a row away, and one key on every room's bar is
+saved. The deck kept its width, so ▶ did not move.
+
 ## Why
 
 The bar once had 232 selectors in 14 sections of `styles.css`, hid its keys
