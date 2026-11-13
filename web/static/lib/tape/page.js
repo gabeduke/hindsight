@@ -4120,10 +4120,15 @@ function renderTempo(panel) {
 
 // toggleClick turns the click (the metronome) on or off, on the tape's
 // setClick: the Click in the tempo's panel and M. Nothing without a tempo.
-function toggleClick() {
+// With the panel shut (M), its lamp is nowhere on the screen: a toast says
+// which way it went, passing, as a key's word does.
+async function toggleClick() {
   const t = state.tape;
   if (!t || !t.grid) return;
-  editTape(() => tapeModel.setClick(!t.click), { toast, resync: () => poll(true) });
+  const on = !t.click;
+  const unseen = !menus.tempoBar?.isOpen();
+  const done = await editTape(() => tapeModel.setClick(on), { toast, resync: () => poll(true) });
+  if (done && unseen) toast(on ? 'Click on' : 'Click off', 'ok', { ms: 2000 })?.classList.add('toast-passive');
 }
 
 // paintClick draws the tempo's panel's Click from the tape: pressed while

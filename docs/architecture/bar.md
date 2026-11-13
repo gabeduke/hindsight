@@ -331,7 +331,9 @@ its label, pressed, armed, counting, disabled and dim, and `says`
 panel (`#tempo-click`, `aria-pressed`, disabled without a grid;
 `lib/tape/page.js` `renderTempo`) and M press `toggleClick()`, the tape's
 `setClick(on)` through `editTape`, and `paintClick()` draws the switch from
-the tape as the Studio renders. The bar has no key for it.
+the tape as the Studio renders. With the panel shut (M), where the lamp
+isn't, a passing toast says *Click on* or *Click off*. The bar has no key
+for it.
 
 What is the Studio's own reaches them only as the hands it lends, the one
 interface between them (`lib/tape/page.js` `studioHands`, lent as it wires
