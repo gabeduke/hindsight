@@ -369,10 +369,13 @@ export const findingKey = (f) => {
 // canvas you hold and drag on). They are the tape's face's (the calm
 // Studio's two faces, 2026-11-13, which left them as they were: Flag now
 // went to the feed's face, and the feed's strip became a key); `feed` is
-// the feed's face's, measured then: 26, and 27 at 1280×800. Like
-// layout-known.json these only go down: lower one when a change leaves
-// less, never raise it to make a flow pass.
-export const STUDIO_BUDGET = Object.freeze({ controls: 44, under32: 1, jam: 44, feed: 27 });
+// the feed's face's, measured then: 26, and 27 at 1280×800. The calm
+// Studio's step 7a (2026-11-13) took Catch's key, its ▾ and the click off
+// the bar for ●'s ▾: 41 at 1024×768 and upright, 42 at 1280×800, and the
+// feed's face 24 and 25 (the bar is on both). Like layout-known.json these
+// only go down: lower one when a change leaves less, never raise it to
+// make a flow pass.
+export const STUDIO_BUDGET = Object.freeze({ controls: 42, under32: 1, jam: 44, feed: 25 });
 
 // studioCount runs in the page: what the budget counts, as it is now.
 function studioCount() {
