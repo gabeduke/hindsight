@@ -458,6 +458,42 @@ test('menu: buttons that share a panel show it for one at a time', () => {
   assert.ok(two.isOpen() && !p.$('im').hidden);
 });
 
+test('menu: onOpen hears each opening, however it was opened, and not a refresh', () => {
+  const p = aPage();
+  let opened = 0;
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win, onOpen: () => { opened++; assert.ok(m.isOpen(), 'filled and shown first'); } });
+  p.$('b').dispatchEvent({ type: 'click', detail: 1 });
+  assert.equal(opened, 1, 'a press');
+  m.refresh();
+  m.open();
+  assert.equal(opened, 1, 'a refresh, or an open() while open, is no opening');
+  m.close();
+  p.key('ArrowDown', p.$('b'));
+  assert.equal(opened, 2, '↓ on its button');
+  m.close();
+  m.open();
+  assert.equal(opened, 3, 'its owner’s open()');
+});
+
+test('menu: refresh keeps the keyboard on the row it was on, by its word, else in its place', () => {
+  const p = aPage('<button id="b">▾</button><div id="m" hidden></div>');
+  let words = ['One', 'Two', 'Three'];
+  const render = (panel) => panel.replaceChildren(...words.map((w) => menuItem(panel, { word: w })));
+  const m = menu(p.$('b'), p.$('m'), { layers: p.layers, win: p.win, render });
+  m.open();
+  const row = (w) => p.$('m').children.find((r) => r.querySelector('.menu-word').textContent === w);
+  row('Two').focus();
+  words = ['Zero', 'One', 'Two', 'Three'];
+  m.refresh();
+  assert.equal(p.doc.activeElement, row('Two'), 'the same row, though it moved');
+  words = ['Zero', 'One', 'Deux', 'Three'];
+  m.refresh();
+  assert.equal(p.doc.activeElement, row('Deux'), 'its word changed: the row in its place');
+  p.$('b').focus();
+  m.refresh();
+  assert.equal(p.doc.activeElement, p.$('b'), 'the keyboard elsewhere stays there');
+});
+
 test('menu: refresh fills it again and places it; refresh({ render: false }) only places it', () => {
   const p = aPage();
   let fills = 0;

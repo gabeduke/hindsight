@@ -108,6 +108,10 @@ const showing = new WeakMap();
  *            whose z-index would cover it or whose transform would move
  *            its fixed place (the bar's three, inside #np). A browser with
  *            no popover shows it where it is held.
+ *   onOpen() called each time it opens, however it was opened (a press,
+ *            ↓ or ↑, Enter, its owner's open()), once it is filled and
+ *            shown: for what its owner asks for as it opens (●'s menu asks
+ *            for this phone's inputs)
  *   onClose(reason)
  *            called once it is put away, however it closed (layers.js's
  *            reasons): for what its owner shows only while it is open (the
@@ -120,9 +124,10 @@ const showing = new WeakMap();
  * do. While it is open, ↑ ↓ Home End move along it (← → too, in a panel),
  * Tab closes it and moves on from the button, and it follows its anchor
  * when the page scrolls or the window changes size. Answers { open, close,
- * toggle, refresh, isOpen }: refresh() fills it again and places it;
- * refresh({ render: false }) places it again, after its owner changed what
- * it holds.
+ * toggle, refresh, isOpen }: refresh() fills it again and places it,
+ * the keyboard staying on the row it was on (the row with the same word,
+ * else the one in the same place); refresh({ render: false }) places it
+ * again, after its owner changed what it holds.
  *
  * Several buttons may share one panel, each with a menu() of it: opening it
  * from one closes it from another, and only the one showing it shuts it.
@@ -139,6 +144,7 @@ export function menu(button, panel, {
   render,
   focus = 'first',
   popover = false,
+  onOpen = null,
   onClose = null,
   doc = button.ownerDocument || globalThis.document,
   win = doc?.defaultView || globalThis,
@@ -286,6 +292,7 @@ export function menu(button, panel, {
       listen(true);
     }
     if (byKey) focusIn(last);
+    onOpen?.();
   }
 
   function close(reason = 'program') {
@@ -295,9 +302,20 @@ export function menu(button, panel, {
 
   const toggle = (opts) => (isOpen() ? close() : open(opts));
 
+  // A row is known again after a fill by its word (menuItem's), else its text.
+  const wordOf = (el) => (el.querySelector?.('.menu-word') || el).textContent;
   function refresh({ render: fill = true } = {}) {
     if (!isOpen()) return;
-    if (fill) render?.(panel);
+    if (fill) {
+      const was = items();
+      const at = was.indexOf(doc.activeElement);
+      const word = at >= 0 ? wordOf(was[at]) : null;
+      render?.(panel);
+      if (at >= 0) {
+        const now = items();
+        (now.find((el) => wordOf(el) === word) || now[Math.min(at, now.length - 1)])?.focus?.({ preventScroll: true });
+      }
+    }
     placeNow();
   }
 

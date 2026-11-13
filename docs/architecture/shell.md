@@ -268,10 +268,16 @@ close request: it switches rooms, with the menus closed on the way.
 
 **Menus** (`lib/ui/menu.js`). A menu, or a ▾'s panel beside its key, is
 `menu(button, panel, {layers, role, side, align, floor, render, focus,
-popover, onClose})` on that stack: the button says what it opens (`aria-haspopup`,
+popover, onOpen, onClose})` on that stack: the button says what it opens (`aria-haspopup`,
 `aria-expanded`, `aria-controls`), ↑ ↓ Home End move along it, Tab closes it
-and goes on from the button, and it closes only through its layer, which
-`onClose(reason)` hears (●'s menu takes its outline off the lanes by it). `place`
+and goes on from the button, and it closes only through its layer.
+`onOpen()` hears each opening, however it was opened (a press, ↓ or ↑,
+Enter, the owner's `open()`), once it is filled and shown, and
+`onClose(reason)` each closing: ●'s menu asks for this phone's inputs by
+the one and takes its outline off the lanes by the other. `refresh()`
+fills it again with the keyboard on the row it was on (the same word, else
+the same place), so an owner can fill an open menu as what it shows
+changes. `place`
 is where it goes (pure: below its key or above it, its right or left edge
 on the key's, moved in from the screen's sides and kept off the bar at the
 foot by `floor`), fixed, so no panel's overflow clips it. It grows from its
