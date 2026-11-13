@@ -69,22 +69,29 @@ Every word the two rooms use, and what each was called before, is in
 
 ## 3. The main page
 
-*Today.* `/` is the **Studio**: the tape (§8.2) with the **feed** above its
-lanes. The header's other room is the **Listening Room** (§3.1), where the
-takes are. The feed is one strip, so the tape keeps the screen: on a tablet
-it's one row, on a phone three.
+*Today.* `/` is the **Studio**: the tape (§8.2) and the **feed**, one face
+at a time. The header's other room is the **Listening Room** (§3.1), where
+the takes are. On the tape's face the feed is one thin row over the lanes:
+the lamp, the ribbon, **GRAB** and **KEEP** (on a phone GRAB and KEEP go
+under them). Tap the ribbon there to turn to the feed's face: the ribbon as
+tall as the room leaves, and under it the lamp and the level, GRAB, KEEP
+and **Note**. The tape is then a thin row at the top, the whole of it, and
+a tap on it turns back. The cue lane (§8.12) is on both faces, so a GRAB
+lands where you can see it, and this device opens the Studio on the face
+you left.
 
 - **The lamp,** *FEED*, is green while the feed records, amber or red when
   something wants a look. Tap it for the feed's sheet: what's wrong, if
   anything; disk free, dropped buffers and the MIDI clock's tempo; the
   **Input channels**, each with its meter; and **The rig ›**.
-- **The meters,** backlit VU needles for the channels being saved, under
-  the lamp, with the level in dBFS under each. On a phone, two bars beside
-  the lamp.
+- **The level,** two bars beside the lamp on the feed's face, for the
+  channels being saved (on a phone with the level in dBFS); the lamp's
+  sheet has the numbers.
 - **The feed ribbon.** The last 15 minutes, passing the red record head at
   *REC*, with the recent end stretched so you can see it. The length KEEP
-  would save is lit orange, and the strip underneath says how long ago.
-  Hold and drag across it to keep or grab just that stretch (§6).
+  would save is lit orange, and the strip underneath says how long ago. On
+  the feed's face, tap it to mark "from here", or hold and drag across it
+  to keep or grab just that stretch (§6).
 - **GRAB** lifts the last bars onto the Studio's cue lane, to jam with and
   drop on a track (§8.12). The key says how many, and from which input: *GRAB 4 BARS, from
   aux · armed*. Its **▾** picks 1, 2, 4 or 8 bars, and the input -- the armed
@@ -567,6 +574,12 @@ them to the trash, with Undo. **Done** or Escape stops selecting.
 ## 6. The ribbon
 
 *Today.*
+
+**Tap the ribbon,** on the Studio's feed face, to mark "from here": KEEP
+and GRAB then say how long it is to now (*KEEP 1m24s*) and keep or grab
+just that. The mark has its own key at its start: a tap takes it off, and
+a drag moves it (from a keyboard, ← and →). A tap at the right edge, which
+is now, takes it off too. Turning back to the tape keeps it.
 
 **Hold, then drag, across the ribbon** to select any stretch of the last 15
 minutes, not just the last N, then tap **Save as take** in the bar that
@@ -1577,7 +1590,10 @@ has no tip.
 | ▾ (GRAB) | How much GRAB takes, the last 1, 2, 4 or 8 bars, and from which input: the armed track's, unless you pick one |
 | Feed (lamp) | The feed's lamp: green while it records, amber or red when something wants a look. It opens the feed's readouts, its input channels and the way to the rig |
 | Flag now | Mark this moment. Any take that includes it gets a flag here |
-| Ribbon | The last 15 minutes, recent end stretched. In the Studio a tap marks “from here”, and KEEP keeps from the mark to now (a tap at the right edge takes it off). Hold and drag to select a span; tap a flag for its options |
+| Ribbon | The last 15 minutes, recent end stretched. In the Studio, on the feed's face, a tap marks “from here”, and KEEP keeps from the mark to now (a tap at the right edge takes it off). Hold and drag to select a span; tap a flag for its options |
+| The mark (ribbon) | Your mark, “from here”: a tap takes it off, and a drag, or ← and →, moves it. KEEP and GRAB say how long it is to now |
+| The feed (Studio) | On the tape's face the feed is one thin row over the lanes: a tap turns the Studio to the feed's face, the ribbon as tall as the room leaves, where a tap marks “from here”. GRAB and KEEP are on both |
+| The tape (Studio) | On the feed's face the whole tape is one thin row at the top: a tap turns the Studio back to the tape. The cue lane is on both |
 | Save as take (ribbon) | Save exactly the span you selected on the ribbon as a take |
 | × (ribbon) | Forget the span selected on the ribbon |
 | Save from here to now | Save a take that starts at this flag and runs to now |

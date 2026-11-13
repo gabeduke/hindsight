@@ -9,11 +9,12 @@
  * revealAbove scrolls `win` until each of `els` is `gap` px above `cover`'s
  * top, and no further than keeps the topmost of them `gap` px under
  * `ceiling` (a line from the top of the screen, a pinned header's foot; by
- * default none). What is in sight already doesn't move. Answers how far it
- * scrolled.
+ * default none). What is in sight already doesn't move, and what has no
+ * height (not laid out: the lanes on the Studio's feed face) is left out.
+ * Answers how far it scrolled.
  */
 export function revealAbove(els, cover, { win = globalThis, ceiling = -Infinity, gap = 8, reduced = false } = {}) {
-  const boxes = els.filter(Boolean).map((e) => e.getBoundingClientRect());
+  const boxes = els.filter(Boolean).map((e) => e.getBoundingClientRect()).filter((b) => b.bottom > b.top);
   if (!boxes.length || !cover) return 0;
   const over = Math.max(...boxes.map((b) => b.bottom)) + gap - cover.getBoundingClientRect().top;
   const room = Math.min(...boxes.map((b) => b.top)) - gap - ceiling;

@@ -24,8 +24,9 @@ request. Why things are the way they are is in `docs/decisions/`.
 - [tape.md](architecture/tape.md): the tape engine and its timing: the
   model, store, renderer, transport, when a pad lands, latency in use, catching, the
   output, alignment, recording, free loops, the crate and clipboard,
-  editing, mixdown, export, the MIDI clock, the cue lane, the feed strip,
-  the track heads and the Studio's budget on a tablet.
+  editing, mixdown, export, the MIDI clock, the cue lane, the Studio's two
+  faces (the tape's and the feed's), the feed strip and the mark, the track
+  heads and the Studio's budget on a tablet.
 - [push.md](architecture/push.md): the tape's revision, the
   `/api/tapes/changes` socket, the take list's revision (`takes_rev`) and
   the page's takes model it feeds, and the keyboard's press on it.

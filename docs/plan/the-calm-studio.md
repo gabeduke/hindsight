@@ -1,8 +1,8 @@
 # The calm Studio: what is on screen, and when
 
 **Status: direction agreed 2026-11-09 from a wireframe, and the order of
-what is left agreed 2026-11-10; decisions 1 to 4 are built (*Build order*),
-and 5 to 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
+what is left agreed 2026-11-10; decisions 1 to 4 and 9 are built (*Build
+order*), and 5 to 8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
 time, and it is "so damn cluttered": "it is hard to tell what buttons are
 useful to me."
 
@@ -140,14 +140,46 @@ one tap away, or gone.
    0061). One holding place, the cue lane, for everything lifted, and one
    Drop. Amends 0061.
 
-## Gabe's calls before the bar changes
+### The two faces, as built (step 5)
 
-- **Which capture verbs stay on the surface.** The wireframe kept GRAB,
-  KEEP and ● and took Catch off the bar. If Catch is the one he uses, it
-  stays and another goes behind a ▾.
-- **What he reaches for in the drawer.** If Reverse or the fades are every
-  session, they stay out of Trim.
-- **The metronome**: on the bar, or in the tempo's panel.
+- **The face is the Studio's state, per device**: `lib/rooms/face.js`
+  (`createFace`: `get()`, `set(face)`, `onChange(fn)`), kept in this
+  browser (`studio.face`, `lib/device-prefs.js`'s way), written on the
+  Studio's root as `main#view-studio[data-face]`; no attribute is the
+  tape, so the first paint is the tape's and `styles.css` hides the other
+  face from it (frame zero).
+- **The tape's face**: the feed is one thin row at the top: its lamp, the
+  ribbon live and about 28 px tall, then GRAB and KEEP, small, since both
+  are in decision 1's *always there* and J1.1 and J1.6 press them with the
+  lanes in sight. The ribbon there takes no mark: the row's ribbon is one
+  key, `#face-feed`, and a tap turns to the feed. Flag now and the two
+  level bars are the feed's face's.
+- **The feed's face**: the ribbon across the whole width and as tall as
+  the room leaves, the mark on it, and GRAB, KEEP and Flag now in a row
+  under it, at the thumb. The sections, the ruler and the lanes are out;
+  the tape is one thin row at the top, `#face-tape`, the whole tape drawn
+  as the bar's overview draws it (`paintTapeOverview`), and a tap turns
+  back. The cue lane, and a cue clip's drawer, are on both.
+- **It never turns under his hands**: a GRAB on the feed's face lands on
+  the cue lane, which is there. Leaving the feed's face keeps the mark.
+- **A phone has the same two faces**; its feed's face is what gives the
+  ribbon a height to read.
+- `STUDIO_BUDGET` is measured on the tape's face and lowered to what it
+  finds; the feed's face gets a count of its own, lower. As built: the
+  tape's face holds what the Studio held (43, and 44 at 1280×800): Flag now
+  left it and the feed's row became a key, so `controls` stays 44. The
+  feed's face holds 26 (27 at 1280×800): `feed: 27`.
+
+## Gabe's calls before the bar changes (answered 2026-11-13)
+
+- **The capture verbs on the surface are GRAB, KEEP and ●.** Catch comes
+  off the bar and goes on ●'s ▾, with its 1, 2 and 4 bars.
+- **What he reaches for in the drawer.** He ticked Reverse, the fades and
+  Loop / Audition, and "just Drop, Trim, Toss" with them. Read as: the
+  small panel stays Drop, Trim and Toss (decision 6), and Reverse, the
+  fades and Loop / Audition are the first things Trim shows, one tap in,
+  not under a fold of their own. His to correct at step 6's look.
+- **The metronome is in the tempo's panel**, not on the bar.
 
 ## What comes out
 
@@ -155,7 +187,8 @@ one tap away, or gone.
   the head).
 - The feed's VU pair and readouts as always-on parts.
 - The second snap menu, and the input chips repeated in the drawer.
-- Catch's key and ▾ on the bar, if Gabe's call is to drop it.
+- Catch's key and ▾ on the bar (it goes on ●'s ▾), and the click's key
+  there (it goes in the tempo's panel).
 - The dead buffer routes on the Pi (`STATE.md`), with this pass.
 
 ## Build order
@@ -177,19 +210,24 @@ Done:
    to the bar.
 4. **The track heads** (decision 3; #282): one head with a mouse and on
    touch. The input chip is still in it.
+5. **The two faces** (decision 9; 2026-11-13), as *The two faces, as
+   built* says (`architecture/tape.md`, *The two faces*), with the two
+   journeys as flows: E2 (arrange parts from two takes) landed first, and
+   E1 (a live 4-track: mark, GRAB, DROP, loop, play, Catch over it) is core
+   with them, 10 presses on the tablet and 14 on a phone. Step 3's drag of
+   the mark came with it (J1.3 drags it). Not done: snapping a GRAB from the
+   mark to the bar, which needs the Pi (only it knows where the ring's bar
+   lines fall, `grabRing`'s `downbeatAt`): a `snap` on the ring's grab
+   request, in Go, and the key saying so. And the budget did not drop: the
+   tape's face holds what the Studio held, so the cut is step 8's.
 
 Left, in order:
 
-5. **The two faces** (decision 9), with **the two journeys as flows**
-   (catch a jam from a mark, loop it, play over it; cut and arrange parts
-   from two takes), `todo` first, each recording its count of presses. This
-   is what gives the ribbon its width: today GRAB, KEEP and Note on its
-   right take it.
 6. **The cue clip's panel and the words** (decision 7; what is left of 6),
    with `inputs.md`'s names for inputs and its strip, which is where the
    head's input chip goes.
-7. **The bar's display** (decision 5) and the capture verbs, after Gabe's
-   calls.
+7. **The bar's display** (decision 5) and the capture verbs, as Gabe's
+   calls above say: Catch on ●'s ▾, the click in the tempo's panel.
 8. **Rip out** what the steps left unused, and lower the budget.
 
 ## How it stays calm

@@ -403,11 +403,13 @@ main {
    phone's text selection or callout, and a vertical swipe still scrolls. */
 .viz-wrap { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .rb-mark-clear {
-  /* The mark's key (ribbon.js, renderSel): on the band's start, a finger
-     wide by its hit box, as a flag's is. */
-  position: absolute; top: 3px; width: 22px; height: 22px; margin-left: 3px; padding: 0;
+  /* The mark's key (ribbon.js, renderSel): on the band's start, under the
+     lengths' pills, a finger wide by its hit box, as a flag's is. */
+  position: absolute; top: 28px; width: 22px; height: 22px; margin-left: 3px; padding: 0;
   display: grid; place-items: center; border: 0; border-radius: 50%;
   background: var(--sel); color: var(--oxide-edge); pointer-events: auto; cursor: pointer;
+  /* A drag of it moves the mark, sideways: the page doesn't pan under it. */
+  touch-action: none;
 }
 .rb-mark-clear[hidden] { display: none; }
 .rb-mark-clear::after { content: ''; position: absolute; inset: -11px; }
@@ -2389,7 +2391,9 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
     flex: 1 1 auto; min-height: 0; overflow-y: auto; max-width: none;
     display: flex; flex-direction: column; padding: 10px 16px;
   }
-  #tape-body:not([hidden]) { flex: 1 1 auto; min-height: 0; }
+  /* The lanes take the room on the tape's face; the feed's face gives it to
+     the ribbon, and the cue lane is all it shows of the tape's body. */
+  main:not([data-face="feed"]) > #tape-body:not([hidden]) { flex: 1 1 auto; min-height: 0; }
   .tape-lanes { flex: 1 1 auto; min-height: 0; gap: 8px; }
   /* The lane fills its cell without sizing it: placed absolutely in its
      grid area, so a track's least height is its head's. In flow, the
@@ -3551,32 +3555,89 @@ input, select, textarea { color-scheme: inherit; }
    templates that studio.js clones; every rule here hangs off a studio-
    class or the tape page's body (styles.test.js), so it reaches nothing
    else. */
-/* The feed is a strip (docs/plan/the-studio-on-one-screen.md): the lamp
-   and the meters, the ribbon, and the keys -- GRAB, KEEP, Flag -- in one
-   row on a tablet and wider, so the tape under it has the room. A phone: the
-   lamp and bars, the ribbon, the keys, a row each. How much GRAB and KEEP
-   take is in a panel on their ▾. */
+/* The feed's panel, on the Studio's two faces (lib/rooms/face.js;
+   docs/architecture/tape.md, *The two faces*). The face is data-face on
+   main#view-studio, and no attribute is the tape's: these first rules are
+   the tape's face, so the first paint is right before any script, and the
+   feed's face is laid out by [data-face="feed"], never by a class added
+   later. On the tape's face the feed is one thin row over the lanes: the
+   lamp, the ribbon 28 px tall and live, then GRAB and KEEP, small. The
+   ribbon is one key there (#face-feed, over it), and a tap turns to the
+   feed. On a phone GRAB and KEEP take a row of their own, under the lamp
+   and the ribbon. How much GRAB and KEEP take is in a panel on their ▾. */
 .studio-feed {
   flex: none;
-  display: grid; grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "head" "ribbon" "keys" "sel";
-  align-items: center; gap: 8px;
-  padding: 10px 12px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "head ribbon" "keys keys" "sel sel";
+  align-items: center; gap: 6px 10px;
+  padding: 6px 12px;
 }
 .studio-feed-head { grid-area: head; display: flex; align-items: center; gap: 10px; min-width: 0; }
-.studio-feed > .viz-wrap { grid-area: ribbon; height: 64px; }
+.studio-feed > .viz-wrap { grid-area: ribbon; }
 .studio-feed-head > .meters { flex: 1 1 auto; display: flex; gap: 4px; margin: 0; min-width: 0; }
 .studio-feed > .rb-sel { grid-area: sel; margin: 0; }
 .studio-keys { grid-area: keys; display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; min-width: 0; }
 /* (It wraps where it must -- a tablet with a track's inspector beside the
    lanes -- rather than squeeze its keys over one another.) */
 .studio-keys > .mark-btn { flex: none; }
+/* The tape's face: the ribbon a thin strip, with no ruler, no lengths and
+   no readout on it; the level, Flag now, a span's bar and the keys' second
+   lines are the feed's face's. The mark stays drawn, and its key is the
+   feed's face's too. */
+main#view-studio:not([data-face="feed"]) .studio-feed > .viz-wrap { height: 28px; --rb-ruler: 0px; border-radius: 8px; }
+main#view-studio:not([data-face="feed"]) .studio-feed-head > .meters,
+main#view-studio:not([data-face="feed"]) .studio-keys > .mark-btn,
+main#view-studio:not([data-face="feed"]) .studio-feed > .rb-sel,
+main#view-studio:not([data-face="feed"]) .studio-keep-sub,
+main#view-studio:not([data-face="feed"]) .studio-feed .buffer-grab-from,
+main#view-studio:not([data-face="feed"]) .studio-feed .rb-label,
+main#view-studio:not([data-face="feed"]) .studio-feed .rb-readout,
+main#view-studio:not([data-face="feed"]) .studio-feed .rb-now-label,
+main#view-studio:not([data-face="feed"]) .studio-feed .rb-mark-clear { display: none; }
+/* The ribbon's key on the tape's face: over it, the row's height, so a
+   finger's worth; it shows nothing of its own. */
+.studio-face-feed {
+  grid-area: ribbon; align-self: stretch; position: relative;
+  min-height: 44px; margin: 0; padding: 0;
+  border: 0; border-radius: 8px; background: none; cursor: pointer;
+}
+.studio-face-feed:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* The feed's face: the ribbon across the whole width and as tall as the
+   room leaves above the keys, the cue lane and the bar, the mark and a
+   span on it as ever; under it the lamp and the level, then GRAB, KEEP and
+   Flag now, at the thumb. The tape is one thin row at the top (#face-tape):
+   its name and the whole tape, as the bar's overview draws it; a tap turns
+   back. The sections, the ruler, the lanes and an empty tape's hint are the
+   tape's face's; the cue lane, and a cue clip's drawer, are on both. */
+main#view-studio[data-face="feed"] .studio-feed {
+  flex: 1 1 auto; min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "head" "ribbon" "keys" "sel";
+  gap: 8px; padding: 10px 12px;
+}
+main#view-studio[data-face="feed"] .studio-feed > .viz-wrap { align-self: stretch; height: auto; min-height: 96px; }
+main#view-studio[data-face="feed"] .studio-face-feed,
+body.tape-page > main#view-studio[data-face="feed"] .tape-ruler-row,
+body.tape-page > main#view-studio[data-face="feed"] #lanes,
+body.tape-page > main#view-studio[data-face="feed"] #tape-empty { display: none; }
+/* The tape's row on the feed's face. */
+.studio-face-tape { display: none; }
+main#view-studio[data-face="feed"] .studio-face-tape {
+  flex: none; box-sizing: border-box; width: 100%; min-height: 44px; padding: 6px 12px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px;
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.studio-face-tape:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.studio-face-name { font: 600 12px var(--label-font); letter-spacing: .16em; text-transform: uppercase; }
+.studio-face-canvas { display: block; width: 100%; height: 28px; border-radius: 6px; background: var(--well); outline: 1px solid var(--well-line); outline-offset: -1px; }
 
 /* The lamp, the feed's name on it: green while the feed records, amber or
    red when a readout wants a look. It opens the feed's sheet. */
 .studio-lamp {
   display: inline-flex; align-items: center; gap: 7px; flex: none;
-  min-height: 32px; padding: 0 10px 0 8px; border-radius: 8px;
+  min-height: 44px; padding: 0 10px 0 8px; border-radius: 8px;
   border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer;
 }
 .studio-lamp .studio-feed-title { margin: 0; font: 600 12px var(--label-font); letter-spacing: .16em; text-transform: uppercase; }
@@ -3613,32 +3674,30 @@ input, select, textarea { color-scheme: inherit; }
 .studio-feed .key-pop-row { display: flex; align-items: center; gap: 8px; }
 .studio-feed .key-pop .seg button { min-height: 44px; min-width: 44px; padding: 0 12px; }
 
-/* From 700 px the feed is a row: the lamp and its two bars, then the ribbon
-   with all the width that leaves (it is the waveform a moment is found on;
-   its time is the ring's, not the lanes', so it lines up with nothing). The
-   keys under the ribbon, until a row has room for them beside it. */
+/* From 700 px the tape's face is one row, the keys beside the ribbon, and
+   the ribbon has all the width the lamp and the keys leave (it is the
+   waveform a moment is found on; its time is the ring's, not the lanes',
+   so it lines up with nothing). The feed's face has the ribbon across the
+   room, and under it the lamp and its level at the left, the keys at the
+   right. */
 @media (min-width: 700px) {
   .studio-feed {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas: "head ribbon" "keys keys" "sel sel";
-    column-gap: 6px; padding: 8px 14px 8px 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "head ribbon keys" "sel sel sel";
+    padding: 6px 14px;
   }
-  .studio-feed > .viz-wrap { height: 86px; }
-  .studio-feed-head { flex-direction: column; align-items: stretch; gap: 4px; padding-left: 14px; align-self: stretch; justify-content: center; }
-  .studio-feed-head > .studio-lamp { align-self: flex-start; }
+  .studio-feed > .studio-keys { flex-wrap: nowrap; }
+  main#view-studio[data-face="feed"] .studio-feed {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-areas: "ribbon ribbon" "head keys" "sel sel";
+    padding: 12px 14px;
+  }
+  main#view-studio[data-face="feed"] .studio-feed > .studio-keys { justify-content: flex-end; }
   /* The level by the lamp is two short bars: their numbers are in the
      lamp's sheet, and a bar with no width of its own showed none. */
   .studio-feed-head > .meters .meter { grid-template-columns: 12px 52px; gap: 6px; }
   .studio-feed-head > .meters .val { display: none; }
-  .studio-feed > .studio-keys { justify-content: flex-end; }
-  .studio-feed > .rb-sel { margin-left: 14px; }
-}
-@media (min-width: 900px) {
-  .studio-feed {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "head ribbon keys" "sel sel sel";
-  }
-  .studio-feed > .studio-keys { flex-wrap: nowrap; align-self: center; }
 }
 
 /* KEEP: the dashcam's save, a paper key -- the cassette's label -- so it
@@ -3704,15 +3763,15 @@ body.tape-page.tracks-fold #lanes { display: none; }
   .studio-feed > .rb-sel .rb-sel-text { flex: 1 1 100%; }
   .studio-feed > .rb-sel .icon-btn { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
 }
-/* A phone held sideways: the lanes have 390 px, so the feed is one short
-   row -- the lamp, the ribbon, the keys. */
+/* A phone held sideways: the lanes have 390 px, so the tape's face is one
+   row however narrow -- the lamp, the ribbon, the keys -- and the feed's
+   face has no room for the level. */
 @media (orientation: landscape) and (max-height: 440px) {
   .studio-feed {
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas: "head ribbon keys" "sel sel sel";
-    gap: 6px 10px; padding: 6px 10px;
+    padding: 6px 10px;
   }
-  .studio-feed > .viz-wrap { height: 52px; }
   .studio-feed-head > .meters { display: none; }
   .studio-keys { flex-wrap: nowrap; }
   .studio-keys > .key-split { flex: none; }
@@ -3897,9 +3956,8 @@ body.buffer-lifting, body.buffer-lifting * { cursor: grabbing !important; user-s
   .buffer-panel[data-trim="shut"] .icon-btn.buffer-drop { min-height: 56px; }
 }
 
-/* While it's open the feed gives the lanes room: a shorter ribbon, and no
-   sections row (they're the tape's, and come back when it closes). */
-body.buffer-open .studio-feed > .viz-wrap { height: 76px; }
+/* While it's open the tape's face gives the lanes room: no sections row
+   (they're the tape's, and come back when it closes). */
 body.buffer-open .tape-sections-row { display: none; }
 
 /* A phone: the buffer is a sheet over the folded lanes, at the inspector's
@@ -3946,7 +4004,6 @@ body.buffer-open .tape-sections-row { display: none; }
      body.tape-page.buffer-open it tied with css/bar.css's padding for the
      mini player, which comes later and won, so nothing could scroll. */
   body.tape-page.buffer-open:has(#np) { padding-bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px) + 45svh); }
-  body.buffer-open .studio-feed > .viz-wrap { height: 60px; }
   body.buffer-open .studio-feed-head > .meters { display: none; }
   body.tape-page.buffer-open:has(.np) #toasts { bottom: calc(var(--dock-b, 0px) + var(--np-h, 0px) + 45svh + 12px); }
   /* GRAB and KEEP share the keys' row, half each. A phone has no G to

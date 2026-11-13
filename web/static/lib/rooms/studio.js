@@ -3,7 +3,9 @@
 // step 1): the feed above the lanes, a strip since the-studio-on-one-screen
 // (docs/plan) -- its lamp, the L/R meters, the ribbon, KEEP and its ▾, Flag
 // now and Phone -- and the feed's sheet, behind the lamp: Capture's readouts
-// and the input diagnostic.
+// and the input diagnostic. And the Studio's two faces (lib/rooms/face.js;
+// docs/architecture/tape.md, *The two faces*): the keys that turn them, the
+// ribbon told whether it takes a touch, and the tape's strip on the feed's.
 //
 // They are Capture's parts, moved, so that nothing Capture has is out of
 // reach while `/` sends the tape on to the Studio: the markup is tape.html's
@@ -32,6 +34,8 @@ import { bindStudioKeys } from './keys.js';
 import { keepAria, feedKeepLength, selectionKeepLength } from './keeplabel.js';
 import { splitKey, barTop } from '../ui/menu.js';
 import { layersOf } from '../ui/layers.js';
+import { tokenCache, SCHEME } from '../theme.js';
+import { createFace } from './face.js';
 
 const STATUS_MS = 2000;
 
@@ -79,6 +83,9 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
     chanSaving: $('chan-saving'),
     chanDevice: $('chan-device'),
     midi: $('midi-devices'),
+    faceFeed: $('face-feed'),
+    faceTape: $('face-tape'),
+    tapeStrip: $('face-tape-canvas'),
   };
 
   let status = null;     // the last /api/status
@@ -378,9 +385,39 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
   });
   bindStudioKeys(doc, { active: () => !ctx || ctx.active() });
 
+  // The two faces (lib/rooms/face.js; docs/plan/the-calm-studio.md,
+  // decision 9): the tape's, with the feed as one thin row over the lanes,
+  // or the feed's, the ribbon as tall as the room leaves and the tape as a
+  // thin row at the top. styles.css lays each out by main's data-face; what
+  // acts differently is told here, by the face, never by reading it back.
+  const face = createFace({ root: main });
+  const strip = tapeStrip(el.tapeStrip, { ctx, face });
+  // A turn from the keyboard leaves it on the key that turns back.
+  const turn = (to, key, back) => {
+    const focused = doc.activeElement === key;
+    face.set(to);
+    if (focused) back?.focus();
+  };
+  el.faceFeed?.addEventListener('click', () => turn('feed', el.faceFeed, el.faceTape));
+  el.faceTape?.addEventListener('click', () => turn('tape', el.faceTape, el.faceFeed));
+  const showFace = (f) => {
+    // On the tape's face the ribbon is one key (#face-feed): it takes no
+    // mark and no hold. The mark it has stays, for the feed's face.
+    ribbon.setPressable(f === 'feed');
+    strip.draw();
+  };
+  face.onChange((f) => {
+    showFace(f);
+    // A cue clip's drawer stays open across a turn; on a phone what it
+    // covers is another face's now (the armed track, or only the cue lane).
+    buffer?.reveal?.();
+  });
+  showFace(face.get());
+
   return {
     ribbon,
     buffer,
+    face,
     hide() {
       ribbon.pause();
       buffer?.hide?.();
@@ -391,6 +428,41 @@ export function mountStudio(doc = document, { ctx = null } = {}) {
       ribbon.resume();
       buffer?.show?.();
       pollStatus();
+      strip.draw();
     },
   };
+}
+
+/**
+ * tapeStrip draws the tape's thin row on the feed's face (#face-tape's
+ * canvas): the whole tape as the bar's overview draws it (the engine's tape
+ * source paints it, lib/tape/overview.js paintTapeOverview), its playhead
+ * stepped on the shared ticker while the tape plays, and parked otherwise or
+ * on the tape's face. draw() asks for a frame; the tape's answers, a resize
+ * and the scheme ask too. Without a shell's ctx it draws nothing.
+ */
+function tapeStrip(cv, { ctx, face }) {
+  if (!cv || !ctx) return { draw() {} };
+  const tok = tokenCache(() => cv);
+  const col = (n, fb) => tok.get(n, fb);
+  let W = 0, H = 0;
+  const loop = ctx.loop(() => {
+    const src = ctx.engine?.tape; // the engine's tape source (lib/models/tape-source.js), once it has one
+    if (!src || face.get() !== 'feed' || W <= 0 || H <= 0) return false;
+    const dpr = globalThis.devicePixelRatio || 1;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+      cv.width = Math.round(W * dpr);
+      cv.height = Math.round(H * dpr);
+    }
+    const c = cv.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    src.paint(c, W, H, col);
+    return src.playing();
+  });
+  const draw = () => { if (face.get() === 'feed') loop.start(); };
+  // Its size by an observer, so a frame reads no layout.
+  new ResizeObserver(([e]) => { W = e.contentRect.width; H = e.contentRect.height; draw(); }).observe(cv);
+  ctx.tape?.onChange(draw);
+  ctx.on(ctx.media(SCHEME), 'change', () => { tok.clear(); draw(); });
+  return { draw };
 }

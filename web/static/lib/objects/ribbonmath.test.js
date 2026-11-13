@@ -31,3 +31,15 @@ test('ages read as m:ss, or h:mm:ss', () => {
   assert.equal(fmtAge(92.4), '1:32');
   assert.equal(fmtAge(3725), '1:02:05');
 });
+
+test('the mark\'s key moves it a step, inside the ring and a second short of now', async () => {
+  const { nudgedMark } = await import('./ribbonmath.js');
+  const sr = 48000, total = 100 * sr, oldest = 40 * sr;
+  assert.equal(nudgedMark(50 * sr, sr, oldest, total, sr), 51 * sr);
+  assert.equal(nudgedMark(50 * sr, -sr, oldest, total, sr), 49 * sr);
+  assert.equal(nudgedMark(40.5 * sr, -sr, oldest, total, sr), oldest, 'no older than the ring');
+  assert.equal(nudgedMark(98.5 * sr, sr, oldest, total, sr), 99 * sr, 'a second short of now');
+  // A tap just inside the right edge leaves a mark under a second from now:
+  // → once sent it a second back.
+  assert.equal(nudgedMark(99.5 * sr, sr, oldest, total, sr), 99.5 * sr, '→ never moves the mark back');
+});

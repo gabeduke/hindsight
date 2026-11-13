@@ -33,3 +33,13 @@ test('what is in sight already does not move, and with less motion it jumps', ()
   revealAbove([box(300, 380)], box(340, 718), { win: w, reduced: true });
   assert.deepEqual(w.asked, [{ top: 48, behavior: 'auto' }]);
 });
+
+test('what is not laid out has no place to bring into sight, and is left out', () => {
+  // The cue lane under the drawer, and the armed track hidden on the
+  // Studio's feed face: a box at 0 with no height, which once read as the
+  // topmost and left no room to scroll at all.
+  const w = win();
+  assert.equal(revealAbove([box(300, 380), box(0, 0)], box(340, 718), { win: w, ceiling: 55 }), 48);
+  assert.deepEqual(w.asked, [{ top: 48, behavior: 'smooth' }]);
+  assert.equal(revealAbove([box(0, 0)], box(340, 718), { win: w, ceiling: 55 }), 0, 'nothing laid out: nothing to do');
+});

@@ -1024,6 +1024,8 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   return {
     state: st,
     render,
+    /** reveal brings the cue lane and the armed track into sight above the drawer, on a phone, as it opens: the Studio asks again when it turns to the other face. */
+    reveal: revealLanes,
     hide() {
       st.noted = false; // the next show looks for a GRAB made meanwhile
       audition.stop();
