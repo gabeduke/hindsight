@@ -113,14 +113,17 @@ export default {
     const settled = await t.poll(() => getComputedStyle(document.getElementById('np-dock')).transform === 'none');
     const big = await page.evaluate(look);
     t.expect('the player slides up and settles, with ▶, Loop, Rec and its ▾ on screen', opened && settled && big.play && big.loop && big.rec && big.recMore && !big.catchKey && !big.phoneMore, big);
-    // Its order: the art at the top, the strip, the keys low, where it plays at the foot.
+    // Its order: the art at the top, the strip, the keys low, where it plays
+    // at the foot; so the display's tempo key is the tempo alone here, over
+    // BPM (the calm Studio's step 7b: no key of its own for the output).
     const order = await page.evaluate(() => {
       const top = (s) => Math.round(document.querySelector(s).getBoundingClientRect().top);
       const foot = document.getElementById('np-out-foot').getBoundingClientRect();
-      return { deck: top('.np-deck'), strip: top('.np-row-2'), play: top('#np-play'), rec: top('#np-rec-more'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), out: getComputedStyle(document.getElementById('np-output')).display };
+      return { deck: top('.np-deck'), strip: top('.np-row-2'), play: top('#np-play'), rec: top('#np-rec-more'), foot: Math.round(foot.top), bottom: Math.round(innerHeight - foot.bottom), tempo: document.getElementById('np-tempo').innerText.replace(/\s+/g, ' ').trim(), output: !!document.getElementById('np-output') };
     });
     t.expect('the reels and display on top, the strip under them, the transport and ● in the lower half, where it plays at the foot',
-      order.deck < order.strip && order.strip < order.play && order.play > 844 / 2 && order.rec > 844 / 2 && order.rec < order.foot && order.bottom <= 48 && order.out === 'none', order);
+      order.deck < order.strip && order.strip < order.play && order.play > 844 / 2 && order.rec > 844 / 2 && order.rec < order.foot && order.bottom <= 48, order);
+    t.expect('the display’s tempo key is the tempo alone, over BPM, where the foot says where it plays', order.tempo === '96 BPM' && !order.output, order);
 
     // ●'s ▾ in the player: the pair is in the thumb's half, so its menu
     // opens over it, and Back closes it before it puts the player away. It

@@ -35,26 +35,30 @@ test('it is a component, needing only the transport', () => {
   assert.equal(display.css, 'css/display.css');
 });
 
-test('a stopped tape: its tempo, its name and the jam room, in both forms, said in full to a screen reader', async () => {
-  const m = await mounted('stopped');
-  assert.equal(m.text('tempo-short'), '96');
+test('two keys, as the bar’s: the tempo over where it plays, and the source; none for the output of its own (the calm Studio’s step 7b)', () => {
+  assert.deepEqual([...KEYS], ['tempo', 'source']);
+});
+
+test('a stopped tape: its tempo over the jam room, and its name, in both forms, said in full to a screen reader', async () => {
+  const m = await mounted('stopped', { tempo() {} });
+  assert.equal(m.text('tempo-short'), '96 BPM');
   assert.equal(m.text('tempo-long'), '96 BPM · 4 BARS');
+  assert.equal(m.text('tempo-leg'), 'JAM ROOM');
   assert.equal(m.text('source-short'), 'TAPE');
   assert.equal(m.text('source-long'), 'TAPE · Tape 1');
-  assert.equal(m.text('output-val'), 'JAM ROOM');
-  assert.equal(m.doc.getElementById('np-tempo').getAttribute('aria-label'), 'Tempo: 96 BPM, 4 bars');
-  assert.equal(m.doc.getElementById('np-output').getAttribute('aria-label'), 'Plays in the jam room: choose where');
+  assert.equal(m.doc.getElementById('np-tempo').getAttribute('aria-label'), 'Tempo 96 BPM, 4 bars; plays in the jam room: change the tempo, or where it plays');
+  assert.equal(m.doc.getElementById('np-output'), null);
   m.done();
 });
 
-test('no tempo yet, and a tape playing on a phone', async () => {
+test('no tempo yet: where it plays over OUT; and a tape playing on a phone', async () => {
   const none = await mounted('no-tempo');
-  assert.equal(none.text('tempo-short'), '–');
-  assert.equal(none.text('tempo-long'), 'NO TEMPO');
-  assert.equal(none.text('output-val'), 'BOTH');
+  assert.equal(none.text('tempo-short'), 'BOTH');
+  assert.equal(none.text('tempo-long'), 'BOTH');
+  assert.equal(none.text('tempo-leg'), 'OUT');
   none.done();
   const phone = await mounted('playing-on-a-phone');
-  assert.equal(phone.text('output-val'), 'PHONE');
+  assert.equal(phone.text('tempo-leg'), 'PHONE');
   assert.equal(phone.text('tempo-long'), '83.2 BPM · 8 BARS', 'the loop’s bars, not the grid’s');
   phone.done();
 });
@@ -63,7 +67,7 @@ test('it redraws when the Pi’s state moves', async () => {
   const m = await mounted('stopped');
   m.fx.set('tape', saved('playing-on-a-phone'));
   await new Promise((r) => setTimeout(r, 5));
-  assert.equal(m.text('output-val'), 'PHONE');
+  assert.equal(m.text('tempo-leg'), 'PHONE');
   assert.equal(m.text('source-long'), 'TAPE · Sunday night, the long one with the Stylophone');
   m.done();
 });
@@ -71,14 +75,29 @@ test('it redraws when the Pi’s state moves', async () => {
 test('a key opens what the surface hands it; one it hands nothing is disabled', async () => {
   const pressed = [];
   const m = await mounted('stopped', { source: (key) => pressed.push(key.id) });
-  assert.deepEqual(KEYS.map((k) => m.doc.getElementById(`np-${k}`).disabled), [true, false, true]);
+  assert.deepEqual(KEYS.map((k) => m.doc.getElementById(`np-${k}`).disabled), [true, false]);
   m.doc.getElementById('np-source').dispatchEvent({ type: 'click' });
   assert.deepEqual(pressed, ['np-source']);
   m.done();
   assert.equal(m.root.textContent, '');
 });
 
+test('the tempo’s key opens the tempo’s panel where the surface hands one, else the Output sheet', async () => {
+  const pressed = [];
+  const both = await mounted('stopped', { tempo: () => pressed.push('tempo'), output: () => pressed.push('output') });
+  both.doc.getElementById('np-tempo').dispatchEvent({ type: 'click' });
+  both.done();
+  const out = await mounted('stopped', { output: () => pressed.push('output') });
+  const key = out.doc.getElementById('np-tempo');
+  assert.equal(key.disabled, false);
+  assert.match(key.getAttribute('aria-label'), /: choose where the tape plays$/);
+  key.dispatchEvent({ type: 'click' });
+  out.done();
+  assert.deepEqual(pressed, ['tempo', 'output']);
+});
+
 test('words are the bar’s, before a tape is in too', () => {
-  assert.equal(words(null).tempo.long, 'NO TEMPO');
+  assert.equal(words(null).tempo.long, 'JAM ROOM');
+  assert.equal(words(null).tempo.leg, 'OUT');
   assert.equal(words({ tape: null, live: null }).out, 'JAM ROOM');
 });

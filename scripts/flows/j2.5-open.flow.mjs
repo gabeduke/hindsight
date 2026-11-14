@@ -66,6 +66,11 @@ export default {
       head[0] === 'back' && head[1] === 'take-name' && head[2] === 'take-star' && head.slice(-2).join() === 'take-undo,app-menu-btn'
       && !head.some((k) => ['take-prev', 'take-next', 'menu-btn', 'take-trash'].includes(k)), head);
     // Its page (listening-back.md, "Open, on a tablet and wider").
+    // The drawer docks a moment after the take's name fills in (the page
+    // moves it once the take loads), so wait for that before reading the
+    // layout: read at once, it was undocked about one run in fifteen.
+    await t.poll(() => document.getElementById('notes-drawer')?.parentElement?.id === 'notes-dock'
+      && document.getElementById('notes-drawer').getBoundingClientRect().height > 0, null, 5000);
     const layout = await page.evaluate(() => {
       const r = (id) => document.getElementById(id)?.getBoundingClientRect();
       const wave = r('wave-canvas'), dock = r('notes-drawer');

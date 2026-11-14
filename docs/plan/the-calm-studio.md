@@ -1,9 +1,9 @@
 # The calm Studio: what is on screen, and when
 
 **Status: direction agreed 2026-11-09 from a wireframe, and the order of
-what is left agreed 2026-11-10; decisions 1 to 4, 6, 7 and 9 are built
-(*Build order*), and Gabe's calls on Catch and the metronome (step 7a);
-5, 8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
+what is left agreed 2026-11-10; decisions 1 to 7 and 9 are built
+(*Build order*), with Gabe's calls on Catch and the metronome (step 7a);
+8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
 time, and it is "so damn cluttered": "it is hard to tell what buttons are
 useful to me."
 
@@ -216,8 +216,8 @@ change on the Pi), which waits for Gabe to agree that spec.
 ## The capture verbs and the click, as built (step 7a)
 
 Step 7 is two PRs. 7a is Gabe's two calls, built 2026-11-13; 7b is
-decision 5's one key for tempo and output, which touches every room's bar
-and is pinned after 7a is looked at. `architecture/bar.md`, *The Studio's
+decision 5's one key for tempo and output, which touches every room's bar,
+built 2026-11-13 (below). `architecture/bar.md`, *The Studio's
 keys*, has how it is built.
 
 - **● has a ▾ beside it** (`rec-more`, opening `rec-menu`; in the Studio
@@ -257,6 +257,57 @@ keys*, has how it is built.
   where it was, and the deck's width is 7b's to spend. ⟲ follows ●'s ▾
   now, so it no longer stands at one x for the tape, a take and the feed.
 - J1.4 has the story; E1, J1.5, J1.20, J4.1 and J4.4 press the new keys.
+
+## One key for tempo and output, as built (step 7b)
+
+Decision 5, built 2026-11-13. The display has two keys, not three: what
+plays, and how. `architecture/bar.md`, *One key for the tempo and where it
+plays*, has how it is built.
+
+- **The tempo's key and the output's are one key** (`#np-tempo`; the
+  output's key is gone). Its value is the tempo and its legend is where it
+  plays: `96 BPM` over `JAM ROOM ▾` (the long form keeps the bars: `96 BPM
+  · 4 BARS`). With no tempo (a take without one, the feed, an empty tape)
+  the value is where it plays and the legend is `OUT`. It says both to a
+  screen reader, and what a press does (`lib/bar/display.js`, one place
+  for the words: `tapeDisplay`, `takeDisplay`, `feedDisplay`,
+  `tempoLabel`, `playsWords`).
+- **What it opens.** In the Studio with the tape, the tempo's panel, and
+  its last row, under a line, is where it plays (`#tempo-out`: *Plays in
+  the jam room*, *on a phone*, *in the jam room and on a phone*, with ›),
+  which shuts the panel and opens the Output sheet; it follows the mode
+  while the panel is open. Anywhere else the key opens the Output sheet
+  itself, and is off when there is no tape to send.
+- **One owner for the press.** The bar decides (`NowPlaying.tempoOpens`):
+  the Studio's panel is a `menu()` with `bind: false`, made by the hands
+  the Studio lends (`hands.tempo(key)`), which hears no press of the key
+  and says on it only that it is open; the bar's one listener hands it the
+  presses that are its own (`press(e)`: a click, ↓ or ↑) and opens the
+  Output sheet with the rest. No listener of the Studio's is on the key.
+- **The source's key stays everywhere.** Its menu always has a choice (the
+  tape, the feed, the last takes, the shelf), so decision 5's "only where
+  there is a choice to make" takes nothing off yet. Whether the Studio
+  needs it at all is step 8's question, with Gabe.
+- **The deck kept its width**, so ▶ stands where it did: x 432 at
+  1024×768, 688 at 1280×800, 846 at 1440×900 and 378 upright at 800,
+  before and after. The 78 px the output's key had went to the merged key
+  (80, from 42) and the source (100, from 60: a take's name gets more of
+  it); from 1180 px both take what they need, and a take's long name
+  gives way before the tempo and where it plays do.
+- **A phone.** The mini player shows none of the display's keys, as
+  before. The player pulled up keeps its foot key for where it plays
+  (`out-foot`), and the merged key there shows the tempo alone, over BPM.
+  On its side the player has no foot, so the key there says both.
+- **Open** (`wave.html`, its own bar until Open's pass) draws the same
+  two cells; they are not keys there.
+- **What it costs.** Changing where the tape plays from the Studio is two
+  presses (the key, the row) where it was one. No journey counts it.
+- **What it saved.** One key on every room's bar: `STUDIO_BUDGET.controls`
+  is 41 (40 at 1024×768 and upright, 41 at 1280×800; it was 42 and 41),
+  and `feed` 24 (23 and 24; it was 25).
+- J1.20 has the tempo's story (the panel's last row opens the Output
+  sheet), J2.3 the Output sheet from the key in the Listening Room, J1.13
+  the two keys, and J4.4 the tempo alone in a phone's player pulled up.
 
 ## What comes out
 
@@ -308,14 +359,20 @@ Done:
    *as built (step 7a)* says: Catch on ●'s ▾, one ▾ beside ● on a phone,
    the click in the tempo's panel. `STUDIO_BUDGET.controls` went to 42 and
    `feed` to 25. E1 rose to 11 presses on the tablet (13 on a phone).
+8. **7b, the bar's display** (decision 5; 2026-11-13), as *as built (step
+   7b)* says: one key for the tempo and where it plays, which opens the
+   tempo's panel in the Studio (its last row opens the Output sheet) and
+   the Output sheet anywhere else, owned by the bar. `STUDIO_BUDGET.controls`
+   went to 41 and `feed` to 24. Not done: the room 7a left at the bar's
+   right end, where Catch and the metronome stood, is still empty; the
+   deck kept its width so ▶ would not move, and the room the output's key
+   left was spent inside the display.
 
 Left, in order:
 
 6. **6b, the inputs** (what is left of step 6): `inputs.md`'s names for
    inputs and its strip, which is where the head's input chip and the
    drawer's input chips go. It waits for Gabe to agree that spec.
-7. **7b, the bar's display** (decision 5): one key for tempo and output.
-   The room 7a left at the bar's right end is its to spend.
 8. **Rip out** what the steps left unused, and lower the budget.
 
 ## How it stays calm

@@ -76,8 +76,9 @@ const player = npRoot ? playerSheet($('np-dock') || npRoot, { root: npRoot, laye
 // sheet stamped above: the bar's ● keys and the rooms' ● Phone show it.
 const recorder = phoneRecorder(document, { toast });
 // The Output sheet, where the tape plays (lib/tape/out-switch.js): wired
-// the first time it is opened, from OUT on the bar's display or the
-// Studio, once the engine has a tape to send; it asks the Pi as it opens,
+// the first time it is opened, from the bar's tempo key away from the
+// Studio, the phone's player's foot or the Studio (the tempo's panel's
+// last row, the jam-only sheet), once the engine has a tape to send; it asks the Pi as it opens,
 // so it's never a few seconds behind.
 const openOutput = outputSheet(engine);
 // The bar, the Transport (lib/components/transport/), draws the engine on

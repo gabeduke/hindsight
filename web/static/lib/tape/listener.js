@@ -35,7 +35,7 @@ export async function rejoin(player, { tries = 8, gap = 400, protocol = createPr
   if (!wasListener()) return false;
   for (let i = 0; i < tries; i++) {
     if (i) await new Promise((r) => setTimeout(r, gap));
-    // Started by a tap meanwhile (OUT on the tape page): this device listens.
+    // Started by a tap meanwhile (the Output sheet, from the bar): this device listens.
     if (player.active) return true;
     let list, l;
     try {

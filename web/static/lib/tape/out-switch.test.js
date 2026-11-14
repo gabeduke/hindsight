@@ -1,5 +1,5 @@
-// The Output sheet's switch, shared by the rooms (OUT on the bar's display
-// opens it): each place's name, and a choice that starts the sound inside
+// The Output sheet's switch, shared by the rooms (the bar's tempo key, over
+// where it plays, opens it): each place's name, and a choice that starts the sound inside
 // the tap and never leaves the jam room silent.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';

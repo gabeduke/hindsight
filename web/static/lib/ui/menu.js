@@ -117,6 +117,13 @@ const showing = new WeakMap();
  *            reasons): for what its owner shows only while it is open (the
  *            outline ●'s menu draws on the lanes while The last pass is
  *            pointed at)
+ *   bind     false leaves the button to a key's owner that opens one thing
+ *            or another with it (the bar's tempo key: the Studio's tempo
+ *            panel in the Studio, the Output sheet anywhere else): menu()
+ *            hears no press on it, and the owner hands it the presses that
+ *            are its own (press), and says what the key opens (dialogKey).
+ *            The button says only that the panel is open, while it is
+ *            (aria-expanded, aria-controls)
  *
  * The button says what it opens (aria-haspopup, aria-expanded,
  * aria-controls). A press on it opens or closes the panel; ↓ or ↑ on it
@@ -124,10 +131,12 @@ const showing = new WeakMap();
  * do. While it is open, ↑ ↓ Home End move along it (← → too, in a panel),
  * Tab closes it and moves on from the button, and it follows its anchor
  * when the page scrolls or the window changes size. Answers { open, close,
- * toggle, refresh, isOpen }: refresh() fills it again and places it,
+ * toggle, refresh, isOpen, press }: refresh() fills it again and places it,
  * the keyboard staying on the row it was on (the row with the same word,
  * else the one in the same place); refresh({ render: false }) places it
- * again, after its owner changed what it holds.
+ * again, after its owner changed what it holds; press(e) is a click or a
+ * keydown on the button, as it hears them itself, and answers whether it
+ * was one of its presses (a click, ↓ or ↑).
  *
  * Several buttons may share one panel, each with a menu() of it: opening it
  * from one closes it from another, and only the one showing it shuts it.
@@ -146,15 +155,18 @@ export function menu(button, panel, {
   popover = false,
   onOpen = null,
   onClose = null,
+  bind = true,
   doc = button.ownerDocument || globalThis.document,
   win = doc?.defaultView || globalThis,
 } = {}) {
   const stack = layers || layersOf(doc);
   const kind = role === 'menu' ? 'menu' : 'popover';
   if (!panel.id) panel.id = `ui-menu-${++made}`;
-  button.setAttribute('aria-haspopup', role);
-  button.setAttribute('aria-expanded', 'false');
-  button.setAttribute('aria-controls', panel.id);
+  if (bind) {
+    button.setAttribute('aria-haspopup', role);
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-controls', panel.id);
+  }
   if (!panel.getAttribute('role')) panel.setAttribute('role', role);
   // In the top layer: a popover the page opens and shuts itself.
   const lifts = popover && typeof panel.showPopover === 'function';
@@ -171,12 +183,20 @@ export function menu(button, panel, {
   };
   // Shown or not. While it closes it takes no press and no focus (inert),
   // and styles.css fades it out by data-state.
+  // A button of its owner's (bind: false) says it only while it is open.
   const show = (on) => {
     panel.hidden = !on;
     panel.dataset.state = on ? 'open' : 'closed';
     panel.inert = !on;
     lift(on);
-    button.setAttribute('aria-expanded', String(on));
+    if (bind) button.setAttribute('aria-expanded', String(on));
+    else if (on) {
+      button.setAttribute('aria-expanded', 'true');
+      button.setAttribute('aria-controls', panel.id);
+    } else {
+      button.removeAttribute('aria-expanded');
+      button.removeAttribute('aria-controls');
+    }
   };
   // Another button's menu of the same panel may be showing it.
   const other = () => { const m = showing.get(panel); return m && m !== self && m.isOpen() ? m : null; };
@@ -319,13 +339,21 @@ export function menu(button, panel, {
     placeNow();
   }
 
-  // A click from the keyboard (Enter, Space) has no pointer: its detail is 0.
-  button.addEventListener('click', (e) => toggle({ byKey: e?.detail === 0 }));
-  button.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  // A press on the button: a click opens or shuts it (one from the
+  // keyboard, Enter or Space, has no pointer: its detail is 0), and ↓ or ↑
+  // opens it with the keyboard on the first or last item. Heard here, or
+  // handed in by the button's owner (bind: false).
+  function press(e) {
+    if (e?.type === 'click') { toggle({ byKey: e.detail === 0 }); return true; }
+    if (e?.type !== 'keydown' || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return false;
     e.preventDefault?.();
     open({ byKey: true, last: e.key === 'ArrowUp' });
-  });
+    return true;
+  }
+  if (bind) {
+    button.addEventListener('click', press);
+    button.addEventListener('keydown', press);
+  }
   // A pick closes a menu, before the item's own handler (which may stop the
   // click: help mode's does). A link leaves the history to the page it
   // loads; one to "#" loads nothing (the Studio's Export stems, which
@@ -341,7 +369,7 @@ export function menu(button, panel, {
     }, true);
   }
 
-  self = { open, close, toggle, refresh, isOpen };
+  self = { open, close, toggle, refresh, isOpen, press };
   return self;
 }
 

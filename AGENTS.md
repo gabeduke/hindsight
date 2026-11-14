@@ -247,10 +247,11 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   `data-part` (its id is `cx.id`'s), saying in `data-for` (and
   `data-mini`) which sources it shows for; never appended by a script,
   never shown or hidden by a `:not()` list. ▶ must not move: J1.13 fails
-  if it does, or if the bar runs off a tablet. What plays, its tempo and
-  where it plays are keys on the bar's display (the source's menu, the
-  tempo's, the output sheet); ▾ only opens a menu; the bar folds by its
-  grabber.
+  if it does, or if the bar runs off a tablet. The bar's display has two
+  keys: what plays (the source's menu), and its tempo over where it plays
+  (in the Studio the tempo's panel, whose last row opens the Output sheet;
+  anywhere else the Output sheet), whose press is the bar's alone; ▾ only
+  opens a menu; the bar folds by its grabber.
   ([0047](docs/decisions/0047-the-bars-keys-live-in-its-zones.md))
 - **A sheet or a drawer that follows the finger** is `createSheet`
   (`lib/ui/sheet.js`; `docs/architecture/shell.md`, *Sheets*): detents, a

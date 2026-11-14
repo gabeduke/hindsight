@@ -140,7 +140,7 @@ test('a page’s icon is written as icon() writes it: the class names the icon i
 const DRAWN = {
   'shell.html': ['tape-undo', 'tape-redo', 'tape-name',
     'np-start', 'np-play', 'np-rec', 'np-rec-more', 'np-back5', 'np-loop', 'np-eject', 'np-open', 'np-note',
-    'np-tempo', 'np-source', 'np-output',
+    'np-tempo', 'np-source',
     'ruler-more'],
   'wave.html': ['take-undo', 'take-name', 'take-star', 'to-start', 'back5', 'play', 'loop'],
 };

@@ -46,7 +46,8 @@ sideways scroll).
   (`--deck-w`, from `100cqi`), so ▶ stands at one x whatever the bar
   holds: from 600 px the zones are one row (the reels go under 960), from
   960 the deck is 352 at 1024 and grows to 768, and from 1180 the display
-  says everything in full. The verb and the modes are as wide as what they
+  says everything in full (a take's long name giving way before the tempo
+  and where it plays do). The verb and the modes are as wide as what they
   hold, so in the Studio ⟲ follows ●'s ▾. Under 600 (the phone's player
   pulled up) the zones stack. The phone's mini player is
   `data-size="mini"`: its window, |◀ ▶ ● ▾, and a tail one width for every
@@ -71,30 +72,33 @@ sideways scroll).
   phone's inputs and opens the recorder's sheet with its meter. All are the
   page's one recorder's (`shell.md`, *Recording from this phone*).
 - **The foot** (`data-slot="foot"`, `#np-out-foot`) is where it plays, at the
-  foot of the phone's player pulled up, under the thumb; the display's OUT
-  is hidden there. Both open the shell's Output sheet (`NowPlaying`'s
-  `output()`, the shell's `openOutput`: `lib/tape/out-switch.js`
-  `outputSheet(engine)`, which does nothing until the engine has a tape,
-  and the first time wires the sheet (`wireOutput`) and marks the mode and
-  the delay at once, then on every transport change); they are keys only
-  once the engine has a tape, the same test. `paintDisplay` writes both.
+  foot of the phone's player pulled up, under the thumb (held upright: on
+  its side the player has no foot); the display's tempo key there is the
+  tempo alone, over BPM (`.np-alone`, in place of its value and where it
+  plays). The foot, and the tempo key away from the Studio, open the
+  shell's Output sheet (`NowPlaying`'s `output()`, the shell's
+  `openOutput`: `lib/tape/out-switch.js` `outputSheet(engine)`, which does
+  nothing until the engine has a tape, and the first time wires the sheet
+  (`wireOutput`) and marks the mode and the delay at once, then on every
+  transport change); they are keys only once the engine has a tape, the
+  same test. `paintDisplay` writes both.
 - **Its height is measured** by the page around it (`measureBar` on the
   bar's root, called by the shell's boot and by Open, on
   `lib/ui/measure.js`'s `measureInto`: one `ResizeObserver` writing
   `--np-h` on `<html>`), never written into the CSS; every reader has its
   `0px` fallback.
 - **The display says what plays** (`lib/bar/display.js`): where it is, then
-  three keys on the LCD, each a value over its legend: the tempo (in the
-  Studio, with the tape, the tempo's panel, `renderTempo`: a dialog with
-  the tempo to type, −1 and +1, TAP (`tappedBpm`, `SLOWEST_BEAT_MS` in
-  `lib/tape/geometry.js`), the Click under them (the metronome, *The
-  Studio's keys*) and the grid's bars counted half or twice;
-  elsewhere a readout), the source
-  (TAPE, FEED or the take's name; `source-menu.js`: the tape, the live
-  feed, the last few takes, Go to the shelf) and where it plays (JAM ROOM,
-  PHONE, BOTH for the tape; THIS TABLET, THIS PHONE or THIS COMPUTER for a
-  take or the feed; the output sheet). Each value has a short form and a
-  long one, for the widest bar.
+  two keys on the LCD, each a value over its legend (the calm Studio's
+  decision 5, step 7b; there were three, with where it plays a key of its
+  own): **the tempo over where it plays** (`#np-tempo`: *96 BPM* over
+  *JAM ROOM*, PHONE or BOTH for the tape, THIS TABLET, THIS PHONE or THIS
+  COMPUTER for a take; with no tempo, a take without one, the feed or an
+  empty tape, where it plays over OUT), and **the source** (TAPE, FEED or
+  the take's name; `source-menu.js`: the tape, the live feed, the last few
+  takes, Go to the shelf). Each value has a short form and a long one, for
+  the widest bar (*96 BPM · 4 BARS*, *TAPE · its name*); the tempo's key
+  says both to a screen reader, and what a press does (`tempoLabel`).
+  *One key for the tempo and where it plays*, below, has what it opens.
 - **A take's counter** (`lib/models/take-source.js` `takeBar`, drawn by
   `lib/objects/lcd.js` `takeCounter`) is BAR and beat by the take's own
   tempo, counted from its own downbeat; with no tempo, and before the
@@ -227,8 +231,8 @@ aria-label="Now playing" data-size="full" hidden></section>`, so
 | `index.js` exports | |
 |---|---|
 | `TEMPLATE` | the bar's markup: its zones, keys and menus, each part named by `data-part`, its icons `icon()`'s; no id, and no `aria-haspopup` (Guardrails 15, 20 and 13) |
-| `fill(root, id)` | the template drawn into `root`, each part's id `id(part)` (the mount's `cx.id`; by default the root's id and the part), the grabber's `aria-controls` the root, and OUT and the foot's OUT `dialogKey`s. The tests fill a bar the same way |
-| `TAPE_KEYS` | what the Studio presses of ● and its ▾ (Catch): `lend`, `draw`, `press`, `catch`, `closeMenu`, `focusPlay`, `tempo` |
+| `fill(root, id)` | the template drawn into `root`, each part's id `id(part)` (the mount's `cx.id`; by default the root's id and the part), the grabber's `aria-controls` the root, and the tempo's key and the foot `dialogKey`s (the tempo's panel and the Output sheet are dialogs). The tests fill a bar the same way |
+| `TAPE_KEYS` | what the Studio presses of ● and its ▾ (Catch): `lend`, `draw`, `press`, `catch`, `closeMenu`, `focusPlay`. Its tempo panel goes with its hands (`lend`: `hands.tempo`) |
 | default | the component. Its mount fills the root, puts help's titles on it (`props.titles`), makes `NowPlaying(root, models, cx)`, provides its `tapeKeys` to `props.tapeKeys` and hears `props.onRoom`; its `unmount` takes those back and `NowPlaying.destroy()`s (its models' subscriptions, its strip's observer, the keyboard note's timer) |
 
 Its models (`needs`) are `bar` (the engine's: what plays, its
@@ -239,8 +243,8 @@ page's: the Studio's keys, the lamp, SYNC and the strip), `takes` (the
 page's: the source menu's last few) and `recorder` (the page's phone
 recorder, made at boot). Its props, the surface's: `layout` (the shell's
 `barLayout`), `player` (the phone's player sheet), `output()` (the
-Output sheet), `room()` (the room the router shows: the tempo opens its
-menu in the Studio), `onRoom(fn)` (fn as the router shows another
+Output sheet), `room()` (the room the router shows: the tempo's key opens
+the Studio's panel in the Studio), `onRoom(fn)` (fn as the router shows another
 room, from its `chrome.setPath`), `titles(root)` (help's `applyTitles`,
 which the mount runs on the filled template before `NowPlaying` moves any
 key's tip, so a key's hover title is its template's, as it was from
@@ -283,8 +287,9 @@ schemes, on the fixtures' bar, transport, tape, takes and recorder, with
 the shell's props made in the page by its surface module
 (`transport.surface.js`): the tape held, the mini player on a phone and
 the full bar wider, the room on its root, ● and its ▾ in the Studio
-alone and no Catch key, the source's menu in the top layer, OUT to the
-surface. It never presses ▶.
+alone and no Catch key, the source's menu in the top layer, no key for
+the output of its own, and the tempo's key to the surface's Output sheet
+away from the Studio. It never presses ▶.
 
 **Open keeps its own bar** until Open's pass: `wave.html`'s `#np`, its
 own markup and ids (`#position`, `#play`), drawn by `lib/wave/page.js`
@@ -335,19 +340,48 @@ the tape as the Studio renders. With the panel shut (M), where the lamp
 isn't, a passing toast says *Click on* or *Click off*. The bar has no key
 for it.
 
+**One key for the tempo and where it plays** (the calm Studio's decision
+5, step 7b, 2026-11-13). The display's tempo key (`#np-tempo`) is the
+bar's, and the bar is the one owner of its press: `NowPlaying`'s
+`tempoOpens(kind)` says what a press opens now. In the Studio with the
+tape it is the Studio's tempo panel (`{panel}`), lent with its hands
+(`hands.tempo(key)` makes it as they are lent; `tapeKeys.panel()` answers
+it; `tapeKeys({onHands})`, which the bar hands its `kick()`, says after a
+lend and after its off that the hands changed, so the key is drawn again
+at once, even with the bar still); anywhere else, or with no panel lent, the Output sheet (`{output}`,
+the surface's `output()`), once the engine has a tape to send; else
+nothing, and the key is off. The key has one listener of each kind, the
+bar's (a click, and ↓ or ↑ from the keyboard: Enter and Space are a
+click), which hands the panel's presses to it (`menu()`'s `press(e)`)
+and opens the sheet itself otherwise, so the Studio's panel never hears a
+press in another room. The panel is a `menu()` with `bind: false`
+(`lib/ui/menu.js`): it binds nothing on the key and says on it only that
+it is open, while it is (`aria-expanded`, `aria-controls`); the key's
+`aria-haspopup` is `dialog` for both (`fill`'s `dialogKey`), and its label
+says the tempo, where it plays and what a press does (`tempoLabel`). The
+panel's last row, under a line, is where the tape plays
+(`#tempo-out`, `display.js` `playsWords`: *Plays in the jam room*, *Plays
+on a phone*, *Plays in the jam room and on a phone*, with ›): a tap shuts
+the panel and opens the Output sheet (`ctx.openOutput`), and the row is
+drawn again in place as the mode changes while it is open
+(`paintTempoOut`, from the Studio's render; not `refresh()`, which would
+fill the panel again and drop a tempo half typed or TAP's count). Setting
+where the tape plays from the Studio is two presses (the key, the row);
+anywhere else it is one, as it was.
+
 What is the Studio's own reaches them only as the hands it lends, the one
 interface between them (`lib/tape/page.js` `studioHands`, lent as it wires
 up, taken back on destroy):
 
 | `tapeKeys` answers | |
 |---|---|
-| `lend(hands)` → off | the Studio's hands, until `off()`; the keys are drawn and pressed only while some are lent |
+| `lend(hands)` → off | the Studio's hands, until `off()`; the keys are drawn and pressed only while some are lent. Hands lent over hands still lent shut ●'s menu and drop the first hands' tempo panel, and the first `off()` then does nothing |
 | `draw()` | the keys again: the armed tracks or their inputs changed (the Studio's render) |
 | `press(name)` | `'rec'`, as a tap on ● (R), or `'catch'`, C: the last pass, or, while it waits, why, with *Last 4 bars* on offer; nothing while ● is disabled |
 | `catch(what)` | Catch `{pass}`, `{bars}` or `{out}`: ●'s menu's, and the Studio's passes and last-bars keys |
 | `closeMenu()` | ●'s menu shut (the Studio's `closeMenus`) |
 | `focusPlay()` | the keyboard's focus to ▶ (the Studio's, as the clip editor it was in goes) |
-| `tempo(fn)` | `fn(key)` with the display's tempo key, on which the Studio wires its tempo menu; answers what `fn` made, or null on a bar without the key |
+| `panel()` | the tempo panel the lent hands made (`hands.tempo(key)`), or null with none lent: the bar's own, not the relay's (`TAPE_KEYS`), to hand the tempo key's presses to |
 
 | `hands` | |
 |---|---|
@@ -358,6 +392,7 @@ up, taken back on destroy):
 | `said(verb, answer, {before, what, body})` | the words for `record`'s, `punchOut`'s or `catch`'s answer, with the Studio's Undo or Cancel |
 | `hover(on)` | The last pass pointed at, or the keyboard on it: its outline on the record track's lane |
 | `ghost()` | a locate the Studio sent that this phone has not heard yet (`{pos, until}`), or null: the output strip says where it is moving to (`tapeKeys.ghost()` answers it, null with no hands lent) |
+| `tempo(key)` | the Studio's tempo panel (`renderTempo`) on the display's tempo key, made once as the hands are lent: a `menu()` of `#tempo-menu` with `bind: false`, which hears no press of the key; taken back with the hands, and shut |
 
 The bar says the rest itself: why C can't catch yet (with *Last 4 bars*),
 why a row of ●'s menu can't go, and *Could not record* or *Could not
@@ -370,8 +405,9 @@ gets past it.
 
 The rest of what the Studio and the Listening Room do to the bar is a verb
 or a callback too (step 5c): ▶ and Space are the engine's `playPause()`,
-L is `setLoop()` (both nothing while the key is unlit), OUT and the
-jam-only sheet's *Switch* are `ctx.openOutput()`, SYNC is the bar's
+L is `setLoop()` (both nothing while the key is unlit), the tempo's
+panel's last row (`#tempo-out`) and the jam-only sheet's *Switch* are
+`ctx.openOutput()`, SYNC is the bar's
 (*The lamp and the output strip*, below), the doorway's grease goes at the
 end of the strip through `ctx.barSlot` (`{ place: 'strip', at: 'end' }`)
 and takes the strip's box, the doorway reads the bar by the engine's

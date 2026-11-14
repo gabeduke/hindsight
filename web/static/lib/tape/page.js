@@ -53,6 +53,7 @@ import { say, named } from '../rooms/words.js';
 import { mountCueLane } from './cuelane.js';
 import { layersOf } from '../ui/layers.js';
 import { menu, menuItem, menuDivider, menuGroup, barTop } from '../ui/menu.js';
+import { playsWords } from '../bar/display.js';
 import { icon } from '../ui/icons.js';
 import { revealAbove } from '../ui/reveal.js';
 import { tapeRowSub, deleteWords, afterDelete } from './tape-menu.js';
@@ -340,8 +341,9 @@ const barHands = {
 // lib/components/transport/tape-keys.js), for as long as it is mounted: what is armed here
 // and what it records from, the body a verb sends (replace or overdub; the
 // jam-only sheet and "arm a track" refuse it), the words for its answer
-// with the Studio's Undo, Catch's outline on the lanes, and a locate this
-// phone has not heard yet, for the bar's output strip.
+// with the Studio's Undo, Catch's outline on the lanes, a locate this
+// phone has not heard yet, for the bar's output strip, and its tempo
+// panel, on the display's tempo key.
 const studioHands = {
   layers: null, // the Studio's scope, set as it mounts
   armed: () => state.recTracks,
@@ -373,6 +375,18 @@ const studioHands = {
   ghost: () => ghost,
   hover(on) {
     if (state.catchHover !== on) { state.catchHover = on; drawLanes(); }
+  },
+  // The tempo's panel (renderTempo), on the bar's display's tempo key,
+  // which the bar hands as these hands are lent. The key is the bar's: in
+  // the Studio with the tape it hands the panel its presses, and anywhere
+  // else it opens the Output sheet (the calm Studio's decision 5), so the
+  // panel hears none itself (bind: false). A panel, since −1, +1 and TAP
+  // keep it open.
+  tempo(key) {
+    menus.tempoBar = menu(key, $('tempo-menu'), {
+      layers: stack || undefined, doc: document, role: 'dialog', align: 'start', render: renderTempo, bind: false,
+    });
+    return menus.tempoBar;
   },
 };
 // followTheTape is the Studio's ctx.socket, open on every visit (the first
@@ -703,8 +717,10 @@ function render() {
   // ● and its ▾ (Catch) are the bar's (lib/components/transport/tape-keys.js), drawn
   // from the tape and the Studio's hands (studioHands): the armed tracks.
   tapeKeys?.draw();
-  // The click is the Studio's: the tempo's panel's Click, while it is open.
+  // The click is the Studio's: the tempo's panel's Click, while it is open,
+  // and its last row, where the tape plays.
   paintClick();
+  paintTempoOut();
   $('tap').textContent = live && live.tapped ? 'Tap where it comes round' : 'Tap where the loop starts';
   $('tap').classList.toggle('second', !!(live && live.tapped));
 
@@ -4077,11 +4093,25 @@ function renderTempo(panel) {
   click.innerHTML = `${icon('metro')}<span>Click</span>`;
   clickRow.append(click);
   paintClick(click);
-  // What follows the Click is the bar counts', put back after each change.
+  // Last, under a line, where the tape plays (the display's one key for
+  // the tempo and where it plays, the calm Studio's decision 5): a tap
+  // shuts the panel and opens the Output sheet (ctx.openOutput). It is the
+  // keyboard's last stop, and keeps up while the panel is open
+  // (paintTempoOut, from render).
+  const out = menuItem(doc, { role: 'button', word: '', attrs: { id: 'tempo-out' } });
+  out.addEventListener('click', () => {
+    menus.tempoBar.close();
+    viewCtx?.openOutput?.();
+  });
+  tempoOutSaid = '';
+  paintTempoOut(out);
+  // What follows the Click is the bar counts', put back after each change,
+  // then where it plays.
   const showBars = () => {
     while (clickRow.nextSibling) clickRow.nextSibling.remove();
     const rows = bars();
     if (rows.length) panel.append(menuDivider(doc), menuGroup(doc, 'Count the bars'), ...rows);
+    panel.append(menuDivider(doc), out);
   };
   const set = async (bpm) => {
     bpm = tenth(bpm);
@@ -4139,6 +4169,20 @@ function paintClick(key = $('tempo-click')) {
   const t = state.tape;
   setIf(key, 'aria-pressed', String(!!t?.click));
   key.disabled = !t?.grid;
+}
+
+// paintTempoOut says on the tempo's panel's last row where the tape plays
+// now (display.js playsWords), as renderTempo made it and again as the
+// mode changes while the panel is open: the row is drawn again in place
+// (menuItem's el), so the keyboard stays on it, and the field's tempo and
+// TAP's count are left be (a refresh() would fill the panel again).
+let tempoOutSaid = ''; // what the row says, as it was drawn last
+function paintTempoOut(row = $('tempo-out')) {
+  if (!row) return;
+  const words = playsWords(state.live?.output_mode);
+  if (words === tempoOutSaid) return;
+  tempoOutSaid = words;
+  menuItem({ el: row, role: 'button', word: words, end: icon('right', { size: 16 }) });
 }
 
 function laneTap(lane, e) {
@@ -4481,21 +4525,17 @@ async function loadTape(id) {
 }
 
 // The Studio's menus on lib/ui/menu.js: the tape's, from its name in the
-// header; the tempo's, from the bar's display; and ⌗'s, the View menu,
-// beside the ruler. Each opens on the Studio's stack beside its key, kept
-// off the bar at the foot of the page -- but the tape's, whose rows a
-// tablet's height between the header and the bar can't hold, which may
-// reach over the bar -- and a press elsewhere, a pick, Escape or Back
+// header; the tempo's, from the bar's display (made as the Studio lends the
+// bar its hands: studioHands.tempo); and ⌗'s, the View menu, beside the
+// ruler. Each opens on the Studio's stack beside its key, kept off the bar
+// at the foot of the page -- but the tape's and the tempo's: the tape's,
+// whose rows a tablet's height between the header and the bar can't hold,
+// may reach over the bar -- and a press elsewhere, a pick, Escape or Back
 // closes it.
 const menus = {};
 function mountMenus() {
   const opts = { layers: stack || undefined, doc: document, floor: barTop(document) };
   menus.tape = menu($('tape-name'), $('tape-menu'), { ...opts, floor: undefined, side: 'below', align: 'start', render: renderTapeMenu, focus: 'checked' });
-  // The tempo's, from the bar's display (the bar's own keys say when it
-  // opens: css/bar.css, lib/components/transport/bar.js): a panel, since −1, +1 and TAP
-  // keep it open. The bar hands its key to it (ctx.tapeKeys.tempo).
-  const tempoBar = tapeKeys?.tempo((key) => menu(key, $('tempo-menu'), { ...opts, role: 'dialog', floor: undefined, align: 'start', render: renderTempo }));
-  if (tempoBar) menus.tempoBar = tempoBar;
   menus.ruler = menu($('ruler-more'), $('ruler-menu'), { ...opts, align: 'start', render: renderRulerKeys, focus: 'checked' });
 }
 

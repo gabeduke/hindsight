@@ -104,6 +104,20 @@ export default {
     t.expect('the bar holds the tape again', back, b);
     t.expect('the room stays put', b.path === '/takes.html', b);
 
+    // Away from the Studio there is no tempo to set, so the display's one
+    // key for the tempo and where it plays opens the Output sheet itself
+    // (step 7b, docs/plan/the-calm-studio.md), never the tempo's panel. The
+    // tape is in the bar, so the key is on.
+    await display();
+    const tempoKey = page.locator('#np-tempo');
+    t.expect('the tempo’s key is on, with the tape in the bar in this room', await tempoKey.isEnabled(), await tempoKey.getAttribute('aria-label'));
+    await t.step('tap the tempo’s key on the display', () => t.tap(tempoKey));
+    t.expect('the Output sheet opens', await t.poll(() => document.getElementById('out-sheet')?.open));
+    t.expect('the tempo’s panel stays shut', await page.evaluate(() => { const m = document.getElementById('tempo-menu'); return !m || m.hidden; }));
+    await t.step('press Done on the Output sheet', () => t.tap(page.locator('#out-close')));
+    t.expect('the sheet closes', await t.poll(() => !document.getElementById('out-sheet')?.open));
+    await down();
+
     // A take from the menu: the last few are there, and one plays at once.
     await display();
     await t.step('tap the source, and choose the take just kept', async () => {

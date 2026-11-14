@@ -626,10 +626,11 @@ key still says so. The inspector moves to the record track when the arm moves
 (`sheetRec`), not on every render: it once went back to the armed track
 under a finger that had opened another's. On a tablet the Studio holds a
 budget at rest, checked by J1.16 (`scripts/flows/layout.mjs`,
-`STUDIO_BUDGET`), on the tape's face: at most 44 controls on the screen (43
-at 1024×768, and the brand at 1280), 1 under 32 px (the sections' strip),
-every ● 44 px or more, and all four tracks above the bar; the feed's face
-at most 27 (26, and the brand). The review of 2026-10-22 counted
+`STUDIO_BUDGET`), on the tape's face: at most 41 controls on the screen (40
+at 1024×768 and upright, and the brand at 1280), 1 under 32 px (the
+sections' strip), every ● 44 px or more, and all four tracks above the
+bar; the feed's face at most 24 (23, and the brand). The calm Studio's
+steps 7a and 7b took them there from 44 and 27. The review of 2026-10-22 counted
 65, 30 and 1½; just before the heads it was 51 and 27. The budget's numbers only go down.
 
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five

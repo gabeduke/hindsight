@@ -1631,17 +1631,19 @@ async function main() {
     setText($('np-time'), lcd.small);
     setText($('np-unit'), lcd.unit);
     setAttr($('np-status'), 'data-state', lcd.status);
-    // The display's tempo, the take and where it plays (lib/bar/display.js),
-    // which change with the name and the tempo only.
+    // The display's two cells, as the bar draws its keys (lib/bar/display.js):
+    // the tempo over where it plays, and the take; they change with the
+    // name and the tempo only.
     const dk = `${take.label}|${state.grid.bpm}`;
     if (dk !== displayKey) {
       displayKey = dk;
       const d = takeDisplay({ title: takeTitle({ ...take, name: take.name || file }), bpm: state.grid.bpm }, hereWord(deviceOf((q) => matchMedia(q))));
       setText($('np-tempo-short'), d.tempo.short);
       setText($('np-tempo-long'), d.tempo.long);
+      setText($('np-tempo-alone'), d.tempo.alone);
+      setText($('np-tempo-leg'), d.tempo.leg);
       setText($('np-source-short'), d.source.short);
       setText($('np-source-long'), d.source.long);
-      setText($('np-output-val'), d.out);
     }
     // The slider, for a screen reader: to the tenth of a second, not every frame.
     const ov = $('overview-canvas');

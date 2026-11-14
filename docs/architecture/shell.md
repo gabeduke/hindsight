@@ -47,13 +47,16 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
 - `tapeKeys`: the bar's ● and its ▾, which Catch is on (`lib/components/transport/tape-keys.js`;
   `bar.md`, *The Studio's keys*), shared through a relay the Transport
   provides them to (`lib/components/relay.js`; `bar.md`, *The Transport*): the Studio lends them its hands
-  (`lend(hands)`) and presses them (`press(name)`, `catch(what)`), focuses
-  ▶ (`focusPlay()`) and wires its tempo menu on the bar's tempo key
-  (`tempo(fn)`, which hands `fn` the key), never looking them up.
+  (`lend(hands)`, its tempo panel among them: `hands.tempo(key)`, handed
+  the bar's tempo key, which hands the panel its presses in the Studio)
+  and presses them (`press(name)`, `catch(what)`) and focuses ▶
+  (`focusPlay()`), never looking them up.
 - `openOutput()`: opens the shell's Output sheet, where the tape plays
   (`lib/tape/out-switch.js` `wireOutput`, wired by the boot the first time
-  it opens, once the engine has a tape; nothing before): OUT on the bar's
-  display, and the Studio's jam-only sheet.
+  it opens, once the engine has a tape; nothing before): the tempo's
+  panel's last row (`#tempo-out`), and the Studio's jam-only sheet. The
+  bar's tempo key away from the Studio, and the phone's foot, open it as
+  the Transport's `output` prop, the same function.
 - `engine`, `go(url)`, `tapes`, `takes`, `tape`, `toast`, `link`: shared. A view never creates
   the bar's audio and never assigns `location` to a room path. `takes` is
   the page's takes model (`lib/models/takes.js`): `snapshot()` (`{v,
@@ -418,9 +421,10 @@ usually was landed on the brand.
 - **On a phone** (under 700 px) the header is the context (one pill a
   finger tall), ↶ and ☰ (↷ only while there is something to redo), and the
   switch is the tabs along the bottom, each its picture over its word.
-- **What the header no longer holds**: the tempo (the bar's display), where
-  the tape plays (the bar's display; `np-output` opens the output sheet,
-  as the jam-only sheet's Switch does), and the alignment dot (SYNC on the
+- **What the header no longer holds**: the tempo and where the tape plays
+  (the bar's display, one key, `np-tempo`: in the Studio its panel, whose
+  last row opens the Output sheet, as the jam-only sheet's Switch does;
+  anywhere else the Output sheet), and the alignment dot (SYNC on the
   bar's display, `lib/bar/display.js` `syncState`: green to the sample,
   amber by the clocks, red not lined up yet, out while the tape is stopped
   or plays on a phone).

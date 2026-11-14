@@ -159,7 +159,14 @@ and still looks it:
   builds the first two (2026-11-13; `architecture/bar.md`, *The Studio's
   keys*): ●'s ▾ is Catch's menu, and on a phone the one ▾ beside ●, with
   this phone's rows after a line; the tempo's panel has the Click; the
-  Studio holds 42 controls at rest, and E1 takes 11 presses. Step 6a is
+  Studio holds 42 controls at rest, and E1 takes 11 presses. Step 7b is
+  built (2026-11-13; `architecture/bar.md`, *One key for the tempo and
+  where it plays*): the bar's display has two keys, the source and the
+  tempo over where it plays, which opens the tempo's panel in the Studio
+  (its last row, *Plays in the jam room*, opens the Output sheet) and the
+  Output sheet anywhere else; the bar owns its press (`menu()`'s `bind:
+  false`, the panel lent with the Studio's hands); ▶ did not move, and the
+  Studio holds 41 controls at rest, the feed's face 24. Step 6a is
   built (2026-11-13; `architecture/tape.md`, *The cue lane*): a cue clip's
   drawer opens small as its window, DROP, Trim, Toss and ✕; Trim opens on
   Audition, Repeat, Reverse and the fades, then IN and OUT, the gain,
@@ -289,18 +296,22 @@ and still looks it:
         2026-11-02):
         - `display` learns a take's and the feed's words (it draws the
           tape's only), `here` (THIS PHONE, THIS TABLET, THIS COMPUTER),
-          and the tempo key's per-room state (a menu in the Studio alone),
-          through a room model or a props function read as it draws, and
-          the `aria-haspopup` the bar's OUT has (`dialogKey`);
+          and the tempo key's per-room press (the Studio's panel in the
+          Studio, the Output sheet elsewhere: the bar's `tempoOpens`,
+          since the calm Studio's step 7b), through a room model or a
+          props function read as it draws, the `aria-haspopup` the bar's
+          tempo key has (`dialogKey`), and the tempo alone in the phone's
+          player pulled up (`.np-alone`);
         - its look and widths reconciled with the bar's (its box, and its
           long forms from 420 px of its own width against the bar's
           1180 px), or a change Gabe accepts;
         - its root inside the bar is `#np-lcd`, so its keys become
-          `#np-lcd-tempo`, `-source`, `-output` and their parts, with
-          the flows' selectors (J1.12, J1.13 and J2.3 select `#np-source`;
-          J1.12, J2.3 and J2.7 `#np-source-short`; J1.4 and J1.20
-          `#np-tempo`) and `tapeKeys.tempo(fn)`'s key;
-        - the bar's own three keys, `paintDisplay` and `.np-lcd-*` go.
+          `#np-lcd-tempo` and `-source` and their parts, with the flows'
+          selectors (J1.12, J1.13 and J2.3 select `#np-source`; J1.12,
+          J2.3 and J2.7 `#np-source-short`; J1.4, J1.13, J1.20, J2.3 and
+          J4.4 `#np-tempo`) and the key the Studio's hands are handed
+          (`hands.tempo(key)`);
+        - the bar's own two keys, `paintDisplay` and `.np-lcd-*` go.
         Then Gabe tries the bar on the tablet, before the List.
   2. **Library: the List.**
   3. **Library: the wall.** The search becomes the library's state

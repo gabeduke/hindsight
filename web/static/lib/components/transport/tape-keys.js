@@ -12,9 +12,13 @@
 // armed and what they record from, the body a verb sends (replace or
 // overdub, the jam-only sheet, "arm a track"), the words a verb's answer
 // gets (with the Studio's Undo), Catch's outline on the lanes, and whether
-// the tape plays on this phone -- the Studio lends the bar as its hands
-// (lend), the one way it reaches these keys. It never looks them up. The
-// click is the Studio's (lib/tape/page.js: the tempo's panel and M).
+// the tape plays on this phone, and its tempo panel -- the Studio lends the
+// bar as its hands (lend), the one way it reaches these keys. It never
+// looks them up. The click is the Studio's (lib/tape/page.js: the tempo's
+// panel and M). The tempo's panel opens from the display's tempo key, which
+// is the bar's (bar.js): in the Studio with the tape it hands the panel its
+// presses, and anywhere else it opens the Output sheet (the calm Studio's
+// decision 5), so the panel hears none of its own.
 
 import { bindPress, ARM_PRESS } from '../../ui/press.js';
 import { splitKey, menuItem, menuDivider } from '../../ui/menu.js';
@@ -94,10 +98,15 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  * after Catch's (rows, and opened as it opens), and a hold on ● offers
  * them (offer);
  * `phoneScreen` is a MediaQueryList for one (a component's
- * cx.media(PHONE)). Null on a bar without the keys or a page without a tape.
+ * cx.media(PHONE)). `onHands()` is called after hands are lent and after
+ * they are taken back, so the bar draws again what hangs on them (its
+ * tempo key, bar.js tempoOpens). Null on a bar without the keys or a page
+ * without a tape.
  *
  * Answers:
- *   lend(hands) -> off   the Studio's hands, until off():
+ *   lend(hands) -> off   the Studio's hands, until off() (hands lent over
+ *                        others shut what the others opened, and the
+ *                        others' off does nothing):
  *       layers           the stack scope ●'s menu opens on (the first
  *                        lend's: the menu is made once)
  *       armed()          the armed tracks, as the Studio shows them
@@ -114,6 +123,11 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  *       ghost()          a locate the Studio sent that this phone has not
  *                        heard yet ({pos, until}), or null: the bar's
  *                        output strip says where it is moving to
+ *       tempo(key)       the Studio's tempo panel on the display's tempo
+ *                        key, made as the hands are lent: a menu() of it
+ *                        that hears no press of the key (lib/ui/menu.js,
+ *                        bind: false), answered to the bar, which hands it
+ *                        the key's presses in the Studio with the tape
  *   draw()               the keys again: the Studio's armed tracks or their
  *                        inputs changed
  *   press(name)          'rec' or 'catch', as a tap on ● (R), or C, which
@@ -125,15 +139,14 @@ const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k,
  *   ghost()              the lent hands' ghost(), null with none lent
  *   focusPlay()          the keyboard's focus to ▶ (the Studio's, as it
  *                        puts away what had it: the clip editor)
- *   tempo(fn)            fn(key) with the display's tempo key, which the
- *                        Studio wires its tempo menu on; answers what fn
- *                        does, or null on a bar without one (the bar says
- *                        when the key opens it: lib/components/transport/bar.js)
+ *   panel()              the tempo panel the lent hands made (tempo(key)),
+ *                        or null with none lent: the bar's, to hand the
+ *                        tempo key's presses to (bar.js tempoOpens)
  *
  * With no hands lent the keys are not drawn and do nothing: they show in
  * the Studio alone (data-for="studio").
  */
-export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}, phoneKeys = null, phoneScreen = { matches: false } } = {}) {
+export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}, phoneKeys = null, phoneScreen = { matches: false }, onHands = () => {} } = {}) {
   const $ = partOf(root);
   const rec = $('rec'), more = $('rec-more'), panel = $('rec-menu');
   const play = $('play'), tempoKey = $('tempo');
@@ -142,6 +155,7 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
   let recorder = null;
   let says = null; // catchState's, as ● was drawn last
   let menu = null;
+  let tempoPanel = null; // the lent hands' tempo panel, on the tempo key
   const snap = () => tape.snapshot();
   const phone = () => (recorder ? recorder.snapshot() : { mode: 'closed', seconds: 0 });
   // On a phone ●'s menu holds this phone's rows too.
@@ -279,6 +293,14 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
   const keys = { rec: () => !rec.disabled && record(), catch: pressCatch };
   return {
     lend(h) {
+      // Hands lent over hands still lent: what the first opened is shut
+      // (●'s menu, while the first are still the ones its outline goes to)
+      // and their panel dropped; their off then does nothing.
+      if (hands && hands !== h) {
+        menu?.close();
+        tempoPanel?.close();
+        tempoPanel = null;
+      }
       hands = h;
       if (!menu) {
         // ● and its ▾ are a split key (lib/ui/menu.js), as GRAB's and
@@ -293,8 +315,19 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
           onClose: () => hover(false),
         });
       }
+      // The tempo's panel is the Studio's, on the display's tempo key, for
+      // as long as its hands are lent.
+      tempoPanel = tempoKey && typeof h.tempo === 'function' ? h.tempo(tempoKey) : null;
       draw();
-      return () => { if (hands === h) { menu?.close(); hands = null; } };
+      onHands();
+      return () => {
+        if (hands !== h) return;
+        menu?.close();
+        tempoPanel?.close();
+        tempoPanel = null;
+        hands = null;
+        onHands();
+      };
     },
     draw,
     press(name) { if (hands) keys[name]?.(); },
@@ -302,6 +335,6 @@ export function tapeKeys({ root, tape, whenRecorder = () => {}, toast = () => {}
     closeMenu() { menu?.close(); },
     ghost: () => hands?.ghost?.() || null,
     focusPlay() { play?.focus({ preventScroll: true }); },
-    tempo: (fn) => (tempoKey ? fn(tempoKey) : null),
+    panel: () => (hands ? tempoPanel : null),
   };
 }

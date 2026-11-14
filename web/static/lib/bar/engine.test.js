@@ -414,18 +414,105 @@ test('what redraws the bar from outside (a room switch, the scheme, the screen�
   assert.equal(engine.bar.snapshot().kind, 'tape');
 });
 
-test('the tempo opens its menu with the tape in the Studio, as the surface says the room, and not elsewhere', async () => {
-  const { w, $ } = await open();
+// The Studio's hands, as it lends them the bar's keys (lib/tape/page.js
+// studioHands), with `tempo` its tempo panel's maker.
+const studioHands = (tempo) => ({
+  layers: null, armed: () => [], inputOf: () => '', playsHere: () => false,
+  body: () => null, said() {}, hover() {}, ghost: () => null, tempo,
+});
+const keyDown = (key) => ({ type: 'keydown', key, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });
+
+test('the tempo’s key opens the Studio’s tempo panel with the tape in the Studio, and the Output sheet anywhere else: one owner for the press (the calm Studio’s step 7b)', async () => {
+  page = await barPage({ engine: true, tapes: { loaded: 't1' }, answer: pi, output: true });
+  const { w, $, click } = page;
   page.frames();
-  assert.equal($('np-tempo').disabled, true, 'the Listening Room: no tempo menu');
+  const key = $('np-tempo');
+  assert.equal(key.getAttribute('aria-haspopup'), 'dialog', 'the panel and the sheet are both dialogs');
+  // The Listening Room: no tempo to set there, so where it plays.
+  assert.equal(key.disabled, false, 'on: the engine has a tape to send');
+  assert.match(key.getAttribute('aria-label'), /96 BPM, 16 bars; plays in the jam room: choose where the tape plays$/);
+  click(key);
+  assert.equal(w.outputs, 1, 'a tap opens the Output sheet');
+  const down = keyDown('ArrowDown');
+  key.dispatchEvent(down);
+  assert.equal(w.outputs, 2, 'and so does ↓ from the keyboard');
+  assert.ok(down.defaultPrevented);
+  key.dispatchEvent(keyDown('a'));
+  assert.equal(w.outputs, 2, 'no other key');
+  // The Studio, its hands lent with its tempo panel.
+  const pressed = [];
+  const panel = { press: (e) => pressed.push(e.type), close() {} };
+  const off = page.np.tapeKeys.lend(studioHands(() => panel));
   w.room = 'studio';
   page.np.kick();
   page.frames();
-  assert.equal($('np-tempo').disabled, false, 'the Studio: the tempo opens its menu');
+  assert.equal(key.disabled, false);
+  assert.match(key.getAttribute('aria-label'), /: change the tempo, or where it plays$/);
+  click(key);
+  key.dispatchEvent(keyDown('ArrowDown'));
+  assert.deepEqual(pressed, ['click', 'keydown'], 'the panel is handed the presses, a tap and the keyboard’s');
+  assert.equal(w.outputs, 2, 'and the Output sheet hears none of them');
+  // Back in the Listening Room, the panel hears nothing.
   w.room = 'room';
   page.np.kick();
   page.frames();
-  assert.equal($('np-tempo').disabled, true);
+  click(key);
+  assert.equal(w.outputs, 3);
+  assert.deepEqual(pressed, ['click', 'keydown'], 'the Studio’s panel hears no press in another room');
+  // The Studio with its hands taken back: no panel, so the Output sheet.
+  off();
+  w.room = 'studio';
+  page.np.kick();
+  page.frames();
+  click(key);
+  assert.equal(w.outputs, 4);
+});
+
+test('the tempo’s key is off where it opens nothing: no Output sheet handed, and no panel lent', async () => {
+  const { w, $ } = await open();
+  page.frames();
+  assert.equal($('np-tempo').disabled, true, 'the Listening Room, with nowhere to send the tape');
+  assert.doesNotMatch($('np-tempo').getAttribute('aria-label'), /choose|change/, 'and it says no press');
+  w.room = 'studio';
+  page.np.kick();
+  page.frames();
+  assert.equal($('np-tempo').disabled, true, 'the Studio, before it lends its panel');
+  const off = page.np.tapeKeys.lend(studioHands(() => ({ press() {}, close() {} })));
+  page.np.kick();
+  page.frames();
+  assert.equal($('np-tempo').disabled, false, 'the Studio, its panel lent');
+  off();
+});
+
+test('the tempo’s key follows the Studio’s hands as they are lent and taken back, with the bar idle', async () => {
+  // The Studio's first mount lends its hands to a bar that is drawn and
+  // still: nothing else moves to draw it again, so the lend has to.
+  const { w, $ } = await open();
+  w.room = 'studio';
+  page.np.kick();
+  page.frames();
+  const key = $('np-tempo');
+  assert.equal(key.disabled, true, 'no panel yet, and nowhere to send the tape');
+  const off = page.np.tapeKeys.lend(studioHands(() => ({ press() {}, close() {} })));
+  page.frames();
+  assert.equal(key.disabled, false, 'the panel lent: the key is on at the next frame');
+  assert.match(key.getAttribute('aria-label'), /: change the tempo, or where it plays$/);
+  off();
+  page.frames();
+  assert.equal(key.disabled, true, 'the hands taken back: off again');
+  assert.doesNotMatch(key.getAttribute('aria-label'), /change the tempo/);
+});
+
+test('the tempo’s key says the tempo over where it plays, and the tempo alone for the phone’s player pulled up', async () => {
+  const { $ } = await open();
+  page.frames();
+  const text = (id) => $(id).textContent;
+  assert.equal(text('np-tempo-short'), '96 BPM');
+  assert.equal(text('np-tempo-long'), '96 BPM · 16 BARS');
+  assert.equal(text('np-tempo-leg'), 'JAM ROOM');
+  assert.equal(text('np-tempo-alone'), '96');
+  assert.equal($('np-output'), null, 'no key of its own for where it plays');
+  assert.equal(text('np-out-foot-val'), 'JAM ROOM', 'the foot says where it plays');
 });
 
 test('the bar says the room it is in on its root, for the stylesheet\'s studio and away keys', async () => {

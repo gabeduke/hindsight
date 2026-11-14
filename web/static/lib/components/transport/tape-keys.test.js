@@ -412,14 +412,61 @@ test('tapeKeys: pointing at The last pass is the Studio’s outline, and it goes
   assert.equal(seen.length, 4, 'the last bars outline nothing');
 });
 
-test('tapeKeys: the Studio focuses ▶ and wires its tempo menu on the bar’s key through it, never by their ids (step 5c)', () => {
+test('tapeKeys: the Studio focuses ▶ through it, never by its id (step 5c)', () => {
   const { k, doc } = keys({ tape: aTape(), live: playing() });
   k.focusPlay();
   assert.equal(doc.activeElement, doc.getElementById('np-play'));
+});
+
+test('tapeKeys: the Studio’s tempo panel comes with its hands, made on the display’s tempo key, and goes with them (the calm Studio’s step 7b)', () => {
+  const { k, doc } = keys({ tape: aTape(), live: playing() });
+  assert.equal(typeof k.tempo, 'undefined', 'no way to the key but the hands');
+  assert.equal(k.panel(), null, 'no hands, no panel');
   const handed = [];
-  const made = k.tempo((key) => { handed.push(key); return 'the menu'; });
-  assert.deepEqual(handed, [doc.getElementById('np-tempo')], 'fn is handed the tempo key');
-  assert.equal(made, 'the menu', 'and tempo answers what fn made');
+  const shut = [];
+  const panel = { close: () => shut.push('closed'), press() {} };
+  const off = k.lend(hands({ tempo: (key) => { handed.push(key); return panel; } }));
+  assert.deepEqual(handed, [doc.getElementById('np-tempo')], 'the hands are handed the tempo key, once, as they are lent');
+  assert.equal(k.panel(), panel, 'and the bar has the panel they made');
+  off();
+  assert.deepEqual(shut, ['closed'], 'taking the hands back shuts it');
+  assert.equal(k.panel(), null, 'and the bar has none');
+  k.lend(hands());
+  assert.equal(k.panel(), null, 'hands with no panel lend none');
+});
+
+test('tapeKeys: the bar hears the hands change, after a lend and after they are taken back, so its tempo key says what a press opens now', () => {
+  const heard = [];
+  const held = {};
+  const { k } = keys({ tape: aTape(), live: playing() }, { onHands: () => heard.push(held.k.panel()) });
+  held.k = k;
+  const panel = { close() {}, press() {} };
+  const off = k.lend(hands({ tempo: () => panel }));
+  assert.deepEqual(heard, [panel], 'once the hands and their panel are in');
+  off();
+  assert.deepEqual(heard, [panel, null], 'and once they are out');
+  off();
+  assert.equal(heard.length, 2, 'a second off is nothing to hear');
+});
+
+test('tapeKeys: hands lent over hands still lent shut the first panel and ●’s menu; the first hands’ off then leaves the second be', () => {
+  const { k, more, panel: recMenu } = keys({ tape: aTape(), live: playing() });
+  const shut = [];
+  const first = { close: () => shut.push('first'), press() {} };
+  const second = { close: () => shut.push('second'), press() {} };
+  const offFirst = k.lend(hands({ tempo: () => first }));
+  click(more);
+  assert.equal(recMenu.hidden, false, '●’s menu open on the first hands');
+  const offSecond = k.lend(hands({ tempo: () => second }));
+  assert.deepEqual(shut, ['first'], 'the first panel is shut');
+  assert.equal(recMenu.hidden, true, 'and ●’s menu');
+  assert.equal(k.panel(), second, 'the bar has the second');
+  offFirst();
+  assert.equal(k.panel(), second, 'the first hands’ off takes nothing of the second');
+  assert.deepEqual(shut, ['first']);
+  offSecond();
+  assert.deepEqual(shut, ['first', 'second']);
+  assert.equal(k.panel(), null);
 });
 
 test('tapeKeys: a page without the keys, or without a tape, has none', () => {
