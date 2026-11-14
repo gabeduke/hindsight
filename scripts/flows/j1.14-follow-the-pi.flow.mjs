@@ -10,7 +10,7 @@
 // jittered, so that they can't fall into step with the poll and land just
 // after one every time. Eight tries, and at most one of them may be slow: a
 // CI runner stalls for a few hundred ms now and then (one sample of five at
-// 122 or 307 ms, the rest under 20), which is the machine and not the page.
+// 122 or 307 ms, the rest under 20), which read as the machine, not the page: 128 samples under load on a Mac were all under 80 ms, but the cause was not found.
 // A page that only polled would pass seven of eight about 1 time in 28,
 // much as it passed five of five 1 time in 32.
 

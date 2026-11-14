@@ -29,8 +29,8 @@ export default {
     await page.addInitScript(() => addEventListener('pagereveal', (e) => { window.__vt = e.viewTransition; window.__revealed = true; }));
     await t.step('tap Open › on the bar', () => t.tap(page.locator('#np-open')));
     await page.waitForURL(/wave\.html\?file=/, { timeout: 10_000 });
-    // The URL changes as the navigation commits, before the new page is
-    // revealed: wait for the reveal, or the transition reads as none.
+    // The new page's reveal can come after the URL has changed: wait for
+    // it, or the transition reads as none.
     await t.poll(() => window.__revealed === true, null, 5000);
     const way = await page.evaluate(() => (window.__vt ? [...window.__vt.types] : null));
     t.expect('it dollies in to the take, the header and the bar holding still', Array.isArray(way) && way.includes('dolly-in'), way);
