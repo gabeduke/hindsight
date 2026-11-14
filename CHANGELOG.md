@@ -5,6 +5,21 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.14.1 — 2026-11-14
+
+- J2.5 waits for the notes drawer to dock on Open before it reads the layout, which it read too soon about one run in fifteen (2c1fa8b3)
+- The Studio lending its hands again shuts what the first hands had open: ●'s menu and the tempo's panel (e87c5113)
+- The tempo's key says what a press opens as soon as the Studio is up: it is on, and says it changes the tempo, without waiting for the bar to move (a7ef92b0)
+- The notes on the bar's two keys carry the day they were built, the 13th (75624a60)
+- On the widest bar a take's long name gives way before the tempo and where it plays: THIS TABLET stays whole beside it at 1280 (cf5a0a5b)
+- The bar's rule and decision 0047 say the display has two keys, and the calm Studio's step 7b is built (637f014f)
+- The Studio holds 41 controls at rest on the tablet, from 42, and the feed's face 24, from 25, with the output's key off the bar (8e5c251a)
+- The tempo and where it plays are one key on the bar's display: in the Studio it opens the tempo's panel, whose last row opens the Output sheet; anywhere else it opens the Output sheet (7d29c8a2)
+- A menu's key can belong to another owner, which hands it the presses that are its own (384dd990)
+- The flows open the Output sheet from the tempo's key and its panel (e27eaf50)
+- The calm Studio's spec says how the tempo and where it plays become one key on the bar's display (87a57162)
+
+
 ## v2026.11.13.3 — 2026-11-13
 
 - M says Click on or Click off when the tempo's panel is shut (9d76390c)
