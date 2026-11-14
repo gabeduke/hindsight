@@ -27,13 +27,28 @@ export default {
     t.expect('Open › is on the screen, at the bar’s end, and the page has no sideways scroll', end.left >= 0 && end.right <= end.W && end.scrollW <= end.W, end);
     // The page arriving keeps its View Transition, to say which way it went.
     await page.addInitScript(() => addEventListener('pagereveal', (e) => { window.__vt = e.viewTransition; window.__revealed = true; }));
-    await t.step('tap Open › on the bar', () => t.tap(page.locator('#np-open')));
-    await page.waitForURL(/wave\.html\?file=/, { timeout: 10_000 });
-    // The new page's reveal can come after the URL has changed: wait for
-    // it, or the transition reads as none.
-    await t.poll(() => window.__revealed === true, null, 5000);
-    const way = await page.evaluate(() => (window.__vt ? [...window.__vt.types] : null));
-    t.expect('it dollies in to the take, the header and the bar holding still', Array.isArray(way) && way.includes('dolly-in'), way);
+    // Chrome skips a cross-document transition when it can't capture the old
+    // page in time, which a loaded CI runner does now and then (the reveal
+    // comes with no transition at all: seen on CI, `opens` below says how
+    // often). So Open is opened up to three times, back between them, until
+    // a transition runs; the one that runs must be the dolly, and one must.
+    const OPENS = 3;
+    const opens = [];
+    for (let i = 0; i < OPENS; i++) {
+      if (i) {
+        await t.step('back to the room, to open it again', () => page.goBack());
+        await page.locator('#np-open').waitFor({ state: 'visible', timeout: 10_000 });
+      }
+      await t.step(i ? 'tap Open › on the bar again' : 'tap Open › on the bar', () => t.tap(page.locator('#np-open')));
+      await page.waitForURL(/wave\.html\?file=/, { timeout: 10_000 });
+      // The new page's reveal can come after the URL has changed.
+      const revealed = await t.poll(() => window.__revealed === true, null, 5000);
+      const types = await page.evaluate(() => (window.__vt ? [...window.__vt.types] : null));
+      opens.push({ revealed: !!revealed, types });
+      if (types) break;
+    }
+    const way = opens.at(-1).types;
+    t.expect('it dollies in to the take, the header and the bar holding still', Array.isArray(way) && way.includes('dolly-in'), opens);
     t.expect('the take page opens for that take', page.url().includes(encodeURIComponent(name)) || page.url().includes(name), page.url());
     // Its title fills in once the take loads ("…" until then).
     t.expect('it shows the take\'s name', await t.poll(() => (document.getElementById('take-name')?.textContent ?? '…').trim() !== '…', null, 8000));
