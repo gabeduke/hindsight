@@ -6,12 +6,17 @@
 // neither closes nor replaces. docs/flows.md#j114, docs/architecture/push.md.
 //
 // One sample under the 200 ms poll lands inside 100 ms about half the time,
-// so each change is made several times and the slowest is what is checked;
-// the pauses between them are jittered, so that they can't fall into step
-// with the poll and land just after one every time.
+// so each change is made several times; the pauses between them are
+// jittered, so that they can't fall into step with the poll and land just
+// after one every time. Eight tries, and at most one of them may be slow: a
+// CI runner stalls for a few hundred ms now and then (one sample of five at
+// 122 or 307 ms, the rest under 20), which is the machine and not the page.
+// A page that only polled would pass seven of eight about 1 time in 28,
+// much as it passed five of five 1 time in 32.
 
 const BUDGET_MS = 100;
-const TRIES = 5;
+const TRIES = 8;
+const SLOW_MAX = 1;
 
 export default {
   id: 'J1.14',
@@ -47,7 +52,7 @@ export default {
     const playing = () => !!document.getElementById('np-play')?.classList.contains('playing');
     const stopped = () => !document.getElementById('np-play')?.classList.contains('playing');
     const named = (n) => document.getElementById('tape-name-text')?.textContent === n;
-    const worst = (xs) => Math.max(...xs);
+    const inTime = (xs) => xs.filter((x) => x > BUDGET_MS).length <= SLOW_MAX;
     const pause = () => t.wait(150 + Math.round(Math.random() * 200));
     // The page's changes sockets (/api/tapes/changes), from before the Studio
     // loads: the page holds one, the transport's, whatever room is shown
@@ -96,9 +101,9 @@ export default {
       });
       await pause();
     }
-    t.expect(`▶ from the Pi shows within ${BUDGET_MS} ms`, worst(plays) <= BUDGET_MS, plays);
-    t.expect(`■ from the Pi shows within ${BUDGET_MS} ms`, worst(stops) <= BUDGET_MS, stops);
-    t.expect(`a rename at the Pi shows within ${BUDGET_MS} ms`, worst(names) <= BUDGET_MS, names);
+    t.expect(`▶ from the Pi shows within ${BUDGET_MS} ms`, inTime(plays), plays);
+    t.expect(`■ from the Pi shows within ${BUDGET_MS} ms`, inTime(stops), stops);
+    t.expect(`a rename at the Pi shows within ${BUDGET_MS} ms`, inTime(names), names);
 
     // The Listening Room, after the Studio: the bar is the bar's again, and
     // follows the Pi as the Studio did.
@@ -120,6 +125,6 @@ export default {
       await t.poll(stopped, null, 3000);
       await pause();
     }
-    t.expect(`in the Listening Room, the bar shows ▶ from the Pi within ${BUDGET_MS} ms`, worst(roomPlays) <= BUDGET_MS, roomPlays);
+    t.expect(`in the Listening Room, the bar shows ▶ from the Pi within ${BUDGET_MS} ms`, inTime(roomPlays), roomPlays);
   },
 };

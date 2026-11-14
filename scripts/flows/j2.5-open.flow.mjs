@@ -26,9 +26,12 @@ export default {
     });
     t.expect('Open › is on the screen, at the bar’s end, and the page has no sideways scroll', end.left >= 0 && end.right <= end.W && end.scrollW <= end.W, end);
     // The page arriving keeps its View Transition, to say which way it went.
-    await page.addInitScript(() => addEventListener('pagereveal', (e) => { window.__vt = e.viewTransition; }));
+    await page.addInitScript(() => addEventListener('pagereveal', (e) => { window.__vt = e.viewTransition; window.__revealed = true; }));
     await t.step('tap Open › on the bar', () => t.tap(page.locator('#np-open')));
     await page.waitForURL(/wave\.html\?file=/, { timeout: 10_000 });
+    // The URL changes as the navigation commits, before the new page is
+    // revealed: wait for the reveal, or the transition reads as none.
+    await t.poll(() => window.__revealed === true, null, 5000);
     const way = await page.evaluate(() => (window.__vt ? [...window.__vt.types] : null));
     t.expect('it dollies in to the take, the header and the bar holding still', Array.isArray(way) && way.includes('dolly-in'), way);
     t.expect('the take page opens for that take', page.url().includes(encodeURIComponent(name)) || page.url().includes(name), page.url());
