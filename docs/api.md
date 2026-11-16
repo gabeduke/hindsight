@@ -1642,76 +1642,57 @@ restart; 404 when the tape is off.
   that has left the ring moves to the oldest audio, a second in, and the
   answer has `"clamped": true`; 409 if the span has left it altogether or
   isn't in it yet.
-- **The Studio's buffer** (GRAB, step P2): `POST {"bars": 4, "sources":
-  ["ch1", "ch2"]}` copies the last 4 bars the tape played, where the ring
-  heard them, as Catch finds them (Δ and `TAPE_LATENCY_MS` included);
-  `{"seconds": 8, "sources": […]}` the last 8 seconds (for a tape with no
-  tempo yet, which refuses `bars` with 400); `{"ring_from": F, "ring_to": T,
-  "sources": […]}` a span of the ring. Each source is a clipboard track over
-  the same span, in `TAPE_SOURCES`' order. The handles are a bar at the tape's
-  tempo or `TAPE_HANDLE_S`, whichever is longer, at most 10 s; the one after
-  the last bars is still being played, so the answer waits for it (about a
-  bar). When the tape didn't play the bars (stopped, moved, on a phone, not
-  lined up) it takes that many bars of wall-clock time to now, and says
-  `"wall": true` with `"why"`. Where the ring starts is read once the
-  waiting is done: a start that has left it moves to its oldest audio, a
-  second in (before the ring has filled, to its first frame), and the
-  answer has `"clamped": true`; 409 if none of the span is left. The
-  clipboard gains `grab`: `{sources, bars?, seconds?, wall?, why?, clamped?,
-  ring_from, frames, before, after, in, out, bar_frames?, downbeat?, tape?,
-  reversed?, used?, ring, stale?}` -- frames from the grab's start, the
-  window `[in, out)` inside the handles `before` and `after`; `ring` names
-  the ring it came from, and `stale` says Hindsight has restarted since, so
-  `ring_from` names other audio now. `{"again": true, "sources": […]}`
-  copies the buffer's own span again from other sources, keeping its
-  window; 409 for a stale one.
-- `POST {"take": "jam_….wav", "from": F, "to": T, "grab": true}` makes a
-  take's span the buffer (the Listening Room's *to the studio*): handles
-  from the take's own audio, a bar at its tempo or `TAPE_HANDLE_S`,
-  whichever is longer, at most 10 s, as far as the take goes. Its `grab`
-  has `take` and `take_from` instead of a ring; its one source is the
-  take's name, which `again` can't change (400), and it's never stale.
-  Without `grab`, a take's span is copied as it always was. A grab, or any copy, that replaces a
-  grab never dropped or kept puts that one in the crate first, a kept clip
-  per track, and answers them as `"crated"`.
-- **GRAB's Undo** (the flow spec's F3): a grab, a copy or cut, or a toss's
-  restore that replaces a buffer never dropped, inserted, kept or tossed -- a
-  grab, or a copy or cut -- also answers it as `"replaced"` (a clipboard, with
-  `"replaced_seconds"`; for `POST /api/tapes/edit` it is `edit.replaced`), and
-  the Pi holds exactly one such buffer, in
+- **GRAB's span** is `POST /api/tapes/cue/grab`'s (the table above): what
+  follows is how it reads the ring. `{"bars": 4, "sources": ["ch1",
+  "ch2"]}` takes the last 4 bars the tape played, where the ring heard them,
+  as Catch finds them (Δ and `TAPE_LATENCY_MS` included); `{"seconds": 8,
+  …}` the last 8 seconds (for a tape with no tempo yet, which refuses `bars`
+  with 400); `{"ring_from": F, "ring_to": T, …}` a span of the ring. Each
+  source is a lane of the cue clip over the same span, in `TAPE_SOURCES`'
+  order. The handles are a bar at the tape's tempo or `TAPE_HANDLE_S`,
+  whichever is longer, at most 10 s; the one after the last bars is still
+  being played, so the answer waits for it (about a bar). When the tape
+  didn't play the bars (stopped, moved, on a phone, not lined up) it takes
+  that many bars of wall-clock time to now. Where the ring starts is read
+  once the waiting is done: a start that has left it moves to its oldest
+  audio, a second in (before the ring has filled, to its first frame); 409
+  if none of the span is left. `{"clip": id, "sources": […]}` takes that
+  clip's span again from other sources, keeping its window; 409 once
+  Hindsight has restarted since, as the ring is other audio now. `{"take":
+  "jam_….wav", "from": F, "to": T}` takes a take's span instead (the
+  Listening Room's *to the studio*), with handles from the take's own audio
+  as far as it goes; its one source is the take, which `clip` can't change
+  (400).
+- **A Cut or Copy's Undo**: a range's `copy` or `lift` (`POST
+  /api/tapes/edit`), or a copy here, that replaces a clipboard never
+  dropped, inserted or kept answers it as `"replaced"` (a clipboard, with
+  `"replaced_seconds"`; for `POST /api/tapes/edit` it is `edit.replaced`),
+  and the Pi holds exactly one such clipboard, in
   `TAPE_DIR/clipboard-replaced.json`: the next replacement overwrites it, so
-  it never grows. A clean-up keeps its audio only while it can be undone, that
-  is while the buffer that replaced it is still the clipboard and unused: a
-  clear, a toss, a drop, an insert or a keep lets it go (and a write that fails
-  after the slot's leaves the slot as it was). `POST /api/tapes/edit` takes
-  `{"no_crate": true}` on `copy` and `lift`, and `POST /api/clipboard/restore`
-  takes `?crate=0`, as a grab takes `crate: false`: nothing goes to the crate. `{"…", "crate": false}`
-  on a grab (`bars`, `seconds`, `ring_from`, `again`, or a take's `grab`)
-  keeps the replaced buffer there *only*, and puts nothing in the crate;
-  left out, the crate is as above, the slot written as well.
+  it never grows. A clean-up keeps its audio only while it can be undone,
+  that is while the clipboard that replaced it is still there and unused: a
+  clear, a drop, an insert or a keep lets it go (and a write that fails
+  after the slot's leaves the slot as it was).
   `POST /api/clipboard/restore?replaced=1[&by=<created>]` puts it back on
-  the clipboard (answering it) and empties the slot; `by` is the `created` of
-  the grab being undone, and a different one gets 409 (*That grab was already
-  replaced*), as does a buffer that was tossed, cleared or replaced since, a
-  slot that is empty, or a buffer that has been dropped, inserted or kept
-  since (*Already dropped or kept — undo the drop instead*): the words are the
-  error, ready to show. `replaced` with anything but `1` is 400, never the
-  toss's restore.
-- Both answer the new clipboard; 400 for a copy longer than a track; 507 for
-  low disk.
+  the clipboard (answering it) and empties the slot; `by` is the `created`
+  of the clipboard being undone, and a different one gets 409 (*That grab
+  was already replaced*), as does a clipboard that was cleared or replaced
+  since, a slot that is empty, or one that has been dropped, inserted or
+  kept since (*Already dropped or kept — undo the drop instead*): the words
+  are the error, ready to show. Without `replaced=1` it is 400.
+- Both copies answer the new clipboard; 400 for a copy longer than a track;
+  507 for low disk.
 - `DELETE` empties it. Its audio stays until a clean-up finds nothing using
-  it; the clean-up keeps whatever the clipboard holds. `DELETE ?toss=1` (the
-  buffer's TOSS) keeps what it held aside, a root for the clean-up until the
-  next toss, and `POST /api/clipboard/restore` brings it back (409 when
-  nothing was tossed). A `clipboard.json`
+  it; the clean-up keeps whatever the clipboard holds. A `clipboard.json`
   that can't be read is reported by `GET` as `error`, and kept from the
   clean-up (every copy is) until `DELETE` clears it.
 
 ### The crate
 
-Off screen and off the API since 2026-10-18: a grab or copy that replaces a
-buffer nobody used still keeps it in `TAPE_DIR/crate.json` (unless it sends
-`crate: false` / `no_crate` / `?crate=0`, as the rooms do), and `insert`
+Off screen and off the API since 2026-10-18, and since GRAB lands on the cue
+lane nothing new goes in: only a clipboard written before then that held a
+grab is kept there when it is replaced unused (unless the edit sends
+`no_crate`, as the rooms do), and `insert`
 still takes a kept clip's `crate` id, but nothing lists, plays or drops kept
 clips any more. The crate stays a root for the clean-up; a `crate.json` that
 can't be read stops the clean-up altogether.

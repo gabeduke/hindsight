@@ -17,8 +17,9 @@ import (
 // Undo puts it back. (GRAB has its own, on the cue lane: the tape's Undo.) A second replacement
 // overwrites the slot, so only one is ever kept and each lets go of the last
 // (its audio is the clean-up's, no root refers to it); it is not a growing
-// crate. The crate itself is untouched: the slot is written next to whatever a
-// replacement did before, and only a request that says NoCrate skips the crate.
+// crate. The slot is written whatever else a replacement does; only a
+// clipboard from before #317 holding a grab can go to the crate as well, and
+// a request that says NoCrate skips even that.
 
 // Replaced is the slot: the buffer that was replaced, and By, the Created of
 // the buffer that replaced it, so that Undo only acts while that buffer is

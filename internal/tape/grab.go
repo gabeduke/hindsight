@@ -99,10 +99,10 @@ type GrabRequest struct {
 	Again    bool     `json:"again"`
 }
 
-// GrabOpts changes what a grab does with the unused buffer it replaces.
-// NoCrate: it is kept as the one replaced grab and nowhere else. The rooms
-// send it, as the crate is no longer on their screens; without it a replaced
-// grab goes to the crate first, as it always has.
+// GrabOpts changes what a Cut or Copy does with the unused clipboard it
+// replaces. NoCrate: it is kept as the one replaced board and nowhere else.
+// The rooms send it. Without it, a replaced clipboard that holds a grab (one
+// written before GRAB moved to the cue lane) goes to the crate first.
 type GrabOpts struct{ NoCrate bool }
 
 // maxGrabSeconds bounds a grab of the last N seconds.
@@ -545,9 +545,9 @@ func (e *Engine) setBoardOpt(c *Clipboard, opts GrabOpts) (*Clipboard, error) {
 	return replaced, err
 }
 
-// replaceBoardLocked replaces the clipboard with c. A buffer it replaces that
-// was never dropped, inserted or kept -- a grab, or a cut or copy -- is held as
-// the one replaced grab (replaced.go), for Undo. A *grab* (a clipboard.json
+// replaceBoardLocked replaces the clipboard with c. A clipboard it replaces
+// that was never dropped, inserted or kept is held as the one replaced board
+// (replaced.go), for a Cut or Copy's Undo. A *grab* (a clipboard.json
 // written before GRAB moved to the cue lane) is also put in the crate,
 // unless opts says not. It
 // answers what it put in the crate and the buffer it replaced, if it was one
