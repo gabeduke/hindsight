@@ -2,9 +2,7 @@ package tape
 
 import (
 	"math"
-	"os"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 )
@@ -31,10 +29,11 @@ func TestACueClipLaunchesOnTheNextBarLoopsAndStopsOnTheOneAfter(t *testing.T) {
 	if _, err := e.DropTake(tp.ID, takeWAV(t, 200000, func(int) float64 { return 0.5 }), 96000, 192000, 1, 1, []int{0, 1}); err != nil {
 		t.Fatal(err)
 	}
-	cue, err := e.CueFromTake(tp.ID, takeWAV(t, 48000, func(int) float64 { return 0.3 }), "Hit", 0, 24000, []int{0, 1})
+	g, err := e.GrabTakeToCue(tp.ID, takeWAV(t, 48000, func(int) float64 { return 0.3 }), "hit.wav", "Hit", 0, 24000, []int{0, 1})
 	if err != nil {
 		t.Fatal(err)
 	}
+	cue := g.Clip
 	if !cue.Loop || cue.Frames != 24000 {
 		t.Fatalf("cue clip = %+v, want a looping 24000 frames", cue)
 	}
@@ -102,10 +101,11 @@ func TestACueClipLaunchesOnTheNextBarLoopsAndStopsOnTheOneAfter(t *testing.T) {
 
 func TestACueClipLaunchedWithTheTapeStandingStartsAtOnceAndStopStopsIt(t *testing.T) {
 	e, sink, tp := newEngine(t)
-	cue, err := e.CueFromTake(tp.ID, takeWAV(t, 48000, func(int) float64 { return 0.3 }), "Hit", 0, 24000, []int{0, 1})
+	g, err := e.GrabTakeToCue(tp.ID, takeWAV(t, 48000, func(int) float64 { return 0.3 }), "hit.wav", "Hit", 0, 24000, []int{0, 1})
 	if err != nil {
 		t.Fatal(err)
 	}
+	cue := g.Clip
 	if err := e.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -131,38 +131,5 @@ func TestACueClipLaunchedWithTheTapeStandingStartsAtOnceAndStopStopsIt(t *testin
 
 	if err := e.CueLaunch(tp.ID, "nope", "launch", false); err == nil {
 		t.Fatal("launching a clip that isn't on the lane should fail")
-	}
-}
-
-func TestTheBufferGoesOnTheCueLaneAsOneLoopingClip(t *testing.T) {
-	e, _, tp := newEngine(t)
-	take := takeWAV(t, 96000, func(int) float64 { return 0.25 })
-	if _, err := e.CopyTake(take, "Jam", 0, 48000, []int{0, 1}); err != nil {
-		t.Fatal(err)
-	}
-	cue, err := e.CueFromClipboard(tp.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !cue.Loop || cue.Frames != 48000 || cue.Source != "buffer" || cue.File == "" {
-		t.Fatalf("cue clip = %+v", cue)
-	}
-	st := e.Loaded().State
-	if st.Cue == nil || len(st.Cue.Clips) != 1 || st.Cue.Clips[0].ID != cue.ID {
-		t.Fatalf("the lane = %+v", st.Cue)
-	}
-	if _, err := os.Stat(strings.TrimSuffix(e.store.AudioPath(cue.File), ".wav") + ".peaks.json"); err != nil {
-		t.Fatalf("the cue clip's pool file has no peaks: %v", err)
-	}
-	data := readPool(t, e.store, cue.File)
-	if got := float64(data[2*24000]) / 2147483647; math.Abs(got-0.25) > 0.01 {
-		t.Fatalf("the cue clip's audio = %.4f, want the buffer's 0.25", got)
-	}
-	// Undo takes it off the lane.
-	if err := e.Undo(tp.ID, false); err != nil {
-		t.Fatal(err)
-	}
-	if c := e.Loaded().State.Cue; c != nil && len(c.Clips) != 0 {
-		t.Fatalf("after undo the lane = %+v", c)
 	}
 }

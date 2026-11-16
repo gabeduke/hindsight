@@ -10,9 +10,11 @@ import (
 	"time"
 )
 
-// The one replaced grab (docs/decisions/0009-the-crate-leaves-the-screen.md). With the crate off the rooms' screens, GRAB's safety net is an
-// Undo: a grab that replaces a buffer nobody dropped or kept holds that
-// buffer aside, a single slot, and Undo puts it back. A second replacement
+// The one replaced buffer (docs/decisions/0009-the-crate-leaves-the-screen.md).
+// With the crate off the rooms' screens, the safety net is an Undo: a copy
+// (a range's Cut or Copy, or one off the ribbon or a take) that replaces a
+// buffer nobody dropped or kept holds that buffer aside, a single slot, and
+// Undo puts it back. (GRAB has its own, on the cue lane: the tape's Undo.) A second replacement
 // overwrites the slot, so only one is ever kept and each lets go of the last
 // (its audio is the clean-up's, no root refers to it); it is not a growing
 // crate. The crate itself is untouched: the slot is written next to whatever a
@@ -91,9 +93,8 @@ func (s *Store) putReplaced(prev *Replaced) {
 // live says whether the slot can still be undone: the buffer that replaced
 // what it holds is still the clipboard, and nobody has dropped, inserted or
 // kept it. A slot that is not live roots no audio, so the clean-up frees it:
-// "let go at the next" holds however the buffer left (cleared, tossed, dropped,
-// replaced behind its back). A toss ends a slot's life for good: bringing the
-// tossed buffer back does not bring the older one's Undo with it.
+// "let go at the next" holds however the buffer left (cleared, dropped,
+// replaced behind its back).
 func (r *Replaced) live(cur *Clipboard) bool {
 	return r != nil && !cur.Empty() && cur.Created.Equal(r.By) && !cur.used()
 }
@@ -105,14 +106,14 @@ type undoRefused string
 func (u undoRefused) Error() string        { return string(u) }
 func (u undoRefused) Is(target error) bool { return target == ErrNothingToDo }
 
-// RestoreReplaced is GRAB's Undo: the buffer the last grab replaced goes back
-// on the clipboard, and the grab it undoes is dropped. It empties the slot, so
+// RestoreReplaced is a Cut or Copy's Undo: the buffer the last one replaced
+// goes back on the clipboard, and the copy it undoes is dropped. It empties the slot, so
 // a second Undo has nothing to do; and it refuses (ErrNothingToDo) when the
-// clipboard is no longer the buffer that replaced it -- tossed, cleared or
+// clipboard is no longer the buffer that replaced it -- cleared or
 // replaced again -- since there is then nothing for an Undo to be of. by is the
-// Created of the grab whose toast offered the Undo; the zero time takes
-// whichever grab is the latest, and one that isn't the latest is refused, so a
-// toast from the grab before cannot bring back the wrong buffer.
+// Created of the copy whose toast offered the Undo; the zero time takes
+// whichever copy is the latest, and one that isn't the latest is refused, so a
+// toast from the copy before cannot bring back the wrong buffer.
 func (e *Engine) RestoreReplaced(by time.Time) (*Clipboard, error) {
 	e.boardMu.Lock()
 	defer e.boardMu.Unlock()

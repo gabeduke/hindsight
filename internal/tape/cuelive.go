@@ -3,13 +3,8 @@ package tape
 import (
 	"fmt"
 	"maps"
-	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
-	"time"
-
-	"github.com/gabeduke/hindsight/internal/audio"
 )
 
 // Launching the cue lane's clips (docs/architecture/tape.md): a clip starts on the
@@ -271,97 +266,4 @@ func (e *Engine) CueLive() *CueLive {
 	}
 	v := CueLive{Playing: slices.Clone(p.view.Playing), Queued: slices.Clone(p.view.Queued), Starts: maps.Clone(p.view.Starts)}
 	return &v
-}
-
-// CueFromClipboard puts the buffer (or the clipboard) on the cue lane,
-// looping. A grab keeps its lanes and handles (cuegrab.go), sharing their
-// pool files; anything else is summed to stereo in a pool file of its own.
-func (e *Engine) CueFromClipboard(id string) (CueClip, error) {
-	e.boardMu.Lock()
-	c, err := e.Clipboard()
-	if err == nil && c.Empty() {
-		err = ErrEmptyClipboard
-	}
-	if err != nil {
-		e.boardMu.Unlock()
-		return CueClip{}, err
-	}
-	if c.Grab != nil {
-		e.boardMu.Unlock()
-		var added CueClip
-		err := e.Edit(id, "cue:add", func(_ *Tape, s *State) error {
-			cl := CueClip{Name: boardLabel(c), Loop: true, Source: "buffer"}
-			cl.take(c)
-			var err error
-			added, err = s.cueAdd(cl)
-			return err
-		})
-		if err != nil {
-			return CueClip{}, err
-		}
-		e.markUsed(c)
-		return added, nil
-	}
-	if err := e.diskOK(); err != nil {
-		e.boardMu.Unlock()
-		return CueClip{}, err
-	}
-	rel, path, err := e.store.NewPoolFile("cue", time.Now())
-	if err != nil {
-		e.boardMu.Unlock()
-		return CueClip{}, err
-	}
-	data := make([]int32, 0, 2*c.Frames)
-	err = e.renderBoard(c, func(b []int32) error {
-		data = append(data, b...)
-		return nil
-	})
-	if err == nil {
-		// With its peaks beside it, as every pool file has: the lanes draw
-		// from them once the clip is dragged onto a track.
-		var pd *audio.PeakData
-		if pd, err = audio.WriteWAV(path, data, 2, []int{0, 1}, e.store.SampleRate()); err == nil {
-			err = audio.WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", pd)
-		}
-	}
-	name := boardLabel(c)
-	e.boardMu.Unlock()
-	if err != nil {
-		e.store.removePoolFile(rel)
-		return CueClip{}, err
-	}
-	var added CueClip
-	err = e.Edit(id, "cue:add", func(_ *Tape, s *State) error {
-		var err error
-		added, err = s.cueAdd(CueClip{File: rel, Name: name, Frames: c.Frames, Loop: true, Source: "buffer"})
-		return err
-	})
-	if err != nil {
-		e.store.removePoolFile(rel)
-		return CueClip{}, err
-	}
-	e.markUsed(c)
-	return added, nil
-}
-
-// CueFromTake puts a span of a take on the cue lane, looping, as a grab of
-// it (GrabTake): with handles of the take's own audio, so its drawer trims
-// it as it does a GRAB. Always added, never in another clip's place.
-func (e *Engine) CueFromTake(id, take, title string, from, to int64, pick []int) (CueClip, error) {
-	b, rel, err := e.grabTake(take, filepath.Base(take), title, from, to, pick)
-	if err != nil {
-		return CueClip{}, err
-	}
-	var added CueClip
-	err = e.Edit(id, "cue:add", func(_ *Tape, s *State) error {
-		c := CueClip{Name: title, Loop: true, Source: "take"}
-		c.take(b)
-		var err error
-		added, err = s.cueAdd(c)
-		return err
-	})
-	if err != nil {
-		e.store.removePoolFile(rel)
-	}
-	return added, err
 }

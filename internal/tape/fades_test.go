@@ -233,14 +233,18 @@ func TestPastItsEndAFadedClipIsSilent(t *testing.T) {
 	}
 }
 
-func TestTheClipboardAuditionIsFaded(t *testing.T) {
-	e, tp, c := steadyLoop(t)
-	fade(t, e, c.ID, 4800, 0)
-	setLoop(t, e, 0, 96000)
-	if _, err := e.EditOp(tp.ID, EditRequest{Op: "copy", Track: 1}); err != nil {
+func TestACueClipsAuditionIsFaded(t *testing.T) {
+	e, _, tp := newEngine(t)
+	take := takeWAV(t, 200000, func(int) float64 { return 0.5 })
+	g, err := e.GrabTakeToCue(tp.ID, take, "jam_take.wav", "Jam", 0, 96000, []int{0, 1})
+	if err != nil {
 		t.Fatal(err)
 	}
-	pcm, err := e.ClipboardAudio()
+	fin := int64(4800)
+	if _, err := e.CueShape(tp.ID, g.Clip.ID, BoardShape{FadeIn: &fin}); err != nil {
+		t.Fatal(err)
+	}
+	pcm, err := e.CueAudio(tp.ID, g.Clip.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

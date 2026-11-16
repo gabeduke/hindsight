@@ -76,11 +76,6 @@ func TestTheClipboardSurvivesAndIsKeptByCleanup(t *testing.T) {
 	if _, err := audio.ReadWAVInfo(path); err != nil {
 		t.Fatalf("clean-up took the clipboard's audio: %v", err)
 	}
-	// Audition: its frames, summed.
-	pcm, err := e.ClipboardAudio()
-	if err != nil || len(pcm) != 2*48000 || pcm[2*1000] < 0.24 || pcm[2*1000] > 0.26 {
-		t.Fatalf("audition = %d samples, %v", len(pcm), err)
-	}
 	if err := e.ClearClipboard(); err != nil {
 		t.Fatalf("clear: %v", err)
 	}
@@ -153,15 +148,16 @@ func TestACopyLongerThanATrackIsRefused(t *testing.T) {
 }
 
 func TestTheAuditionHasAllOfAClipThatStartsIntoItsFile(t *testing.T) {
-	e, _, _ := newEngine(t)
+	// A cue clip's audition (CueAudio) reads each lane from where its window
+	// starts in its file, after the handle before it.
+	e, _, tp := newEngine(t)
+	e.handleS = 0.5
 	take := takeWAV(t, 200000, func(i int) float64 { return 0.25 })
-	// From 10000: the clip starts 480 frames into its pool file, after the
-	// overhang -- and a clip lifted from the middle of a catch starts far in.
-	c, err := e.CopyTake(take, "jam_take.wav", 10000, 58000, []int{0, 1})
-	if err != nil || c.Tracks[0][0].Src != 480 {
-		t.Fatalf("copy = %+v %v", c, err)
+	g, err := e.GrabTakeToCue(tp.ID, take, "jam_take.wav", "Jam", 100000, 148000, []int{0, 1})
+	if err != nil || g.Clip.Lanes[0].Src != 24000 {
+		t.Fatalf("grab = %+v %v", g.Clip, err)
 	}
-	pcm, err := e.ClipboardAudio()
+	pcm, err := e.CueAudio(tp.ID, g.Clip.ID)
 	if err != nil || len(pcm) != 2*48000 {
 		t.Fatalf("audition = %d samples, %v", len(pcm), err)
 	}
@@ -170,11 +166,12 @@ func TestTheAuditionHasAllOfAClipThatStartsIntoItsFile(t *testing.T) {
 			t.Fatalf("frame %d of the audition = %.3f, want 0.25", i, v)
 		}
 	}
-	// A window far into its file: as a lift makes.
-	if err := e.store.SaveClipboard(&Clipboard{Frames: 1000, Tracks: [][]Clip{{{File: c.Tracks[0][0].File, Src: 30000, Frames: 1000}}}}); err != nil {
-		t.Fatal(err)
+	// A window far into its file: as a trim makes.
+	c, err := e.CueTrim(tp.ID, g.Clip.ID, 20000, 21000)
+	if err != nil || c.Lanes[0].Src != 44000 {
+		t.Fatalf("trimmed = %+v %v", c, err)
 	}
-	if pcm, err = e.ClipboardAudio(); err != nil || len(pcm) != 2000 || pcm[2*999] < 0.24 {
+	if pcm, err = e.CueAudio(tp.ID, g.Clip.ID); err != nil || len(pcm) != 2000 || pcm[2*999] < 0.24 {
 		t.Fatalf("a window far in: %d samples, %v", len(pcm), err)
 	}
 }

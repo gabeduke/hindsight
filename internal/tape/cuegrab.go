@@ -16,9 +16,8 @@ import (
 // one lane per input it was grabbed from, each with a bar of handles either
 // side -- so the clip's drawer can trim it into its handles, change its
 // inputs, shape it, audition it, drop it on a track, keep it as a take or
-// toss it. Unlike the buffer, every one of those but KEEP and the audition
-// is an edit of the tape: one Undo takes it back, a GRAB's replacement
-// included.
+// toss it. Every one of those but KEEP and the audition is an edit of the
+// tape: one Undo takes it back, a GRAB's replacement included.
 
 // ErrCueChanged refuses a change worked out on a cue clip that someone else
 // changed meanwhile.
@@ -228,7 +227,7 @@ func (e *Engine) placeGrab(id string, b *Clipboard, again string, was *CueClip, 
 }
 
 // CueTrim moves a grabbed cue clip's window to [in, out), in frames from its
-// grab's start, inside its handles as the buffer's is (TrimClipboard): every
+// grab's start, inside its handles (Grab.trim): every
 // lane reads the new window, and the files stay as they are. Edits in a run
 // come together into one Undo, as a drag of the window sends many.
 func (e *Engine) CueTrim(id, clip string, in, out int64) (CueClip, error) {
@@ -260,8 +259,7 @@ func (e *Engine) CueTrim(id, clip string, in, out int64) (CueClip, error) {
 	return trimmed, err
 }
 
-// CueShape changes a cue clip as the buffer's keys change it
-// (ShapeClipboard): its level, its fades and their curves, Normalize (the
+// CueShape changes a cue clip as its drawer's keys change it: its level, its fades and their curves, Normalize (the
 // lanes summed to audio.NormalizePeakDB at their loudest), and Reverse
 // (every lane's file and handles written backwards once; again plays the
 // originals). Normalize and Reverse read and write the pool before the
@@ -382,7 +380,7 @@ func (e *Engine) CueDrop(id, clip string, track int, merge bool, at *int64) (Dro
 }
 
 // CueKeep is a cue clip's KEEP: it saved as a take in dir, from its own
-// audio, as KeepClipboardTake keeps the buffer. Not an edit of the tape:
+// audio, its lanes summed (keepTake). Not an edit of the tape:
 // the take's own Undo puts it in the trash.
 func (e *Engine) CueKeep(id, clip, dir string, now time.Time) (KeptTake, error) {
 	c, err := e.cueClip(id, clip)
@@ -403,8 +401,8 @@ func (e *Engine) CueKeep(id, clip, dir string, now time.Time) (KeptTake, error) 
 	return k, nil
 }
 
-// CueAudio is a cue clip's first minute, its lanes summed, as ClipboardAudio
-// is the buffer's: what its Audition plays on this device.
+// CueAudio is a cue clip's first minute, its lanes summed (boardAudio): what
+// its Audition plays on this device.
 func (e *Engine) CueAudio(id, clip string) ([]float32, error) {
 	c, err := e.cueClip(id, clip)
 	if err != nil {

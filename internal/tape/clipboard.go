@@ -420,21 +420,9 @@ func plural(n int) string {
 // auditionSeconds caps an audition: enough to hear what's there.
 const auditionSeconds = 60
 
-// ClipboardAudio is the clipboard's first minute, every track summed, as
-// interleaved stereo, read straight from the pool -- not through the
-// engine's own, which would keep it all in memory.
-func (e *Engine) ClipboardAudio() ([]float32, error) {
-	c, err := e.Clipboard()
-	if err != nil {
-		return nil, err
-	}
-	if c.Empty() {
-		return nil, ErrEmptyClipboard
-	}
-	return e.boardAudio(c)
-}
-
-// boardAudio is a board's first minute, as ClipboardAudio describes.
+// boardAudio is a board's first minute, every track summed, as interleaved
+// stereo, read straight from the pool -- not through the engine's own, which
+// would keep it all in memory. CueAudio plays a cue clip's lanes through it.
 func (e *Engine) boardAudio(c *Clipboard) ([]float32, error) {
 	n := min64(c.Frames, int64(auditionSeconds*e.store.SampleRate()))
 	out := make([]float32, 2*n)

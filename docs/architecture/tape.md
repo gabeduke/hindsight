@@ -307,8 +307,10 @@ second tap, using Δ to turn that ring frame into an output frame.
 
 **The crate** (`crate.go`) is `TAPE_DIR/crate.json`: kept clips, each a
 window onto a pool file with a name and where it came from. Nothing shows it
-(decision 0009): a buffer replaced unused still goes there (`keepBoard`, by
-reference), and a range's Insert can still take a kept clip. It's a clean-up
+(decision 0009), and since GRAB lands on the cue lane nothing new goes there
+(`keepBoard` crates only a replaced board that is a grab, which only a
+clipboard written before #317 can be); a range's Insert can still take a
+kept clip. It's a clean-up
 root, its deleted clips too for a week, and an unreadable one stops the
 clean-up.
 
@@ -316,8 +318,10 @@ clean-up.
 the pool, laid out from frame 0, one track's worth or more. Copying from a
 take or the ring writes the pool first; the clean-up treats the clipboard as
 a root. A drop clears the span on each track it lands on and places the
-clips, then, stopped, moves the playhead to its end. The audition renders it
-through a mix of its own, every track on bus A.
+clips, then, stopped, moves the playhead to its end. A Cut or Copy that
+replaces a clipboard nobody pasted holds it as the one replaced board
+(`replaced.go`, `TAPE_DIR/clipboard-replaced.json`), which their Undo
+brings back and the clean-up keeps while it can still be undone.
 
 **Drops** copy a span of a take into the pool. On an empty tape the first
 drop becomes the grid and the loop; later ones go at the playhead. A merge
@@ -445,8 +449,10 @@ summed (the drawer's To the shelf); `CueAudio` (`GET /api/tapes/cue/audio`)
 is its Audition. All of
 them read the clip as a board (`CueClip.boardOf`), so they are the buffer's
 own code, and none of them touches the clipboard, which is left to a
-range's Cut, Copy and Paste, unseen (`POST /api/clipboard` still takes the
-old buffer's GRAB, which nothing in the web sends; `docs/plan/backlog.md`).
+range's Cut, Copy and Paste, unseen. The old buffer's routes, which put a
+GRAB on the clipboard, are gone (#317): `/api/clipboard` reads, copies a
+take's or the ring's span, clears, and with `restore?replaced=1` undoes a
+Cut or Copy, and nothing more.
 Launching one is a
 performance, like the tape's pads, so it stays out of the state and out of
 undo (`cuelive.go`): a launch or stop rides the transport's action queue

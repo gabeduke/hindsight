@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"slices"
 	"strings"
 	"testing"
 
@@ -61,52 +60,55 @@ var bufferEngines = map[*mux.Router]*tape.Engine{}
 // bufferAPIs is each newBufferAPI router's API, for the verbs a controller runs.
 var bufferAPIs = map[*mux.Router]*API{}
 
-type boardBody struct {
-	Clipboard *struct {
-		Frames int64  `json:"frames"`
-		From   string `json:"from"`
-		Tracks [][]struct {
-			Src    int64   `json:"src"`
-			Frames int64   `json:"frames"`
-			Source string  `json:"source"`
-			GainDB float64 `json:"gain_db"`
-		} `json:"tracks"`
-		Grab *struct {
-			Sources []string `json:"sources"`
-			Wall    bool     `json:"wall"`
-			In      int64    `json:"in"`
-			Out     int64    `json:"out"`
-			Before  int64    `json:"before"`
-			Frames  int64    `json:"frames"`
-		} `json:"grab"`
-	} `json:"clipboard"`
-	Wall   bool              `json:"wall"`
-	Why    string            `json:"why"`
-	Crated []json.RawMessage `json:"crated"`
+// grabBody is what /api/tapes/cue/grab answers of the clip it made.
+type grabBody struct {
+	Edit struct {
+		CueClip *struct {
+			ID     string `json:"id"`
+			Name   string `json:"name"`
+			Frames int64  `json:"frames"`
+			Lanes  []struct {
+				Source string `json:"source"`
+			} `json:"lanes"`
+			Grab *struct {
+				Sources []string `json:"sources"`
+				Wall    bool     `json:"wall"`
+				Why     string   `json:"why"`
+				In      int64    `json:"in"`
+				Out     int64    `json:"out"`
+				Before  int64    `json:"before"`
+				After   int64    `json:"after"`
+				Frames  int64    `json:"frames"`
+				Take    string   `json:"take"`
+			} `json:"grab"`
+		} `json:"cue_clip"`
+	} `json:"edit"`
 }
 
-func boardOf(t *testing.T, w interface{ Bytes() []byte }) boardBody {
+func grabOf(t *testing.T, w interface{ Bytes() []byte }) grabBody {
 	t.Helper()
-	var b boardBody
+	var b grabBody
 	if err := json.Unmarshal(w.Bytes(), &b); err != nil {
 		t.Fatal(err)
+	}
+	if b.Edit.CueClip == nil || b.Edit.CueClip.Grab == nil {
+		t.Fatalf("no grabbed cue clip in %s", w.Bytes())
 	}
 	return b
 }
 
-func TestTheBufferOverTheAPI(t *testing.T) {
+func TestGrabOverTheAPI(t *testing.T) {
 	r, _ := newBufferAPI(t)
 	id := makeLoadedTape(t, r)
 	want(t, send(t, r, http.MethodPatch, "/api/tapes?id="+id, `{"tempo":{"bpm":120,"bars":4}}`), http.StatusOK, "a tempo")
 
-	// GRAB the last 2 bars, from two sources: the tape isn't playing, so
+	// GRAB the last 2 bars, from two inputs: the tape isn't playing, so
 	// it's two bars of wall-clock time, and it says why.
-	w := send(t, r, http.MethodPost, "/api/clipboard", `{"bars":2,"sources":["aux","ch1"]}`)
+	w := send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"bars":2,"sources":["aux","ch1"]}`)
 	want(t, w, http.StatusOK, "grab")
-	b := boardOf(t, w.Body)
-	c := b.Clipboard
-	if c == nil || c.Grab == nil || !b.Wall || b.Why != "the tape isn't playing" || len(c.Tracks) != 2 || c.Frames != 192000 ||
-		c.Tracks[0][0].Source != "ch1" || c.Tracks[1][0].Source != "aux" || c.From != "the feed, last 2 bars (ch1 + aux)" {
+	c := grabOf(t, w.Body).Edit.CueClip
+	if !c.Grab.Wall || c.Grab.Why != "the tape isn't playing" || len(c.Lanes) != 2 || c.Frames != 192000 ||
+		c.Lanes[0].Source != "ch1" || c.Lanes[1].Source != "aux" || c.Name != "ch1 + aux" {
 		t.Fatalf("grab = %s", w.Body.String())
 	}
 	// Its handle before is a bar; the one after is what the ring had: none.
@@ -114,58 +116,48 @@ func TestTheBufferOverTheAPI(t *testing.T) {
 		t.Fatalf("grab = %+v", c.Grab)
 	}
 
-	// TOSS, and its Undo.
-	want(t, send(t, r, http.MethodDelete, "/api/clipboard?toss=1", ""), http.StatusOK, "toss")
-	if !strings.Contains(send(t, r, http.MethodGet, "/api/clipboard", "").Body.String(), `"clipboard":null`) {
-		t.Fatal("tossed, the clipboard isn't empty")
-	}
-	w = send(t, r, http.MethodPost, "/api/clipboard/restore", "")
-	want(t, w, http.StatusOK, "restore")
-	if c := boardOf(t, w.Body).Clipboard; c == nil || c.Grab == nil || c.Frames != 192000 {
-		t.Fatalf("restored = %s", w.Body.String())
-	}
-	want(t, send(t, r, http.MethodPost, "/api/clipboard/restore", ""), http.StatusConflict, "nothing tossed")
-
-	// A span of the feed, its sources named. The last grab was never used,
-	// so replacing it puts it in the crate, a clip a lane.
-	w = send(t, r, http.MethodPost, "/api/clipboard", `{"ring_from":240000,"ring_to":288000,"sources":["ch2"]}`)
+	// A span of the feed, its inputs named.
+	w = send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"ring_from":240000,"ring_to":288000,"sources":["ch2"]}`)
 	want(t, w, http.StatusOK, "grab a span")
-	if b := boardOf(t, w.Body); len(b.Crated) != 2 || b.Clipboard.Grab.Frames != 48000 || b.Clipboard.Grab.Sources[0] != "ch2" {
+	if c := grabOf(t, w.Body).Edit.CueClip; c.Grab.Frames != 48000 || c.Grab.Sources[0] != "ch2" {
 		t.Fatalf("grab a span = %s", w.Body.String())
 	}
-	// That one wasn't used: Copy on the tape page puts it in the crate.
-	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"ring_from":240000,"ring_to":288000,"source":"main"}`), http.StatusOK, "copy")
-	clips, err := bufferEngines[r].CrateList("", "")
-	if err != nil || len(clips) != 3 || !slices.ContainsFunc(clips, func(k tape.CrateClip) bool { return k.Name == "The feed (ch2) · 0:01" }) {
-		t.Fatalf("the crate = %+v (%v)", clips, err)
-	}
 
-	// Refusals: a source there isn't, nothing named, too many seconds.
-	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"bars":2,"sources":["ch9"]}`), http.StatusBadRequest, "no such source")
-	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"sources":[]}`), http.StatusBadRequest, "grab what?")
-	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"seconds":600,"sources":["main"]}`), http.StatusBadRequest, "ten minutes")
+	// Refusals: an input there isn't, nothing named, too many seconds.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"bars":2,"sources":["ch9"]}`), http.StatusBadRequest, "no such source")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"sources":[]}`), http.StatusBadRequest, "grab what?")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"seconds":600,"sources":["main"]}`), http.StatusBadRequest, "ten minutes")
+
+	// The clipboard's route no longer GRABs: what the Studio's buffer sent
+	// there is refused, and fills nothing.
+	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"bars":2,"sources":["aux"]}`), http.StatusBadRequest, "a GRAB at the clipboard")
+	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"seconds":2,"sources":["aux"]}`), http.StatusBadRequest, "a GRAB at the clipboard")
+	if !strings.Contains(send(t, r, http.MethodGet, "/api/clipboard", "").Body.String(), `"clipboard":null`) {
+		t.Fatal("a GRAB at the clipboard filled it")
+	}
 }
 
 func TestGrabbingBarsNeedsATempo(t *testing.T) {
 	r, _ := newBufferAPI(t)
 	makeLoadedTape(t, r)
-	w := send(t, r, http.MethodPost, "/api/clipboard", `{"bars":4,"sources":["main"]}`)
+	w := send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"bars":4,"sources":["main"]}`)
 	want(t, w, http.StatusBadRequest, "bars with no tempo")
 	if !strings.Contains(w.Body.String(), "no tempo") {
 		t.Fatalf("says %s", w.Body.String())
 	}
 	// Seconds instead: what the page's GRAB 8 s sends.
-	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"seconds":8,"sources":["main"]}`), http.StatusOK, "seconds")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"seconds":8,"sources":["main"]}`), http.StatusOK, "seconds")
 }
 
-func TestTheBufferNeedsACapture(t *testing.T) {
+func TestGrabNeedsACapture(t *testing.T) {
 	r, _ := newTapeAPI(t)
-	want(t, send(t, r, http.MethodPost, "/api/clipboard", `{"seconds":8,"sources":["main"]}`), http.StatusConflict, "no capture")
+	makeLoadedTape(t, r)
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"seconds":8,"sources":["main"]}`), http.StatusConflict, "no capture")
 }
 
-// The Listening Room's "to the studio": a note's span of a take, copied as
-// the Studio's buffer with grab: true -- and without it, a copy as ever.
-func TestATakesSpanCopiedAsAGrab(t *testing.T) {
+// The Listening Room's "to the studio": a note's span of a take, onto the
+// cue lane with handles -- and the take page's Copy, a copy as ever.
+func TestATakesSpanGrabbedOntoTheCueLane(t *testing.T) {
 	r, dir := newBufferAPI(t)
 	makeLoadedTape(t, r)
 	take := writeRealTake(t, dir, "jam_2026-10-15_09-00-00.wav", 48000*20)
@@ -177,43 +169,30 @@ func TestATakesSpanCopiedAsAGrab(t *testing.T) {
 	// A plain copy from the take page, as it always was: no grab.
 	w := send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-15_09-00-00.wav","from":192000,"to":384000}`)
 	want(t, w, http.StatusOK, "copy")
-	if b := boardOf(t, w.Body); b.Clipboard.Grab != nil || strings.Contains(w.Body.String(), `"grab"`) || b.Clipboard.From != "jam_2026-10-15_09-00-00.wav" {
+	var copied struct {
+		Clipboard *struct {
+			From string          `json:"from"`
+			Grab json.RawMessage `json:"grab"`
+		} `json:"clipboard"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &copied)
+	if copied.Clipboard == nil || copied.Clipboard.Grab != nil || copied.Clipboard.From != "jam_2026-10-15_09-00-00.wav" {
 		t.Fatalf("a plain take copy = %s", w.Body.String())
 	}
 
-	// With grab: true, it's the buffer: handles of a bar at the take's tempo.
-	w = send(t, r, http.MethodPost, "/api/clipboard", `{"take":"jam_2026-10-15_09-00-00.wav","from":192000,"to":384000,"grab":true}`)
+	// GRAB'd onto the lane: handles of a bar at the take's tempo.
+	w = send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"take":"jam_2026-10-15_09-00-00.wav","from":192000,"to":384000}`)
 	want(t, w, http.StatusOK, "grab a take's span")
-	var got struct {
-		Clipboard struct {
-			Frames int64  `json:"frames"`
-			From   string `json:"from"`
-			Grab   *struct {
-				Take    string   `json:"take"`
-				Sources []string `json:"sources"`
-				Before  int64    `json:"before"`
-				After   int64    `json:"after"`
-				Stale   bool     `json:"stale"`
-				Used    bool     `json:"used"`
-			} `json:"grab"`
-		} `json:"clipboard"`
-	}
-	json.Unmarshal(w.Body.Bytes(), &got)
-	g := got.Clipboard.Grab
-	if g == nil || g.Take != "jam_2026-10-15_09-00-00.wav" || g.Before != 96000 || g.After != 96000 || g.Stale || g.Used ||
-		len(g.Sources) != 1 || g.Sources[0] != "Tuesday jam" || got.Clipboard.Frames != 192000 {
+	c := grabOf(t, w.Body).Edit.CueClip
+	g := c.Grab
+	if g.Take != "jam_2026-10-15_09-00-00.wav" || g.Before != 96000 || g.After != 96000 ||
+		len(g.Sources) != 1 || g.Sources[0] != "Tuesday jam" || c.Frames != 192000 {
 		t.Fatalf("a take's grab = %s", w.Body.String())
 	}
 	// Its sources are the take's own: they can't change.
-	w = send(t, r, http.MethodPost, "/api/clipboard", `{"again":true,"sources":["ch1"]}`)
+	w = send(t, r, http.MethodPost, "/api/tapes/cue/grab", `{"clip":"`+c.ID+`","sources":["ch1"]}`)
 	want(t, w, http.StatusBadRequest, "other sources for a take's grab")
 	if !strings.Contains(w.Body.String(), "take") {
 		t.Fatalf("says %s", w.Body.String())
-	}
-	// Never dropped or kept, the next grab puts it in the crate.
-	w = send(t, r, http.MethodPost, "/api/clipboard", `{"seconds":2,"sources":["aux"]}`)
-	want(t, w, http.StatusOK, "replace it")
-	if b := boardOf(t, w.Body); len(b.Crated) != 1 {
-		t.Fatalf("crated = %s", w.Body.String())
 	}
 }
