@@ -393,7 +393,7 @@ writes its own.
 Two things come first:
 
 - **The walkthrough.** Nothing user-visible merges before it ends
-  (`STATE.md`, *the-ecosystem.md comes first*). Step 1 can go ahead now.
+  (issue 315). Step 1 can go ahead now.
   The rest waits for it.
 - **The `tape` model** (`lib/models/tape.js`, the ecosystem's step 4). The
   new keys call it rather than adding to `lib/tape/page.js`, so it is

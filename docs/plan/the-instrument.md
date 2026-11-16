@@ -210,7 +210,7 @@ My recommendation first in each.
    encoders as CC 21–27 on channel 16 (absolute, set by the Pi), faders as
    CC 28–35, and buttons as notes on channel 16. The Elite's USB audio is
    shown under SMK-37+VA, not yet under ours or on Linux (K9). Protocol
-   version 2 is on the unit since 2026-10-29 (`STATE.md`).
+   version 2 is on the unit since 2026-10-29 (issue 302).
 
    Our firmware (the direction agreed with Gabe on 2026-10-26; the details
    are to settle):
@@ -438,7 +438,7 @@ My recommendation first in each.
      - The pads on `now` (decision 0060).
      - Found: the encoders reach the tape (DRIVE went 0 to 1 as K3 turned)
        but Gabe heard no difference in the jam room, which goes with
-       DRIVE's make-up in `STATE.md`. Still to check by ear: that the
+       DRIVE's make-up (issue 300). Still to check by ear: that the
        knobs' numbers follow the hand (local echo), and the map's
        decisions.
 

@@ -22,4 +22,4 @@ design.
 
 ## See
 
-`docs/plan/the-studio-space.md` (the Open row); `docs/plan/STATE.md`.
+`docs/plan/the-studio-space.md` (the Open row); issue 316.

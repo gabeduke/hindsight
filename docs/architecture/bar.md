@@ -586,7 +586,7 @@ D1 to D6 taken as recommended, 2026-11-02):
   and the stack's `covered()` for J.
 - **6. One display** (the `display` component inside the bar) is **not
   built**: it changes what the screen shows (**D2**), so it is its own PR,
-  5h, for Gabe to look at (`docs/plan/STATE.md`).
+  5h, for Gabe to look at (issue 309).
 - **7. Open keeps its markup and its modules** until its pass, on the
   shared modules (**D3**: no copies; what both use stays in `lib/bar/`).
 - **8. The models** are the engine's bar and transport, the page's tape and

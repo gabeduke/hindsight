@@ -134,7 +134,7 @@ export default {
     t.expect('the mark lets go', await t.poll(() => !document.querySelector('#viz-wrap .rb-mark-clear:not([hidden])')));
     // Taken back, so this flow leaves the shelf one take longer, as it did
     // before the mark: J5.1's List check on a phone depends on the run's
-    // count of takes (docs/plan/STATE.md, Known bugs).
+    // count of takes (issue 294).
     await api.del(`/api/delete?file=${encodeURIComponent(fromMark.name)}`);
     await api.del(`/api/trash?file=${encodeURIComponent(fromMark.name)}`); // and out of Recently deleted, which later flows' screens would show
     before.add(fromMark.name);

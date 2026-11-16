@@ -318,7 +318,7 @@ plays*, has how it is built.
   the drawer (step 6b).
 - Catch's key and ▾ on the bar (it goes on ●'s ▾), and the click's key
   there (it goes in the tempo's panel).
-- The dead buffer routes on the Pi (`STATE.md`), with this pass.
+- The dead buffer routes on the Pi (issue 317), with this pass.
 
 ## Build order
 

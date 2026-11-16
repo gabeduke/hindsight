@@ -228,5 +228,5 @@ Later, each with its own spec: the room as objects (decision 8) and the
 Zoom-recorder theme.
 
 When a step lands, fold what lasts into `docs/architecture/css-and-motion.md`
-and `AGENTS.md`, strike it here, and update `docs/plan/STATE.md`. When the
+and `AGENTS.md`, strike it here, and close issue 318. When the
 last one lands, delete this spec.

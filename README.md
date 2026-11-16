@@ -167,7 +167,7 @@ which is also what lets the Phone button record.
 | [docs/midi-first-run.md](docs/midi-first-run.md) | Checking MIDI capture the first time on a rig |
 | [docs/sidekick-routing.md](docs/sidekick-routing.md) | What the EP-136 Sidekick sends on which channel |
 | [docs/hardware/](docs/hardware/README.md) | Notes on each device profile the rig draws |
-| [docs/plan/](docs/plan/STATE.md) | Where the work is: what is open, the specs, the backlog |
+| [docs/plan/](docs/plan/backlog.md) | The specs and the backlog; what is open is the repo's issues |
 
 Release history is in [CHANGELOG.md](CHANGELOG.md).
 

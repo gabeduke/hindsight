@@ -1,6 +1,6 @@
 # 0012. An agent installs releases; Gabe does not pull them by hand
 
-**Date:** Recorded 2026-10-19 (`docs/plan/STATE.md`, 3b59409b).
+**Date:** Recorded 2026-10-19 (3b59409b, since deleted: `git show 3b59409b:docs/plan/STATE.md`).
 
 ## Decision
 
