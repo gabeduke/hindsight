@@ -5,6 +5,16 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.16.1 — 2026-11-16
+
+- The API's notes describe GRAB's span as the cue lane's, and the clipboard as a range's Cut and Copy with their Undo, without the toss (6305ead3)
+- The Pi's old buffer routes are gone: a GRAB always lands on the cue lane, and the clipboard is only a range's Cut, Copy and their Undo (c8043cd0)
+- Open work is tracked in GitHub issues; the STATE.md handoff is retired (0067) (88575fe0)
+- J2.5 opens the take again when the browser skipped the page's transition, and still wants the dolly from the one that runs (b0d6a6c7)
+- The notes on J1.14's one slow sample say its cause was not found (c0b1eb5c)
+- J1.14 lets one stall of a CI runner pass in eight tries, and J2.5 waits for Open to be revealed before it reads how the page arrived (41f0b762)
+
+
 ## v2026.11.14.1 — 2026-11-14
 
 - J2.5 waits for the notes drawer to dock on Open before it reads the layout, which it read too soon about one run in fifteen (2c1fa8b3)
