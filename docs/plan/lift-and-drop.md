@@ -1,8 +1,9 @@
 # Lift and drop: one holding place, the cue lane
 
 **Status: proposed 2026-11-16, the calls taken as recommended (Gabe's to
-overrule, each marked *rec.*). Not built.** It is the calm Studio's decision
-10 (`the-calm-studio.md`) made concrete, and the first item on issue #306.
+overrule, each marked *rec.*). Step 1, the Pi's lift, is built; the rest
+is not.** It is the calm Studio's decision 10 (`the-calm-studio.md`) made
+concrete, and the first item on issue #306.
 It amends decision 0061, whose third choice (a range's Cut, Copy and Paste
 keep a clipboard of their own, unseen) it reverses.
 
@@ -83,13 +84,15 @@ that only make sense if you remember what is on the clipboard.
 
 ## What it changes, for whoever builds it
 
-- **Pi** (`internal/tape`): a verb `CueLift(id, EditRequest, cut bool)`
-  beside `GrabToCue`, built from `edit.go`'s lift and copy windows and
-  `cuegrab.go`'s `placeGrab` (added, never replacing), in one `Edit`. The
-  API: `POST /api/tapes/cue/lift` with the range's or the clips' body and
-  `cut`. `CueDrop` learns nothing new: a range's start and first track are
-  its `at` and `track`. Insert at the playhead is a `CueDrop` with
-  `insert: true`, through `edit.go`'s insert.
+- **Pi** (`internal/tape`), **built in step 1**: `CueLift` (`cuelift.go`)
+  and `POST /api/tapes/cue/lift`, with the range's `{span, tracks}` or the
+  parts' `{clips}` and `cut`; `CueInsert`, which is `POST
+  /api/tapes/cue/drop` with `insert: true`. A DROP on a range needs nothing
+  new: the range's start and first track are `at` and `track`. Each lane is
+  written to a pool file of its own (its parts mixed, handles copied from
+  their files), not left as windows onto the parts' files, so a lift is a
+  grab like any other and trim, Reverse, DROP and KEEP work on it
+  unchanged (`docs/architecture/tape.md`, *Lift and Copy onto the lane*).
 - **Web**: the range's bar is Lift, Copy, Delete time, ×2 and Done; a part's row
   is Lift, Copy, Split, Duplicate, Move here, Remove, Done. `lib/tape/page.js`
   loses `fetchClipboard`, `renderClipboard`, the clipboard's Undo toast and
@@ -106,7 +109,7 @@ that only make sense if you remember what is on the clipboard.
 
 Each step is one PR, looked at on the tablet before the next.
 
-1. **The Pi's lift** (Go; built and tested with a working toolchain,
+1. **The Pi's lift** (landed). (Go; built and tested with a working toolchain,
    decision 0026): `CueLift`, `POST /api/tapes/cue/lift`, the insert
    drop, their tests, and `docs/architecture/tape.md`'s *The cue lane*.
    Nothing in the web calls it yet, so nothing changes on screen.

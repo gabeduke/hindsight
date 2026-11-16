@@ -363,6 +363,35 @@ func CopyWAVSpanMeasured(src string, from, to int64, pick []int, path string, pe
 	return peak, err
 }
 
+// WriteWAVMeasured writes a new 32-bit WAV of frames frames, channels wide,
+// at path: fill hands it the audio, interleaved, chunk by chunk, through
+// write. Its peaks go beside it, as CopyWAVSpanMeasured's do, and it answers
+// the peak of frames [peakFrom, peakTo) alone, for a file holding handles
+// either side of what plays. It is how a pool file is made from audio
+// mixed from others: a part lifted onto the cue lane (internal/tape). On
+// failure path is removed.
+func WriteWAVMeasured(path string, frames int64, channels, sampleRate int, peakFrom, peakTo int64, fill func(write func([]int32) error) error) (float64, error) {
+	ww, err := createWAV(path, int(frames), channels, sampleRate)
+	if err != nil {
+		os.Remove(path)
+		return 0, err
+	}
+	ww.mFrom, ww.mTo = int(peakFrom), int(peakTo)
+	err = fill(ww.write)
+	peaks, _, cerr := ww.close()
+	if err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(path)
+		return 0, err
+	}
+	if perr := WritePeaks(strings.TrimSuffix(path, ".wav")+".peaks.json", peaks); perr != nil {
+		log.Printf("[!] peaks for %s: %v", path, perr)
+	}
+	return ww.mPeak, nil
+}
+
 func copyWAVSpan(src string, from, to int64, pick []int, path string, peakFrom, peakTo int64) (*PeakData, float64, error) {
 	info, err := ReadWAVInfo(src)
 	if err != nil {

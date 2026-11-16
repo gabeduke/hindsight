@@ -171,6 +171,19 @@ func (v Verbs) Drop(id, clip string, track int, merge bool, at *int64) (tape.Dro
 	return v.a.tape.CueDrop(id, clip, track, merge, at)
 }
 
+// Insert is a cue clip's "Insert at the playhead": every track pushed along
+// by the clip from *at (nil: the playhead), and the clip laid in the gap
+// from track on (0: track 1), a lane a track.
+func (v Verbs) Insert(id, clip string, track int, at *int64) (tape.Dropped, error) {
+	if v.a.tape == nil {
+		return tape.Dropped{}, errTapeOff
+	}
+	if track == 0 {
+		track = 1
+	}
+	return v.a.tape.CueInsert(id, clip, track, at)
+}
+
 // DropArmed is DROP pressed bare: the cue lane's newest clip -- the last
 // GRAB, from anywhere -- on the first armed track, at the next bar line
 // inside the loop (tape.DropPlace), over what is there. A clip of more lanes

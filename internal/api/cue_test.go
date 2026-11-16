@@ -155,3 +155,44 @@ func TestAControllersGrabAndDropUseTheCueLane(t *testing.T) {
 		t.Fatalf("after DROP: track 1 %+v, lane %+v", tp.State.Tracks[0].Clips, tp.State.Cue.Clips)
 	}
 }
+
+// Lift and Copy onto the lane, and a cue clip's insert, over the API.
+func TestALiftAndAnInsertOverTheAPI(t *testing.T) {
+	r, _ := newBufferAPI(t)
+	id := makeLoadedTape(t, r)
+	q := "?id=" + id
+	want(t, send(t, r, http.MethodPatch, "/api/tapes"+q, `{"tempo":{"bpm":120,"bars":4}}`), http.StatusOK, "a tempo")
+	w := send(t, r, http.MethodPost, "/api/tapes/cue/grab"+q, `{"seconds":2,"sources":["aux"]}`)
+	want(t, w, http.StatusOK, "grab")
+	g := cueEditOf(t, w.Body).Edit.CueClip
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/drop"+q, `{"clip":"`+g.ID+`","track":1,"at":0}`), http.StatusOK, "drop")
+
+	// A range's Lift: off the tape and onto the lane, always added.
+	w = send(t, r, http.MethodPost, "/api/tapes/cue/lift"+q, `{"span":{"from":0,"to":48000},"tracks":[1],"cut":true}`)
+	want(t, w, http.StatusOK, "lift")
+	b := cueEditOf(t, w.Body)
+	c := b.Edit.CueClip
+	if b.Edit.Op != "lift" || c == nil || c.Frames != 48000 || len(c.Lanes) != 1 || len(b.Tape.Cue.Clips) != 2 {
+		t.Fatalf("lift = %s", w.Body.String())
+	}
+	if cl := b.Tape.Tracks[0].Clips; len(cl) != 1 {
+		t.Fatalf("after the lift track 1 = %+v", cl)
+	}
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/lift"+q, `{"span":{"from":0,"to":48000},"tracks":[1],"clips":["x"]}`), http.StatusBadRequest, "a span and clips")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/lift"+q, `{"span":{"from":0,"to":48000}}`), http.StatusBadRequest, "a span with no tracks")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/lift"+q, `{"span":{"from":0,"to":48000},"tracks":[4]}`), http.StatusBadRequest, "nothing there")
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/lift"+q, `{"clips":["nope"]}`), http.StatusBadRequest, "no such clip")
+
+	// Its insert pushes every track along by its length.
+	want(t, send(t, r, http.MethodPost, "/api/tapes/cue/drop"+q, `{"clip":"`+c.ID+`","track":1,"at":0,"insert":true,"merge":true}`), http.StatusBadRequest, "insert and merge")
+	w = send(t, r, http.MethodPost, "/api/tapes/cue/drop"+q, `{"clip":"`+c.ID+`","track":1,"at":0,"insert":true}`)
+	want(t, w, http.StatusOK, "insert")
+	var d struct {
+		Tracks int   `json:"tracks"`
+		End    int64 `json:"end"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &d)
+	if d.Tracks != 1 || d.End != 48000 {
+		t.Fatalf("insert = %s", w.Body.String())
+	}
+}

@@ -72,7 +72,8 @@ internet.
 | `POST /api/tapes/cue?id=` | Launch or stop a cue clip: `{clip, op: launch\|stop\|toggle, now}`, on the next bar line or at once |
 | `POST /api/tapes/cue/grab?id=` | GRAB onto the cue lane (no `id`: the loaded tape's): `{bars}`, `{seconds}` or `{ring_from, ring_to}` from `sources`; `{clip, sources}` takes that clip again from other inputs; `{take, from, to}` a take's span. The tape's state, with `edit.cue_clip`, and `edit.cue_replaced` when it took the place of an untouched clip (the tape's Undo brings that back) |
 | `PATCH /api/tapes/cue/clip?id=` | A cue clip's drawer: `{clip, in, out}` its window inside its handles; `{clip, gain_db}`, fades and their curves, `normalize`, `reverse`. Each an Undo of the tape's |
-| `POST /api/tapes/cue/drop?id=` | A cue clip onto the tape, `{clip, track, at?, merge?}`: a lane a track, with its handles; answers as `/api/tapes/drop` |
+| `POST /api/tapes/cue/lift?id=` | Lift or Copy onto the cue lane: `{span: {from, to}, tracks, cut?}` a range's tracks over its span, or `{clips, cut?}` the parts picked, each whole; one clip, a lane a track, with handles from the parts' files, always added. `cut` (Lift) leaves silence where they were, in the same edit. The tape's state, with `edit.cue_clip`. 400 for silence or a body with both or neither, 409 if the parts changed meanwhile |
+| `POST /api/tapes/cue/drop?id=` | A cue clip onto the tape, `{clip, track, at?, merge?}`: a lane a track, with its handles, over what was there; with `insert: true` (not with `merge`), it pushes every track along by the clip from `at` (default the playhead) and lays it in the gap. Answers as `/api/tapes/drop` |
 | `POST /api/tapes/cue/keep?id=` | KEEP a cue clip as a take, its lanes summed: `{name, label, seconds}` |
 | `GET /api/tapes/cue/audio?id=&clip=` | A cue clip's first minute, its lanes summed, as a WAV to audition |
 | `GET /api/clipboard` | What's on the clipboard |

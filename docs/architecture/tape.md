@@ -444,6 +444,10 @@ clipboard, a lane a track from the one given (`merge`: all on that one),
 handles and all, over what was there, and marks it touched in the same
 edit; a drag (`cue-to-track`) of a clip with lanes is a merged drop on the
 track it points at;
+`CueInsert` (the same route with `insert: true`, the drawer's Insert at the
+playhead) pushes every track, the sections and the loop along by its window
+from where it goes and lays its lanes in the gap, as the range's Insert did,
+touching it in the same edit;
 `CueKeep` (`POST /api/tapes/cue/keep`) saves it as a take of its window
 summed (the drawer's To the shelf); `CueAudio` (`GET /api/tapes/cue/audio`)
 is its Audition. All of
@@ -453,6 +457,26 @@ range's Cut, Copy and Paste, unseen. The old buffer's routes, which put a
 GRAB on the clipboard, are gone (#317): `/api/clipboard` reads, copies a
 take's or the ring's span, clears, and with `restore?replaced=1` undoes a
 Cut or Copy, and nothing more.
+**Lift and Copy onto the lane** (`cuelift.go`, `CueLift`, `POST
+/api/tapes/cue/lift`; the lift-and-drop spec, step 1): a range's tracks over
+its span, or the parts picked (`clips`, each whole, a lane for every track
+from the highest of them to the lowest), come off the tape as one cue clip
+(`Source` "lift" or "copy"), a lane per track, named for its bars and, over
+more than one track, its tracks (*Bars 5–8 · 2–3*). Each lane is written to
+a pool file of its own, its parts mixed at their own levels and with their
+fades (nudges applied), with up to a bar of handle either side taken from
+the files the parts at the span's edges play, as far as those run on;
+a track with nothing there is a lane of silence, which drops as silence. A
+fade every edge part shares becomes the clip's own, so IN and OUT reach into
+the handles without it. So a lifted clip is a grab like any other, and
+every verb above works on it unchanged, except GRAB again, which it refuses:
+it has no inputs. The files are written first; then one edit checks the
+parts are as they were read (409 if not), clears them for a Lift
+(`clearRange`, or the parts picked), and adds the clip -- always added, never
+in another's place, and never replaced by a GRAB -- so the tape's one Undo
+puts the audio back and takes the clip off the lane. Nothing on screen
+calls it yet: the range's bar and a part's row still Cut, Copy and Paste
+through the clipboard until step 2.
 Launching one is a
 performance, like the tape's pads, so it stays out of the state and out of
 undo (`cuelive.go`): a launch or stop rides the transport's action queue
