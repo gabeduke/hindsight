@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.16.2 — 2026-11-16
+
+- The Pi can lift or copy a range or parts onto the cue lane, and insert a cue clip at the playhead (9a978ea7)
+- The lift-and-drop spec: a range's or a part's Lift and Copy go onto the cue lane, DROP is the one way to put down, and the clipboard goes (4c882825)
+
+
 ## v2026.11.16.1 — 2026-11-16
 
 - The API's notes describe GRAB's span as the cue lane's, and the clipboard as a range's Cut and Copy with their Undo, without the toss (6305ead3)
