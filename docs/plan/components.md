@@ -377,7 +377,7 @@ goes on saying versions, not the state.
   load, a wake, a missed message and a nudge. Many edits make one read. And
   the pocket kit chose the same for engines (*Down as snapshots*). The cost
   is a read after the nudge, about 20 ms of the 30–50 ms the push takes
-  (`STATE.md`, *The push, timed*); look again only if that timing, at the
+  (issue 301); look again only if that timing, at the
   rig, says it is too slow.
 - **One socket for every noun**: `{rev, takes_rev, feed_rev, rig_rev,
   at_ms}`, and the tape's `version` once it has one, beats included, with
@@ -513,7 +513,7 @@ refusals' one table, `GET /api/kit`.
 | | Component | What moves | Models | What it fixes on the way | Flows that must not move |
 |---|---|---|---|---|---|
 | 1 | Transport | `lib/bar/bar.js` `NowPlaying`, `display.js`, `fold.js`, `player.js`, `slots.js`, `take-keys.js`, `source-menu.js`, `phone-key.js`, `press-note.js`; `#np`'s markup out of `shell.html` into its template; `css/bar.css` | transport, tape, takes (the source menu), the phone's recorder | its `$('np-…')` lookups; the `MutationObserver` that reads `body.tape-page` to know whether the tempo opens a menu (the surface says so); a `window` keydown that reads `dialog[open]` off the page; `lib/tape/page.js` reaching into the bar for ●, Catch and the click (`$('rec')`, `$('catch-pass')`, `$('click')`: they become the Transport's keys on the tape's verbs); `barTop`; the `matchMedia` for the phone's player; `hindsight:np-fold` | J1.10, J1.12, J1.13, J1.15, J1.16, J2.3, J4.1, J4.4 |
-| 2 | Library: the List | `lib/takes.js` `TakesList`, and its *Recently deleted* row (`lib/trash.js` `TrashList`) | takes, take, transport (a row plays in the bar) | six fetches of its own (`/api/take`, `/api/peaks`, `/api/take/undo`, `/api/delete`); its two holds, a row's and select's, on `bindPress` as the wall's spines already are (`SPINE_PRESS`); select mode onto the stack (`STATE.md`, *Leftovers*); `#select-btn` and `#sel-*` | J2.5, J2.6, J2.7 |
+| 2 | Library: the List | `lib/takes.js` `TakesList`, and its *Recently deleted* row (`lib/trash.js` `TrashList`) | takes, take, transport (a row plays in the bar) | six fetches of its own (`/api/take`, `/api/peaks`, `/api/take/undo`, `/api/delete`); its two holds, a row's and select's, on `bindPress` as the wall's spines already are (`SPINE_PRESS`); select mode onto the stack (issue 321); `#select-btn` and `#sel-*` | J2.5, J2.6, J2.7 |
 | 3 | Library: the wall | `lib/room/doorway.js`, `shelves.js` (pure, as it is), the wall's half of `lib/shell/views/room.js` | takes, transport | its `$()` lookups; the search found as `#shelf-q` (*For Gabe*); Sort ▾ and the chips as the library's state, shared with the List | J2.2, J2.7 |
 | 4 | Take: the notes drawer | `lib/room/drawer.js` `createNotesDrawer`, its `source` the take model (`barNotes`, `lib/room/notes.js`, becomes it) | take, transport, tape (a note's GRAB) | appending itself to `doc.body`: it mounts in the root the surface gives it, docked or as a sheet | U3, J2.4 |
 | 5 | Pads | `lib/tape/cuelane.js` `mountCueLane` | tape (the cue lane), transport (the dial's playhead) | `hindsight:cue-select` and `cue-selected` (which clip is open becomes the tape model's); its drag's ghost on `document.body` and its look-ups of `.tape-track` across the page. A drag from one component onto another is a `lib/ui` interface, built first (`lib/ui/drag.js`: drop targets registered by roots) | C1, J1.6 |
@@ -523,7 +523,7 @@ moves onto the Transport in a PR of its own, in Open's pass. Then Capture
 (`lib/rooms/studio.js`: the ribbon, KEEP, GRAB, Flag; feed, tape and
 takes), the clip's drawer (`lib/buffer/`), Rig (`lib/rig/page.js`), and the
 Tape editor last (`lib/tape/page.js`: about 140 ids, about eighteen `window` and
-`document` listeners, the holds in `STATE.md`'s *Leftovers*). Tempo is
+`document` listeners, the holds in issue 321). Tempo is
 built new on the contract (`tempo.md`), not extracted: the first component
 that never lived in a page.
 

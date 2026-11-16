@@ -76,3 +76,4 @@ rules; the story behind each is here. A new decision is the next number,
 - [0064](0064-studio-play-plays-the-tape.md) ▶ in the Studio, with nothing playing, plays the tape
 - [0065](0065-export-always-offers-download.md) Export always offers Download
 - [0066](0066-opens-selection-bar.md) Open's selection bar docks above the bar
+- [0067](0067-github-issues-are-the-state.md) GitHub issues are the state; no STATE.md, no handoff hook

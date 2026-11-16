@@ -9,7 +9,7 @@ revision), and the page polls `/api/tapes/state` at once through the poll it
 already has. The state itself is sent only if the nudge still feels slow. A
 Pi touch display, which would take out the Wi-Fi hop, is parked. The
 fallback poll's rate is Gabe's to decide once the push is timed at the rig
-(`docs/plan/STATE.md`).
+(issue 301).
 
 ## Gabe's words
 

@@ -33,7 +33,7 @@ Steps 1 to 8, each now in `docs/architecture/`:
 - **The stack and the menus**: `lib/ui/layers.js` (Back and Escape close
   the top thing first), `lib/ui/menu.js`, the icon sprite (*Icons*), the
   motion tokens (*Motion*), and keys that press within a frame. What is
-  still on its own path is in `STATE.md`, *Next*.
+  still on its own path is in issue 321.
 - **The frame** (*The frame*): the header's three zones on every page; the
   tape's and the take's names as their menus; ⋯ gone into them and into
   ⌗'s View menu. J5.1, J3.2.
@@ -98,8 +98,8 @@ My recommendation first in each.
 Each step is its own PR, with its flows updated in `docs/flows.md` and
 `scripts/flows/`, looked at in a browser at phone, tablet and desktop size
 in both schemes, and the layout baseline shrinking, never growing. **Each
-step is a checkpoint**: it merges alone, and `docs/plan/STATE.md` says
-what's next.
+step is a checkpoint**: it merges alone, and the open issues
+say what's next.
 
 1–7. Landed (above).
 8. ~~The Studio's heads and ruler~~ (`the-studio-on-one-screen.md`, steps 3

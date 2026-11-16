@@ -7,7 +7,7 @@
 A non-trivial change starts as a short spec in `docs/plan/`: the decisions,
 agreed with Gabe, then the build order. When it lands, what lasts goes into
 `docs/architecture/` (or `docs/flows.md`, for a journey, or a record here,
-for a decision), `docs/plan/STATE.md` is updated, and the spec is deleted.
+for a decision), its issue is closed, and the spec is deleted.
 Specs merge without cutting a release.
 
 ## Why

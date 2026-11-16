@@ -7,7 +7,10 @@ caught something out; its link is the decision record with the incident.
   decision.
 - **How the pieces fit**, and the words the UI uses: `docs/architecture.md`,
   the index of `docs/architecture/`, one file per area.
-- **What is open**: `docs/plan/STATE.md`, then `git log`.
+- **What is open**: the repo's issues and open PRs (`gh issue list`,
+  `gh pr list`), then `git log`. Start from the issue you were given; leave
+  what you learn on it as a comment, not in a file.
+  ([0067](docs/decisions/0067-github-issues-are-the-state.md))
 - **How to run things** (the demo, testing, deploying, screenshots, the
   probes, the gotchas): `docs/development.md`.
 
@@ -347,7 +350,7 @@ proof-of-concept shortcuts don't come back
   only look like one (`NOT_GESTURES`). A *new* key that taps, double taps
   or holds is a `pressMachine` / `bindPress`, not another copy. Most older
   holds are still their own machines, with only their numbers in `GESTURE`;
-  `docs/plan/STATE.md` lists them. ([0054](docs/decisions/0054-one-press.md))
+  issue 321 lists them. ([0054](docs/decisions/0054-one-press.md))
 - **One way to close things:** a menu, popover, sheet, drawer or selection
   opens on the page's stack (`lib/ui/layers.js`; `ctx.layers` in a view),
   with an `onClose` that puts it away, and closes with `layer.close()`; so
@@ -404,8 +407,8 @@ too.
 A non-trivial change starts as a short spec in `docs/plan/`: the decisions,
 agreed with Gabe, then the build order. Build it. When it lands, fold what
 lasts into its file under `docs/architecture/` (a journey into
-`docs/flows.md`, a decision into `docs/decisions/`), update
-`docs/plan/STATE.md`, and delete the spec: git keeps it, and a pile of
+`docs/flows.md`, a decision into `docs/decisions/`), close its issue, and
+delete the spec: git keeps it, and a pile of
 landed specs is what agents then read as current. Specs merge without
 cutting a release, so they are cheap to land.
 ([0057](docs/decisions/0057-specs-before-code.md))

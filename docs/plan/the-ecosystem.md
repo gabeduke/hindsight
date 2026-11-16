@@ -182,7 +182,7 @@ what is on the list.
    instrument's shape settled; this spec's decisions written in.
 2. **One verb set** on the Pi: the tablet and the controllers call the same
    code, with the same refusals and words. Retire the buffer's routes
-   (STATE.md, *Next*).
+   (issue 317).
 3. **Tempo gets a home**: a tempo component and a Pi call that sets it at
    any time (moving the bar lines first), then following a clock. Its own
    spec.
