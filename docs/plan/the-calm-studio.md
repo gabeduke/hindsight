@@ -139,7 +139,7 @@ one tap away, or gone.
    feed, Cut and Copy lift from the tape, and Drop puts down; today a GRAB
    lands on the cue lane and a Cut on a clipboard nothing shows (decision
    0061). One holding place, the cue lane, for everything lifted, and one
-   Drop. Amends 0061.
+   Drop. Amends 0061. Its spec is `lift-and-drop.md`.
 
 ### The two faces, as built (step 5)
 
