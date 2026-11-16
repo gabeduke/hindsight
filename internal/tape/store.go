@@ -423,12 +423,8 @@ func (s *Store) Cleanup(keep []string) (removed int, freedMB float64, err error)
 	// copy, so every copy is kept until it's cleared.
 	c, cerr := s.LoadClipboard()
 	c.files(used)
-	// And the buffer last tossed, which a toss's Undo brings back.
-	if tc, err := s.loadTossed(); err == nil {
-		tc.files(used)
-	}
-	// And the one grab a grab replaced, which GRAB's Undo brings back. One
-	// that can't be read might hold any grab: every grab's audio is kept.
+	// And the one buffer a Cut or Copy replaced, which its Undo brings back.
+	// One that can't be read might hold any copy: every copy's audio is kept.
 	// Only while it can still be undone: the buffer that replaced it is still
 	// the clipboard and unused. A slot nothing can undo roots nothing.
 	rep, rerr := s.loadReplaced()

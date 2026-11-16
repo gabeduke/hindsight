@@ -18,7 +18,8 @@ import (
 // pieces you keep, between a take and a tape. A kept clip is what a tape clip
 // is -- a window onto an immutable WAV in the pool -- with a name, where it
 // came from and when. The crate is off every screen (decision 0009): what
-// still fills it is a buffer replaced unused (grab.go, keepBoard), and a take's
+// can still fill it is a clipboard from before #317 holding a grab, replaced
+// unused (grab.go, keepBoard), and a take's
 // span kept (KeepTake); a range's Insert can still take a clip from it
 // (timeedit.go). The takes list never changes, and MAX_SAVES's pruning never
 // touches the crate: a clip outlives the take it came from. The crate is a

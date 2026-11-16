@@ -1,30 +1,24 @@
 package tape
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log"
 	"math"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gabeduke/hindsight/internal/audio"
 )
 
-// The Studio's buffer (docs/superpowers/specs/2026-10-15-studio-buffer-design.md):
-// the clipboard, made visible. GRAB copies a span of the ring onto the
-// clipboard at once -- the last N bars the tape played, by Catch's own
-// arithmetic, or a span dragged across the feed -- from one source or
-// several, each a clipboard track over the same span, with handles of at
-// least a bar so the window can always widen. The window is then trimmed in
-// place (the files never change), dropped on the tape as any clipboard is,
-// kept as a take, or tossed. Nothing grabbed is lost without a toss: a grab
-// that was never dropped or kept goes to the crate before anything replaces
-// it.
+// The Studio's GRAB (docs/superpowers/specs/2026-10-15-studio-buffer-design.md),
+// which lands on the cue lane (cuegrab.go): it copies a span of the ring at
+// once -- the last N bars the tape played, by Catch's own arithmetic, or a
+// span dragged across the feed -- from one source or several, each a lane
+// over the same span, with handles of at least a bar so the window can
+// always widen. The window is then trimmed in place (the files never
+// change), dropped on the tape, or kept as a take. This file also keeps the
+// clipboard one buffer at a time, for a range's Cut, Copy and Paste.
 
 // Grab is what the Studio's GRAB put on the clipboard: where its audio came
 // from, the handles every lane's file has either side of it, and the window
@@ -103,25 +97,12 @@ type GrabRequest struct {
 	RingTo   *int64   `json:"ring_to"`
 	Sources  []string `json:"sources"`
 	Again    bool     `json:"again"`
-	// NoCrate: the buffer this replaces, if it was never dropped or kept, is
-	// held as the one replaced grab and not put in the crate (GrabOpts).
-	NoCrate bool `json:"-"`
 }
 
-// Grabbed is a grab, what it put in the crate (the unused buffer it replaced,
-// when the crate is kept), and Replaced: that same unused buffer, which the Pi
-// is now holding as its one replaced grab (replaced.go), for GRAB's Undo. Nil
-// when the grab replaced nothing, or only a buffer that was dropped or kept.
-type Grabbed struct {
-	Board    *Clipboard  `json:"clipboard"`
-	Crated   []CrateClip `json:"crated"`
-	Replaced *Clipboard  `json:"replaced,omitempty"`
-}
-
-// GrabOpts changes what a grab does with the unused buffer it replaces.
-// NoCrate: it is kept as the one replaced grab and nowhere else. The rooms
-// send it, as the crate is no longer on their screens; without it a replaced
-// grab goes to the crate first, as it always has.
+// GrabOpts changes what a Cut or Copy does with the unused clipboard it
+// replaces. NoCrate: it is kept as the one replaced board and nowhere else.
+// The rooms send it. Without it, a replaced clipboard that holds a grab (one
+// written before GRAB moved to the cue lane) goes to the crate first.
 type GrabOpts struct{ NoCrate bool }
 
 // maxGrabSeconds bounds a grab of the last N seconds.
@@ -159,43 +140,6 @@ func (e *Engine) grabSources(names []string) ([]Source, error) {
 		}
 	}
 	return out, nil
-}
-
-// Grab copies a span of the ring onto the clipboard as the Studio's buffer
-// (GrabRequest says which). The clipboard it replaces, if it was a grab
-// never dropped or kept, goes to the crate first.
-func (e *Engine) Grab(req GrabRequest) (Grabbed, error) {
-	var keep *Clipboard // Again: the buffer whose window and shape carry on
-	if req.Again {
-		old, err := e.Clipboard()
-		if err != nil {
-			return Grabbed{}, err
-		}
-		keep = old
-	}
-	c, made, err := e.grabRing(req, keep)
-	if err != nil {
-		return Grabbed{}, err
-	}
-	forget := func() {
-		for _, rel := range made {
-			e.store.removePoolFile(rel)
-		}
-	}
-	e.boardMu.Lock()
-	defer e.boardMu.Unlock()
-	if keep != nil {
-		// Unless another grab got there first, this is the same buffer.
-		if cur, err := e.store.LoadClipboard(); err == nil && cur != nil && cur.Created.Equal(keep.Created) {
-			return Grabbed{Board: c, Crated: []CrateClip{}}, e.store.SaveClipboard(c)
-		}
-	}
-	crated, replaced, err := e.replaceBoardLocked(c, GrabOpts{NoCrate: req.NoCrate})
-	if err != nil {
-		forget()
-		return Grabbed{}, err
-	}
-	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
 }
 
 // grabRing copies the span a GrabRequest asks for off the ring, one pool
@@ -389,33 +333,6 @@ func (e *Engine) grabRing(req GrabRequest, keep *Clipboard) (*Clipboard, []strin
 	return c, made, nil
 }
 
-// GrabTake copies frames [from, to) of a take onto the clipboard as the
-// Studio's buffer: the Listening Room's "to the studio", a note's span. The
-// take's pair is written into the pool with handles from the take's own
-// audio -- a bar at the take's tempo, or TAPE_HANDLE_S, whichever is longer,
-// at most 10 s, as far as the take goes -- so the window can be trimmed as a
-// grab from the feed is. title names the take in words (its label); file is
-// its name. Like any grab, it puts an unused buffer it replaces in the crate.
-func (e *Engine) GrabTake(take, file, title string, from, to int64, pick []int) (Grabbed, error) {
-	return e.GrabTakeOpt(take, file, title, from, to, pick, GrabOpts{})
-}
-
-// GrabTakeOpt is GrabTake with GrabOpts.
-func (e *Engine) GrabTakeOpt(take, file, title string, from, to int64, pick []int, opts GrabOpts) (Grabbed, error) {
-	c, rel, err := e.grabTake(take, file, title, from, to, pick)
-	if err != nil {
-		return Grabbed{}, err
-	}
-	e.boardMu.Lock()
-	defer e.boardMu.Unlock()
-	crated, replaced, err := e.replaceBoardLocked(c, opts)
-	if err != nil {
-		e.store.removePoolFile(rel)
-		return Grabbed{}, err
-	}
-	return Grabbed{Board: c, Crated: crated, Replaced: replaced}, nil
-}
-
 // grabTake copies a take's span into the pool as GrabTake describes, and
 // answers the board that plays it and its one pool file, for whoever places
 // it to forget if that fails.
@@ -606,9 +523,8 @@ func (e *Engine) downbeatAt(t *Tape, from, frames int64) *int64 {
 
 // --- one buffer at a time -------------------------------------------------------
 
-// setBoard replaces the clipboard. A grab it replaces that was never
-// dropped or kept goes to the crate first, one kept clip per lane, so
-// nothing grabbed is lost without a toss; it answers what it kept.
+// setBoard replaces the clipboard, as replaceBoardLocked describes; it
+// answers what it put in the crate.
 func (e *Engine) setBoard(c *Clipboard) ([]CrateClip, error) {
 	e.boardMu.Lock()
 	defer e.boardMu.Unlock()
@@ -629,10 +545,11 @@ func (e *Engine) setBoardOpt(c *Clipboard, opts GrabOpts) (*Clipboard, error) {
 	return replaced, err
 }
 
-// replaceBoardLocked replaces the clipboard with c. A buffer it replaces that
-// was never dropped, inserted or kept -- a grab, or a cut or copy -- is held as
-// the one replaced grab (replaced.go), for Undo. A *grab* is also put in the
-// crate, so nothing grabbed is lost without a toss, unless opts says not. It
+// replaceBoardLocked replaces the clipboard with c. A clipboard it replaces
+// that was never dropped, inserted or kept is held as the one replaced board
+// (replaced.go), for a Cut or Copy's Undo. A *grab* (a clipboard.json
+// written before GRAB moved to the cue lane) is also put in the crate,
+// unless opts says not. It
 // answers what it put in the crate and the buffer it replaced, if it was one
 // of those. If a write after the slot's fails, the slot is put back as it was,
 // so the Undo that was there is not lost to a replacement that did not happen.
@@ -741,32 +658,7 @@ func (e *Engine) keepBoard(b *Clipboard) ([]CrateClip, error) {
 
 // --- the window, and its shape ----------------------------------------------------
 
-// TrimClipboard moves the buffer's window to [in, out), in frames from the
-// grab's start: the files stay as they are, and every lane's clip reads the
-// new window, as edge trim moves a tape clip's edges. It never leaves the
-// handles: each edge stops the crossfades' overhang short of its file's end
-// (or where it already is, if that's nearer), and the window keeps at least
-// the overhang's length.
-func (e *Engine) TrimClipboard(in, out int64) (*Clipboard, error) {
-	e.boardMu.Lock()
-	defer e.boardMu.Unlock()
-	c, g, err := e.grabBoard()
-	if err != nil {
-		return nil, err
-	}
-	if err := g.trim(in, out, int64(OverhangSeconds*float64(e.store.SampleRate()))); err != nil {
-		return nil, err
-	}
-	for i := range c.Tracks {
-		for j := range c.Tracks[i] {
-			g.window(&c.Tracks[i][j])
-		}
-	}
-	c.Frames = g.Out - g.In
-	return e.markStale(c), e.store.SaveClipboard(c)
-}
-
-// trim moves the window to [in, out), inside the handles as TrimClipboard
+// trim moves the window to [in, out), inside the handles as CueTrim
 // describes: over is the crossfades' overhang, which each edge stops short
 // of its file's end by, and the least the window may be.
 func (g *Grab) trim(in, out, over int64) error {
@@ -791,21 +683,6 @@ func (e *Engine) markStale(c *Clipboard) *Clipboard {
 	return c
 }
 
-// grabBoard is the clipboard, if it holds a grab.
-func (e *Engine) grabBoard() (*Clipboard, *Grab, error) {
-	c, err := e.store.LoadClipboard()
-	if err != nil {
-		return nil, nil, err
-	}
-	if c.Empty() {
-		return nil, nil, ErrEmptyClipboard
-	}
-	if c.Grab == nil {
-		return nil, nil, fmt.Errorf("%w: only a grab is trimmed in the buffer; this was copied, so trim it on the tape", ErrBadParameter)
-	}
-	return c, c.Grab, nil
-}
-
 // BoardShape is what the buffer's keys change on every lane: the level, the
 // fades (frames, and their curves), Normalize, and Reverse.
 type BoardShape struct {
@@ -821,58 +698,6 @@ type BoardShape struct {
 // Empty says it changes nothing.
 func (s BoardShape) Empty() bool {
 	return s.GainDB == nil && s.FadeIn == nil && s.FadeOut == nil && s.FadeInShape == nil && s.FadeOutShape == nil && !s.Normalize && !s.Reverse
-}
-
-// ShapeClipboard changes the buffer's lanes, all alike: their level, their
-// fades, Normalize (the loudest lane's peak to audio.NormalizePeakDB, at most
-// audio.MaxNormalizeGainDB up), and Reverse (each lane's audio turned round,
-// as a tape clip's is: its file and handles written backwards once, and
-// played forwards again from the original). Outside undo, like the rest of
-// the buffer.
-func (e *Engine) ShapeClipboard(s BoardShape) (*Clipboard, error) {
-	e.boardMu.Lock()
-	defer e.boardMu.Unlock()
-	c, _, err := e.grabBoard()
-	if err != nil {
-		return nil, err
-	}
-	if s.FadeInShape != nil && !ValidFadeShape(*s.FadeInShape) || s.FadeOutShape != nil && !ValidFadeShape(*s.FadeOutShape) {
-		return nil, fmt.Errorf("%w: a fade's curve is equal power (\"\"), linear, s or exp", ErrBadParameter)
-	}
-	gain := s.GainDB
-	if s.Normalize {
-		db, err := e.normalizeGain(c)
-		if err != nil {
-			return nil, err
-		}
-		gain = &db
-	}
-	for i := range c.Tracks {
-		for j := range c.Tracks[i] {
-			cl := &c.Tracks[i][j]
-			if gain != nil {
-				cl.GainDB = math.Round(math.Max(-60, math.Min(audio.MaxNormalizeGainDB, *gain))*10) / 10
-			}
-			if s.FadeIn != nil {
-				cl.FadeIn = min64(max64(0, *s.FadeIn), c.Frames)
-			}
-			if s.FadeOut != nil {
-				cl.FadeOut = min64(max64(0, *s.FadeOut), c.Frames)
-			}
-			if s.FadeInShape != nil {
-				cl.FadeInShape = *s.FadeInShape
-			}
-			if s.FadeOutShape != nil {
-				cl.FadeOutShape = *s.FadeOutShape
-			}
-		}
-	}
-	if s.Reverse {
-		if err := e.turnBoard(c, true); err != nil {
-			return nil, err
-		}
-	}
-	return e.markStale(c), e.store.SaveClipboard(c)
 }
 
 // normalizeGain is the gain that brings the buffer's lanes, summed as KEEP
@@ -963,29 +788,8 @@ type KeptTake struct {
 	Seconds float64 `json:"seconds"`
 }
 
-// KeepClipboardTake saves the clipboard -- the buffer's window -- as a take
-// in dir, from its own audio, so it works after the ring has moved on: its
-// lanes summed to stereo with their levels and fades, as MAIN sums the
-// strips, and a 3 ms declick at either end, as a cut has. Its label names
-// its sources, its origin is the buffer, and a grab's tempo and downbeat
-// are the tape's.
-func (e *Engine) KeepClipboardTake(dir string, now time.Time) (KeptTake, error) {
-	c, err := e.Clipboard()
-	if err != nil {
-		return KeptTake{}, err
-	}
-	if c.Empty() {
-		return KeptTake{}, ErrEmptyClipboard
-	}
-	k, err := e.keepTake(c, boardLabel(c), dir, now)
-	if err == nil {
-		e.markUsed(c)
-	}
-	return k, err
-}
-
-// keepTake saves a board as a take in dir, labelled label, as
-// KeepClipboardTake describes.
+// keepTake saves a board as a take in dir, labelled label: CueKeep's
+// KEEP.
 func (e *Engine) keepTake(c *Clipboard, label, dir string, now time.Time) (KeptTake, error) {
 	sr := e.store.SampleRate()
 	m := audio.Meta{Label: label, Origin: audio.OriginBuffer}
@@ -1021,14 +825,6 @@ func firstLine(downbeat int64, bar float64, at int64) int64 {
 		n--
 	}
 	return line(n)
-}
-
-// boardLabel names a take kept from the clipboard: its sources, for a grab.
-func boardLabel(c *Clipboard) string {
-	if c.Grab != nil {
-		return "Buffer · " + strings.Join(c.Grab.Sources, " + ")
-	}
-	return "Clipboard · " + c.From
 }
 
 // sumCeiling is as loud as a buffer's lanes summed may be (about −0.3
@@ -1137,80 +933,4 @@ func (e *Engine) renderBoard(c *Clipboard, write func([]int32) error) error {
 		}
 		return write(out[:2*n])
 	})
-}
-
-// --- TOSS, and its Undo -------------------------------------------------------------
-
-func (s *Store) tossedPath() string { return filepath.Join(s.dir, "clipboard-tossed.json") }
-
-// loadTossed reads the buffer last tossed, or nil.
-func (s *Store) loadTossed() (*Clipboard, error) {
-	b, err := os.ReadFile(s.tossedPath())
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var c Clipboard
-	if err := json.Unmarshal(b, &c); err != nil {
-		return nil, fmt.Errorf("the tossed buffer: %w", err)
-	}
-	return &c, nil
-}
-
-// TossClipboard empties the clipboard, keeping what it held aside -- a root
-// for the clean-up -- until the next toss, so a toss can be undone
-// (RestoreClipboard). Plain ClearClipboard keeps nothing.
-func (e *Engine) TossClipboard() error {
-	e.boardMu.Lock()
-	defer e.boardMu.Unlock()
-	if c, err := e.store.LoadClipboard(); err == nil && !c.Empty() {
-		b, err := json.MarshalIndent(c, "", "  ")
-		if err != nil {
-			return err
-		}
-		e.store.mu.Lock()
-		err = writeSynced(e.store.tossedPath(), b)
-		e.store.mu.Unlock()
-		if err != nil {
-			return err
-		}
-	}
-	if err := e.store.SaveClipboard(nil); err != nil {
-		return err
-	}
-	// What a grab replaced is not undoable once the buffer that replaced it
-	// is tossed: its Undo ends here, and the toss keeps that buffer instead.
-	e.store.clearReplaced()
-	return nil
-}
-
-// RestoreClipboard brings the last tossed buffer back onto the clipboard:
-// a toss's Undo. What it replaces is replaced as a grab replaces it.
-func (e *Engine) RestoreClipboard() (*Clipboard, []CrateClip, error) {
-	c, kept, _, err := e.RestoreClipboardOpt(GrabOpts{})
-	return c, kept, err
-}
-
-// RestoreClipboardOpt is RestoreClipboard with GrabOpts, answering the
-// buffer it replaced, if it was one nobody had used (held for Undo).
-func (e *Engine) RestoreClipboardOpt(opts GrabOpts) (*Clipboard, []CrateClip, *Clipboard, error) {
-	e.boardMu.Lock()
-	defer e.boardMu.Unlock()
-	c, err := e.store.loadTossed()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if c.Empty() {
-		return nil, nil, nil, fmt.Errorf("%w: nothing was tossed to bring back", ErrNothingToDo)
-	}
-	kept, replaced, err := e.replaceBoardLocked(c, opts)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	e.store.mu.Lock()
-	os.Remove(e.store.tossedPath())
-	e.store.mu.Unlock()
-	return e.markStale(c), kept, replaced, nil
 }

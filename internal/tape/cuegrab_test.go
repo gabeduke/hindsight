@@ -103,10 +103,20 @@ func TestAGrabReplacesTheNewestClipOnlyWhileItIsUntouched(t *testing.T) {
 		t.Fatalf("a grab after a kept clip replaced %+v", g.Replaced)
 	}
 
-	// A take's span on the lane is never a GRAB's to replace.
-	take, err := e.CueFromTake(tp.ID, takeWAV(t, 96000, func(int) float64 { return 0.25 }), "Jam", 0, 48000, []int{0, 1})
+	// A take's span on the lane is never a GRAB's to replace. (The newest
+	// GRAB is trimmed first, so the take's span is added after it rather
+	// than in its place: GrabTakeToCue, like GrabToCue, takes an untouched
+	// GRAB's place.)
+	if _, err := e.CueTrim(tp.ID, g.Clip.ID, 1000, 40000); err != nil {
+		t.Fatal(err)
+	}
+	tg, err := e.GrabTakeToCue(tp.ID, takeWAV(t, 96000, func(int) float64 { return 0.25 }), "jam.wav", "Jam", 0, 48000, []int{0, 1})
 	if err != nil {
 		t.Fatal(err)
+	}
+	take := tg.Clip
+	if tg.Replaced != nil {
+		t.Fatalf("a take's span replaced a touched GRAB: %+v", tg.Replaced)
 	}
 	if g = grabCue(t, e, tp.ID, 80000, 128000, "aux"); g.Replaced != nil || len(e.Loaded().State.Cue.Clips) != 6 {
 		t.Fatalf("a grab after a take's span replaced %+v", g.Replaced)
@@ -338,27 +348,15 @@ func TestACueClipReversesAndTurnsBackAndNormalizes(t *testing.T) {
 	}
 }
 
-func TestTheBufferOnTheCueLaneKeepsItsLanes(t *testing.T) {
+func TestATakeOnTheCueLaneHasHandles(t *testing.T) {
 	e, _, tp := barLoop(t)
-	from, to := int64(60000), int64(108000)
-	b, err := e.Grab(GrabRequest{RingFrom: &from, RingTo: &to, Sources: []string{"ch1", "aux"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	c, err := e.CueFromClipboard(tp.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(c.Lanes) != 2 || c.Grab == nil || c.Lanes[0].File != b.Board.Tracks[0][0].File || c.Source != "buffer" {
-		t.Fatalf("cue clip = %+v", c)
-	}
-	// A take on the lane has handles too.
 	take := takeWAV(t, 96000, func(int) float64 { return 0.25 })
-	tc, err := e.CueFromTake(tp.ID, take, "Jam", 24000, 48000, []int{0, 1})
+	g, err := e.GrabTakeToCue(tp.ID, take, filepath.Base(take), "Jam", 24000, 48000, []int{0, 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tc.Grab == nil || tc.Grab.Take != filepath.Base(take) || tc.Grab.Before <= 0 || tc.Src != tc.Grab.Before || len(tc.Lanes) != 1 || tc.Name != "Jam" {
+	tc := g.Clip
+	if tc.Grab == nil || tc.Grab.Take != filepath.Base(take) || tc.Grab.Before <= 0 || tc.Src != tc.Grab.Before || len(tc.Lanes) != 1 || tc.Name != "Jam" || tc.Source != "take" {
 		t.Fatalf("take on the lane = %+v, grab %+v", tc, tc.Grab)
 	}
 	if _, err := os.Stat(e.store.AudioPath(tc.File)); err != nil {

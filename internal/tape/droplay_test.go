@@ -17,7 +17,7 @@ func TestADropOverAClipReplacesItAndOneUndoBringsItBack(t *testing.T) {
 	if len(before) != 1 || before[0].At != 0 || before[0].Frames != 192000 {
 		t.Fatalf("the loop's clip is %+v", before)
 	}
-	grabSpan(t, e, 100000, 148000, GrabRequest{NoCrate: true}) // one bar
+	copySpan(t, e, 100000, 148000) // one bar
 	undoBefore, _ := e.UndoDepth()
 
 	at := int64(48000)

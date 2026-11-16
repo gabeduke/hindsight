@@ -63,16 +63,11 @@ short spec in this folder when it is next.
   kept clip), and `keepBoard`, which still puts a buffer replaced unused in
   the crate, though nothing shows it. Decide whether to retire
   `internal/tape/crate.go` with them.
-- **The buffer's routes with no caller in the web**: `POST /api/clipboard`'s
-  GRAB forms (`bars`, `seconds`, `again`, `grab: true`, `crate`) and its
-  ring copy, `DELETE ?toss=1` and the plain `POST /api/clipboard/restore`
-  (a toss's Undo). The Go tests use them to set up GRAB's Undo (`restore
-  ?replaced=1`, which a range's Cut and Copy still use); retiring them means
-  setting those tests up with a range Copy, and then the engine's `Grab`,
-  `GrabTake`, `CopyRing`, `TossClipboard`, `RestoreClipboard`,
-  `TrimClipboard`, `ShapeClipboard`, `KeepClipboardTake`, `ClipboardAudio`,
-  `CueFromClipboard` and `CueFromTake` (tests only now) can go too, with
-  `Catch`, whose last caller was the controller's CATCH.
+- **What is left of the old buffer** (its GRAB, toss and restore went in
+  #317): `POST /api/clipboard`'s take and ring copy (no caller in the web;
+  `CopyTake` and `CopyRing`), and `Catch`, whose last caller was the
+  controller's CATCH. The lift-and-drop spec's step 3 retires the clipboard
+  as a whole.
 - **Remote branches awaiting a decision** (the merged ones were deleted
   2026-10-18):
   `rooms/r2-shelf-to-deck` (R2, the cassette flies to the
