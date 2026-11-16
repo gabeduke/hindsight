@@ -222,6 +222,7 @@ func (a *API) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tapes/cue", a.handleTapeCue).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/cue/grab", a.handleCueGrab).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/cue/clip", a.handleCueClip).Methods(http.MethodPatch)
+	r.HandleFunc("/api/tapes/cue/lift", a.handleCueLift).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/cue/drop", a.handleCueDrop).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/cue/keep", a.handleCueKeep).Methods(http.MethodPost)
 	r.HandleFunc("/api/tapes/cue/audio", a.handleCueAudio).Methods(http.MethodGet, http.MethodHead)

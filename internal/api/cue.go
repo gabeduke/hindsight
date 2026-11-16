@@ -21,8 +21,14 @@ import (
 //	                                fade_out, fade_in_shape, fade_out_shape | normalize |
 //	                                reverse}, not both. The tape's state, edit.cue_clip. One
 //	                                Undo each, a run of trims or of levels one together.
+//	POST  /api/tapes/cue/lift?id=   {span: {from, to}, tracks, cut?} a range, or {clips, cut?}
+//	                                the parts picked: onto the lane as one clip, a lane a
+//	                                track, always added; cut (Lift) leaves silence where they
+//	                                were. The tape's state, edit.cue_clip. One Undo.
 //	POST  /api/tapes/cue/drop?id=   {clip, track, at?, merge?}: on the tape, a lane a track,
-//	                                as /api/tapes/drop answers. One Undo.
+//	                                over what is there, as /api/tapes/drop answers; {clip,
+//	                                track, at?, insert: true}: pushes every track along by
+//	                                the clip and lays it in the gap. One Undo.
 //	POST  /api/tapes/cue/keep?id=   {clip}: KEEP, as a take on the shelf: {name, label, seconds}.
 //	GET   /api/tapes/cue/audio?id=&clip=  its first minute, its lanes summed: Audition.
 
@@ -120,20 +126,64 @@ func (a *API) handleCueClip(w http.ResponseWriter, r *http.Request) {
 	a.writeTapeStateWith(w, id, &tape.EditResult{Op: "cue-clip", Clips: 1, CueClip: &c}, false)
 }
 
+// handleCueLift is a range's or the parts' Lift or Copy onto the cue lane
+// (tape.CueLift).
+func (a *API) handleCueLift(w http.ResponseWriter, r *http.Request) {
+	if a.tapeOff(w) {
+		return
+	}
+	var b struct {
+		Span   *tape.Span `json:"span"`
+		Tracks []int      `json:"tracks"`
+		Clips  []string   `json:"clips"`
+		Cut    bool       `json:"cut"`
+	}
+	if !decodeBody(w, r, &b) {
+		return
+	}
+	if (b.Span == nil) == (len(b.Clips) == 0) {
+		writeErr(w, http.StatusBadRequest, "a lift is a span and its tracks, or clips: one of them")
+		return
+	}
+	if b.Span != nil && len(b.Tracks) == 0 {
+		writeErr(w, http.StatusBadRequest, "a span's lift needs its tracks")
+		return
+	}
+	id := r.URL.Query().Get("id")
+	l, err := a.tape.CueLift(id, tape.EditRequest{Span: b.Span, Tracks: b.Tracks, Clips: b.Clips}, b.Cut)
+	if err != nil {
+		tapeErr(w, err)
+		return
+	}
+	a.writeTapeStateWith(w, id, &tape.EditResult{Op: l.Op, Clips: l.Clips, Frames: l.Clip.Frames, CueClip: &l.Clip}, false)
+}
+
 func (a *API) handleCueDrop(w http.ResponseWriter, r *http.Request) {
 	if a.tapeOff(w) {
 		return
 	}
 	var b struct {
-		Clip  string `json:"clip"`
-		Track int    `json:"track"`
-		At    *int64 `json:"at"`
-		Merge bool   `json:"merge"`
+		Clip   string `json:"clip"`
+		Track  int    `json:"track"`
+		At     *int64 `json:"at"`
+		Merge  bool   `json:"merge"`
+		Insert bool   `json:"insert"`
 	}
 	if !decodeBody(w, r, &b) {
 		return
 	}
-	d, err := a.Verbs().Drop(r.URL.Query().Get("id"), b.Clip, b.Track, b.Merge, b.At)
+	if b.Insert && b.Merge {
+		writeErr(w, http.StatusBadRequest, "insert lays a lane a track: not with merge")
+		return
+	}
+	id := r.URL.Query().Get("id")
+	var d tape.Dropped
+	var err error
+	if b.Insert {
+		d, err = a.Verbs().Insert(id, b.Clip, b.Track, b.At)
+	} else {
+		d, err = a.Verbs().Drop(id, b.Clip, b.Track, b.Merge, b.At)
+	}
 	if err != nil {
 		verbErr(w, err)
 		return

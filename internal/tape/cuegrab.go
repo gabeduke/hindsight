@@ -142,6 +142,9 @@ func (e *Engine) GrabToCue(id string, req GrabRequest, again string) (CueGrabbed
 		if err != nil {
 			return CueGrabbed{}, err
 		}
+		if lifted(c) {
+			return CueGrabbed{}, fmt.Errorf("%w: a clip lifted off the tape has no inputs to grab again", ErrBadParameter)
+		}
 		keep, req.Again, was = c.boardOf(), true, &c
 	} else if t := e.Loaded(); t == nil {
 		return CueGrabbed{}, ErrNoTape
@@ -379,6 +382,69 @@ func (e *Engine) CueDrop(id, clip string, track int, merge bool, at *int64) (Dro
 	})
 }
 
+// CueInsert is a cue clip's "Insert at the playhead": it pushes everything
+// from *at (nil: the playhead) on later by the clip's window, on every
+// track, the sections and the loop (insertTime), and lays the clip's lanes
+// in the gap from track down, with their handles. Stopped, the playhead
+// moves to the gap's end. The clip stays on the lane, touched, in the same
+// edit: one Undo takes back both.
+func (e *Engine) CueInsert(id, clip string, track int, at *int64) (Dropped, error) {
+	c, err := e.cueClip(id, clip)
+	if err != nil {
+		return Dropped{}, err
+	}
+	t := e.Loaded()
+	if t == nil {
+		return Dropped{}, ErrNoTape
+	}
+	st := e.tr.Status()
+	moving := st.Playing || st.CountIn > 0
+	pos := e.playhead()
+	if at != nil {
+		pos = *at
+	}
+	if pos < 0 {
+		return Dropped{}, fmt.Errorf("%w: at before the tape's start", ErrBadParameter)
+	}
+	if t.Grid == nil && t.Empty() {
+		return Dropped{}, fmt.Errorf("%w: on an empty tape, DROP it: there's nothing to push along", ErrBadParameter)
+	}
+	b := c.boardOf()
+	var out Dropped
+	err = e.Edit(id, "", func(tp *Tape, s *State) error {
+		i, err := s.cueAt(clip)
+		if err != nil {
+			return err
+		}
+		if !sameLanes(s.Cue.Clips[i], c) {
+			return ErrCueChanged
+		}
+		if _, err := s.insertTime(b, track, pos, tp.Length, e.store.SampleRate()); err != nil {
+			return err
+		}
+		for _, cl := range s.Tracks[track-1].Clips {
+			if cl.At == pos { // its first lane, as a drop answers
+				out.Clip = cl
+				break
+			}
+		}
+		s.Cue.Clips[i].Touched = true
+		return nil
+	})
+	if err != nil {
+		return Dropped{}, err
+	}
+	out.Tracks, out.End = len(b.Tracks), pos+b.Frames
+	if !moving {
+		e.doWait(Action{Kind: "locate", Pos: out.End})
+	}
+	return out, nil
+}
+
+// lifted says whether a cue clip came off the tape (cuelift.go), not from
+// an input or a take.
+func lifted(c CueClip) bool { return c.Source == "lift" || c.Source == "copy" }
+
 // CueKeep is a cue clip's KEEP: it saved as a take in dir, from its own
 // audio, its lanes summed (keepTake). Not an edit of the tape:
 // the take's own Undo puts it in the trash.
@@ -388,7 +454,7 @@ func (e *Engine) CueKeep(id, clip, dir string, now time.Time) (KeptTake, error) 
 		return KeptTake{}, err
 	}
 	label := "Cue · " + c.Name
-	if c.Grab != nil && c.Grab.Take == "" {
+	if c.Grab != nil && c.Grab.Take == "" && !lifted(c) {
 		label = "Grab · " + strings.Join(c.Grab.Sources, " + ")
 	}
 	k, err := e.keepTake(c.boardOf(), label, dir, now)
