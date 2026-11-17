@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.17.2 — 2026-11-17
+
+- Tests: the MIDI backlog test checks the tempo it actually wrote, so a slow CI runner can't fail it (cea54acd)
+- The Studio's GRAB is in the bar on a tablet or a desktop, where the bar had an empty middle (242c3a82)
+
+
 ## v2026.11.17.1 — 2026-11-17
 
 - The object bench's track heads keep their 112 px outside the Studio's well (dfc8988f)
