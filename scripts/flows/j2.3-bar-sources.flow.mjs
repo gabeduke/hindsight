@@ -1,7 +1,8 @@
 // J2.3 Choose what the bar plays from its display: the source on the LCD
 // says what plays (TAPE, FEED or the take's name), and a tap on it opens a
 // menu of the tape, the live feed, the last few takes and the shelf. The
-// feed brings GRAB to the bar (the feed onto the Studio's cue lane); the shelf
+// feed has its GRAB on the bar (the feed onto the Studio's cue lane: in the
+// Studio, on a tablet on its side or wider, the Studio's own); the shelf
 // is the Listening Room. One bar, three things it can hold, and ▶ in one
 // place for all three. On a phone the display is the player's, pulled up,
 // and ▶ is held to its place in the mini player. docs/flows.md#j23
@@ -15,7 +16,11 @@ const bar = () => {
   return {
     source: np?.dataset.source ?? null,
     lcd: document.getElementById('np-source-short')?.textContent.trim() ?? '',
-    grab: on('np-feed-grab'),
+    // Which GRAB the bar shows: its own for the feed, or in the Studio, on
+    // a tablet on its side or wider, the Studio's in its verb. One, never two.
+    grabs: [...(np?.querySelectorAll('#np-feed-grab, .buffer-grab-key') || [])]
+      .filter((e) => e.getBoundingClientRect().width > 0 && e.offsetParent !== null)
+      .map((e) => (e.id === 'np-feed-grab' ? '#np-feed-grab' : '#np .buffer-grab-key')),
     open: on('np-open'),
     note: on('np-note'),
     play: Math.round(r('np-play')?.left ?? -1),
@@ -66,10 +71,10 @@ export default {
     await down();
     b = await now();
     t.expect('the bar holds the feed, and the display says FEED', onFeed, b);
-    t.expect('the feed’s GRAB is on the bar', b.grab, b);
+    t.expect('a GRAB is on the bar, one (in the Studio wider than an upright tablet, the Studio’s own)', b.grabs.length === 1, b);
     t.expect('▶ has not moved', Math.abs(b.play - play) <= 2, { play, now: b.play });
 
-    await t.step('GRAB from the feed', () => t.tap(page.locator('#np-feed-grab')));
+    await t.step('GRAB from the feed', () => t.tap(page.locator(b.grabs[0] || '#np-feed-grab')));
     const grabbed = await api.until(async () => (await api.tapeState()).cue?.clips?.at(-1), 'the feed GRAB on the cue lane', 8000).catch(() => null);
     t.expect('the feed GRAB lands on the cue lane', grabbed?.frames > 0 && grabbed?.grab, grabbed);
     await page.waitForURL(/tape\.html/, { timeout: 5000 }).catch(() => {});

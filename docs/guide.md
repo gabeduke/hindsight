@@ -72,10 +72,11 @@ Every word the two rooms use, and what each was called before, is in
 *Today.* `/` is the **Studio**: the tape (§8.2) and the **feed**, one face
 at a time. The header's other room is the **Listening Room** (§3.1), where
 the takes are. On the tape's face the feed is one thin row over the lanes:
-the lamp, the ribbon, **GRAB** and **KEEP** (on a phone GRAB and KEEP go
-under them). Tap the ribbon there to turn to the feed's face: the ribbon as
-tall as the room leaves, and under it the lamp and the level, GRAB, KEEP
-and **Note**. The tape is then a thin row at the top, the whole of it, and
+the lamp, the ribbon and **KEEP**. **GRAB** is in the bar at the foot, after
+● (on an upright tablet it sits before KEEP, and on a phone GRAB and KEEP
+go under the ribbon). Tap the ribbon there to turn to the feed's face: the
+ribbon as tall as the room leaves, and under it the lamp and the level,
+KEEP and **Note**. The tape is then a thin row at the top, the whole of it, and
 a tap on it turns back. The cue lane (§8.12) is on both faces, so a GRAB
 lands where you can see it, and this device opens the Studio on the face
 you left.

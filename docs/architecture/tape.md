@@ -602,17 +602,20 @@ cue clip's drawer (the buffer's `reveal()`, which on a phone brings what it
 covers on the new face into sight; `lib/ui/reveal.js` leaves out what isn't
 laid out). The tape's face is the lanes, the ruler, the sections and the cue
 lane, with the feed one row over them: its lamp, the ribbon 28 px tall and
-live, GRAB and KEEP, small (on a phone GRAB and KEEP take a row under the
-lamp and the ribbon). The feed's face is the ribbon across the room as tall
-as it leaves, the mark and a span on it, and under it the lamp and the
-level, GRAB, KEEP and Flag now; the tape is `#face-tape` over it, the whole
+live, and KEEP, small, with GRAB in the bar's verb on a tablet on its
+side or wider, and before KEEP narrower (on a phone GRAB and KEEP take a
+row under the lamp and the ribbon). The feed's face is the ribbon across
+the room as tall as it leaves, the mark and a span on it, and under it the
+lamp and the level, KEEP (GRAB before it, narrower) and Flag now; the tape is `#face-tape` over it, the whole
 tape as the bar's overview draws it. The cue lane, and a cue clip's
 drawer, are on both, so a GRAB on the feed's face lands where it can be
 seen and the Studio never turns under the hand; leaving the feed's face
 keeps the mark, which the strip still draws and GRAB and KEEP still follow.
 
-**The feed strip** in the Studio is the ribbon with GRAB and KEEP, and on
-the feed's face Flag now. A tap on GRAB or KEEP takes the last length and
+**The feed strip** in the Studio is the ribbon with KEEP, and on the
+feed's face Flag now; GRAB is the bar's verb on a tablet on its side or
+wider, and beside KEEP narrower (`docs/architecture/bar.md`, *The Studio's part of the
+bar*, 2026-11-17). A tap on GRAB or KEEP takes the last length and
 its ▾ picks another (1, 2, 4 or 8 bars for GRAB; 30 s, 2 m or the whole feed for KEEP);
 the input follows the armed track's, with an override in GRAB's ▾. The
 readouts (free disk, dropped buffers, the MIDI tempo, *Input channels*)

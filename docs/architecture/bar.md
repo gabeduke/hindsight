@@ -10,8 +10,9 @@ sideways scroll).
   the markup (`data-slot`; `lib/bar/slots.js` `SLOTS`): the **deck** (the
   reels and the display), the **transport** (|◀ ▶ ●, and ●'s ▾ for the
   tape in the Studio, which Catch is on; ↺ 5 s in ●'s place for a take,
-  the feed, or the tape away from the Studio), the **verb** (GRAB for the
-  feed), the **modes** (⟲ Loop or Repeat) and the **end** (⏏, Open ›, ✎
+  the feed, or the tape away from the Studio), the **verb** (GRAB: the
+  Studio's, on a tablet on its side or wider, whatever plays; the feed's anywhere else),
+  the **modes** (⟲ Loop or Repeat) and the **end** (⏏, Open ›, ✎
   for a take), laid out first so nothing pushes it off. Catch's own key and
   the metronome left the bar in the calm Studio's step 7a (Gabe's calls,
   2026-11-13): Catch is on ●'s ▾, the metronome the Click in the tempo's
@@ -436,6 +437,24 @@ another room. It still shows only for the tape in the Studio
 (`data-for="studio"`). Guardrail 21 fails on `#np`'s markup carrying it, on
 `lib/tape/page.js` looking it up, or on the Studio putting it anywhere but
 the strip.
+
+GRAB is the Studio's too (2026-11-17). Its markup is the buffer's template
+(`#buffer-grab-tpl`, `.buffer-grab`: GRAB 4 BARS over the input it takes
+from, and its ▾), and `mountBuffer` (`lib/buffer/buffer.js`) puts it by
+the screen: first in the feed's keys beside KEEP, as before, on a phone
+and on a screen narrower than `ROOMY` (`lib/bar/slots.js`, the bar's 960
+px row and its padding: an upright tablet, where a take's ⏏ Open › ✎ leave
+no room for it); on a tablet on its side or wider, in the bar's verb
+through its slot,
+`ctx.barSlot.add(grab, { place: 'verb' })`, the shell's second place
+(`slots.bar.places.verb`), and moves it when the screen changes shape. In
+the bar it shows whatever plays, since the bar holds it only while the
+Studio is shown; `css/bar.css` sizes it as a bar key (`.np .np-verb
+.buffer-grab-key`), and its ▾'s panel opens in the top layer (`splitKey`,
+`popover`), so the bar never clips it. The bar's own GRAB for the feed
+(`#np-feed-grab`) is for the other rooms (`data-for="feed-away"`, the feed
+anywhere but the Studio), so the verb never holds two; the phone's mini
+player keeps it for the feed (`data-mini="feed"`).
 
 ## The lamp and the output strip
 

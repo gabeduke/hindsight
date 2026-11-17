@@ -3534,9 +3534,9 @@ input, select, textarea { color-scheme: inherit; }
   transition-behavior: allow-discrete;
 }
 /* One menu.js opens in the top layer (its popover option: the bar's three,
-   inside #np) stays there while it fades (overlay, above), and is drawn as
+   inside #np, and GRAB's ▾) stays there while it fades (overlay, above), and is drawn as
    any other: none of a popover's own margin or colour. */
-.menu[popover] { margin: 0; color: inherit; }
+:is(.menu, .key-pop)[popover] { margin: 0; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   @starting-style {
     .menu[data-state="open"], .key-pop[data-state="open"] { scale: none; }
@@ -3562,6 +3562,31 @@ input, select, textarea { color-scheme: inherit; }
    its rows. */
 .menu > .menu-divider { flex: none; height: 1px; margin: 6px 8px; background: var(--line); }
 .menu > .menu-group { margin: 8px 12px 4px; font: 600 11px var(--label-font); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
+
+/* A split key (splitKey, below): a key and its ▾, as one key with a seam,
+   GRAB's and KEEP's, wherever the Studio puts them: the feed's keys, or
+   GRAB in the bar on a tablet on its side or wider
+   (lib/buffer/buffer.js). */
+.key-split { display: inline-flex; align-items: stretch; flex: none; }
+.key-split > .icon-btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.key-split > .icon-btn.key-more {
+  min-width: 40px; padding: 0; margin-left: -1px;
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+  font-size: 13px; color: var(--ink-dim);
+}
+.key-split > .icon-btn.key-more[aria-expanded="true"] { background: var(--panel-2); color: var(--ink); }
+/* The panel by the pair: fixed, so the feed never clips it; placed by
+   splitKey, its right edge on the pair's. GRAB's is in the top layer (a
+   popover), so the bar never clips it either. */
+.key-pop {
+  position: fixed; z-index: 45; display: flex; flex-direction: column; gap: 6px;
+  min-width: 220px; max-width: calc(100vw - 16px); padding: 10px 12px 12px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 30px var(--shadow);
+}
+.key-pop-label { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+.key-pop-row { display: flex; align-items: center; gap: 8px; }
+.key-pop .seg button { min-height: 44px; min-width: 44px; padding: 0 12px; }
 
 /* ---------- Rooms P1: the Studio's feed and foot (lib/rooms/studio.js) ---------- */
 /* With the tape on, the tape page is the Studio: Capture's feed above the
@@ -3667,26 +3692,6 @@ main#view-studio[data-face="feed"] .studio-face-tape {
    the sheet again); ⋯'s Record from this phone is its way in. */
 .studio-keys > .phone-btn:not(.recording) { display: none; }
 
-/* GRAB and KEEP: a key and its ▾, as one key with a seam. */
-.studio-feed .key-split { display: inline-flex; align-items: stretch; flex: none; }
-.studio-feed .key-split > .icon-btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.studio-feed .key-split > .icon-btn.key-more {
-  min-width: 40px; padding: 0; margin-left: -1px;
-  border-top-left-radius: 0; border-bottom-left-radius: 0;
-  font-size: 13px; color: var(--ink-dim);
-}
-.studio-feed .key-split > .icon-btn.key-more[aria-expanded="true"] { background: var(--panel-2); color: var(--ink); }
-/* The panel under the pair: fixed, so the feed never clips it; placed by
-   lib/ui/menu.js (splitKey), its right edge on the pair's. */
-.studio-feed .key-pop {
-  position: fixed; z-index: 45; display: flex; flex-direction: column; gap: 6px;
-  min-width: 220px; max-width: calc(100vw - 16px); padding: 10px 12px 12px;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 12px 30px var(--shadow);
-}
-.studio-feed .key-pop-label { font: 600 11px var(--label-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
-.studio-feed .key-pop-row { display: flex; align-items: center; gap: 8px; }
-.studio-feed .key-pop .seg button { min-height: 44px; min-width: 44px; padding: 0 12px; }
 
 /* From 700 px the tape's face is one row, the keys beside the ribbon, and
    the ribbon has all the width the lamp and the keys leave (it is the
@@ -3809,7 +3814,7 @@ body.tape-page.tracks-fold #lanes { display: none; }
    beside them, and the inputs after them, as wide as the panel: their row
    is what makes it wide, and the bars once opened 370 px left of the
    finger. */
-.studio-feed .key-pop.buffer-grab-pop { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center; }
+.key-pop.buffer-grab-pop { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center; }
 .buffer-grab-pop > .key-pop-label:first-child { justify-self: end; }
 .buffer-grab-pop > .key-pop-label:not(:first-child), .buffer-grab-pop > .buffer-feed-sources { grid-column: 1 / -1; }
 .buffer-grab-pop .seg.buffer-feed-sources { flex-wrap: wrap; }
