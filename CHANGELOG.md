@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.17.1 — 2026-11-17
+
+- The object bench's track heads keep their 112 px outside the Studio's well (dfc8988f)
+- The Studio's lanes are one dark well: no black stripe per row on the light page (4ae63c42)
+
+
 ## v2026.11.16.2 — 2026-11-16
 
 - The Pi can lift or copy a range or parts onto the cue lane, and insert a cue clip at the playhead (9a978ea7)
