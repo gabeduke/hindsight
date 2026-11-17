@@ -663,6 +663,15 @@ bar; the feed's face at most 24 (23, and the brand). The calm Studio's
 steps 7a and 7b took them there from 44 and 27. The review of 2026-10-22 counted
 65, 30 and 1½; just before the heads it was 51 and 27. The budget's numbers only go down.
 
+**The well** (`shell.html` `.tape-well`; `styles.css`, *The well*) holds
+the sections, the ruler, the cue lane and the tracks. Each is a row of two
+columns: its head, `--tt-head-w` wide (112 px on a phone, 136 from 481,
+160 from 700 and 200 from 1400: the well's one token, which every row's
+grid reads, 112 where it is unset), then its lane. The heads are cards on the page; down the right the
+well paints `--lane` behind the lanes and the gaps between them, so the
+light scheme shows one dark surface, not a black stripe per row
+(2026-11-17).
+
 The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
 times a second, draws the lanes from each pool file's peaks, and sends what
 you tap; the Pi holds all the state, so several devices stay in step.
