@@ -7,14 +7,14 @@
 
    Its shape: a row of five zones -- the deck (the reels and the display),
    the transport (|◀ ▶ ● and, in the Studio, ●'s ▾, which Catch is on), the
-   verb (the feed's GRAB), the modes (⟲) and the end (⏏ Open › ✎) -- and
+   verb (GRAB: the Studio's, or the feed's anywhere else), the modes (⟲) and the end (⏏ Open › ✎) -- and
    the strip under them. Each zone
    is a named slot in the markup (data-slot); the zones keep their place in
    every room and for every source, and ▶ never moves.
 
    What shows is said positively: each key lists in data-for the sources it
    is for (tape, studio = the tape in the Studio, away = the tape anywhere
-   else, take, feed), and in data-mini those it stays for in the phone's mini
+   else, take, feed, feed-away = the feed anywhere but the Studio), and in data-mini those it stays for in the phone's mini
    player; #np says what it holds (data-source) and its size (data-size,
    mini or full, lib/bar/player.js). A key's display is set by those rules
    alone. Its widths are its own: a container query on its first row, never
@@ -73,8 +73,8 @@
 
 /* ---------- which keys show ---------- */
 /* Each for the sources its data-for (or, in the mini player, data-mini)
-   names, the tape's "studio" and "away" keys for the room it is in (its
-   data-room, the surface's room() as the bar draws); a key a script has hidden (⏏ with no tape to go back to) stays
+   names, the tape's "studio" and "away" keys and the feed's "feed-away"
+   for the room it is in (its data-room, the surface's room() as the bar draws); a key a script has hidden (⏏ with no tape to go back to) stays
    hidden: the show rules skip [hidden], and .np [hidden] hides it. */
 .np :is([data-for], [data-mini]) { display: none; }
 .np[data-size="full"][data-source="tape"] [data-for~="tape"]:not([hidden]),
@@ -82,6 +82,7 @@
 .np[data-size="full"][data-source="feed"] [data-for~="feed"]:not([hidden]),
 .np[data-room="studio"][data-size="full"][data-source="tape"] [data-for~="studio"]:not([hidden]),
 .np:is([data-room="room"], [data-room="capture"])[data-size="full"][data-source="tape"] [data-for~="away"]:not([hidden]),
+.np:is([data-room="room"], [data-room="capture"])[data-size="full"][data-source="feed"] [data-for~="feed-away"]:not([hidden]),
 .np[data-size="mini"][data-source="tape"] [data-mini~="tape"]:not([hidden]),
 .np[data-size="mini"][data-source="take"] [data-mini~="take"]:not([hidden]),
 .np[data-size="mini"][data-source="feed"] [data-mini~="feed"]:not([hidden]),
@@ -333,13 +334,23 @@
 .np .np-rec-menu > .menu-item[aria-disabled="true"] { opacity: .6; cursor: default; }
 
 /* ---------- the verb: the feed's GRAB ---------- */
-/* The feed's GRAB: the feed into the Studio's buffer, a paper key with GRAB's ring. */
+/* The feed's GRAB, away from the Studio: the feed into the Studio's buffer,
+   a paper key with GRAB's ring. In the Studio the verb holds the Studio's
+   own GRAB and its ▾ (styles.css, .buffer-grab), put there by its slot. */
 .np .np-feed-grab {
   width: auto; min-width: 104px; padding: 0 10px; gap: 0;
   box-shadow: inset 0 1px 0 var(--hl), 0 0 0 2px var(--accent), 0 2px 4px -2px var(--sh);
 }
 .np .np-grab-word { font: 700 15px var(--label-font); letter-spacing: .14em; }
 .np .np-grab-sub { font: 400 11px var(--font); color: var(--ink-dim); white-space: nowrap; }
+/* The Studio's GRAB, put here by its slot on a tablet on its side or wider
+   (lib/buffer/buffer.js): a key of the bar's, as wide as its words (GRAB 4
+   BARS, the input it takes from under them), and its ▾ (40 px, the split
+   key's, styles.css); GRAB's ring goes round the pair (.buffer-grab-split). */
+.np .np-verb .buffer-grab-key {
+  width: auto; padding: 0 12px; gap: 0;
+  font: 700 15px var(--label-font); letter-spacing: .14em; text-transform: uppercase;
+}
 
 /* ---------- the source's menu (lib/components/transport/source-menu.js) ---------- */
 .np .np-source-menu { min-width: 240px; max-width: calc(100vw - 16px); }
@@ -462,7 +473,7 @@
   .np[data-fold][data-size="full"] .icon-btn { height: 44px; min-height: 44px; flex-direction: row; gap: 5px; }
   .np[data-fold][data-size="full"] .loop-face { flex-direction: row; gap: 3px; }
   .np[data-fold][data-size="full"] .tb-loop { width: auto; padding: 0 8px; }
-  .np[data-fold][data-size="full"] .np-grab-sub { display: none; }
+  .np[data-fold][data-size="full"] :is(.np-grab-sub, .buffer-grab-from, .buffer-kbd) { display: none; }
 }
 
 /* ---------- the phone ---------- */

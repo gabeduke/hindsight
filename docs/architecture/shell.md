@@ -101,10 +101,11 @@ singleton, and a listener registered twice makes Space press ▶ twice. `ctx`
   place, `{ before: el }` or `{ after: el }`, `'first'`, or `{ place: name }`:
   the start of a zone the shell names in the slot (`boot.js`,
   `slots.bar.places`), an error at `add` for a name it hasn't got, or its
-  end with `{ place: name, at: 'end' }`. The bar's one place is `'strip'`
+  end with `{ place: name, at: 'end' }`. The bar's places are `'strip'`
   (`[data-slot="strip"]`), where the Studio's overview goes at its start
   (`bar.md`, *The Studio's part of the bar*) and the doorway's grease at
-  its end. `dockSlot.show(node, on)` shows or hides a node the view docked
+  its end, and `'verb'` (`[data-slot="verb"]`), where the Studio puts its
+  GRAB on a tablet on its side or wider. `dockSlot.show(node, on)` shows or hides a node the view docked
   and says so: the dock's spec hears `onShown(slot, any)` (whether anything
   that view docks shows, false while it is hidden), from which the boot has
   the bar's root say `data-docked` (`barLayout.set({docked})`). A docked

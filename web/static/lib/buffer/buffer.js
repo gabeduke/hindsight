@@ -44,6 +44,7 @@ import { takeTitle } from '../rooms/takename.js';
 import { named } from '../rooms/words.js';
 import { followLoop, readPick, writePick, readSource, writeSource } from '../rooms/grab.js';
 import { splitKey, barTop } from '../ui/menu.js';
+import { PHONE, ROOMY } from '../bar/slots.js';
 import { layersOf } from '../ui/layers.js';
 import { revealAbove } from '../ui/reveal.js';
 import { shelfLabel, bufferKeepLength, lengthWords } from '../rooms/keeplabel.js';
@@ -76,10 +77,36 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
   // The drawer's own keys by id, found in it wherever the dock has it.
   const $ = (id) => drawer.querySelector(`#${id}`) || doc.getElementById(id);
   const body = doc.body;
-  // GRAB leads the feed's keys, at every width (the feed is a strip,
-  // docs/plan/the-studio-on-one-screen.md); how much it takes, and from
-  // which input, is on its ▾.
+  // GRAB leads the feed's keys, beside KEEP; where the bar is a tablet's on
+  // its side or wider (ROOMY, and not a phone's) it is the bar's verb
+  // (ctx.barSlot, place 'verb'), whatever plays, in the room the bar
+  // otherwise leaves empty with the tape. How much it takes, and from which
+  // input, is on its ▾.
   const grabRow = keysRow.querySelector('.buffer-grab');
+  let home = () => {};
+  let grabMenu = null;
+  if (ctx?.barSlot && ctx.media) {
+    const phone = ctx.media(PHONE);
+    const roomy = ctx.media(ROOMY);
+    let unplace = null;
+    let inBar = null;
+    // Moved only when its home changes, its ▾'s panel shut first (out of
+    // the document, a popover leaves the top layer). A change heard while
+    // the Studio is hidden is not heard at all (ctx.on), so show() asks too.
+    home = () => {
+      const bar = roomy.matches && !phone.matches;
+      if (bar === inBar) return;
+      grabMenu?.close();
+      unplace?.();
+      unplace = null;
+      inBar = bar;
+      if (bar) unplace = ctx.barSlot.add(grabRow, { place: 'verb' });
+      else keysRow.prepend(grabRow);
+    };
+    home();
+    ctx.on(phone, 'change', home);
+    ctx.on(roomy, 'change', home);
+  }
   const el = {
     panel: drawer,
     sheetGrip: drawer.querySelector('.buffer-sheet-grip'),
@@ -906,11 +933,12 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
     root.addEventListener('mousedown', (e) => { if (e.target.closest('button') && !e.target.closest('.buffer-sheet-grip')) e.preventDefault(); });
   }
   el.grab.addEventListener('click', () => (markedOnRibbon() ? grabSpan() : grabBars()));
-  // GRAB's ▾: how much, and from which input, in a panel under the pair
-  // (lib/ui/menu.js), on the Studio's stack of open things. A pick leaves it
+  // GRAB's ▾: how much, and from which input, in a panel by the pair
+  // (lib/ui/menu.js), on the Studio's stack of open things, in the top
+  // layer so the bar holding it never clips it. A pick leaves it
   // open for the next; GRAB, a press elsewhere, Escape or Back closes it.
   // From a keyboard it opens on the bars chosen.
-  if (el.grabMore && el.grabPop) splitKey(el.grab, el.grabMore, el.grabPop, { layers, doc, focus: 'checked', floor: barTop(doc) });
+  if (el.grabMore && el.grabPop) grabMenu = splitKey(el.grab, el.grabMore, el.grabPop, { layers, doc, focus: 'checked', floor: barTop(doc), popover: true });
   el.grabSel?.addEventListener('click', grabSpan);
   for (const btn of el.picks.children) {
     btn.addEventListener('click', () => { st.n = Number(btn.dataset.n); writePick(st.n); render(); });
@@ -1031,6 +1059,7 @@ export function mountBuffer(doc = document, { feed, keysRow, ribbon = null, toas
       setSmall(body, false);
     },
     show() {
+      home();
       if (!openNoted()) render();
     },
   };

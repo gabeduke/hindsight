@@ -19,7 +19,8 @@
 // top layer (lib/ui/menu.js, popover). Each zone is a named slot
 // (data-slot, slots.js); each key says in data-for which sources (and
 // data-mini which of the phone's mini player) it shows for: tape, studio
-// (the tape, in the Studio), away (the tape, anywhere else), take, feed.
+// (the tape, in the Studio), away (the tape, anywhere else), take, feed,
+// feed-away (the feed, anywhere but the Studio).
 // Nothing is placed by the order a script added it in.
 //
 // A part is named by data-part, and fill() gives it its id through cx.id
@@ -43,7 +44,11 @@
 //                      phone's own ● ▾ in the mini player everywhere else
 //                      (phone-key.js); with a take or the feed, or the
 //                      tape away from the Studio, ↺ 5 s in ●'s place
-//   the verb           the feed's GRAB
+//   the verb           the feed's GRAB away from the Studio (feed-away);
+//                      in the Studio, on a tablet on its side or wider
+//                      (ROOMY, slots.js), the Studio's
+//                      GRAB and its ▾, put there through its slot
+//                      (ctx.barSlot, place 'verb'), whatever plays
 //   the modes          ⟲ (Loop for the tape, Repeat for a take); the
 //                      metronome is the Studio's, in the tempo's panel
 //   the end            laid out first so nothing pushes it off: ⏏ back to
@@ -114,7 +119,7 @@ export const TEMPLATE = `<button data-part="grabber" class="np-grabber" type="bu
       <button data-part="back5" class="icon-btn np-back5" type="button" aria-label="Back 5 seconds" aria-keyshortcuts="J" data-tip="back5" data-for="take feed away">${icon('back5')}</button>
     </div>
     <div class="np-zone np-verb" data-slot="verb">
-      <button data-part="feed-grab" class="icon-btn np-feed-grab" type="button" aria-label="GRAB from the live feed onto the Studio’s cue lane" data-tip="np-feed-grab" data-for="feed" data-mini="feed"><span class="np-grab-word">GRAB</span><span class="np-grab-sub">from the feed</span></button>
+      <button data-part="feed-grab" class="icon-btn np-feed-grab" type="button" aria-label="GRAB from the live feed onto the Studio’s cue lane" data-tip="np-feed-grab" data-for="feed-away" data-mini="feed"><span class="np-grab-word">GRAB</span><span class="np-grab-sub">from the feed</span></button>
     </div>
     <div class="np-zone np-modes" data-slot="modes" role="group" aria-label="Modes">
       <button data-part="loop" class="icon-btn tb-loop" type="button" aria-pressed="false" aria-keyshortcuts="L" data-tip="tape-loop" data-for="tape take feed"><span class="loop-face">${icon('repeat', { size: 16 })}<span class="loop-word">Loop</span></span></button>

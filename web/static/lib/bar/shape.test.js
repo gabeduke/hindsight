@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { cssOf, decls, fileCss, linksOf, rules, stripComments } from '../stylesheets.js';
 import { fakeDoc, parseHTML } from '../play/fake-dom.js';
 import { fill } from '../components/transport/index.js';
-import { SLOTS, SOURCES, slotOf, putIn, barSize, hereWord, measureBar, deviceOf, partOf, PHONE, COARSE } from './slots.js';
+import { SLOTS, SOURCES, slotOf, putIn, barSize, hereWord, measureBar, deviceOf, partOf, PHONE, COARSE, ROOMY } from './slots.js';
 
 const bar = fileCss('css/bar.css');
 const barRules = rules(bar);
@@ -24,7 +24,7 @@ const page = (name) => {
 };
 const shell = page('shell.html');
 const wave = page('wave.html');
-const FOR = new Set(['tape', 'studio', 'away', 'take', 'feed']);
+const FOR = new Set(['tape', 'studio', 'away', 'take', 'feed', 'feed-away']);
 
 test('every page with the bar takes its stylesheet, after the chrome', () => {
   for (const p of ['shell.html', 'wave.html']) assert.deepEqual(linksOf(p), ['/objects.css', '/styles.css', '/css/chrome.css', '/css/bar.css', '/css/notes.css', '/css/rooms-motion.css'], p);
@@ -203,4 +203,12 @@ test('partOf finds a part inside the root it is given, by its name, and nowhere 
   elsewhere.id = 'np-elsewhere';
   doc.body.append(elsewhere);
   assert.equal(part('elsewhere'), null);
+});
+
+test('ROOMY is the bar’s widest-but-one row, from the screen: its 960 px and its padding either side', () => {
+  const row = Number(/@container bar \(min-width: (\d+)px\)[^{]*\{[^}]*--deck-w: clamp\(320px/.exec(stripComments(bar))?.[1]);
+  assert.equal(row, 960, 'the row that draws the deck as the kit does');
+  const pad = decls(barRules.find((r) => r.sel.length === 1 && r.sel[0] === '.np').body).find((d) => d.prop === 'padding').value;
+  const side = Number(/^\S+\s+(\d+)px/.exec(pad)?.[1]);
+  assert.equal(ROOMY, `(min-width: ${row + 2 * side}px)`);
 });

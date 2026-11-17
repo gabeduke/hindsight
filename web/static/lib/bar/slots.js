@@ -68,6 +68,15 @@ export function hereWord({ phone = false, coarse = false } = {}) {
  */
 export const PHONE = '(max-width: 699.98px), (orientation: landscape) and (max-height: 440px)';
 
+/**
+ * ROOMY is a screen whose bar is a tablet's on its side or wider:
+ * css/bar.css's row of 960 px (`@container bar (min-width: 960px)`) and the
+ * bar's 14 px either side. There its end has room beside the verb for a
+ * take's ⏏ Open › ✎, so the Studio puts its GRAB in the verb
+ * (lib/buffer/buffer.js); narrower, GRAB stays in the feed's keys.
+ */
+export const ROOMY = '(min-width: 988px)';
+
 /** COARSE is a finger for a pointer: THIS TABLET, wider than a phone. */
 export const COARSE = '(pointer: coarse)';
 

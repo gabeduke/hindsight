@@ -50,26 +50,32 @@ export default {
     await t.given('the Studio is open', () => page.goto(`${t.base}/tape.html`));
     const grab = page.locator('.buffer-grab-key').first();
     await grab.waitFor({ state: 'visible' });
+    // Where GRAB is: the bar's verb on a tablet on its side or a desktop, so
+    // the bar has no empty middle; beside KEEP in the feed's keys on a phone.
+    const home = await page.evaluate(() => (document.querySelector('#np .buffer-grab-key') ? 'bar' : document.querySelector('.studio-keys .buffer-grab-key') ? 'feed' : null));
+    t.expect(t.profile === 'phone' ? 'GRAB is beside KEEP, in the feed’s keys' : 'GRAB is in the bar, its verb', home === (t.profile === 'phone' ? 'feed' : 'bar'), { home });
     await t.step('GRAB’s ▾', () => t.tap(page.locator('.buffer-grab-more')));
     // The bars once opened about 370 px left of the finger: the inputs' row
     // makes the panel wide, and the bars sat at its far end. On a phone the
     // panel is wider than the room left of the ▾, so it spans the screen
     // under it instead, and its bars cross the finger's line. By the device,
     // not the page's shape: a tablet in the phone's shape is the regression.
+    // On a tablet or a desktop GRAB is the bar's verb, at the foot of the
+    // screen, so its panel opens above it.
     const phone = t.profile === 'phone';
     const where = await page.evaluate(() => {
       const r = (sel) => document.querySelector(sel).getBoundingClientRect();
       const more = r('.buffer-grab-more'), pop = r('.buffer-grab-pop'), bars = r('.buffer-grab-pop .buffer-bars');
       return {
-        pop: Math.round(pop.right - more.right), bars: Math.round(more.right - bars.right), under: Math.round(pop.top - more.bottom),
+        pop: Math.round(pop.right - more.right), bars: Math.round(more.right - bars.right), under: Math.round(pop.top - more.bottom), over: Math.round(more.top - pop.bottom),
         on: pop.left >= 0 && pop.right <= innerWidth, across: bars.left <= more.right && bars.right >= more.left,
       };
     });
     t.expect(phone ? 'its bars open under the ▾, across the finger’s line, the panel on the screen'
-      : 'its bars open under the ▾, by the finger, the panel’s right edge on the ▾’s',
-    where.under >= 0 && where.under <= 12 && (phone
-      ? where.on && where.across
-      : Math.abs(where.pop) <= 2 && where.bars >= 0 && where.bars <= 60), where);
+      : 'its bars open over the ▾ in the bar, by the finger, the panel’s right edge on the ▾’s',
+    phone
+      ? where.under >= 0 && where.under <= 12 && where.on && where.across
+      : where.over >= 0 && where.over <= 12 && Math.abs(where.pop) <= 2 && where.bars >= 0 && where.bars <= 60, where);
     await t.step('tap 2 bars', () => t.tap(page.locator('.buffer-grab-pop .buffer-bars button[data-n="2"]')));
     t.expect('GRAB says it takes 2 bars, from the armed track’s input', await t.poll(() => {
       const k = document.querySelector('.buffer-grab-key')?.textContent ?? '';

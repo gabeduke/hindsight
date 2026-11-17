@@ -153,8 +153,13 @@ const slots = {
   // so (data-docked), whichever room's it is.
   dock: { parent: () => $('np-dock'), before: () => $('np'), onShown: (who, on) => { docked.set(who, on); layout.set({ docked: [...docked.values()].some(Boolean) }); } },
   // The bar: its strip ([data-slot="strip"]) is a place a room fills, the
-  // Studio with its overview, at the strip's start.
-  bar: { parent: () => $('np'), places: { strip: () => $('np')?.querySelector('[data-slot="strip"]') } },
+  // Studio with its overview, at the strip's start; and its verb
+  // ([data-slot="verb"]), the Studio's GRAB on a
+  // tablet on its side or wider.
+  bar: { parent: () => $('np'), places: {
+    strip: () => $('np')?.querySelector('[data-slot="strip"]'),
+    verb: () => $('np')?.querySelector('[data-slot="verb"]'),
+  } },
 };
 
 const shared = { engine, barLayout: layout, tapeKeys: tapeKeys.api, openOutput, tapes, takes, tape, toast, link, layers, notes, go: (url, opts) => router.go(url, opts) };

@@ -327,14 +327,19 @@ func TestWatcherDropsTheBacklogItFindsOnOpen(t *testing.T) {
 		wr.Write([]byte{ClockByte})
 		time.Sleep(5 * time.Millisecond)
 	}
+	written := time.Since(start)
 	waitFor(t, "live pulses", func() bool { return clock.Pulses() >= 120 })
 
 	got, ok := clock.BPM(start.Add(-time.Second), time.Now())
 	if !ok {
 		t.Fatal("BPM refused after the drain window")
 	}
-	if math.Abs(got-500) > 150 {
-		t.Errorf("BPM = %.1f, want roughly 500; the backlog is still being counted", got)
+	// Against the tempo actually written, as the timestamps test is: on a
+	// loaded runner the sleeps run long (CI measured 300.8 and 334.4 BPM),
+	// and a backlog still counted would read far above what was played.
+	want := 60 / (24 * written.Seconds() / 120)
+	if math.Abs(got-want) > want*0.3 {
+		t.Errorf("BPM = %.1f, want roughly the %.1f written; the backlog is still being counted", got, want)
 	}
 }
 
