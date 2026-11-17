@@ -1985,7 +1985,7 @@ body.help-mode main { margin-bottom: calc(var(--tip-h, 0px) + 24px); }
 .out-measured .lcd { flex: none; white-space: nowrap; padding: 3px 8px; border-radius: 7px; font-weight: 600; font-size: 14px;
   background: var(--lcd); color: var(--lcd-ink); box-shadow: inset 0 2px 5px var(--lcd-edge), inset 0 0 0 1px var(--lcd-edge), 0 1px 0 var(--hl);
   text-shadow: 0 0 7px color-mix(in srgb, var(--lcd-ink) 60%, transparent); }
-.tape-ruler-row { display: grid; grid-template-columns: var(--tt-head-w) 1fr; gap: 6px; }
+.tape-ruler-row { display: grid; grid-template-columns: var(--tt-head-w, 112px) 1fr; gap: 6px; }
 .tape-ruler-gap { display: flex; align-items: center; justify-content: flex-end; }
 .view-fit { min-height: 26px; padding: 0 9px; font-size: 11px; }
 /* Beside the ruler, in the track heads' width: ⌗, the View menu's key,
@@ -2056,19 +2056,19 @@ body.tape-page > main.tape-main { flex: 1 0 auto; width: 100%; }
 .tape-tempo-row input { width: 5.5em; min-height: 36px; padding: 0 8px; font: 14px var(--mono); }
 .tape-overview { width: 100%; height: 40px; display: block; cursor: pointer; }
 .tape-lanes { display: flex; flex-direction: column; gap: 6px; }
-.tape-track, .cue-row { display: grid; grid-template-columns: var(--tt-head-w) 1fr; gap: 6px; align-items: stretch; }
+.tape-track, .cue-row { display: grid; grid-template-columns: var(--tt-head-w, 112px) 1fr; gap: 6px; align-items: stretch; }
 /* The well: the sections, the ruler, the cue lane and the tracks. Their
    heads are a column of cards on the page; their lanes are one dark
    surface down the right, the gaps between the rows the well's own colour,
    so the light scheme shows one dark well and not a stripe per row.
    --tt-head-w is the heads' column, each row's first; the well starts past
    it and the rows' 6 px gap, painted as the well's background so nothing
-   is layered under the rows. */
+   is layered under the rows. A row outside the well (the object bench's)
+   has the phone's 112, the fallback wherever the token is read. */
 .tape-well {
-  --tt-head-w: 112px;
   display: flex; flex-direction: column; gap: 10px;
   border-radius: 0 8px 8px 0;
-  background: linear-gradient(to right, transparent calc(var(--tt-head-w) + 6px), var(--lane) 0);
+  background: linear-gradient(to right, transparent calc(var(--tt-head-w, 112px) + 6px), var(--lane) 0);
 }
 
 /* The Cue lane sits above track 1 for staging and auditioning clips */

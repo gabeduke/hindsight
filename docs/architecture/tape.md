@@ -665,9 +665,9 @@ steps 7a and 7b took them there from 44 and 27. The review of 2026-10-22 counted
 
 **The well** (`shell.html` `.tape-well`; `styles.css`, *The well*) holds
 the sections, the ruler, the cue lane and the tracks. Each is a row of two
-columns: its head, `--tt-head-w` wide (112 px on a phone, 136, 160 from
-700 px and 200 from 1400: the well's one token, which every row's grid
-reads), then its lane. The heads are cards on the page; down the right the
+columns: its head, `--tt-head-w` wide (112 px on a phone, 136 from 481,
+160 from 700 and 200 from 1400: the well's one token, which every row's
+grid reads, 112 where it is unset), then its lane. The heads are cards on the page; down the right the
 well paints `--lane` behind the lanes and the gaps between them, so the
 light scheme shows one dark surface, not a black stripe per row
 (2026-11-17).
