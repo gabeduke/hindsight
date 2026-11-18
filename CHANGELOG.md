@@ -5,6 +5,12 @@ Releases are cut automatically on every merge to `main`. Versions are dated:
 
 <!-- new releases are inserted directly below this line -->
 
+## v2026.11.18.1 — 2026-11-18
+
+- A tape with no tempo yet doesn't count its click against a source: it has no beats to click on (d434289e)
+- The click plays on a bus the input you record from can't hear, and MAIN warns that it hears the click (0c2eea06)
+
+
 ## v2026.11.17.2 — 2026-11-17
 
 - Tests: the MIDI backlog test checks the tempo it actually wrote, so a slow CI runner can't fail it (cea54acd)
