@@ -185,7 +185,7 @@ func (e *Engine) TapPairs(id string, pairs []Pair, ns int64) (TapResult, error) 
 		if err != nil {
 			return TapResult{}, err
 		}
-		clips[p.src.Name] = Clip{File: rel, Src: start - lo, Frames: frames, Source: p.src.Name, Clean: cleanOf(t, p.src), PeakDB: peakDB(peak)}
+		clips[p.src.Name] = Clip{File: rel, Src: start - lo, Frames: frames, Source: p.src.Name, Clean: e.cleanOf(t, p.src), PeakDB: peakDB(peak)}
 	}
 	var placed Clip
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {

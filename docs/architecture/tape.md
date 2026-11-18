@@ -291,9 +291,15 @@ played: every wrap in the position map is marked as one, so a span that went
 round the loop is split at the loop as it was then, even if it has moved
 since. ■ during a punch stops the tape before the catch is written.
 
-**The click** is rendered into bus A by the mix: a 25 ms sine blip on each
-beat line, higher on the bar. It's on for a new tape and goes off with the
-first audio; the count-in clicks whatever the setting. In the Studio it is
+**The click** is rendered by the mix: a 25 ms sine blip on each beat line,
+higher on the bar. It's on for a new tape and goes off with the first audio;
+the count-in clicks whatever the setting. It plays on the first bus, A then
+B, that no source being recorded from hears (`click.go`, `clickBusFor`): a
+punch's or an armed ● Rec's inputs, otherwise the armed tracks' inputs. On
+the Sidekick, recording from CH1, which hears bus A, puts the click on B.
+MAIN hears both buses, so there it stays on A and lands on the recording;
+`cleanOf` counts the click, so MAIN shows "tape in it" in the input picker
+and the rig while the click is on, and the clip records `clean: false`. In the Studio it is
 the Click in the tempo's panel, and M (`bar.md`, *The Studio's keys*).
 
 **Free loops** (`tap.go`). A tap is timed when it reaches the Pi, and the

@@ -989,14 +989,17 @@ func (e *Engine) UndoDepth() (undo, redo int) {
 func (e *Engine) rebuild() {
 	e.rebuildMu.Lock()
 	defer e.rebuildMu.Unlock()
+	rec := e.Recording() // before mu: Record takes recMu, then mu
 	e.mu.Lock()
 	var st State
 	var id string
 	var length int64
 	var click bool
+	clickBus := 0
 	keep := map[string]bool{}
 	if t := e.tape; t != nil {
 		st, id, length, click = t.State.clone(), t.ID, t.Length, t.Click
+		clickBus = clickBusFor(e.recordingFrom(t, rec))
 		// Keep what one undo or redo would play, so it's heard at once.
 		st.files(keep)
 		if n := len(t.History); n > 0 {
@@ -1008,7 +1011,7 @@ func (e *Engine) rebuild() {
 	}
 	e.mu.Unlock()
 	m := NewMix(st, e.pool, e.store.SampleRate())
-	m.tapeID, m.length, m.click = id, length, click
+	m.tapeID, m.length, m.click, m.clickBus = id, length, click, clickBus
 	// The same tape with the loop off, for a mixdown's straight pass: no
 	// seam joins Out to In there.
 	straight := st
@@ -1407,7 +1410,7 @@ func (e *Engine) catchSpan(t *Tape, pairs []tracked, outFrom uint64, frames, at 
 			return nil, err
 		}
 		clips[p.src.Name] = Clip{File: rel, Src: ringFrom + over - lo, Frames: frames, At: at, Source: p.src.Name,
-			Clean: cleanOf(t, p.src), Aligned: aligned, PeakDB: peakDB(peak)}
+			Clean: e.cleanOf(t, p.src), Aligned: aligned, PeakDB: peakDB(peak)}
 	}
 	placed := make([][]Clip, len(pairs))
 	err = e.Edit(id, "", func(tp *Tape, s *State) error {
@@ -1427,20 +1430,6 @@ func (e *Engine) catchSpan(t *Tape, pairs []tracked, outFrom uint64, frames, at 
 		return nil, err
 	}
 	return placed, nil
-}
-
-// cleanOf says whether nothing on the tape plays into a source: no unmuted
-// track with clips on a bus it hears. What Clip.Clean records, and the rig's
-// warning is worked out from.
-func cleanOf(t *Tape, src Source) bool {
-	for _, b := range src.Leaks {
-		for _, tr := range t.Tracks {
-			if tr.Bus == b && len(tr.Clips) > 0 && !tr.Mute {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // ringSpan is the ring frame that heard output frame outFrom, for a span of
@@ -1749,15 +1738,7 @@ func (e *Engine) Sources() []SourceState {
 		if pk != nil && s.Pair[0] < len(pk) && s.Pair[1] < len(pk) {
 			st.PeakDB = peakDB(math.Max(pk[s.Pair[0]], pk[s.Pair[1]]))
 		}
-		if t != nil {
-			for _, b := range s.Leaks {
-				for _, tr := range t.Tracks {
-					if tr.Bus == b && len(tr.Clips) > 0 && !tr.Mute {
-						st.Clean = false
-					}
-				}
-			}
-		}
+		st.Clean = e.cleanOf(t, s)
 		out = append(out, st)
 	}
 	return out
