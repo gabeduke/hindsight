@@ -71,7 +71,7 @@ func (e *Engine) cleanOf(t *Tape, src Source) bool {
 			}
 		}
 	}
-	if t.Click {
+	if t.Click && t.Grid != nil { // no tempo, no beats to click on
 		bus := 0
 		if m := e.mix.Load(); m != nil && m.tapeID == t.ID {
 			bus = m.clickBus

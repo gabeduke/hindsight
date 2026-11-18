@@ -123,3 +123,17 @@ func TestClickBusFor(t *testing.T) {
 		}
 	}
 }
+
+// A tape with no tempo yet has no beats: its click is on, but nothing
+// clicks, so it leaks into no source.
+func TestATapeWithNoTempoHasNoClickToHear(t *testing.T) {
+	e, _, _ := newEngine(t)
+	if tp := e.Loaded(); !tp.Click || tp.Grid != nil {
+		t.Fatalf("want a new tape with the click on and no tempo: click %v grid %v", tp.Click, tp.Grid)
+	}
+	for _, s := range e.Sources() {
+		if !s.Clean {
+			t.Fatalf("%s isn't clean on a tape with no tempo", s.Name)
+		}
+	}
+}
