@@ -170,7 +170,10 @@ type Mix struct {
 	tapeID string
 	length int64
 	grid   *Grid
-	click  bool // the metronome on bus A while playing
+	click  bool // the metronome while playing
+	// clickBus is the bus the click and the count-in play on (0 = A, 1 =
+	// B): one the sources being recorded from don't hear (clickBusFor).
+	clickBus int
 	// straight is this mix with the loop off, for a pass straight through
 	// Out (a mixdown's); nil in a mix that is one.
 	straight *Mix
@@ -406,7 +409,8 @@ func (m *Mix) declickEdges(dst []float32, pos int64, n int, from, to int64) {
 	}
 }
 
-// The click: a short sine blip on every beat, higher on the bar, on bus A.
+// The click: a short sine blip on every beat, higher on the bar, on the
+// mix's clickBus.
 const (
 	clickSeconds = 0.025
 	clickLevel   = 0.25
@@ -445,7 +449,7 @@ func (m *Mix) renderClick(dst []float32, pos int64, n int) {
 		from, to := max64(pos, at), min64(pos+int64(n), at+length)
 		for f := from; f < to; f++ {
 			v := m.clickAt(f-at, b%BeatsPerBar == 0)
-			i := int(f-pos) * OutChannels
+			i := int(f-pos)*OutChannels + m.clickBus*2
 			dst[i] += v
 			dst[i+1] += v
 		}
@@ -465,7 +469,7 @@ func (m *Mix) renderCountIn(dst []float32, k int64, n int) {
 		from, to := max64(k, at), min64(k+int64(n), at+length)
 		for f := from; f < to; f++ {
 			v := m.clickAt(f-at, b == 0)
-			i := int(f-k) * OutChannels
+			i := int(f-k)*OutChannels + m.clickBus*2
 			dst[i] += v
 			dst[i+1] += v
 		}

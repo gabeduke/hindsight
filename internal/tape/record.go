@@ -124,6 +124,15 @@ func (e *Engine) RecordPairs(id string, pairs []Pair, replace bool) (Recording, 
 	if _, err := e.resolve(t, pairs); err != nil {
 		return Recording{}, err
 	}
+	r, err := e.startRecording(id, pairs, replace)
+	if err == nil {
+		e.rebuild() // the click moves off the buses these inputs hear
+	}
+	return r, err
+}
+
+// startRecording is RecordPairs's part under recMu.
+func (e *Engine) startRecording(id string, pairs []Pair, replace bool) (Recording, error) {
 	e.recMu.Lock()
 	defer e.recMu.Unlock()
 	if err := e.jamOnly(); err != nil { // a switch to a phone may have come in since
@@ -219,6 +228,9 @@ func (e *Engine) endRecordingAt(id string, cancel bool, end uint64) (*Kept, erro
 	if r == nil {
 		return nil, ErrNotRecording
 	}
+	// The click goes back to where the armed tracks' inputs put it, after
+	// what the punch covered is caught (its clips say whether it was in them).
+	defer e.rebuild()
 	if cancel || r.State != "on" {
 		return nil, nil
 	}
