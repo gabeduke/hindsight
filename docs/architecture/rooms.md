@@ -24,9 +24,9 @@ loop).
 
 Every key names its object: *KEEP 2m*, *GRAB 4 BARS*, *Drop on track 2 ·
 bars 1–4*, *CATCH LAST PASS*. Audio on a track is a **part**; what sits on
-the cue lane is a **cue clip**. (In the code and these docs it is a cue
-clip; on screen `lib/rooms/words.js` still turns *clip* into *part*, so it
-reads *cue part*.) Words that mean these things are retired: the clipboard is
+the cue lane is a **cue part** on screen. (The code and the developer docs
+call it a cue clip; `lib/rooms/words.js` turns *clip* into *part* wherever a
+person reads it.) Words that mean these things are retired: the clipboard is
 unseen, a range's Cut, Copy and Paste's alone (what GRAB fills is the **cue
 lane**); the ring is the **feed** (*Feed length* in Settings); a flag is a
 **note**; a bounced *record* is just a take; Capture, Save as take and Cut
