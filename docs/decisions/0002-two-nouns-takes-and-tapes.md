@@ -10,8 +10,10 @@ playing as you move around; Open is the one page to dig in; the bar is the
 only transport. The other words are retired (audio on a track is a part,
 the ring is the feed, a flag is a note, Mix down and Cut a record are
 BOUNCE), and `lib/rooms/words.test.js` holds the retired list. What sits on
-the cue lane is a **cue clip**, the one place "clip" is used; the clipboard
-is a range's Cut, Copy and Paste's, and nothing shows it.
+the cue lane is a **cue part** on screen: the code calls it a clip
+(`lib/tape/cuelane.js`, "cue clip" in these docs' older lines), and
+`lib/rooms/words.js` shows "part" for it, as for audio on a track. The
+clipboard is a range's Cut, Copy and Paste's, and nothing shows it.
 
 ## Gabe's words
 
