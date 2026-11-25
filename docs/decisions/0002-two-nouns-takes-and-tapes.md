@@ -7,10 +7,11 @@
 There are two nouns: a **take** is anything you kept, a **tape** is what you
 build on. A tap on a take plays it, anywhere, in the bar, and it keeps
 playing as you move around; Open is the one page to dig in; the bar is the
-only transport. The other words are retired (a clip on a track is a part,
-the clipboard is the buffer, the ring is the feed, a flag is a note, Mix
-down and Cut a record are BOUNCE), and `lib/rooms/words.test.js` holds the
-retired list.
+only transport. The other words are retired (audio on a track is a part,
+the ring is the feed, a flag is a note, Mix down and Cut a record are
+BOUNCE), and `lib/rooms/words.test.js` holds the retired list. What sits on
+the cue lane is a **cue clip**, the one place "clip" is used; the clipboard
+is a range's Cut, Copy and Paste's, and nothing shows it.
 
 ## Gabe's words
 

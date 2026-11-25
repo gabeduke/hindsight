@@ -6,8 +6,10 @@ Gabe); its HTTP API removed 2026-10-18.
 ## Decision
 
 The crate stops being shown; its clips stay on the Pi, nothing converted or
-deleted. GRAB's safety net is an Undo instead: the Pi keeps one replaced
-grab for it, not a growing crate. Records aren't written any more
+deleted. The safety net is an Undo instead, not a growing crate: GRAB
+lands on the cue lane and replaces only the newest untouched grab, which the
+tape's Undo brings back, and a Cut or Copy that replaces the clipboard keeps
+the one it replaced (`internal/tape/replaced.go`). Records aren't written any more
 (`Meta.Record` on existing takes is ignored, not migrated): a bounce is a
 take. The ring stays in the code and in `RING_SECONDS`, never on screen,
 where it is *the feed*. The crate's HTTP API was removed on 2026-10-18

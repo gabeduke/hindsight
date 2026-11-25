@@ -5,11 +5,12 @@
 ## Decision
 
 A UI change is looked at in a browser, against the demo, before it merges:
-at phone and desktop size, in both schemes, with its flag on and off.
+at phone and desktop size, in both schemes, and with its flag on and off if
+it has one.
 
 ## Why
 
-Play mode merged having never been rendered, because the sandbox it was
+In 2026-10, Play mode merged having never been rendered, because the sandbox it was
 built in couldn't run the server. The first look found that it couldn't open
 at all (its overlay shared the ▶ key's id), that its keys moved the record
 track on the Pi, and a full-screen blank sheet on phones. The node tests

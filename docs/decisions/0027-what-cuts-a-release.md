@@ -6,8 +6,8 @@
 
 `paths` in `release.yml` is an allow-list of what ships: `cmd/`,
 `internal/`, `go.mod`, `go.sum`, `web/`, `deploy/` (not the hub's manifests
-in `deploy/hub`, apart from its Dockerfile) and `docs/guide.md`, which the
-binary embeds. A merge touching none of them cuts nothing. A release ships
+in `deploy/hub`, apart from its Dockerfile), and `docs/guide.md` with
+`docs/embed.go`, which embeds it in the binary. A merge touching none of them cuts nothing. A release ships
 twice over: the hub is redeployed at once and every kit's Update button
 offers it, so a merge of code is a deployment. A new file that ships goes on
 the list; `scripts/test-release-scripts.sh` fails if the archive packs

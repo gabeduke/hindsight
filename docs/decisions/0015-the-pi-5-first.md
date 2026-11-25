@@ -1,17 +1,22 @@
 # 0015. The instrument targets the Pi 5
 
-**Date:** 2026-10-26 (`docs/plan/the-instrument.md`, *Decisions*).
+**Date:** 2026-10-26 (`docs/plan/the-instrument.md`, *Decisions*); narrowed
+to the Pi 5 alone by Gabe on 2026-10-28, recorded 2026-11-24.
 
 ## Decision
 
-The instrument's target is the Pi 5. The Pi 4B stays supported: the same
-build, with larger buffers if its numbers say so, never a fork.
+The instrument's target is the Pi 5. Latency, buffer and headroom decisions
+consider only the Pi 5. A Pi 4 runs the same build, untuned, never a fork.
+
+## Gabe's words
+
+*"ignore the pi4 and only consider the pi5"*
 
 ## Why
 
-The spec gives the target, not its reasons; the performance mode's numbers
-are chosen from step 1's measurements on both Pis.
+The main rig is a Pi 5, and the Pi 4's headroom was being used as a reason
+to keep latency high.
 
 ## What it rules out
 
-A Pi 4B fork; tuning the performance path for the Pi 4B first.
+A Pi 4 fork; sizing a buffer or choosing a default for the Pi 4.

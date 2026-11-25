@@ -7,9 +7,10 @@ rule since 2026-10-14 (5564ab5b).
 
 A change to the tape (its mods, an edit) is one undo step. Tricks and
 punch-in FX are held-only: they last while a pad is held and never touch
-undo or the tape. Any momentary gesture bypasses undo. `lib/play/` is a
-performance surface, and Play mode has been audible on that footing since
-v2026.10.15.3.
+undo or the tape. Any momentary gesture bypasses undo. The performance
+surfaces are a controller's pads (`internal/tape/trick.go`) and a cue clip's
+launch; both have been held-only and outside undo since v2026.10.15.3 (Play
+mode's strip played the pads on the web until 2026-10-30).
 
 ## Why
 

@@ -6,8 +6,7 @@
 
 Wherever a person reads it, a take is named by `takeTitle`
 (`lib/rooms/takename.js`): its name, or the time on its spine. Never its
-file or its date stamp on screen (Open's page is the one still to move, in
-Open's pass).
+file or its date stamp on screen.
 
 ## Why
 

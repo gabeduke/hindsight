@@ -5,9 +5,9 @@
 
 ## Decision
 
-The app draws in DOM, SVG and canvas. three.js is only for the Rig, loaded
-lazily, behind a flag, as one pinned ES module under
-`web/static/vendor/three/`. The studio as a place is CSS 3D transforms and
+The app draws in DOM, SVG and canvas. three.js is not vendored; if the Rig
+ever needs it, it comes in lazily, behind a flag, as one pinned ES module
+under `web/static/vendor/three/`. The studio as a place is CSS 3D transforms and
 View Transitions on the compositor, not a 3D engine.
 
 ## Why
