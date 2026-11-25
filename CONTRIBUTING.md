@@ -13,8 +13,8 @@ pull request.
 
 Open an issue on this repo for each idea: what you want to do, and the moment
 in a session when you'd want it ("after a long jam I want to find the bit
-where we found the groove"). Gabe decides which ideas go ahead and in what
-order. Please don't open pull requests for ideas that haven't been picked;
+where we found the groove"). The maintainer decides which ideas go ahead and
+in what order. Please don't open pull requests for ideas that haven't been picked;
 a pile of open pull requests is hard to review and goes stale fast.
 
 A bug can go straight to a pull request if it is small and comes with a
@@ -23,7 +23,7 @@ regression test (see *4*).
 ## 2. Agree a spec before the code
 
 For anything bigger than a bug fix, write a short spec in `docs/plan/` and
-agree it with Gabe on the issue before building
+agree it with the maintainer on the issue before building
 ([0057](docs/decisions/0057-specs-before-code.md)). A spec merges on its own,
 cuts no release, and is cheap to change. It says:
 
@@ -38,8 +38,8 @@ cuts no release, and is cheap to change. It says:
   another player) isn't accepted, even if it is kept "in step" by a test.
 - **Where it shows up.** Which room, which key, which menu, checked against
   *Where things live in the UI* in `AGENTS.md`. If it needs an exception to a
-  decision in `docs/decisions/`, the spec asks for it outright; that's Gabe's
-  decision ([0021](docs/decisions/0021-exceptions-are-gabes-decision.md)).
+  decision in `docs/decisions/`, the spec asks for it outright; that's the
+  maintainer's decision ([0021](docs/decisions/0021-exceptions-are-gabes-decision.md)).
 - **The build order**, as a short list of pull requests.
 
 A foundation that several features share (a new file format, a background
