@@ -162,6 +162,7 @@ which is also what lets the Phone button record.
 | [docs/api.md](docs/api.md) | The HTTP API |
 | [docs/architecture.md](docs/architecture.md) | How it is put together, one file per area, and the traps it avoids |
 | [docs/decisions/](docs/decisions/README.md) | Why: one record per decision Gabe made or rule the project learnt |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How an idea becomes a merged change: issue, spec, one whole feature per pull request |
 | [docs/development.md](docs/development.md) | Building, testing, deploying, and the hardware probes |
 | [docs/hub.md](docs/hub.md) | The hub: a real HTTPS name and certificate for a Hindsight on any network |
 | [docs/midi-first-run.md](docs/midi-first-run.md) | Checking MIDI capture the first time on a rig |
