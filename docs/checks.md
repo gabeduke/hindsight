@@ -16,6 +16,9 @@ checks were cut for it.
 Covered by flows: KEEP (J1.1), Flag now riding into the next take (J1.2),
 a span on the ribbon (J1.3), the header's ☰ and its sheets (J5.1).
 
+- [demo] Tap **KEEP** with 30s chosen → the take is first on the shelf with
+  *NEW* and about 30 s long (J1.1 doesn't check the badge or the length).
+
 - [demo] Add or edit a note on an old take, then reload → the take is still
   where it was in the list, not at the top.
 - [demo] Open the same take on two devices and add a different note on each
@@ -63,8 +66,10 @@ a span on the ribbon (J1.3), the header's ☰ and its sheets (J5.1).
 
 Covered by flows: a tap on a spine plays it and the take plays on between
 rooms (J2.2), the bar's sources (J2.3), ✎ on the bar (J2.4), Open › and ★
-(J2.5), hold a spine, delete, Undo (J2.6), the search (J2.7), Play all
-(J2.8).
+(J2.5), hold a spine, delete, Undo (J2.6), the search (J2.7). Play all
+(J2.8) has no flow yet and no check here.
+
+- [demo] Tap a playing spine again → it pauses (J2.2 doesn't check it).
 
 - [demo] Search, then turn on ★ with nothing starred → "No takes match",
   not "No takes yet".

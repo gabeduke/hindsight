@@ -64,7 +64,7 @@ A few rules hold the page together:
 ## Open
 
 How the page is laid out (flows J2.5, J2.9, J3.1; what is still to do on
-it is #316 and Open's pass):
+it is Open's pass, which has no issue yet, and its selection bar, #316):
 
 - **The header** is the frame's (`css/chrome.css`): ‹ Takes, the take's
   name (its menu: Rename…, Previous and Next take, the downloads, Reset
