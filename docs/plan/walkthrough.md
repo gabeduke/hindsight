@@ -2,7 +2,7 @@
 
 Notes from the walkthrough of 2026-10-30, talked through rather than
 marked up. These are the stories in Gabe's words, condensed, each with
-the component it lands on (`docs/plan/the-ecosystem.md`). Nothing here
+the component it lands on (`docs/plan/components.md`). Nothing here
 is decided yet; the decisions go at the end as they are agreed.
 
 ## Where the idea came from
@@ -22,7 +22,7 @@ was coming up with. Hindsight started there.
 - **Keep should be a slider, not a fixed length.** He always needs more
   tape than he has audio, so pruning is his first step every time. Save
   the clip he wants instead. (The ecosystem review's worksheet, row
-  `keep-last`; `the-ecosystem.md` links the review.)
+  `keep-last`; the review is linked under *Still to talk through*.)
 - Both reach back into the memory and take a piece: one move with two
   ends to drag and a choice of where it goes, the tape or the shelf.
   *Capture.*
@@ -133,7 +133,56 @@ was coming up with. Hindsight started there.
 
 ## Still to talk through
 
-The instrument's shape. Which actions must feel instant. Who leads the
-clock. Whether the laptop is a surface of its own. The six verbs. Who else
-uses a kit. Access control on the Pi's API. (`the-ecosystem.md`, *To
-settle*.)
+From the ecosystem review of 2026-10-29 (the spec, `the-ecosystem.md`, was
+deleted once its Direction B became `components.md`; `git log --
+docs/plan/the-ecosystem.md` has it). The review page, with its diagrams and
+mockups: [The Hindsight ecosystem](https://claude.ai/artifact/XTWpyKFHcn14cCzBE2cdCo);
+the mockups' canvas: [Hindsight · The kit](https://claude.ai/artifact/4fJSP7iBAvLS2uMuBJ4xhg).
+Both are private until Gabe shares them. The idea it tested: **limits for
+the hands, freedom for the screens**, an instrument layer of fixed shape
+(the SMK-37, other controllers, perhaps a Jam screen) and a workspace layer
+with the limits off, on one engine. A reading of what Gabe said, not a
+decision.
+
+**How Gabe plays**
+- His last real jam, minute by minute: what his hands touched, where his
+  eyes were.
+- When something good goes by, is the first move the keyboard, the tablet,
+  or nothing (sort it later)?
+- Could a whole session be played without touching the tablet? Should it?
+- Which actions must feel instant (pads, PLAY, knobs), which are fine at
+  50 ms, or a second?
+
+**The instrument**
+- What should it refuse to do? Which limits would he accept?
+- Is the tablet's Jam screen part of the instrument, or a view of it?
+- The keyboard's REC: punch-in on the armed track, or KEEP as now? Should
+  GRAB from the keyboard take the tape's output, not the room (`the-map.md`)?
+- Which controller gets a map next (FM-1, MPC Sample, POs, AKS Mini)?
+
+**Time**
+- The clock master: the tape (today), the MPC Sample or the Bento? Is
+  following a clock wanted?
+
+**Pruning**
+- The six verbs proposed: GRAB to your hand, KEEP to the shelf, DROP from
+  your hand, NOTE a mark in time, × let go, Export out of Hindsight. Do they
+  cover everything?
+- Capture as its own tab, Open as its own page, the Rig's cables: keep,
+  merge or cut?
+- Is the laptop a real surface, or desk work the tablet could do? The
+  tablet as workspaces (Jam, Build, Listen)?
+- Should the tablet mirror the keyboard (a pad strip, the Mixer page), and
+  hide it once learned?
+
+**Away, sharing, other people**
+- What does "away" mean: upstairs on the Wi-Fi, a friend's house with the
+  box, or offline with a phone or pocket gear?
+- Should takes, tapes or controller maps ever move between two Pis?
+- What may the hub do beyond names and certificates: installs, feature
+  switches, shared maps, share links?
+- Sharing: an MP3 through the share sheet, or a link to open and comment on?
+- Who else uses a kit, and do they see a different face, fewer features, or
+  the same app?
+- Should the Pi's API have any access control, with kits on other people's
+  networks?

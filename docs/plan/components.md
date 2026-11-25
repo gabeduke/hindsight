@@ -1,13 +1,14 @@
 # Components, models and the protocol
 
 > A spec, agreed 2026-10-30 (*For Gabe*, at the end). It works out the
-> ecosystem's steps 4 and 5 (`the-ecosystem.md`, Direction B) and the
-> protocol under them. Built so far: the verbs (#224), the takes model
-> (#225), and the tape's transport (#231), the first slice of the transport
-> model (no source, output or tempo verbs yet; they came with #244), the
-> tape model with the page's one poll of the tape (1b), and the foundations (6):
-> the contract, Guardrail 15, the protocol client for the takes, fixtures,
-> both models' `snapshot()`, and the harness. Gabe, 2026-10-30: *"get to a
+> ecosystem's steps 4 and 5 and the protocol under them. **Built:** the
+> contract (its section 1), the harness (section 4), the foundations, the
+> verbs (#224), the takes, tape and transport models, and **the Transport's
+> extraction** (row 1 below): what lasts is in
+> `docs/architecture/components.md` and `bar.md`. Those sections are cut
+> from here; `git log -- docs/plan/components.md` has them. **Left:** the
+> models still to build (#314), the protocol's push and refusals
+> (section 3), and rows 2 to 5 (#310–#313). Gabe, 2026-10-30: *"get to a
 > point where we're not trying to make changes to the entire app but to
 > small individual components in a more targeted way."*
 
@@ -61,166 +62,6 @@ flowchart TB
   COM -.-> UI
 ```
 
-## 1. The component contract
-
-**1.1 One signature.** Recommended:
-
-```js
-// lib/components/transport/index.js
-export default {
-  id: 'transport',
-  root: 'np',                              // the class on its root, where its css starts
-  needs: ['transport', 'tape', 'takes'],   // its models, by noun
-  css: 'css/bar.css',                      // its one stylesheet
-  mount(root, models, cx) {                // once per root
-    // …
-    return { show() {}, hide() {}, unmount() {} };   // each optional
-  },
-};
-```
-
-A surface mounts it with `mountComponent(def, root, models, ctx, props)`
-(`lib/components/mount.js`, built), which makes `cx` from the shell view's
-`ctx` (`lib/shell/view.js`) and answers `{ show, hide, unmount }`. It is the
-ecosystem's `mount(root, model, {layers, toast})` with the models plural
-(the Transport needs three) and `cx` for the options. As built, two things
-the first draft lacked: `root`, the class `mountComponent` puts on the root,
-which Guardrail 15 needs to know where the component's selectors start;
-and `props`, the callbacks and values the surface hands this one (1.3's
-"a callback the surface passed in", which the signature had no place for):
-
-| `cx` | What it is | From |
-|---|---|---|
-| `watch(model, fn)` | `fn(snapshot)` now and on each `onChange`; never while hidden, and on show once if the snapshot moved meanwhile; off on unmount | new, over the models' `onChange` |
-| `on(target, type, fn)` | a listener on `window` or `document` (a key), quiet while hidden | `ctx.on` |
-| `loop(fn)` | a step on the shared ticker, parked while hidden | `ctx.loop` |
-| `layers` | its share of the view's stack: what it opens closes on hide and unmount | `ctx.layers.scope()`: a scope of the view's scope, which `lib/ui/layers.js` gained for it |
-| `floor` | where its menus stop above the bar: the function `menu()` takes as its `floor` | `barTop()` (`lib/ui/menu.js`), which reads `#np` from anywhere; a view's `ctx` has no floor to give |
-| `toast`, `go` | words for a person; a move to another room | `ctx.toast`, `ctx.go` |
-| `id(name)` | the id of a part of it: its root's id and the name (`np` and `play` make `np-play`), for `aria-controls`, `<label for>` and the flows | new |
-| `props` | the surface's callbacks and values for it, frozen | `mountComponent`'s fifth argument |
-
-No `every` and no `socket`: polling and sockets are the models'.
-
-**1.2 The lifecycle.**
-
-- **mount** runs once per root. It fills the root from the component's
-  template, binds its keys, watches its models and draws from their
-  snapshots. It never waits on the network: a model with no answer yet
-  says so in its snapshot, and the component draws its empty state.
-- **show** and **hide** are the surface's, run inside the view's own (so
-  after the turn: `shell.md`, *Moving between rooms*). `mountComponent`
-  does the gating, so a component remembers nothing about being hidden:
-  its watchers, keys and loops go quiet on hide and wake on show, and its
-  layers close. Its own `show` measures; its own `hide` stops what it runs
-  outside `cx` (an audition). `mountComponent` mounts shown; in a view
-  that is mounted out of sight (decision 0048) the view's own `hide()`,
-  which runs before its first show, hides its components, and show
-  replays every watcher whose snapshot moved meanwhile.
-- **unmount** is real, unlike a view's `destroy`, which the router never
-  calls: a workspace that rearranges (the ecosystem's step 6) and the
-  harness (4) both unmount. `mountComponent` takes off everything that went
-  through `cx` and empties the root; the component's own `unmount` undoes
-  the rest (a `ResizeObserver`). Its test mounts, unmounts and mounts again
-  and counts listeners: a key bound twice is how Space once pressed ▶ twice
-  (`view.js`'s header).
-
-**1.3 Inside its root, and nowhere else.** A component reads its models'
-snapshots, watches them, calls their verbs, and draws inside `root`. It
-never:
-
-- fetches, opens a socket, or names a route (`/api/…`): that is a model's;
-- touches the DOM outside `root`: no `document.getElementById`,
-  `document.querySelector` or `document.body` (a drag's ghost, a sheet: a
-  `lib/ui` interface);
-- writes an id of its own: the surface gives the root its id, and every id
-  inside is `cx.id()`'s, made from it;
-- says or hears a page-wide event (`hindsight:*`): it calls a verb, or a
-  callback the surface passed in;
-- keeps a press machine, menu, layer or sheet of its own: taps, double taps
-  and holds are `pressMachine` or `bindPress` (`lib/ui/press.js`), menus
-  `menu()` or `splitKey()`, what opens goes on `cx.layers`, a sheet is
-  `createSheet`, a key's picture is `icon()`;
-- makes audio, or moves `location` or the history.
-
-**Its markup is its template**, in its module, cloned into the root. The
-bar's zones and `data-for` stay (decision 0047), but there is one copy of
-its keys where there are two now (`#np` is written out in `shell.html` and
-again in `wave.html`). A key is still declared in markup, in its slot,
-never appended by a script; it is named in the template (`data-part="play"`)
-and given its id at mount (`cx.id('play')`).
-
-**The flows keep finding it.** A root given the id `np` makes `#np-play`,
-`#np-grabber` and the rest as they are now, so the `#np…` ids the flows
-select (at least nineteen) stay. About a dozen of the bar's 45 ids don't
-start with `np` (`#position`, `#clock-out`, `#rec`, `#catch-pass`,
-`#catch-more`, `#click`, `#tape-overview`, `#out-strip` and its parts).
-They are renamed in the extraction (`#np-position`…), with each flow's
-selector and the LCD ids in the guardrail *Step 5a* moved to the new names
-in the same PR: the selectors change, never what a flow expects.
-
-**1.4 Its stylesheet.** A component is a place, so decision 0033 holds as it
-is: one file in `css/` per component (the Transport's is today's
-`css/bar.css`), linked by each page that arranges it, after `styles.css`,
-in `sw.js`'s `SHELL`, and read by tests through `cssOf(page)`. Three rules
-make it the component's alone:
-
-- **Scoped to its root.** Every selector in it starts at the root's class
-  (`.np`). Another stylesheet may name the root only to place it (the root
-  itself: where it sits, its size, `#np`'s view-transition name in
-  `css/rooms-motion.css`) or to lay out around it (`body:has(.np)`, as
-  `styles.css` keeps the toasts above the bar); never to style what is
-  inside it. `styles.css` does that once today, Play mode's toggle
-  (`.np > .play-toggle`), which goes with Play mode's flag.
-- **Laid out by its own width**: a container query on its root, as
-  `bar.css` already has on `.np-row-1`, never the viewport's `@media`,
-  which is a surface's. So the harness can mount it at any size and see
-  what a page would. `bar.css` has six viewport `@media` blocks today, and
-  sets the dock's `--dock-b` on `body`: the first become container queries,
-  the second goes to the surface's stylesheet. *Amended* (D1,
-  `architecture/bar.md`, *The Transport's extraction*, 2026-11-02): a viewport `@media` stays where
-  a container query can't say it: a height, an orientation or a
-  preference, or a rule on the root itself, which a container query never
-  styles. The Transport keeps its five in `css/bar.css` (5d); Guardrail 15
-  does not forbid them. `--dock-b` went to `styles.css` earlier.
-- **Told its state on its root**, never by the page's body classes:
-  `bar.css` keys rules on `body.player-open` (thirty times), `body.np-fold`,
-  `body.tape-page`, `body.shelf-page`, `body.main-page`, `body.wave-page`,
-  `body.selecting` and `body.notes-open`. They become attributes on the
-  root (`data-size` and `data-source` are already there), set from the
-  models and the surface. *Done for the bar* (5c, 5d): `data-room`,
-  `data-fold`, `data-open` and `data-docked`, and what lays the page out
-  around it (the player's sheet) in `styles.css`.
-
-All of that moves in the Transport's extraction.
-
-A component reads only tokens for its colours, type and materials
-(`the-play-look.md`), so a theme restyles it wherever it is mounted.
-
-**1.5 Enforced by directory, not by list.** `architecture.test.js` gains
-Guardrail 15, over every file in `lib/components/` (comments stripped, tests
-left out, as Guardrails 11 to 14 read them). It fails on:
-
-- `fetch(`, `WebSocket`, `connectSocket`, or a `'/api/` string;
-- `document.getElementById`, `document.querySelector`, `document.body`;
-- an `addEventListener` on `window` or `document`, and `setInterval`;
-- `hindsight:`, `new Audio`, `location.`;
-- an id written in (`id="`, or `.id =` given a string);
-- a `setTimeout` beside a `pointerdown` in one file (a hold of its own);
-- in its stylesheet, a selector that doesn't start at its root, and in any
-  other, a selector that reaches inside its root (`rules()`,
-  `lib/stylesheets.js`);
-- a component that doesn't export `{ id, root, needs, css, mount }`, or has
-  no harness check (`scripts/components/<id>.check.mjs`).
-
-As built, it also fails on `history.` (the spec's "moves `location` or the
-history") and on `setAttribute('id', …)`, and a component is
-`lib/components/<id>/index.js`, its id its directory's.
-
-Guardrails 12 and 13 (`pushState`, `aria-haspopup`) already cover it. The
-directory is new, so the guardrail starts green with nothing on a list: a
-module moves in only once it keeps every rule, and there is never an
-`OWN_*` list for it (decision 0021).
 
 ## 2. Models per noun
 
@@ -420,49 +261,6 @@ Today's routes are protocol 1.
   whose number is behind the Pi's offers the update, and calls nothing
   that has gone.
 
-## 4. The harness
-
-Recommended: **`scripts/components.mjs`**, beside `scripts/flows.mjs`, with
-its page, its server and one check per component in `scripts/components/`.
-Nothing under `scripts/` is in `release.yml`'s `paths`, so changing a check
-cuts no release.
-
-- **It mounts one component alone**, on fixture models:
-  `node scripts/components.mjs transport` mounts the Transport with each of
-  its fixtures (the tape stopped and playing, a take, the feed, a refusal)
-  in a bare page that links `styles.css`, `objects.css` and the component's
-  sheet, and nothing else. A change to the Transport is checked by that, in
-  seconds.
-- **No demo, no Go.** A small node server serves `web/static` read-only,
-  the harness page at `/__components/`, and `testdata/protocol/`.
-- **Sizes and schemes**: the phone (390×844), the Pixel tablet (1280×800),
-  1024×768 and the desktop (1440×900), from `PROFILES` in
-  `scripts/flows/harness.mjs`, each in light and dark.
-- **The flows' layout rules, imported, never copied**: `checkLayout` from
-  `scripts/flows/layout.mjs` (covered, offscreen, menu-offscreen, clipped,
-  target-size, small-touch), and any check added there later, such as one
-  for the bar's keys on a phone. `checkLayout` needs a `root`, so
-  it counts only what is inside the component: a new option, built first. A
-  component starts with no findings: nothing of it goes into
-  `layout-known.json` or `layout-allow.mjs`.
-- **In CI**: a step in the `flows` job, which already installs Playwright
-  and Chromium, before the flows run. A finding fails it. Its pictures go
-  into the storyboard, so a look before merging (decision 0042) has every
-  size and scheme in one place.
-- **Beside the flows**: the flows stay the end-to-end truth, a journey
-  across components and the Pi with real taps on the demo (decision 0043).
-  The harness checks one component's shape at every size. An extraction
-  changes no flow and adds its component's check.
-
-As built, one thing `checkLayout` doesn't see: a phone profile
-(`isMobile`) shows a page wider than the phone zoomed out, and
-`innerWidth`, which its offscreen check measures against, grows to match
-(a root 480 px wide on the 390 px phone measured 496, and passed). The
-harness measures the root against the screen's own width
-(`clientWidth`) as well. The flows' phone runs have the same blind spot,
-which is `layout.mjs`'s to close, not this harness's. And an allowance in
-`layout-allow.mjs` doesn't excuse a component: an allowed fail fails it.
-
 ## 5. Surfaces as arrangements (a sketch)
 
 A surface is a module (`lib/surfaces/<name>.js`) that makes roots and mounts
@@ -485,34 +283,16 @@ interfaces (decision 0022), with its file under `docs/architecture/` in the
 same PR. A new directory under `lib/` goes into `ci.yml`'s globs and
 AGENTS.md's list (decision 0024).
 
-**Foundations**
+The foundations and the Transport (row 1) are built. **Models** still to
+build, each moving every caller of its routes and adding its route
+guardrail: `take`, `feed`, `rig` (#314). On the Pi, beside them: `rev` in
+the tape's answer, `/api/changes`, the refusals' one table, `GET /api/kit`.
 
-1. `lib/components/mount.js` (`mountComponent`, `cx`) and its tests, and
-   Guardrail 15 over an empty `lib/components/`.
-2. `lib/models/protocol.js` and `fixture.js`; the takes model moved onto
-   the client, with `snapshot()`; `testdata/protocol/` and its Go shape test.
-3. The harness: `scripts/components.mjs`, and `checkLayout`'s `root`.
-
-All three are built, in one PR (`docs/architecture/components.md`), with
-the transport's `snapshot()` beside the takes', and a first component to
-prove the harness on: `display`, the display's three keys for the tape,
-mounted only by the harness. Guardrail 15 starts with it in
-`lib/components/`, not empty, so its rules are checked against something.
-The Transport's extraction mounts it in the bar in place of `#np-tempo`
-and `#np-source` (two keys since the calm Studio's step 7b, which folded
-`#np-output` into the tempo's), or folds it into its own template.
-
-**Models**, each moving every caller of its routes and adding its route
-guardrail: `tape` and `transport` together (the bar's engine split from
-`NowPlaying`, its sources moved to `lib/models/`); `take`; `feed`; `rig`.
-On the Pi, beside them: `rev` in the tape's answer, `/api/changes`, the
-refusals' one table, `GET /api/kit`.
-
-**The first five extractions**, each into `lib/components/<id>/`:
+**The extractions left**, each into `lib/components/<id>/`, one per
+session, tried by Gabe on the tablet before the next:
 
 | | Component | What moves | Models | What it fixes on the way | Flows that must not move |
 |---|---|---|---|---|---|
-| 1 | Transport | `lib/bar/bar.js` `NowPlaying`, `display.js`, `fold.js`, `player.js`, `slots.js`, `take-keys.js`, `source-menu.js`, `phone-key.js`, `press-note.js`; `#np`'s markup out of `shell.html` into its template; `css/bar.css` | transport, tape, takes (the source menu), the phone's recorder | its `$('np-…')` lookups; the `MutationObserver` that reads `body.tape-page` to know whether the tempo opens a menu (the surface says so); a `window` keydown that reads `dialog[open]` off the page; `lib/tape/page.js` reaching into the bar for ●, Catch and the click (`$('rec')`, `$('catch-pass')`, `$('click')`: they become the Transport's keys on the tape's verbs); `barTop`; the `matchMedia` for the phone's player; `hindsight:np-fold` | J1.10, J1.12, J1.13, J1.15, J1.16, J2.3, J4.1, J4.4 |
 | 2 | Library: the List | `lib/takes.js` `TakesList`, and its *Recently deleted* row (`lib/trash.js` `TrashList`) | takes, take, transport (a row plays in the bar) | six fetches of its own (`/api/take`, `/api/peaks`, `/api/take/undo`, `/api/delete`); its two holds, a row's and select's, on `bindPress` as the wall's spines already are (`SPINE_PRESS`); select mode onto the stack (issue 321); `#select-btn` and `#sel-*` | J2.5, J2.6, J2.7 |
 | 3 | Library: the wall | `lib/room/doorway.js`, `shelves.js` (pure, as it is), the wall's half of `lib/shell/views/room.js` | takes, transport | its `$()` lookups; the search found as `#shelf-q` (*For Gabe*); Sort ▾ and the chips as the library's state, shared with the List | J2.2, J2.7 |
 | 4 | Take: the notes drawer | `lib/room/drawer.js` `createNotesDrawer`, its `source` the take model (`barNotes`, `lib/room/notes.js`, becomes it) | take, transport, tape (a note's GRAB) | appending itself to `doc.body`: it mounts in the root the surface gives it, docked or as a sheet | U3, J2.4 |
@@ -522,10 +302,9 @@ Open's bar (its own markup in `wave.html`, driven by `lib/wave/page.js`)
 moves onto the Transport in a PR of its own, in Open's pass. Then Capture
 (`lib/rooms/studio.js`: the ribbon, KEEP, GRAB, Flag; feed, tape and
 takes), the clip's drawer (`lib/buffer/`), Rig (`lib/rig/page.js`), and the
-Tape editor last (`lib/tape/page.js`: about 140 ids, about eighteen `window` and
-`document` listeners, the holds in issue 321). Tempo is
-built new on the contract (`tempo.md`), not extracted: the first component
-that never lived in a page.
+Tape editor last (`lib/tape/page.js`, the holds in issue 321). Tempo is
+built new on the contract (`tempo.md`), not extracted.
+
 
 ## For Gabe
 
