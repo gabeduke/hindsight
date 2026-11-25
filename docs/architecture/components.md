@@ -1,10 +1,9 @@
 # Components
 
 The UI is moving into a kit of components, so that a change lands in one
-small component and is checked on its own (`docs/plan/components.md`, the
-spec; `the-ecosystem.md`, steps 4 and 5). This file is what is built: the
+small component and is checked on its own. This file is what is built: the
 contract, the protocol client and its fixtures, the harness, and the
-components so far.
+components built. The ones still to move in are issues #310 to #313.
 
 ## The contract
 
@@ -123,8 +122,8 @@ at `.np`, has its menu panels inside `#np` too, open in the top layer by
 `menu()`'s `popover`, so a z-index or a transform on the root can't
 cover or move them. It reads the page's state off its
 root (`data-fold`, `data-open`, `data-docked`) and keeps its five viewport
-`@media` blocks, which a container query can't say (`docs/plan/components.md`
-1.4, amended by D1). No other stylesheet may reach inside it:
+`@media` blocks, which a container query can't say (`bar.md`, *What the
+Transport keeps to*). No other stylesheet may reach inside it:
 it may not name the root before a combinator, or name a class the
 component owns (one its stylesheet styles that nothing outside its
 directory writes). It may name the root to place it, or lay out around it

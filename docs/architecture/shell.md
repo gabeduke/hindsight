@@ -4,7 +4,7 @@ Mobile-first, no build step, no npm, no framework, no vendored libraries:
 vanilla ES modules.
 
 It is served with `http.FileServer` straight from disk on every request, which
-is why `./deploy.sh --static` can push a CSS change in about a second with no
+is why `make deploy-static` can push a CSS change in about a second with no
 rebuild and no restart. Anything served with an `.html`, `.js`, `.css` or
 `.json` extension is sent `Cache-Control: no-cache`, so the browser revalidates
 it and a redeploy is picked up on reload. Nothing here is fingerprinted; the
@@ -395,10 +395,9 @@ The checks that a journey through all this still works are the user flows
 
 The header (`css/chrome.css`, the second per-place stylesheet) is one rule
 set for every page: the Studio, the Listening Room and Capture
-(`shell.html`), Open (`wave.html`), the rig and the guide. It was four
-blocks of per-page overrides once, which put Studio | Listening Room top
-left in the rooms and top centre on Open and Capture, so a tap where it
-usually was landed on the brand.
+(`shell.html`), Open (`wave.html`), the rig and the guide, so the switch
+is at one place on every page and a tap where it usually is never lands
+on the brand.
 
 - **Three zones**, a grid of `minmax(0, 1fr) auto minmax(0, 1fr)`:
   `.appbar-start` (what you're working on: the tape's name in the Studio,
@@ -422,17 +421,18 @@ usually was landed on the brand.
 - **On a phone** (under 700 px) the header is the context (one pill a
   finger tall), ↶ and ☰ (↷ only while there is something to redo), and the
   switch is the tabs along the bottom, each its picture over its word.
-- **What the header no longer holds**: the tempo and where the tape plays
+- **What the header doesn't hold**: the tempo and where the tape plays
   (the bar's display, one key, `np-tempo`: in the Studio its panel, whose
   last row opens the Output sheet, as the jam-only sheet's Switch does;
   anywhere else the Output sheet), and the alignment dot (SYNC on the
   bar's display, `lib/bar/display.js` `syncState`: green to the sample,
   amber by the clocks, red not lined up yet, out while the tape is stopped
   or plays on a phone).
-- **A name that is a menu, and no ⋯.** What acts on a thing is in its
-  name's menu, on `lib/ui/menu.js`, Delete last and red after a line of its
-  own; never in a ⋯ beside it, which once split the tape's actions from its
-  list of tapes, a third menu beside ☰.
+- **The header's name is a menu, with no key beside it.** What acts on the
+  tape or take named in the header is in its name's menu, on
+  `lib/ui/menu.js`, Delete last and red after a line of its own; a second
+  key beside the name would split its actions from its list, a third menu
+  beside ☰ ([0045](../decisions/0045-a-things-name-is-its-menu.md)).
   - In the Studio the tape's name (`#tape-name`) opens the tape's menu
     (`lib/tape/page.js` `renderTapeMenu`; its words, `lib/tape/tape-menu.js`):
     *The tapes*, each with its tempo and parts and the loaded one ticked,
@@ -447,8 +447,8 @@ usually was landed on the brand.
     loaded, loads the most recently changed other tape (or a new empty one)
     and deletes this one by its id. The menu reaches over the bar, as tall
     as its rows: a tablet's height above the bar can't hold them.
-  - ⋯'s options went to ⌗ beside the ruler, the View menu on every screen:
-    the snap, Lock the loop, Fit, Fold the tracks (`#tracks-fold-btn`, the
+  - How the Studio is shown is ⌗ beside the ruler, the View menu on every
+    screen: the snap, Lock the loop, Fit, Fold the tracks (`#tracks-fold-btn`, the
     one fold for the lanes) and, on a touch screen, Ask before Insert and
     Delete time. The key says the snap and shows the lock; Fit stands
     beside it too while the view is moved (in the menu alone on a phone).
@@ -467,12 +467,12 @@ therefore gives its reads a deadline and checks its link on waking
 (`lib/link.js`, node-tested):
 
 - **Reads time out.** `timedFetch` aborts a request that isn't answered
-  (8 s; the Studio's tape poll, which runs five times a second, gives up after
-  4 s). The Studio's poll used to run only when the last one had finished,
-  so one lost poll stopped them all, and the page showed the tape as it was
-  when the tablet went to sleep. Now `lib/tape/poll-gate.js` lets a poll
-  forced on waking go ahead of one that may be lost, and drops the lost
-  one's answer if it ever arrives.
+  (8 s; the tape's poll, `lib/models/tape.js`, which asks five times a
+  second while the Studio is shown, gives up after 4 s). A poll forced on
+  waking goes ahead of one that may be lost (`lib/tape/poll-gate.js`), and
+  the lost one's answer is dropped if it ever arrives, so one lost poll
+  never leaves the page showing the tape as it was when the tablet went to
+  sleep.
 - **A dead socket is noticed.** Nothing tells a page that its socket died
   in its sleep, so `lib/socket.js` (`connectSocket`, which `/api/live`'s
   client, `lib/live.js`, and `/api/tapes/changes`'s, `lib/tape/changes.js`,
@@ -484,11 +484,13 @@ therefore gives its reads a deadline and checks its link on waking
 - **Waking is an event.** `onResume` fires when the page is visible again,
   shown again (`pageshow`, bfcache or not), online again, or when a one-second
   tick arrives more than 3.5 s late (the clock jumped; timers were frozen,
-  whatever events fired). The page then refetches at once: the Studio its
-  tape state and clipboard, Capture its status, takes and meters, the
-  Listening Room its list, the take page the take (merged as after any return to
-  the page, so an edit still being saved, or a selection not yet saved, is
-  kept).
+  whatever events fired). On the shell, the shown view's polls
+  (`ctx.every`) run at once when the page is visible again
+  (`lib/shell/view.js`), and the Studio asks for its tape and clipboard on
+  `visibilitychange`, `pageshow` and `online` (`lib/tape/page.js`). The
+  take page refetches the take (`watchLink` in `lib/wave/page.js`), merged
+  as after any return to the page, so an edit still being saved, or a
+  selection not yet saved, is kept.
 - **The note.** A source that fails (`link.fail('tape')`) and doesn't recover
   within a second shows *Reconnecting…* (`.link-note`) and clears when every
   source answers; a failure that clears first is never shown.

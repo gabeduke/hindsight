@@ -35,8 +35,8 @@ request. Why things are the way they are is in `docs/decisions/`.
   the bar's engine, the frame (the header), waking up.
 - [bar.md](architecture/bar.md): the bar: its zones, what shows for each
   source, its widths, its display, its fold, the Transport component it
-  is in the rooms (its template, models, props and relay) and how it got
-  there, and the page's transport model it draws.
+  is in the rooms (its template, models, props and relay) and the rules it
+  keeps to, and the page's transport model it draws.
 - [rooms.md](architecture/rooms.md): the rooms' words (the vocabulary,
   the verbs, a take's one name) and the Listening Room as a library.
 - [css-and-motion.md](architecture/css-and-motion.md): the stylesheets
@@ -47,4 +47,4 @@ request. Why things are the way they are is in `docs/decisions/`.
   contract (`mountComponent`, `cx`) and Guardrail 15, the models'
   `snapshot()`, the protocol client and its fixtures, the harness (and a
   component's surface module), reaching a component through a relay, and
-  the components so far.
+  the components built, and the ones still to move in.

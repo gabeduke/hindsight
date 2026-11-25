@@ -2,33 +2,36 @@
 
 ## Vocabulary
 
-Gabe, 2026-10-15: *"we have takes, clips, tapes, and records which is
-confusing … we should just be able to listen to a file and if need then we
-can dive in to make notes."* So: **two nouns, takes and tapes.** A take is
+*"We have takes, clips, tapes, and records which is confusing … we should
+just be able to listen to a file and if need then we can dive in to make
+notes."* So: **two nouns, takes and tapes.** A take is
 anything you kept; a tape is what you build on. Everything else on screen is
 a place (the Studio, the Listening Room, the Rig), a part of a screen (the
 feed, the cue lane, the tracks, the bar, the instrument), or something inside a
-take or a tape (a note, a tag, a star; a part, a section, the loop).
+take or a tape (a note, a tag, a star; a part, a cue clip, a section, the
+loop).
 
 | Verb | Does | From |
 |---|---|---|
-| **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), a take's selection; a cue part's drawer makes one too, and says **To the shelf** (`the-calm-studio.md`, decision 7) |
+| **KEEP** | makes a take, always, and nothing else | the feed (its last N, or a selection), a take's selection; a cue clip's drawer makes one too, and says **To the shelf** |
 | **BOUNCE** | makes a take from a tape, by playing it through the mixer | the tape's name's menu |
 | **Download the mix** · **Share the mix…** | a tape as an MP3, rendered on the Pi without the mixer (no Sidekick, no take, the interface may be off): `listen?all=1&format=mp3`. Download saves it as it arrives; Share offers it on a toast (a phone shares only from a tap), Download beside it. Share only where the browser can share files, in `exportWays`' order (`lib/wave/share.js`) | the tape's name's menu; Bounce's refusal (offers it) |
-| **GRAB** | puts a part on the cue lane, with a lane per input and its handles | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
-| **DROP** | lays a cue part on a track (it stays on the lane) | a cue part's drawer, ↵, a drag; a range's Paste |
+| **GRAB** | puts a cue clip on the cue lane, with a lane per input and its handles | the feed (last N bars, or a selection); a take (bars before the playhead, a note, a selection) |
+| **DROP** | lays a cue clip on a track as a part (the clip stays on the lane) | a cue clip's drawer, ↵, a drag; a range's Paste |
 | **CATCH** | puts the last pass on the armed track | the Studio |
 | **Cut · Copy** | a range of the tape onto the clipboard, unseen, for Paste | a range's bar |
 | **●** (Record) | records onto the armed track | the bar, in the Studio, beside ▶ |
 
 Every key names its object: *KEEP 2m*, *GRAB 4 BARS*, *Drop on track 2 ·
-bars 1–4*, *CATCH LAST PASS*. Words that mean these things are retired:
-audio on a track is a **part** (not a clip); the clipboard is
+bars 1–4*, *CATCH LAST PASS*. Audio on a track is a **part**; what sits on
+the cue lane is a **cue clip**. (In the code and these docs it is a cue
+clip; on screen `lib/rooms/words.js` still turns *clip* into *part*, so it
+reads *cue part*.) Words that mean these things are retired: the clipboard is
 unseen, a range's Cut, Copy and Paste's alone (what GRAB fills is the **cue
 lane**); the ring is the **feed** (*Feed length* in Settings); a flag is a
 **note**; a bounced *record* is just a take; Capture, Save as take and Cut
 are **KEEP**; Copy from the feed is **GRAB**; Paste is **DROP**; Mix down and
-Cut a record are **BOUNCE**; the bar's ⟲ for a take, and a cue part's going
+Cut a record are **BOUNCE**; the bar's ⟲ for a take, and a cue clip's going
 round when it is launched, are **Repeat** (Loop is the tape's); the crate is
 not on screen. `lib/rooms/words.test.js` enforces the retired list.
 
@@ -42,7 +45,7 @@ the time it was caught, which is what its spine prints (`takeTitle`,
 `lib/rooms/takename.js`). The bar, a search, Recently deleted, a toast and
 a screen reader all say that; where nothing around it says the day (a
 toast, Recently deleted) the day goes before the time (`{ day: true }`).
-Never the file (`jam_….wav`) or its date stamp. A cue part's drawer names a
+Never the file (`jam_….wav`) or its date stamp. A cue clip's drawer names a
 take's grab the same way (`grabTitle`, `lib/buffer/model.js`), from the grab's
 `take` and `take_label` (the take's name when it was grabbed), not from its
 `sources`, which the Pi writes for its own lines. Open says it so too: its
@@ -93,16 +96,14 @@ in `lib/room/doorway.js`):
   the room without the bookcase and the deck, whose faces were page
   markup): at `--room-ambient` behind the wall, in full only while
   `html[data-arriving="room"]` is set — the router's, while a switch into
-  the room plays — then fading back over four of the room's moves. The deck
-  and the Sketchbook are gone from the room (the book on its table went
-  with its dialog: the table, the lamp and the glass stay); ✎ on the bar
-  opens the notes drawer (below).
+  the room plays — then fading back over four of the room's moves. The
+  room has a table, a lamp and a glass, and nothing on it to press; ✎ on
+  the bar opens the notes drawer (below).
 
 ## The notes drawer
 
 One drawer for a take's notes, the same in the Studio, the Listening Room
-and on Open (decided in `listening-back.md`, *One notes drawer*; flows J2.4
-and U3). **✎ is the only pencil, and it means a note here, now**: ✎ on the
+and on Open (flows J2.4 and U3). **✎ is the only pencil, and it means a note here, now**: ✎ on the
 bar opens the drawer on the take in the bar at the frame being heard; the
 take plays on, and the URL stays. On Open it is docked beside the
 waveform (below); ✎ in the bar's own keys (the phone's mini player too)

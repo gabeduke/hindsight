@@ -4,12 +4,14 @@
 
 The CSS splits into one file per place (tokens, base, kit, chrome, bar,
 studio, room, take, play, rig, guide…), each listed in `sw.js` and checked
-by ratchet tests (`the-studio-space.md`, *Under the hood*, agreed with Gabe
-on 2026-10-24; [decision 0033](../decisions/0033-a-stylesheet-per-place.md)). So far `css/` has `chrome.css` (the header on
-every page, and a phone's tabs: *The frame*, `shell.md`), `bar.css` (the
-bar: `bar.md`) and `rooms-motion.css` (*Moving between rooms*, `shell.md`);
-the rest of the files come as their places are rebuilt. Until then
-`styles.css` holds layout, type and the rest of the chrome, and `objects.css`
+by ratchet tests ([decision 0033](../decisions/0033-a-stylesheet-per-place.md)).
+`css/` has `chrome.css` (the header on every page, and a phone's tabs:
+*The frame*, `shell.md`), `bar.css` (the bar: `bar.md`), `display.css`
+(the `display` component, not mounted in the bar yet: `bar.md`),
+`notes.css` (the notes drawer: *The notes drawer*, `rooms.md`) and
+`rooms-motion.css` (*Moving between rooms*, `shell.md`); the other places
+get theirs as they are rebuilt. `styles.css` holds layout, type and the
+rest of the chrome, and `objects.css`
 the materials, the same in both schemes. A page links the ones it shows,
 after `styles.css`, and a test reads them through `cssOf(page)`
 (`lib/stylesheets.js`).
@@ -19,9 +21,8 @@ The shared modules beside them go in `lib/ui/`: `layers.js` (the one stack),
 `keys.js`, `icons.js` (an SVG icon sprite in place of the unicode
 glyphs), `sheet.js` (detents, swipe, flick), `measure.js` (a height the
 CSS reads, measured: the bar's, help mode's tip) and `reveal.js` (what a
-sheet over a phone's foot would cover, scrolled up above it) so far;
-`dom.js` comes with its first user. Each lands with its first user,
-never as a sweep.
+sheet over a phone's foot would cover, scrolled up above it). A new
+shared module lands with its first user, never as a sweep.
 
 ## Icons
 

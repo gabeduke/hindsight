@@ -45,7 +45,7 @@ explicitly and generously and the draw is about 1%. See "Why
 Zoom AMS-24 beside the EP-136, for a guitar. The EP-136 stays the main
 interface: the tape plays out of it, it is the monitor, and its clock is the
 ring's. Nothing ever plays out of an extra input; its playback side is never
-opened. (`docs/plan/extra-inputs.md` has the decisions until it lands.)
+opened. What is left to build is #299.
 
 **The bus.** Each extra input adds `config.ExtraInputChannels` (2) channels
 after the main interface's, so the AMS-24's IN 1 and IN 2 are channels 9 and
