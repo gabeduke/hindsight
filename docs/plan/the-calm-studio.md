@@ -1,11 +1,11 @@
 # The calm Studio: what is on screen, and when
 
 **Status: direction agreed 2026-11-09 from a wireframe, and the order of
-what is left agreed 2026-11-10; decisions 1 to 7 and 9 are built
-(*Build order*), with Gabe's calls on Catch and the metronome (step 7a);
-8 and 10 are not agreed line by line yet.** Gabe: the Studio is where he spends his
-time, and it is "so damn cluttered": "it is hard to tell what buttons are
-useful to me."
+what is left agreed 2026-11-10. Decisions 1 to 7 and 9 are built (their
+numbers are cited from the code, so they stay below); 8 and 10 are not
+agreed line by line yet, and steps 6b and 8 are left.** Gabe: the Studio
+is where he spends his time, and it is "so damn cluttered": "it is hard to
+tell what buttons are useful to me."
 
 This is about **what is on screen**, not how it looks. `the-play-look.md` is
 the look (a theme, per component) and still waits on Gabe's pick; nothing
@@ -22,51 +22,6 @@ spec's step 6.
 
 Everything on the default screen serves one of those two. Anything else is
 one tap away, or gone.
-
-## What a walk of the demo found (2026-11-09)
-
-1280×800, mouse layout, one part on the tape, before anything was built.
-
-- **52 things to press** at rest, 59 with a grabbed clip's drawer open. On
-  the tablet the budget is `STUDIO_BUDGET.controls`, 44
-  (`scripts/flows/layout.mjs`).
-- **The lanes get about 44% of the height**, and about 12% while a cue
-  clip's drawer is open: it docks above the bar and the four tracks shrink
-  to slivers.
-- **The feed's panel holds about 16% of the height** all the time, with two
-  VU meters that show the main pair only.
-- **One word, several meanings**: Loop is the bar's key, the drawer's key
-  and Catch's caption; KEEP is the feed's "keep the last 30 s as a take" and
-  the drawer's "KEEP 4 BARS"; Bar is two snap menus.
-- **Four capture verbs** (GRAB, KEEP, ●, Catch), each with a key and a ▾.
-- **What already works**: selecting a part brings up one row (Cut, Copy,
-  Split, Duplicate, Move here, Remove, Done) that leaves when it is done.
-
-### On the tablet profile (step 1, 2026-11-09, before anything was built)
-
-`node scripts/flows.mjs J1.1 J1.3 J1.4 J1.6 J1.11 J3.1 --profile=tablet
---storyboard=dir`, 1024×768: 13 of 13 runs passed.
-
-- **The ribbon gets about a third of its own row**: some 370 of 1024 px,
-  between the VU pair (about 150 px) and GRAB, KEEP and Note (about 440).
-  With a track's inspector open it falls to about 40 px and its labels
-  clip. This is the waveform Gabe reads to find a moment.
-- **The track head is already decision 3's** on touch (●, name, input, ›);
-  decision 3 is the mouse layout coming into line.
-- **Catch is set in three places**: its key and ▾ on the bar, and "Catch
-  the last 1 / 2 / 4 bars", Layer or Replace and Passes in a track's
-  inspector.
-- **17 to 29 targets under 44 px** on these screens, by the flows' own
-  layout check (a warning there): the feed's lamp, both ▾, the snap chip,
-  Solo, a track's name, its input chip and its ›.
-- **Presses today**: KEEP a span of the feed, 2 (hold-drag, Keep); GRAB and
-  DROP, 2 (4 to change the length first); Catch a pass onto a track, 5
-  from an empty tape (tempo, arm, ▶, Catch, ▶).
-- **No flow is either of Gabe's journeys end to end.** The pieces are
-  J1.3, J1.6, J1.4, J1.11 and J3.1; nothing keeps a jam from a mark, loops
-  it and records over it, and nothing arranges parts from two takes. They
-  are written with the two faces (step 5), as `todo` flows first, since the gestures they
-  press are the ones this spec changes.
 
 ## Decisions
 
@@ -141,174 +96,6 @@ one tap away, or gone.
    0061). One holding place, the cue lane, for everything lifted, and one
    Drop. Amends 0061. Its spec is `lift-and-drop.md`.
 
-### The two faces, as built (step 5)
-
-- **The face is the Studio's state, per device**: `lib/rooms/face.js`
-  (`createFace`: `get()`, `set(face)`, `onChange(fn)`), kept in this
-  browser (`studio.face`, `lib/device-prefs.js`'s way), written on the
-  Studio's root as `main#view-studio[data-face]`; no attribute is the
-  tape, so the first paint is the tape's and `styles.css` hides the other
-  face from it (frame zero).
-- **The tape's face**: the feed is one thin row at the top: its lamp, the
-  ribbon live and about 28 px tall, then GRAB and KEEP, small, since both
-  are in decision 1's *always there* and J1.1 and J1.6 press them with the
-  lanes in sight. The ribbon there takes no mark: the row's ribbon is one
-  key, `#face-feed`, and a tap turns to the feed. Flag now and the two
-  level bars are the feed's face's.
-- **The feed's face**: the ribbon across the whole width and as tall as
-  the room leaves, the mark on it, and GRAB, KEEP and Flag now in a row
-  under it, at the thumb. The sections, the ruler and the lanes are out;
-  the tape is one thin row at the top, `#face-tape`, the whole tape drawn
-  as the bar's overview draws it (`paintTapeOverview`), and a tap turns
-  back. The cue lane, and a cue clip's drawer, are on both.
-- **It never turns under his hands**: a GRAB on the feed's face lands on
-  the cue lane, which is there. Leaving the feed's face keeps the mark.
-- **A phone has the same two faces**; its feed's face is what gives the
-  ribbon a height to read.
-- `STUDIO_BUDGET` is measured on the tape's face and lowered to what it
-  finds; the feed's face gets a count of its own, lower. As built: the
-  tape's face holds what the Studio held (43, and 44 at 1280×800): Flag now
-  left it and the feed's row became a key, so `controls` stays 44. The
-  feed's face holds 26 (27 at 1280×800): `feed: 27`.
-
-### The cue clip's panel and the words, as built (step 6a)
-
-Step 6 is two PRs: this one, which is the Studio's alone (built
-2026-11-13), and 6b, `inputs.md` (names for inputs and the strip, with a
-change on the Pi), which waits for Gabe to agree that spec.
-`architecture/tape.md`, *The cue lane*, has how it is built.
-
-- **The small panel is the clip's window, DROP, Trim, Toss and ✕**
-  (decision 6), each a finger and a half tall. The drawer's KEEP left it.
-- **Trim opens on what Gabe reaches for** (his call, 2026-11-13): its
-  first row is Audition, the clip's repeat, Reverse and the fades, with the
-  clip's name and length beside them; then IN and OUT, the gain and
-  Normalize, the clip's inputs, and last the key that puts the clip on the
-  shelf. It opens under the small panel's row, which stays as it was, so
-  Trim shuts where it opened. Every key in it is a finger tall. A phone's
-  sheet has no small state, and holds the same keys in the same order.
-- **Unfold went**: shutting Trim is what gives the lanes their height back.
-- **A word has one meaning** (decision 7):
-  - KEEP is the feed's: the last of the jam, kept as a take. The drawer's
-    key, which makes a take of the clip, is **To the shelf** (its K stays),
-    and its toast says the clip is on the shelf.
-  - Loop is the bar's: the tape's loop. The drawer's key, which says
-    whether a launch plays the clip round until it is tapped again or
-    once, is **Repeat**, the word the bar already uses for a take's ⟲.
-    Audition always goes round.
-  - Bar is the Studio's snap, on ⌗. The drawer's own snap key went, and IN
-    and OUT step by the Studio's snap, which the page already said to the
-    drawer in `hindsight:tape-state`.
-- Catch's caption ("loop is off") was the bar's, and went with its key in
-  step 7a.
-
-## Gabe's calls before the bar changes (answered 2026-11-13)
-
-- **The capture verbs on the surface are GRAB, KEEP and ●.** Catch comes
-  off the bar and goes on ●'s ▾, with its 1, 2 and 4 bars.
-- **What he reaches for in the drawer.** He ticked Reverse, the fades and
-  Loop / Audition, and "just Drop, Trim, Toss" with them. Read as: the
-  small panel stays Drop, Trim and Toss (decision 6), and Reverse, the
-  fades and Loop / Audition are the first things Trim shows, one tap in,
-  not under a fold of their own. His to correct at step 6's look.
-- **The metronome is in the tempo's panel**, not on the bar.
-
-## The capture verbs and the click, as built (step 7a)
-
-Step 7 is two PRs. 7a is Gabe's two calls, built 2026-11-13; 7b is
-decision 5's one key for tempo and output, which touches every room's bar,
-built 2026-11-13 (below). `architecture/bar.md`, *The Studio's
-keys*, has how it is built.
-
-- **● has a ▾ beside it** (`rec-more`, opening `rec-menu`; in the Studio
-  with the tape, in the bar and the phone's mini player), a finger wide and
-  as tall as ●, the pair a `splitKey` as GRAB's and KEEP's are. Its menu is
-  Catch's as it was (`catchRows`): a head saying where it lands ("Catch
-  onto track 2", or that no track is armed), then The last pass and The
-  last 1, 2 and 4 bars, each saying why under it when it can't go, and
-  staying open on a tap that can't. A tap on ● records, and opens nothing.
-- **One ▾ beside ●, never two.** In the Studio with the tape the phone's
-  ▾ does not show; ●'s does, and on a phone its menu is Catch's rows, a
-  line, then the phone's rows (`phoneKey`'s `rows(panel)`, doing what they
-  do in its own ▾). A hold on ● on a phone opens that menu (`offer(host)`;
-  with the player pulled up, the recorder's sheet, as before). Everywhere
-  else the phone's ● and ▾ are as they were. In the mini player the tail
-  is empty for the tape, as it was away from the Studio, and gives up what
-  ●'s ▾ is wider than the phone's, so ▶ stands at one x.
-- **Catch's key, its ▾ and its menu left the bar**, with their rules, the
-  mini caption (`catchSub`, `catchMini`, and `catchState`'s `short`), and
-  the Catch tip, which is ●'s ▾'s now. C still catches the last pass, and
-  says why when it waits, with the last 4 bars on offer. The outline on the
-  lanes shows while The last pass is pointed at or has the keyboard, and
-  goes as the menu shuts.
-- **The click's key left the bar.** The tempo's panel has a Click switch
-  (`tempo-click`, `aria-pressed`, with the snap's amber lamp) under the
-  tempo's row, off without a grid; a tap leaves the panel open. M still
-  turns it. The click is the Studio's now (`lib/tape/page.js`
-  `toggleClick`, `paintClick`), and `tapeKeys` has no click.
-- **What it costs.** Catch from the screen is two presses (▾, the row)
-  where it was one, so E1 on the tablet is 11, not 10. That number is meant
-  only to go down; it rose here because of Gabe's call.
-- **What it saved.** Three keys off the bar for one on it:
-  `STUDIO_BUDGET.controls` is 42 (41 at 1024×768 and upright, 42 at
-  1280×800; it was 43 and 44), and the feed's face 25 (it was 27).
-- **What it leaves.** The bar in the Studio is the deck, |◀ ▶ ● ▾ and ⟲,
-  with room at its right end where Catch and the metronome stood: ▶ stays
-  where it was, and the deck's width is 7b's to spend. ⟲ follows ●'s ▾
-  now, so it no longer stands at one x for the tape, a take and the feed.
-- J1.4 has the story; E1, J1.5, J1.20, J4.1 and J4.4 press the new keys.
-
-## One key for tempo and output, as built (step 7b)
-
-Decision 5, built 2026-11-13. The display has two keys, not three: what
-plays, and how. `architecture/bar.md`, *One key for the tempo and where it
-plays*, has how it is built.
-
-- **The tempo's key and the output's are one key** (`#np-tempo`; the
-  output's key is gone). Its value is the tempo and its legend is where it
-  plays: `96 BPM` over `JAM ROOM ▾` (the long form keeps the bars: `96 BPM
-  · 4 BARS`). With no tempo (a take without one, the feed, an empty tape)
-  the value is where it plays and the legend is `OUT`. It says both to a
-  screen reader, and what a press does (`lib/bar/display.js`, one place
-  for the words: `tapeDisplay`, `takeDisplay`, `feedDisplay`,
-  `tempoLabel`, `playsWords`).
-- **What it opens.** In the Studio with the tape, the tempo's panel, and
-  its last row, under a line, is where it plays (`#tempo-out`: *Plays in
-  the jam room*, *on a phone*, *in the jam room and on a phone*, with ›),
-  which shuts the panel and opens the Output sheet; it follows the mode
-  while the panel is open. Anywhere else the key opens the Output sheet
-  itself, and is off when there is no tape to send.
-- **One owner for the press.** The bar decides (`NowPlaying.tempoOpens`):
-  the Studio's panel is a `menu()` with `bind: false`, made by the hands
-  the Studio lends (`hands.tempo(key)`), which hears no press of the key
-  and says on it only that it is open; the bar's one listener hands it the
-  presses that are its own (`press(e)`: a click, ↓ or ↑) and opens the
-  Output sheet with the rest. No listener of the Studio's is on the key.
-- **The source's key stays everywhere.** Its menu always has a choice (the
-  tape, the feed, the last takes, the shelf), so decision 5's "only where
-  there is a choice to make" takes nothing off yet. Whether the Studio
-  needs it at all is step 8's question, with Gabe.
-- **The deck kept its width**, so ▶ stands where it did: x 432 at
-  1024×768, 688 at 1280×800, 846 at 1440×900 and 378 upright at 800,
-  before and after. The 78 px the output's key had went to the merged key
-  (80, from 42) and the source (100, from 60: a take's name gets more of
-  it); from 1180 px both take what they need, and a take's long name
-  gives way before the tempo and where it plays do.
-- **A phone.** The mini player shows none of the display's keys, as
-  before. The player pulled up keeps its foot key for where it plays
-  (`out-foot`), and the merged key there shows the tempo alone, over BPM.
-  On its side the player has no foot, so the key there says both.
-- **Open** (`wave.html`, its own bar until Open's pass) draws the same
-  two cells; they are not keys there.
-- **What it costs.** Changing where the tape plays from the Studio is two
-  presses (the key, the row) where it was one. No journey counts it.
-- **What it saved.** One key on every room's bar: `STUDIO_BUDGET.controls`
-  is 41 (40 at 1024×768 and upright, 41 at 1280×800; it was 42 and 41),
-  and `feed` 24 (23 and 24; it was 25).
-- J1.20 has the tempo's story (the panel's last row opens the Output
-  sheet), J2.3 the Output sheet from the key in the Listening Room, J1.13
-  the two keys, and J4.4 the tempo alone in a phone's player pulled up.
-
 ## What comes out
 
 - The Studio's own mouse layout of the track head (M, S, level, input in
@@ -325,54 +112,23 @@ plays*, has how it is built.
 Each step is one PR, looked at on the tablet before the next, and ends with
 `STUDIO_BUDGET` lowered to what it measured.
 
-Done:
+Landed (what lasts is in `docs/architecture/tape.md` and `bar.md`; the
+steps' own write-ups are in git, `git log -- docs/plan/the-calm-studio.md`):
+1, the walk on the tablet profile; 2, the drawer opens small (#278); 3, the
+feed's mark (#279–#281); 4, the track heads (#282); 5, the two faces, with
+E1 and E2 as core flows; 6a, the cue clip's panel and the words; 7a, the
+capture verbs and the click (Catch on ●'s ▾, the click in the tempo's
+panel); 7b, the bar's display (one key for the tempo and where it plays).
 
-1. **The walk on the tablet profile** (2026-11-09): its findings are above.
-   The two journeys' own flows were not written; they are step 5.
-2. **The drawer opens small** (decisions 2 and 6; #278): one row of the
-   clip's window, DROP, KEEP, Toss, Trim and ✕, and J1.6 holds every track
-   to a finger's height beside it.
-3. **The feed's mark** (decision 4; #279, #280, #281): a tap on the ribbon,
-   KEEP and GRAB from it, the mark's own key on the ribbon, one KEEP on the
-   screen, the VU needles out and the level two narrow bars. J1.3 has the
-   story. Not done: a drag of the mark, and snapping a GRAB from the mark
-   to the bar.
-4. **The track heads** (decision 3; #282): one head with a mouse and on
-   touch. The input chip is still in it.
-5. **The two faces** (decision 9; 2026-11-13), as *The two faces, as
-   built* says (`architecture/tape.md`, *The two faces*), with the two
-   journeys as flows: E2 (arrange parts from two takes) landed first, and
-   E1 (a live 4-track: mark, GRAB, DROP, loop, play, Catch over it) is core
-   with them, 10 presses on the tablet and 14 on a phone. Step 3's drag of
-   the mark came with it (J1.3 drags it). Not done: snapping a GRAB from the
-   mark to the bar, which needs the Pi (only it knows where the ring's bar
-   lines fall, `grabRing`'s `downbeatAt`): a `snap` on the ring's grab
-   request, in Go, and the key saying so. And the budget did not drop: the
-   tape's face holds what the Studio held, so the cut is step 8's.
-6. **6a, the cue clip's panel and the words** (decisions 6 and 7;
-   2026-11-13), as *as built (step 6a)* says: the small panel is the
-   window, DROP, Trim, Toss and ✕; Trim opens on Audition, Repeat, Reverse
-   and the fades; To the shelf and Repeat for the drawer's KEEP and Loop;
-   its snap key and Unfold out. J1.6 has the story. The tape's face at rest
-   is as it was (the drawer is shut there), so `STUDIO_BUDGET` did not move.
-7. **7a, the capture verbs and the click** (Gabe's calls; 2026-11-13), as
-   *as built (step 7a)* says: Catch on ●'s ▾, one ▾ beside ● on a phone,
-   the click in the tempo's panel. `STUDIO_BUDGET.controls` went to 42 and
-   `feed` to 25. E1 rose to 11 presses on the tablet (13 on a phone).
-8. **7b, the bar's display** (decision 5; 2026-11-13), as *as built (step
-   7b)* says: one key for the tempo and where it plays, which opens the
-   tempo's panel in the Studio (its last row opens the Output sheet) and
-   the Output sheet anywhere else, owned by the bar. `STUDIO_BUDGET.controls`
-   went to 41 and `feed` to 24. Not done: the room 7a left at the bar's
-   right end, where Catch and the metronome stood, is still empty; the
-   deck kept its width so ▶ would not move, and the room the output's key
-   left was spent inside the display.
+Not done from the landed steps: snapping a GRAB from the feed's mark to the
+bar, which needs the Pi (#308); and the room 7a left at the bar's right end
+is still empty.
 
 Left, in order:
 
 6. **6b, the inputs** (what is left of step 6): `inputs.md`'s names for
    inputs and its strip, which is where the head's input chip and the
-   drawer's input chips go. It waits for Gabe to agree that spec.
+   drawer's input chips go. It waits for Gabe to agree that spec (#307).
 8. **Rip out** what the steps left unused, and lower the budget.
 
 ## How it stays calm

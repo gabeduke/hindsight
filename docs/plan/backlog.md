@@ -6,9 +6,11 @@ short spec in this folder when it is next.
 
 ## The rooms and the bar
 
-- **Cue lane: the shelf and the tracks as sources.** Throw a take from the
-  shelf (`POST /api/tapes/cue/grab` with `take` does the Pi's half) or lift a
-  part from a track onto the lane.
+- **Cue lane: the shelf and the tracks as sources, on screen.** The Pi's
+  half is built: a take from the shelf (`POST /api/tapes/cue/grab` with
+  `take`) and a part lifted from a track (`POST /api/tapes/cue/lift`, #326).
+  Left: the web's half (lifting a part onto the lane, `lift-and-drop.md`,
+  #306) and throwing a take from the shelf.
 - **The flows' gestures in the harness.** J1.3 and J1.11 each carry a
   hold-then-drag helper; one `t.holdDrag` beside `t.hold` would do.
 - **Output switch: Live feed / Playback,** with a real live stream of the
@@ -77,7 +79,7 @@ short spec in this folder when it is next.
 
 ## Reuse in the flows
 
-- **The continuity sampler** (`continuity-sampler.md`): reads the bar, the
-  take's clock and the stream through CDP without a user gesture, and judges
-  a room switch, Back/Forward or reload for gaps. Fold it into
-  `scripts/flows/` for a stricter J2.2 and a back-forward-cache flow.
+- **The continuity sampler** (#335): reads the take's clock and the stream
+  through CDP without a user gesture, and judges a room switch, Back/Forward
+  or reload for gaps. Fold it into `scripts/flows/` for a stricter J2.2 and
+  a back-forward-cache flow.
