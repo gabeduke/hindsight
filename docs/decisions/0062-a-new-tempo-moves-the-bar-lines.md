@@ -23,9 +23,11 @@ keep their frames. Nothing is stretched or resampled.
   counts bars. BPM 20 to 400.
 - **One step of undo**, kind `tempo`: nudges, taps and a typed tempo within
   2 s coalesce.
-- **The tempo key on the bar's display opens one panel**: the BPM to type
-  (↑ ↓ a tenth, Shift a whole BPM), −1 and +1, TAP (four taps or more, the
-  mean of the last eight), and the bar counts below.
+- **In the Studio, the tempo key on the bar's display opens its panel**:
+  the BPM to type (↑ ↓ a tenth, Shift a whole BPM), −1 and +1, TAP (four
+  taps or more, the mean of the last eight), the Click switch, the bar
+  counts, and a last row to the Output sheet. Anywhere else the key opens
+  the Output sheet ([0047](0047-the-bars-keys-live-in-its-zones.md)).
 - **The click and the clock out follow at once**: a new grid while playing
   is a jump (Stop, then the followers start again on it).
 

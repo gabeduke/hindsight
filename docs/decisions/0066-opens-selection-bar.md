@@ -3,6 +3,9 @@
 **Date:** 2026-10-30, settled by recommendation in PR #220
 (`the-studio-space.md`, step 10), not built there: Gabe may overrule it.
 
+**Status:** not built (#316). Today Open's selection row sits in its
+toolbar under the waveform.
+
 ## Decision
 
 While a selection is held on Open, its ends, length and Clear dock above

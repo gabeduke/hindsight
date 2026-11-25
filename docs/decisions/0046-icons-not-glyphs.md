@@ -8,9 +8,13 @@ A key's picture is a symbol in `web/static/icons/ui.svg`, drawn through
 `lib/ui/icons.js` (`icon`, `setIcon`) or the same `<svg class="i …">`
 markup; a new one is a `<symbol>` and a name in `ICONS`. Any change to the
 sprite moves its address (`SPRITE`'s `?v=`, a hash of the file) in
-`icons.js`, `sw.js`'s `SHELL` and every `<use>`. Glyphs scripts still type
-are counted in `TYPED` and only go down. A test reads a key's state, never
-its picture.
+`icons.js`, `sw.js`'s `SHELL` and every `<use>`. A test reads a key's
+state, never its picture.
+
+`icons.test.js` enforces it for scripts (the glyphs they still type are
+counted in `TYPED` and only go down) and for the header's, the bar's and
+the ruler's keys in markup. Glyphs in other markup keys (the buffer's ✕,
+the nudges' ◂ ▸) are not counted yet.
 
 ## Why
 

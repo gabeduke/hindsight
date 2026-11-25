@@ -10,7 +10,7 @@ away, and closes with `layer.close()`. Back and Escape close it in turn; a
 press outside closes a menu; a switch of rooms closes the menus. A handler
 that keeps Escape for itself calls `preventDefault()`.
 `architecture.test.js` fails on a `pushState` outside the router and the
-stack, and lists in `OWN_HISTORY` the ones still their own.
+stack; `OWN_HISTORY` names only those two.
 
 ## Why
 

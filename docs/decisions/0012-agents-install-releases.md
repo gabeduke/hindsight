@@ -5,8 +5,9 @@
 ## Decision
 
 Releases are installed on the Pi by an agent with `POST /api/update`
-(AGENTS.md, *Getting code onto a Pi*). An auto-install trigger is open
-(`docs/plan/backlog.md`: "the hub does it" was the pick).
+(AGENTS.md, *Getting code onto a Pi*); other kits install from their own
+Update button. An auto-install trigger is open (`docs/plan/backlog.md`:
+"the hub does it" was the pick).
 
 ## Why
 
@@ -16,4 +17,5 @@ it, not why.
 ## What it rules out
 
 Leaving a release uninstalled for Gabe to pull; installing over a take being
-saved or a phone recording (the endpoint answers 409).
+saved, a phone recording or an update under way (the endpoint answers 409),
+or below `UpdateFloor`.

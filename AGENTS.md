@@ -81,8 +81,8 @@ On a Mac, and in a cloud sandbox: `docs/development.md`, *Testing*.
 - **Only a change to what a kit runs cuts a release.** `paths` in
   `release.yml` is an allow-list of what ships: `cmd/`, `internal/`,
   `go.mod`, `go.sum`, `web/`, `deploy/` (not the hub's manifests in
-  `deploy/hub`, apart from its Dockerfile), and `docs/guide.md`, which the
-  binary embeds. A merge touching none of those (a spec, a doc, this file, a
+  `deploy/hub`, apart from its Dockerfile), and `docs/guide.md` with
+  `docs/embed.go`, which embeds it in the binary. A merge touching none of those (a spec, a doc, this file, a
   dev script, the Makefile) cuts nothing, and its commits ride along in the
   next code release's notes; one touching any of them releases, so a spec
   landed with its code still ships. **A merge of code is a deployment**,
@@ -118,7 +118,7 @@ deploy target lives in the untracked `deploy.local.env`; docs say
   it (`./theme.js` → `../theme.js`), and nothing fails until a browser loads
   a blank page: **run `paths.test.js`**, which resolves every module
   specifier, `<script src>`, stylesheet link and shell entry against the
-  disk. ([0031](docs/decisions/0031-paths-test-guards-moves.md))
+  disk. ([0030](docs/decisions/0030-bump-the-service-worker-cache.md))
 
 ## CSS
 
@@ -131,18 +131,18 @@ How the stylesheets are laid out: `docs/architecture/css-and-motion.md`,
   and `lib/objects/materials.test.js` fails if one lands in the wrong file.
   `styles.css` holds layout, type and chrome.
   ([0032](docs/decisions/0032-materials-and-scheme-tokens.md))
-- **`css/` holds a stylesheet per place**: `css/chrome.css` is the header
-  on every page (and a phone's tabs), `css/bar.css` the bar, all of each. A
+- **`css/` holds a stylesheet per place**: e.g. `css/chrome.css` is the
+  header on every page (and a phone's tabs), `css/bar.css` the bar, all of
+  each. A
   page links the ones it shows, after `styles.css`; each is in `sw.js`'s
   `SHELL`; a test reads them through `cssOf(page)`, never
   `fileCss('styles.css')` alone, or it stops seeing a rule the day the rule
   moves. ([0033](docs/decisions/0033-a-stylesheet-per-place.md))
 - **Scope a new rule to the thing you are adding.** If a class is already
-  in use, say so in a comment and reuse its styling.
+  in use, say so in a comment and reuse its styling. A per-device flag
+  hides markup, not CSS: `styles.css` is on every page of every kit, so a
+  flagged feature's rules ship to everyone the day it merges.
   ([0034](docs/decisions/0034-scope-new-css-rules.md))
-- **A per-device flag hides markup, not CSS.** `styles.css` is on every page
-  of every kit, so a flagged feature's rules ship to everyone the day it
-  merges. ([0035](docs/decisions/0035-flags-hide-markup-not-css.md))
 - **A test reads the stylesheets through `web/static/lib/stylesheets.js`**
   (`cssOf`, `fileCss`, `rules`, `block`, `section`, `tokens`), never with a
   brace matcher of its own. It is node-only, so it stays out of `SHELL`.
@@ -177,8 +177,8 @@ How the stylesheets are laid out: `docs/architecture/css-and-motion.md`,
 ## Look at it, and run the flows
 
 - **A UI change is looked at in a browser, against the demo, before it
-  merges**: at phone and desktop size, in both schemes, with its flag on
-  and off. No node test can see a page.
+  merges**: at phone and desktop size, in both schemes, and with its flag
+  on and off if it has one. No node test can see a page.
   ([0042](docs/decisions/0042-look-at-it-before-it-merges.md))
 - **Before reporting any change to what the app does, run
   `node scripts/flows.mjs` and put its table in your report.**
@@ -195,11 +195,9 @@ How the stylesheets are laid out: `docs/architecture/css-and-motion.md`,
 
 ## Older design notes
 
-A comment citing `docs/superpowers/…` points at the specs deleted on
-2026-10-18 (`git show 62b3c1c^:docs/superpowers/specs/<file>`); one citing a
-gone `docs/plan/` spec, at one deleted when it landed (`git log
---diff-filter=D -- docs/plan/<file>`, then `git show <commit>^:<path>`).
-What still holds is in `docs/architecture/` and `docs/decisions/`.
+A comment citing a gone `docs/superpowers/` or `docs/plan/` file points at a
+deleted spec (`git log --diff-filter=D -- <path>`, then `git show <commit>^:<path>`);
+what still holds is in `docs/architecture/` and `docs/decisions/`.
 
 ## Where things live in the UI
 
@@ -222,10 +220,11 @@ What still holds is in `docs/architecture/` and `docs/decisions/`.
   sheet's first line (`lib/settings.js`, `aboutLine`) carries the version,
   Releases, the guide and the rig too.
   ([0019](docs/decisions/0019-one-header-menu.md))
-- **A thing's name is its menu**: the tape's in the Studio, the take's on
-  Open (their rows: `docs/architecture/shell.md`, *The frame*). What acts
-  on a thing goes in its name's menu, on `lib/ui/menu.js`, never in a ⋯
-  beside it; a row that destroys is last, red, after a line, and one that
+- **In the header, a thing's name is its menu**: the tape's in the Studio,
+  the take's on Open (their rows: `docs/architecture/shell.md`, *The
+  frame*). What acts on the tape or take named in the header goes in its
+  name's menu, on `lib/ui/menu.js`, never in a ⋯ key beside the name; a
+  list's per-row action menu is a `menu()` (*One menu*, below). A row that destroys is last, red, after a line, and one that
   can't be undone asks in `#confirm` first, never `window.prompt`. How the
   Studio is shown (the snap, the loop's lock, Fit, the fold, Ask before) is
   ⌗'s View menu beside the ruler.
@@ -359,8 +358,7 @@ proof-of-concept shortcuts don't come back
   ladder of its own (Back would take two presses). A handler that keeps
   Escape for itself (a field's own, a drag
   let go) calls `preventDefault()`. The test fails on a `pushState` outside
-  the router and the stack, and lists the ones still their own in
-  `OWN_HISTORY`. ([0055](docs/decisions/0055-one-way-to-close-things.md))
+  the router and the stack (`OWN_HISTORY` names just those two). ([0055](docs/decisions/0055-one-way-to-close-things.md))
 - **One menu:** a menu, or a key's ▾ panel, is `menu()` or `splitKey()`
   (`lib/ui/menu.js`): it opens on the stack, is placed beside its key by
   `place()`, moves the keyboard along it, grows in and fades out, and its
@@ -393,10 +391,10 @@ proof-of-concept shortcuts don't come back
 
 ## Momentary gestures must not touch undo
 
-The tape's pads (`internal/tape/trick.go`, played from a controller, and
-on the web by Play mode's strip until 2026-10-30) are a performance
-surface: pads are *held*, not committed, and a performance path bypasses
-undo entirely (wired to the track-mute PATCH, one jam would leave tens of
+The tape's pads (`internal/tape/trick.go`, played from a controller; on the
+web by Play mode's strip until 2026-10-30) and a cue clip's launch are
+performance surfaces: pads are *held*, not committed, and a performance
+path bypasses undo entirely (wired to the track-mute PATCH, one jam would leave tens of
 undo entries). They have been audible this way, held-only and outside undo,
 since v2026.10.15.3; every new performance control stays off the undo stack
 too.

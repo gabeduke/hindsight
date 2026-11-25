@@ -5,11 +5,13 @@
 ## Decision
 
 No rule hides a control that is the only way to something. `styles.test.js`
-fails if any rule hides the about line, ☰ or one of ☰'s items.
+fails if any rule hides ☰, any of its items (Settings, Releases, the guide,
+the rig), or the Settings sheet's first line (`aboutLine`), which carries
+them too.
 
 ## Why
 
-The about line on Capture was `display: none` in one window shape; it
+In 2026-10, the about line on the old Capture page was `display: none` in one window shape; it
 carried the only Settings button anywhere in the app, so that shape had no
 way in at all.
 

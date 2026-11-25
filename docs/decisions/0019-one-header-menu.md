@@ -16,11 +16,9 @@ handful of main user flows."*
 
 ## Why
 
-From the usability review of 2026-10-22 (`the-studio-on-one-screen.md`): ☰
-replaced the header's Releases, Guide, Settings and ? keys, and the rig chip
-in each room's row, so the Studio's and the Listening Room's header became
-one row on a tablet, and the Studio's on a phone, where its ⋯ used to wrap
-onto a line of its own.
+One menu keeps the header to one row on a tablet, and the Studio's on a
+phone ([0059](0059-the-studio-on-one-screen.md)). It came from the
+usability review of 2026-10-22, where ☰ replaced four keys and a chip.
 
 ## What it rules out
 
