@@ -95,7 +95,7 @@ still to come lands on its frame. One already rendered lands at once, and
 a trick pad's head starts as if it had left the tape on that line
 (`anchor` the line, `start` that many frames back), so a STOP is that far
 into its wind-down and a ROLL in its phase. Snapping instead to the next
-line after the render head, as it once did, put every hit on the beat a
+line after the render head would put every hit on the beat a
 whole unit late to the ear. Releases snap the same way, with nothing to
 anchor, and a tap still sounds a whole unit from where its press is first
 heard, however late on its line it lands. A late start is crossfaded in
@@ -105,22 +105,14 @@ doesn't hear), or no straight play from the line to the render head, a
 press lands on the transport's own target, the next line after the
 render head.
 
-No page plays the pads now. The web's instrument strip, a drawer above the
-Studio's bar behind the per-device Play mode switch, went on 2026-10-30
-with the switch: its folded row alone was twelve controls, and the Studio
-on a tablet holds 44 (J1.16). The pads can come back in the **Pads**
-component (`docs/plan/the-ecosystem.md`, *The components*, where Pads are
-so far the cue lane's clips) once the instrument's shape is settled; the strip, its Web MIDI and its tape mods'
-knobs are in git (`web/static/lib/play/`, before that date). Until then a
-controller plays them: one in the Pi through the bus
-(`internal/api/controls.go`, its defaults held to `lib/play/controls.js`),
-or the SMK-37's FX page (`keyboard.md`). No page shows the tape mods
-either: the keyboard's encoders set them, and its screen shows them. A page
-with the header (`initNav`: the shell, Open, the guide) forgets the
-switch's stored keys as it loads (`lib/play/flag.js` `forgetRetired`).
-Storage is an address's, so once a phone has loaded this release at an
-address, a release from before then, picked from Releases, finds Play
-mode off there.
+No page plays the pads. A controller plays them: one in the Pi through the
+bus (`internal/api/controls.go`, its defaults held to
+`lib/play/controls.js`), or the SMK-37's FX page (`keyboard.md`). No page
+shows the tape mods either: the keyboard's encoders set them, and its
+screen shows them. A pad on a page would have to fit the Studio's budget
+(`STUDIO_BUDGET`, J1.16). A page with the header (`initNav`: the shell,
+Open, the guide) clears the retired Play mode switch's stored keys as it
+loads (`lib/play/flag.js` `forgetRetired`).
 
 **Latency, in use** (`latency.go`; [decision 0016](../decisions/0016-measure-latency-in-use.md)).
 Every press, set and release a hand plays is timed to the moment it is
@@ -166,8 +158,8 @@ heard, and the Pi keeps the figures, never sending them anywhere.
   takes the offset from the quickest of the last sixteen trips, and a
   client adds `touch` (the event's `timeStamp`) and `sent` to each press,
   set and release once it has one. The stream's player says on the same
-  clock which output frame its speaker plays. No page opens the socket
-  since the strip went, so no page learns the clock and the phone's stream
+  clock which output frame its speaker plays. No page opens the socket,
+  so no page learns the clock and the phone's stream
   reports its delay alone: `page→room` and `page→phone` take no new
   figures, and `midi→room` goes on as before.
 - *Not timed yet.* A controller's transport keys (PLAY, STOP) go through
@@ -201,8 +193,8 @@ tape out of HDMI, on another clock, would be worse than none.
 direct device. A capture that fell back to another card than the one chosen
 takes the output with it, and an output left on another card is reopened
 (`outputOffTheCapturesCard`). Without that, an interface whose output never
-calls back stalls the tape for good: the AMS-24, chosen on 2026-11-02 while
-the capture fell back to the EP-136, left ▶ doing nothing. It is a separate
+calls back stalls the tape for good: an AMS-24 chosen while the capture
+fell back to the EP-136 left ▶ doing nothing. It is a separate
 stream rather than a duplex one, so the dashcam's health never depends on
 playback's. It keeps itself open with its own supervisor, as the capture
 does -- backing off while it can't open, or while it fails soon after
@@ -429,8 +421,8 @@ or a take's span, keeps what the buffer kept (`cuegrab.go`): `Lanes`, one
 clip per input it was grabbed from, each over the window `Grab` says in a
 pool file with the grab's handles either side (a bar at the tempo, or
 `TAPE_HANDLE_S`), and the clip's own gain, fades and curves applied to every
-lane alike; `File` and `Src` are the first lane's. A clip from before then
-is one summed file, with no handles: it launches and drops, but its window
+lane alike; `File` and `Src` are the first lane's. An older clip, saved
+before clips had lanes, is one summed file, with no handles: it launches and drops, but its window
 and Reverse are a track's job. `GrabToCue` (`POST /api/tapes/cue/grab`)
 copies off the ring as `Grab` does, then takes the place of the lane's
 newest clip while that one is an untouched GRAB (`Source` "grab", never a
@@ -537,8 +529,7 @@ note, the bar's feed) leaves the clip's id in sessionStorage
 
 **The drawer opens small** on a tablet or a computer (`data-trim="shut"` on
 the panel, `st.trim` in `buffer.js`): one row, the clip's window with IN and
-OUT, **DROP**, **Trim**, **Toss** and ✕, each a finger and a half tall
-(decision 6 of `plan/the-calm-studio.md`, built 2026-11-13 as its step 6a).
+OUT, **DROP**, **Trim**, **Toss** and ✕, each a finger and a half tall.
 The lanes are not folded for it (`body.buffer-small`, `lib/buffer/fold.js`
 `setSmall`): they share the room over it, each head one row, its name and
 ●, so all four are in sight and can be pressed. **Trim** opens the rest
@@ -582,13 +573,11 @@ scroll away, the page keeping the drawer's height clear at its end. A folded tra
 alone, a label: a 22 px strip has no room for ● at a finger's 44 px
 (decision 0059), and ● is back as the lanes unfold. The hold on a pad that
 opens it lets go without pressing what came up under the finger
-(`lib/ui/press.js` `swallowLift`: its lift once pulled the drawer's grip to
-full height). Decided 2026-10-30 with the day's calls handed over (J1.6's
-story on a phone changed with it); Gabe may overrule any of it.
+(`lib/ui/press.js` `swallowLift`: otherwise its lift pulls the drawer's
+grip to full height).
 
 **The two faces.** The Studio shows one face at a time, the tape's or the
-feed's, and the other as a thin row at the top (decision 9 of
-`plan/the-calm-studio.md`, built 2026-11-13). The face is the Studio's
+feed's, and the other as a thin row at the top. The face is the Studio's
 state, per device: `lib/rooms/face.js`, `createFace({ root, storage })`,
 answering `get()` (`'tape'` or `'feed'`), `set(face)` and `onChange(fn)`
 (`FACES`, and `KEY`, `studio.face`, the localStorage key it keeps it under,
@@ -621,16 +610,15 @@ keeps the mark, which the strip still draws and GRAB and KEEP still follow.
 **The feed strip** in the Studio is the ribbon with KEEP, and on the
 feed's face Flag now; GRAB is the bar's verb on a tablet on its side or
 wider, and beside KEEP narrower (`docs/architecture/bar.md`, *The Studio's part of the
-bar*, 2026-11-17). A tap on GRAB or KEEP takes the last length and
+bar*). A tap on GRAB or KEEP takes the last length and
 its ▾ picks another (1, 2, 4 or 8 bars for GRAB; 30 s, 2 m or the whole feed for KEEP);
 the input follows the armed track's, with an override in GRAB's ▾. The
 readouts (free disk, dropped buffers, the MIDI tempo, *Input channels*)
 are in a sheet behind the strip's lamp, which lights when something is
 wrong, with a link to the Rig. ● Phone shows on the strip only while it
 records. The lamp has the level beside it as two bars, on the feed's face;
-the VU needles left the Studio on 2026-11-10 and their width is the
-ribbon's, which lines up with nothing under it (its time is the ring's, not
-the lanes').
+the Studio has no VU needles. The ribbon lines up with nothing under it
+(its time is the ring's, not the lanes').
 
 **The mark.** A tap on the Studio's ribbon, on the feed's face, is "from
 here": a selection from that moment to now (`lib/objects/ribbon.js`,
@@ -655,22 +643,20 @@ the Pi, which alone knows where the ring's bar lines fall (`grabRing`'s
 
 **The track heads** (`lib/tape/page.js` `buildLanes`; `styles.css`, *The
 heads*) are each track's name, ● a finger wide (44 px), its
-input chip, and ›, with a mouse as on a touch screen (from 2026-11-10; a
-mouse had M, S and the level in the head until then). › is at the head's
+input chip, and ›, with a mouse as on a touch screen. › is at the head's
 end and opens the track's inspector in one tap, on that track, armed or not,
 moving no arm. M, S and the level are at the top of the inspector
 (`#track-mute`, `#track-solo`, `#track-gain`), and › is lit yellow or blue
 while the track is muted or soloed (`data-heard`), so a head with neither
 key still says so. The inspector moves to the record track when the arm moves
-(`sheetRec`), not on every render: it once went back to the armed track
-under a finger that had opened another's. On a tablet the Studio holds a
+(`sheetRec`), not on every render, which would take it back to the armed
+track under a finger that had opened another's. On a tablet the Studio holds a
 budget at rest, checked by J1.16 (`scripts/flows/layout.mjs`,
 `STUDIO_BUDGET`), on the tape's face: at most 41 controls on the screen (40
 at 1024×768 and upright, and the brand at 1280), 1 under 32 px (the
 sections' strip), every ● 44 px or more, and all four tracks above the
-bar; the feed's face at most 24 (23, and the brand). The calm Studio's
-steps 7a and 7b took them there from 44 and 27. The review of 2026-10-22 counted
-65, 30 and 1½; just before the heads it was 51 and 27. The budget's numbers only go down.
+bar; the feed's face at most 24 (23, and the brand). The budget's numbers
+only go down.
 
 **The well** (`shell.html` `.tape-well`; `styles.css`, *The well*) holds
 the sections, the ruler, the cue lane and the tracks. Each is a row of two
@@ -678,9 +664,9 @@ columns: its head, `--tt-head-w` wide (112 px on a phone, 136 from 481,
 160 from 700 and 200 from 1400: the well's one token, which every row's
 grid reads, 112 where it is unset), then its lane. The heads are cards on the page; down the right the
 well paints `--lane` behind the lanes and the gaps between them, so the
-light scheme shows one dark surface, not a black stripe per row
-(2026-11-17).
+light scheme shows one dark surface, not a black stripe per row.
 
-The page is `web/static/lib/tape/`. It polls `GET /api/tapes/state` five
-times a second, draws the lanes from each pool file's peaks, and sends what
+The page is `web/static/lib/tape/`. It reads the tape from the page's tape
+model (`lib/models/tape.js`, the page's one poller of `GET
+/api/tapes/state`, which asks every 200 ms while the Studio is shown), draws the lanes from each pool file's peaks, and sends what
 you tap; the Pi holds all the state, so several devices stay in step.

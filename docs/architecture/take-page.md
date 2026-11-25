@@ -56,16 +56,15 @@ A few rules hold the page together:
   on Open: its height is measured into `--tip-h` (`lib/ui/measure.js`), and
   while help mode is on the page's `<main>` keeps that much room (and 24 px)
   at its end, before the bar, so whatever is under the tip scrolls clear of
-  it. A phone's List once had its last takes under it for good (J5.1).
+  it, a phone's List's last takes too (J5.1).
 - **Tips live in one file,** `lib/help/tips.js`, and the guide's §9 table is
   the same list; a node test fails if they differ or if any `data-tip` in the
   UI has no tip.
 
 ## Open
 
-How the page is laid out (decided in `listening-back.md`, *Open, on a
-tablet and wider*, and the-studio-space.md's *Open* row; flows J2.5, J2.9,
-J3.1):
+How the page is laid out (flows J2.5, J2.9, J3.1; what is still to do on
+it is Open's pass, which has no issue yet, and its selection bar, #316):
 
 - **The header** is the frame's (`css/chrome.css`): ‹ Takes, the take's
   name (its menu: Rename…, Previous and Next take, the downloads, Reset

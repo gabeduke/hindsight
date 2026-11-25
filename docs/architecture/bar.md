@@ -13,9 +13,8 @@ sideways scroll).
   the feed, or the tape away from the Studio), the **verb** (GRAB: the
   Studio's, on a tablet on its side or wider, whatever plays; the feed's anywhere else),
   the **modes** (⟲ Loop or Repeat) and the **end** (⏏, Open ›, ✎
-  for a take), laid out first so nothing pushes it off. Catch's own key and
-  the metronome left the bar in the calm Studio's step 7a (Gabe's calls,
-  2026-11-13): Catch is on ●'s ▾, the metronome the Click in the tempo's
+  for a take), laid out first so nothing pushes it off. Catch has no key of
+  its own: it is on ●'s ▾, and the click is the Click in the tempo's
   panel. Every key
   is in the markup, in its slot (in the rooms, the Transport's template:
   *The Transport*, below); a script that adds to the bar puts it in a slot
@@ -37,8 +36,8 @@ sideways scroll).
   `#np-rec-menu`, `tape-keys.js`'s; `#np-clock-out`
   and `#np-out-strip` with its `-led`, `-text`, `-right` and `-resume`,
   from `tape-status.js`). Guardrail 20 fails on an id in the template,
-  and on the shell's `#np` holding anything but the empty root. Open's own `#np` (`wave.html`) keeps its ids
-  until Open's pass: its `#position` is `lib/wave/page.js`'s. The
+  and on the shell's `#np` holding anything but the empty root. Open's own
+  `#np` has ids of its own (*Open keeps its own bar*, below). The
   overview, `#np-tape-overview`, is not in `#np`'s markup at all: it is
   the Studio's (*The Studio's part of the bar*, below).
 - **Its widths are its own**: a container query on its first row
@@ -103,9 +102,7 @@ sideways scroll).
 - **A take's counter** (`lib/models/take-source.js` `takeBar`, drawn by
   `lib/objects/lcd.js` `takeCounter`) is BAR and beat by the take's own
   tempo, counted from its own downbeat; with no tempo, and before the
-  downbeat, it is the take's time. Before the downbeat it once counted up
-  from below zero (*BAR -1.4*, on a take whose downbeat was set a few
-  seconds in).
+  downbeat, it is the take's time, never a bar below zero.
 - **In the Studio, the tape** (`lib/models/engine.js` `tapeUnlessPlaying`):
   in the Studio the bar gives a take or the feed back to the tape when it
   isn't playing, so ▶ there plays the tape. That is checked as the Studio
@@ -114,12 +111,10 @@ sideways scroll).
   (`NowPlaying`'s ▶, through the engine's `tapeUnlessPlaying`). A take still playing when you change rooms
   stays, and plays on (J2.2). A take that stops by itself in the Studio
   (its end, its selection's Out, Play all moving on to the next) is left be
-  until the Studio is shown again, so Play all carries on there. Gabe's ▶
-  on his Mac once played a take left in the bar from the Listening Room,
-  and the tape, never moving, had no playhead (J1.17). **Decided on Gabe's
-  behalf on 2026-10-30, while he was away; his to overrule** (the other
-  way: a take stays in the Studio's bar until ⏏, as before, with ▶
-  playing it).
+  until the Studio is shown again, so Play all carries on there. Otherwise
+  ▶ in the Studio would play a take left in the bar from the Listening
+  Room while the tape, never moving, showed no playhead (J1.17;
+  [0064](../decisions/0064-studio-play-plays-the-tape.md)).
 - **It folds by its grabber** (`lib/components/transport/fold.js`), a pill on a lip above its
   top edge: a tap toggles, a drag down folds, a drag up unfolds, and it
   slides by a FLIP on the lid spring (a transform, never a height a frame).
@@ -210,8 +205,7 @@ sideways scroll).
   its art at the top, the strip, a space, then the transport, the verb and
   the modes in the thumb's reach, and the foot. On its side it keeps the
   stacked zones. The bar's menus (●'s, the tempo's, the source's) open
-  over it (`css/bar.css`): the source's once opened under it, where no tap
-  reached it. Its transport row is |◀ ▶ ● and ●'s ▾, a ▾'s width (56).
+  over it (`css/bar.css`), never under it, where no tap would reach. Its transport row is |◀ ▶ ● and ●'s ▾, a ▾'s width (56).
 - **The flows hold the phone's bar to its shape** (`scripts/flows/layout.mjs`,
   `bar-*`; `docs/flows.md`, *Layout checks*), on every screen where it
   shows: the mini player one row, its full width, no key over another, a
@@ -341,8 +335,7 @@ the tape as the Studio renders. With the panel shut (M), where the lamp
 isn't, a passing toast says *Click on* or *Click off*. The bar has no key
 for it.
 
-**One key for the tempo and where it plays** (the calm Studio's decision
-5, step 7b, 2026-11-13). The display's tempo key (`#np-tempo`) is the
+**One key for the tempo and where it plays.** The display's tempo key (`#np-tempo`) is the
 bar's, and the bar is the one owner of its press: `NowPlaying`'s
 `tempoOpens(kind)` says what a press opens now. In the Studio with the
 tape it is the Studio's tempo panel (`{panel}`), lent with its hands
@@ -438,10 +431,10 @@ another room. It still shows only for the tape in the Studio
 `lib/tape/page.js` looking it up, or on the Studio putting it anywhere but
 the strip.
 
-GRAB is the Studio's too (2026-11-17). Its markup is the buffer's template
+GRAB is the Studio's too. Its markup is the buffer's template
 (`#buffer-grab-tpl`, `.buffer-grab`: GRAB 4 BARS over the input it takes
 from, and its ▾), and `mountBuffer` (`lib/buffer/buffer.js`) puts it by
-the screen: first in the feed's keys beside KEEP, as before, on a phone
+the screen: first in the feed's keys beside KEEP on a phone
 and on a screen narrower than `ROOMY` (`lib/bar/slots.js`, the bar's 960
 px row and its padding: an upright tablet, where a take's ⏏ Open › ✎ leave
 no room for it); on a tablet on its side or wider, in the bar's verb
@@ -575,49 +568,24 @@ is what this phone hears, and ▶ is the tap its sound waits for). A new
 reader of the tape's ▶, place, loop or tempo reads the transport, never the
 bar's source or the DOM.
 
-## The Transport's extraction
+## What the Transport keeps to
 
-How the bar became the Transport (item 1d of the component migration;
-`components.md`, *The components*), in steps 1 to 5g, each its own PR with
-nothing on screen changing. What was decided, and still holds (Gabe's calls
-D1 to D6 taken as recommended, 2026-11-02):
-
-- **1. The ids are the component's**: `np-<name>`, `cx.id`'s; the flows'
-  selectors moved with them (`#np-position`, `#np-rec`, `#np-catch-pass`,
-  `#np-catch-more`, `#np-catch-menu`, `#np-tape-overview`), never what a
-  flow expects. Open's own `#np` keeps its ids until its pass.
-- **2. The bar's state is on its root, the page's layout the surface's**:
+- **The ids are the component's**: `np-<name>`, `cx.id`'s; a flow's
+  selector follows the id, never the other way round.
+- **The bar's state is on its root, the page's layout the surface's**:
   `data-fold`, `data-open`, `data-docked` (`layout.js`, synced by the
   router's `chrome.classesGiven`) and `data-room`; `body.np-fold` and
-  `body.player-open` are written by `barLayout` alone, and what lays the
-  page out around the bar is `styles.css`'s. **D1**: the five viewport
-  `@media` blocks stay in `css/bar.css` (a container query can't ask a
-  height, an orientation or a preference, nor style the root itself).
-- **3. The surface says the room** (`props.room()`, `props.onRoom`), and
-  the Studio hears the fold through `ctx.barLayout`: no page-wide event,
-  no `MutationObserver` on `<body>`.
-- **4. ●, Catch and the click were the bar's keys on the tape's verbs**
-  (*The Studio's keys*; since step 7a of the calm Studio, ● and its ▾,
-  with Catch on it, and the click the Studio's); the overview is the Studio's, in the strip's slot
-  (*The Studio's part of the bar*); the clock-out lamp and the output strip
-  are the bar's, from the models, in every room ((b), 2026-11-02).
-- **5. The window through `cx`**: `cx.media(query)` for every screen query
+  `body.player-open` are written by `barLayout` alone. The five viewport
+  `@media` blocks stay in `css/bar.css`: a container query can't ask a
+  height, an orientation or a preference, nor style the root itself.
+- **The surface says the room** (`props.room()`, `props.onRoom`), and the
+  Studio hears the fold through `ctx.barLayout`: no page-wide event, no
+  `MutationObserver` on `<body>`.
+- **The window through `cx`**: `cx.media(query)` for every screen query,
   and the stack's `covered()` for J.
-- **6. One display** (the `display` component inside the bar) is **not
-  built**: it changes what the screen shows (**D2**), so it is its own PR,
-  5h, for Gabe to look at (issue 309).
-- **7. Open keeps its markup and its modules** until its pass, on the
-  shared modules (**D3**: no copies; what both use stays in `lib/bar/`).
-- **8. The models** are the engine's bar and transport, the page's tape and
-  takes, and the phone recorder, made at boot.
-- **D4**: the Studio reaches the Transport's keys through a relay in its
-  props (`ctx.tapeKeys`), not an API `mountComponent` answers.
-- **D5**: the phone's player sheet is the surface's (`playerSheet`, made by
-  the boot over `#np-dock`); the bar's keys hand it their drag
-  (`sheet.grab`).
-- **D6**: the bar's three menus are inside its root and open in the top
-  layer (`menu()`'s `popover`).
-
-The spec it was built from (`docs/plan/transport-extraction.md`, deleted
-when 5g landed) is in git: `git log --diff-filter=D --
-docs/plan/transport-extraction.md`.
+- **No copies for Open**: what Open's own bar and the Transport both use
+  stays in `lib/bar/`.
+- **The display is not mounted in the bar.** The `display` component
+  (`lib/components/display/`, `css/display.css`) is built and has its
+  harness check, but the bar still draws its own display; putting it in
+  changes what the screen shows, so it is its own pull request (#309).

@@ -135,44 +135,38 @@ Cloud agent sandboxes generally block the Go module proxy, so `go build` and
 `go test ./...` fail there on downloads — not on your code. The JS tests,
 `gofmt` and the shell tests all run.
 
-### Checking the waveform page by hand
+### Checking a take's page by hand
 
-The gestures and the share flow are not covered by the node tests, so after
-touching `view.js`, `overview.js`, `share.js`, `rising.js` or `page.js`, check by hand:
+The flows cover opening a take, its notes, GRAB from it and its exports,
+but not its gestures. After touching `lib/wave/` (`view.js`, `overview.js`,
+`boundary.js`, `playwindow.js`, `rising.js`, `share.js` or `page.js`),
+check by hand, on a touch screen and with a mouse:
 
-- **Overview strip** — drag it to pan the main waveform, tap to jump, double-tap
-  to fit the whole take
-- **Pan** — one-finger drag on the main waveform slides the view under the
-  finger; pinch zooms
-- **Hold-select** — press and hold on the main waveform for ~350ms until a band
-  appears under the finger, then drag to draw a region
-- **Edge auto-scroll while selecting** — holding the drag near either edge of
-  the main waveform during a hold-select scrolls the view in that direction
-- **Implicit loop** — playback loops the region with no Loop toggle to find;
-  clearing the region returns to plain playback from the cursor
-- **Fit quiet takes to the height** — a quiet take's waveform fills the
-  canvas with the fit toggle on (the default); turning it off draws the
-  take at its true amplitude. The toggle is Fine tune's `Waveform` row,
-  between `Position` and `Downbeat`
-- **Region length** — Fine tune's own `Region` row, the first row of the
-  grid, shows the length in seconds, and bars too when the take has a BPM;
-  it reads `—` with no region. The action row beside Play is unchanged: it
-  shows `whole take`, or just the start/end times
-- **Fine tune** — the disclosure's rows, in order: `Region` (the length),
-  the `Start`/`End` nudges, the `Position` readout, the `Waveform` fit
-  toggle and the `Downbeat` reset, then Export as take and Delete region —
-  all of them moving the same region the hold drew
-- **Share on a phone** — over `tailscale serve` (HTTPS), the button opens the
-  share sheet with the rendered MP3; over plain HTTP it falls back to
-  Download
-- **Export as take** — produces a new take with declick fades at the region's
-  edges
-- **Rising notes** — MIDI ▸ folds out the lanes and the piano roll; press
-  Play and bars grow out of the keys and rise, drum hits flash their pads;
-  pause freezes the picture; tapping the wave to seek redraws it; a region
-  loop wraps the rise with it
-- **Speed chip** — ½× slows the audio and the rise together with the pitch
-  kept; a region loop ignores it and plays at 1×
+- **The waveform**: a drag pans, inside the selection too; a pinch zooms;
+  a tap moves the playhead; two taps zoom in there; − Fit + zoom from the
+  keys.
+- **Selecting**: a hold then a drag selects, and the view scrolls when the
+  drag is held near an edge. The grips below the waveform move In and Out,
+  and the handle between them moves the whole selection. The selection
+  row (In ◂ ▸, the length, Out ◂ ▸, Clear) follows.
+- **The boundary editor**: a tap on In's or Out's time opens it: ZOOM and
+  POSITION, Attack, Zero, Grid, the step's ◂ ▸, ▶ from here and Seam.
+- **The ruler**: the playhead's ▾ scrubs silently; bar 1 drags the
+  downbeat; a note's pin opens its words, and a drag moves it.
+- **Repeat**: with a selection, Repeat loops it sample-exact; off, it plays
+  on from the playhead. It is off whenever the page opens.
+- **Fine tune**: the downbeat's ◂ ▸ and Set to playhead, Snap, the practice
+  speed (½× 1× 2×, pitch kept) and Level.
+- **KEEP and More**: KEEP saves the selection as a new take, with declick
+  fades at its edges, after its name; More has Download (or Share), the DAW
+  bundle, the WAV and MIDI, and Delete take.
+- **Share on a phone**: over HTTPS the share sheet opens with the rendered
+  MP3; over plain HTTP it falls back to Download.
+- **Rising notes**: MIDI ▸ folds out the lanes and the piano roll; on
+  Play, bars grow out of the keys and rise and drum hits flash their pads;
+  pause freezes the picture; a seek redraws it; a Repeat wraps the rise.
+- **The overview** in the bar: a tap moves the playhead, a drag of its box
+  moves the view.
 
 The rest of the UI is checked by the user flows: `node scripts/flows.mjs`
 (`make flows`) drives Gabe's journeys in Playwright against a demo it boots
@@ -255,16 +249,10 @@ The pads are momentary: held rather than edited, quantised to the tape's
 grid, and out of undo. They are the Pi's (`internal/tape/trick.go`, the bus
 in `internal/api/controls.go`), played by a controller plugged into the Pi
 (`TAPE_CONTROLLER`), the SMK-37's FX page, or anything that opens
-`GET /api/tapes/play`. The web's instrument strip, behind the per-device
-`hindsight.play` flag, went in the walkthrough of 2026-10-30: its twelve
-folded controls didn't fit the Studio's budget (`STUDIO_BUDGET`, J1.16),
-and the instrument's shape is still to settle. It is in git
-(`lib/play/strip.js` and its neighbours, before that date) for when the
-Pads come back as a component (`docs/architecture/tape.md`, *When a pad
-lands*).
+`GET /api/tapes/play`. No page does (`docs/architecture/tape.md`, *When a
+pad lands*).
 
-**The pads are audible.** The sound is in `internal/tape/trick.go`
-(the play-mode sound design is in git history).
+**The pads are audible.** The sound is in `internal/tape/trick.go`.
 
 **How a trick works.** A trick is a **read head** that leaves the transport
 while a pad is held. The transport keeps counting underneath, so on release
@@ -302,7 +290,7 @@ The Studio and the Listening Room are views in one document, `shell.html`
 (how the shell, the router, the view contract and the engine work is in
 [architecture/shell.md](architecture/shell.md), *The shell*). They are the only layout.
 `/`, `/tape.html` and `/takes.html` all serve the shell; `/` shows the Studio
-when the tape is on (always, now) and Capture otherwise. The header's two
+when the tape is on and Capture otherwise. The header's two
 tabs are links the router takes (`lib/nav.js`, `navTabs`). Settings, the rig,
 help mode, the guide and Releases are the header's one menu (☰,
 `mountHeaderTools`), top right on every page, and the Settings sheet's first
@@ -310,22 +298,22 @@ line has the version, Releases, the guide and the rig too.
 
 `lib/shell/views/studio.js` mounts the tape page (`lib/tape/page.js`,
 `mountTapePage(ctx)`) and the feed, KEEP and the buffer (`lib/rooms/mount.js`),
-all gated on its `ctx`. The feed and the buffer still speak to the tape page
-in events: `hindsight:tape-state` carries the tape to the buffer after each
-poll, `hindsight:clipboard` tells the
-page the buffer changed, and `hindsight:tape-changed` asks it to reload its
-tape state (and unfold the lanes if folded via `#tracks-fold-btn`).
+all gated on its `ctx`. The feed and the cue clip's drawer speak to the
+tape page in events: `hindsight:tape-state` carries the tape to them after
+each poll, and `hindsight:tape-changed` asks it to reload its tape state
+(and unfold the lanes if folded via `#tracks-fold-btn`).
 
 - `mount.js` — the Studio view's entry for the feed: it loads `studio.js`.
-- `studio.js` — mounts the templates, drives them with Capture's modules, and
-  wires the unified Media Player (`#np`) 3-way source switcher (`Feed` ·
-  `Tape` · `Shelf`) plus seamless continuation of a carried Shelf take.
+- `studio.js` — mounts the feed's strip and its sheet from the templates,
+  drives them with Capture's modules, and turns the Studio's two faces, the
+  tape's and the feed's (`lib/rooms/face.js`; `architecture/tape.md`,
+  *The two faces*).
 - `keep.js` — KEEP's request and its Undo, and Flag now's.
 
 ### GRAB and a cue clip's drawer
 
-`web/static/lib/buffer/` is GRAB and a cue clip's drawer (it was the
-Studio's buffer, the clipboard made visible; the directory kept its name).
+`web/static/lib/buffer/` is GRAB and a cue clip's drawer (the directory's
+name is older than the cue lane).
 `studio.js` mounts it; its markup is `shell.html`'s `buffer-` templates, the
 drawer in the dock above the bar. On the Pi a GRAB is a cue clip with lanes
 and a grab (`internal/tape/cuegrab.go`): it copies a span of the ring at
@@ -362,36 +350,34 @@ each hand `start()` a handle on what they already run — the
 rack's list, its selection and Play all, and the bar; a take, its flags and its
 clock — and the room draws itself around them:
 
-- `doorway.js` — the shelves (this month's takes, the archive by month), the
-  deck (`ReelWindow` driven at 60fps from `NowPlaying.onChange`), and the
-  dock (`#np` with its 3-way `Feed` · `Tape` · `Shelf` source switcher).
-  A take's notes are the notes drawer's (`drawer.js`, the shell's and
+- `doorway.js` — the wall of shelves on a tablet and wider (one per month,
+  newest first, then ★ and a shelf per tag), drawn over the List, which it
+  works through the room view's handle; a tap on a spine plays it in the
+  bar, a hold selects it. On a phone the List is the room, the wall one tap
+  away on Shelf | List. A take's notes are the notes drawer's (`drawer.js`, the shell's and
   Open's: `docs/architecture/rooms.md`, *The notes drawer*).
 - `open.js` — the take page (`wave.html`) with the rooms' words laid over it:
   `✎ Note`, `GRAB` beside `KEEP`, the take's notes one line each with `▶` and
   `GRAB`, its tag beside its star, and its family lines (`Made from`, `From
   this take`, `Earlier bounces`).
-- `shelves.js`, `notes.js` — what's on which shelf, and a note's span for the
-  Studio's buffer. Pure or fetch-injected, and tested without a browser.
+- `shelves.js`, `notes.js` — what's on which shelf, and a note's span for a
+  GRAB. Pure or fetch-injected, and tested without a browser.
 
-There are no records any more: a bounce is a take from
-a tape, on that tape's spine, and `Meta.Record` (`audio.Record`) on a take
-that has it is ignored, not migrated. The Pi still accepts the field; nothing
-in the rooms sends it. The room's colours are materials, in
-`objects.css` (`--room-*`), and the same in both schemes;
-`room/contrast.test.js` holds every label to 4.5:1. The sketchbook's hand is
-Caveat, from `@fontsource/caveat` 5.2.8 on the npm registry (latin 500 and
-700), in `fonts/` with its licence.
+A bounce is a take from a tape, on that tape's spine. `Meta.Record`
+(`audio.Record`) on an older take is ignored, not migrated; the Pi still
+accepts the field, and nothing in the rooms sends it. The room's colours
+are materials, in `objects.css` (`--room-*`), and the same in both schemes;
+`room/contrast.test.js` holds every label to 4.5:1.
 
-To try it with something on every shelf, run the demo,
-KEEP a few takes, bounce a short tape from the tape's name for a take on a
-tape's spine, and give a take an older `created` in its `.meta.json` to fill
-a month's box in the archive.
+To try it with something on every shelf, run the demo, KEEP a few takes,
+bounce a short tape from the tape's name for a take on a tape's spine, star
+and tag a few, and give a take an older `created` in its `.meta.json` to
+fill an earlier month's shelf.
 
 ## The rig
 
-`rig.html` and `web/static/lib/rig/` are the rig, reached from the device
-chip in both rooms' headers.
+`rig.html` and `web/static/lib/rig/` are the rig, reached from ☰ on every
+page (`lib/nav.js`) and from the Settings sheet's first line.
 
 - **The server owns the picture.** `GET /api/rig` (`internal/rig`,
   `internal/api/rig.go`) builds it from the settings, the tape and what's
@@ -407,7 +393,7 @@ chip in both rooms' headers.
 - `desk.js` is what's drawn, from the graph alone; `cables.js` where a cable
   runs; `kinds.js` how each kind is drawn, by width and dash as well as
   colour.
-- **The cables are ropes** (R4). Each is a
+- **The cables are ropes.** Each is a
   `cable` object in a scene on the shared ticker: `page.js` measures the
   sockets' holes and sets each rope's ends, `lib/scene/cable.js` hangs and
   swings it, and `ropes.js` (an SVG renderer) only draws it, in
@@ -423,8 +409,8 @@ chip in both rooms' headers.
   beside the jacks are lifted above the ropes, with a halo, so a rope reads
   as running behind a name (`lib/rig/layers.test.js` holds the stacking).
 - **Cables are led, not left to hang.** A rope with only its two ends knows
-  nothing of the desk, so it swung across other sockets and through names.
-  `route.js` measures the desk (`page.js` hands it every jack's hole and every
+  nothing of the desk, so it would swing across other sockets and through
+  names. `route.js` measures the desk (`page.js` hands it every jack's hole and every
   name, title and lamp as rectangles) and finds each cable the cheapest way
   through the gaps: a search on a 4 px grid where crossing something costs a
   great deal, a turn a little, and a lane an earlier cable took costs more, so
@@ -495,14 +481,9 @@ approach, `spin` for a reel with inertia, and one `Ticker` that every animated
 object shares so there is one `requestAnimationFrame` loop rather than one per
 object.
 
-`web/static/objects.css` holds what those objects are made of — metal reels,
-lit keys, tape oxide, cassette paper and plastic, the VU meters' backlit
-faces, the LCD's amber, grease pencil and marker. Every token in it is the
-same in both schemes, which is why it has no dark block: an object is an
-object, and brown tape is brown in a dark room.
-A token that *does* follow the scheme belongs in `styles.css`, next to its
-dark value; `lib/objects/materials.test.js` fails if one ends up in the wrong
-file, because that mistake is invisible until someone opens the app at night.
+`web/static/objects.css` holds what those objects are made of, the same in
+both schemes; a token that follows the scheme goes in `styles.css` (the
+rule and its test: `AGENTS.md`, *CSS*).
 
 Every page loads `objects.css` before `styles.css`. The two declare disjoint
 tokens, so the order is for reading rather than for the cascade.
@@ -515,7 +496,7 @@ covers.
 **The bench** is at `/objects.html`: every object, on its own, in each of its
 states, with a speed control for watching motion at ⅒×, a size slider that
 sets every object to one width (Phone, Tablet and Deck are the widths the
-cassette gets in Takes on a 390 px phone, an 820 px tablet and a 1280 px
+cassette gets on a 390 px phone, an 820 px tablet and a 1280 px
 desktop), and *Save a still*, which downloads the bench as it is on screen as
 a PNG named for its scheme and width — so a change can be judged against the
 picture of what was there before. It is not linked from the app and is not
@@ -525,59 +506,26 @@ into the right shape.
 
 ## The scene
 
-`web/static/lib/scene/` is the shape every drawn thing has, so a new way of
-drawing one (a 3D deck, cables as ropes) can be built without learning the
-app. Three parts, three owners (the rules are *The scene contract* in
-[architecture/css-and-motion.md](architecture/css-and-motion.md)):
+`web/static/lib/scene/` is the shape every drawn thing has: state the page
+writes (`SceneObject`), a model on the shared ticker that derives a view,
+and a renderer that only draws. The rules are *The scene contract* in
+[architecture/css-and-motion.md](architecture/css-and-motion.md).
+`VUMeters`, `ReelWindow`, `CassetteFace` and `Ribbon` each keep a `Scene`;
+the bench builds one for everything on it.
 
-- **State** is plain data the page writes, with `obj.set(patch)` on a
-  `SceneObject` (`object.js`): a level, a poll of the tape, how far a take
-  has played. It is frozen; `set` makes a new snapshot only when something
-  changed.
-- **A model** (`vu.js`, `reels.js`, `cassette.js`, `ribbon.js`, `cable.js`,
-  listed in `models.js`) steps each object on the shared ticker and derives
-  its **view**: the needle's angle, the reels' turn, a rope's points. Models
-  are pure and tested with a fake ticker. The rope steps at a fixed 120 Hz
-  and interpolates, which is how a verlet rope stays the same at any frame
-  rate.
-- **A renderer** draws views and never writes state; `Scene` (`scene.js`)
-  throws if one calls `set` while drawing. `renderer.js` documents the duck
-  type (`mount`, `frame`, `hit`, `twin`, `destroy`); `dom.js` is the DOM
-  renderer, which calls each object's drawer from `lib/objects` only when
-  its view or state changed.
-
-A `Scene` steps its models and then its renderers once a frame, and parks
-with the ticker once every model has settled. `VUMeters`, `ReelWindow`,
-`CassetteFace` and `Ribbon` each keep one, so the pages use them as before;
-the bench builds one scene for everything on it.
-
-Everything that animates is on `motion.js`'s one `ticker`. A loop that only
-runs while something plays (the bar, the take page's clock, rising notes, a
-row's playhead, Play all) is a `Loop`, which leaves the ticker when it stops
-wanting frames. Reduced motion is the ticker's: it hands every step
-`dt = Infinity`, and a model given that lands at once.
-
-Adding a directory under `lib/` means adding it to the `node --test` globs in
-`.github/workflows/ci.yml`; they are named one by one, so a new directory's
-tests are invisible until it is listed.
+State is frozen: `obj.set(patch)` makes a new snapshot only when something
+changed. Models are pure and tested with a fake ticker; the rope
+(`cable.js`) steps at a fixed 120 Hz and interpolates, which keeps a verlet
+rope the same at any frame rate. A loop that runs only while something
+plays (the bar, the take page's clock, rising notes, a row's playhead, Play
+all) is a `Loop`, which leaves the ticker when it stops wanting frames.
 
 ## Releases
 
-Merging to `main` builds and publishes a release, but only when the merge
-changed something a kit runs. `paths` in `release.yml` is that allow-list:
-the binary's sources (`cmd/`, `internal/`, `go.mod`, `go.sum`, and
-`docs/guide.md`, embedded by `docs/embed.go`), the UI (`web/`), and what
-`install.sh` and the updater put on a Pi (`deploy/`, less the hub's cluster
-manifests, which Argo reads from `main` directly). A spec, a doc, `AGENTS.md`,
-a dev script or the Makefile cuts no release; its commits ride along in the
-next one's notes. A merge that touches anything on the list releases, so a
-spec landed with its code still ships.
-
-`scripts/test-release-scripts.sh` reads the list from the workflow, and fails
-if the archive step packs a path the list doesn't cover.
-
-To skip a release for a change that is on the list, put `[skip ci]` at the
-end of the commit subject, as the changelog and hub-image commits do.
+What cuts a release, and the allow-list in `release.yml`: `AGENTS.md`,
+*Releases*. To skip a release for a change that is on the list, put
+`[skip ci]` at the end of the commit subject, as the changelog and
+hub-image commits do.
 
 What a release publishes:
 
@@ -590,9 +538,6 @@ What a release publishes:
 The binary is built inside a `debian:bookworm` container on an arm64 runner.
 Raspberry Pi OS Bookworm ships glibc 2.36 and Ubuntu 24.04 links 2.39, so a
 binary built on the bare runner would not start on the Pi.
-
-Nothing about this can be rehearsed before it is on `main` — the first merge
-is also the workflow's first run.
 
 ### Installing a release
 
@@ -627,7 +572,7 @@ are deliberately not shipped in the release tarball.
 | `midi-calibrate.py` | How far does a take's MIDI sit from its audio? Matches note-ons in the `.mid` to transients in the WAV and prints the `MIDI_LATENCY_MS` to set |
 | `midi-dump.py` | What is in a take's `.mid`? Tempo lane, markers, every track's name, message counts, note range and first events with their times, so a file can be checked on the Pi without a DAW |
 
-All three are standard library only — no pip, no virtualenv. What they reach
+All five are standard library only — no pip, no virtualenv. What they reach
 for differs:
 
 - `channel-probe.py` talks to the HTTP API, so it runs from anywhere that can
@@ -680,8 +625,7 @@ and a re-shoot produces a comparable image.
   `journalctl --user -u` finds nothing.
 - A demo without `TAPE_DIR` and `SETTINGS_FILE` writes `~/hindsight`. The
   flows runner sets both to a temp dir.
-- A red Go test is not a flake until its log says so (the known ones were
-  fixed on 2026-10-22).
+- A red Go test is not a flake until its log says so.
 - The end-to-end sound check without ears: output `both`
   (`PUT /api/tapes/output`), record `/api/tapes/stream` while a script holds
   pads on `/api/tapes/play`, and read the level every 50 ms: BREAK reads 0,
@@ -705,7 +649,7 @@ claude.ai artifacts, private to Gabe:
 - The wireframes (every view at tablet, phone and desktop size):
   `9VDEexPH2bUo1vVzxZBSQx`
 - The SMK-37's surface: `WrryAkACiz1AgNHGBMYAWV`
-- The kit (eight components on every surface; `the-ecosystem.md`):
+- The kit (eight components on every surface):
   `4fJSP7iBAvLS2uMuBJ4xhg`
 - The ecosystem review (the architecture today, the directions, the
   walkthrough's questions): `XTWpyKFHcn14cCzBE2cdCo`
